@@ -1,0 +1,70 @@
+name=Teensy (system arm-none-eabi toolchain)
+version=1.59.0
+
+# ------------------------------------------------------------------
+# Compiler tools (system-installed arm-none-eabi, gcc-arm-none-eabi)
+# ------------------------------------------------------------------
+compiler.path=/usr/bin/
+# ctags used by arduino-cli for .ino prototype generation (exuberant-ctags, arduino-compatible)
+runtime.tools.ctags.path=/root/.arduino15/tools-bin
+compiler.c.cmd=arm-none-eabi-gcc
+compiler.cpp.cmd=arm-none-eabi-g++
+compiler.ar.cmd=arm-none-eabi-gcc-ar
+compiler.c.elf.cmd=arm-none-eabi-g++
+compiler.objcopy.cmd=arm-none-eabi-objcopy
+compiler.elf2hex.cmd=arm-none-eabi-objcopy
+compiler.size.cmd=arm-none-eabi-size
+
+# ------------------------------------------------------------------
+# Flag groups
+# ------------------------------------------------------------------
+build.flags.optimize=-O2
+build.flags.cpu=-mthumb -mcpu=cortex-m7 -mfloat-abi=hard -mfpu=fpv5-d16
+build.flags.common=-g -Wall -ffunction-sections -fdata-sections {build.flags.cpu}
+build.flags.defs=-DF_CPU={build.fcpu} -D{build.usbtype} -DLAYOUT_{build.keylayout} -D__IMXRT1062__ -DTEENSYDUINO=159 -DARDUINO=10819 -DARDUINO_{build.board} -DARDUINO_ARCH_AVR
+build.flags.cpp=-std=gnu++17 -felide-constructors -fno-exceptions -fno-rtti -fpermissive -Wno-error=narrowing
+build.flags.c=
+build.flags.S=-x assembler-with-cpp
+build.flags.ld=-Wl,--gc-sections,--relax {build.flags.cpu} {build.flags.ldspecs}
+build.flags.libs=-lm -lstdc++ -lc
+
+compiler.c.extra_flags=
+compiler.cpp.extra_flags=
+compiler.S.extra_flags=
+compiler.c.elf.extra_flags=
+compiler.ar.extra_flags=
+compiler.objcopy.eep.extra_flags=
+compiler.elf2hex.extra_flags=
+build.extra_flags=
+
+# ------------------------------------------------------------------
+# Recipes
+# ------------------------------------------------------------------
+## Preprocessor (used for prototype generation)
+preproc.includes.flags=-w -x c++ -M -MG -MP
+recipe.preproc.includes="{compiler.path}{compiler.cpp.cmd}" {preproc.includes.flags} {build.flags.optimize} {build.flags.common} {build.flags.defs} {build.flags.cpp} {compiler.cpp.extra_flags} {build.extra_flags} {includes} "{source_file}"
+preproc.macros.flags=-w -x c++ -E -CC
+recipe.preproc.macros="{compiler.path}{compiler.cpp.cmd}" {preproc.macros.flags} {build.flags.optimize} {build.flags.common} {build.flags.defs} {build.flags.cpp} {compiler.cpp.extra_flags} {build.extra_flags} {includes} "{source_file}" -o "{preprocessed_file_path}"
+
+## Compile c files
+recipe.c.o.pattern="{compiler.path}{compiler.c.cmd}" -c {build.flags.optimize} {build.flags.common} {build.flags.defs} {build.flags.c} {compiler.c.extra_flags} {build.extra_flags} {includes} "{source_file}" -o "{object_file}"
+
+## Compile c++ files
+recipe.cpp.o.pattern="{compiler.path}{compiler.cpp.cmd}" -c {build.flags.optimize} {build.flags.common} {build.flags.defs} {build.flags.cpp} {compiler.cpp.extra_flags} {build.extra_flags} {includes} "{source_file}" -o "{object_file}"
+
+## Compile assembly files
+recipe.S.o.pattern="{compiler.path}{compiler.c.cmd}" -c {build.flags.optimize} {build.flags.common} {build.flags.defs} {build.flags.S} {compiler.S.extra_flags} {build.extra_flags} {includes} "{source_file}" -o "{object_file}"
+
+## Create archives
+recipe.ar.pattern="{compiler.path}{compiler.ar.cmd}" rcs {compiler.ar.extra_flags} "{archive_file_path}" "{object_file}"
+
+## Link
+recipe.c.combine.pattern="{compiler.path}{compiler.c.elf.cmd}" {build.flags.optimize} {build.flags.common} {build.flags.ld} {compiler.c.elf.extra_flags} -o "{build.path}/{build.project_name}.elf" {object_files} "{archive_file_path}" {build.flags.libs}
+
+## Create output (.hex)
+recipe.objcopy.hex.pattern="{compiler.path}{compiler.elf2hex.cmd}" -O ihex -R .eeprom "{build.path}/{build.project_name}.elf" "{build.path}/{build.project_name}.hex"
+
+## Compute size
+recipe.size.pattern="{compiler.path}{compiler.size.cmd}" -A "{build.path}/{build.project_name}.elf"
+recipe.size.regex=^(?:\.text\.headers|\.text\.code|\.text\.progmem|\.text\.csf|\.text\.itcm|\.data|\.ARM\.exidx)\s+([0-9]+).*
+recipe.size.regex.data=^(?:\.data|\.bss|\.bss\.dma|\.bss\.extram|\.text\.itcm)\s+([0-9]+).*

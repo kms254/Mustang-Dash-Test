@@ -1,0 +1,19 @@
+menu.usb=USB Type
+menu.speed=CPU Speed
+
+##############################################################
+# Teensy 4.1 (IMXRT1062) - minimal board definition for arduino-cli
+# using the system arm-none-eabi toolchain (no PJRC tools required)
+
+teensy41.name=Teensy 4.1
+
+teensy41.build.core=teensy4
+teensy41.build.mcu=imxrt1062
+teensy41.build.fcpu=600000000
+teensy41.build.usbtype=USB_SERIAL
+teensy41.build.keylayout=US_ENGLISH
+teensy41.build.board=TEENSY41
+teensy41.build.flags.ldspecs=--specs=nano.specs -T{build.core.path}/imxrt1062_t41.ld
+# Teensy 4.1: 8 MB flash, 512 KB tightly-coupled RAM (RAM1)
+teensy41.upload.maximum_size=8126464
+teensy41.upload.maximum_data_size=524288
