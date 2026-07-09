@@ -13,11 +13,16 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
 - Sketch: `MustangDash/MustangDash.ino`
 - Build: `./scripts/compile.sh` → `teensy:avr:teensy41`, `--libraries ./libraries`
   (also syncs `tools/teensy-avr-platform/` into the sketchbook first — the
-  tracked files are the source of truth)
+  tracked files are the source of truth; the sync self-skips on a real
+  Teensyduino install, so it is safe to run anywhere)
+- Build (VS Code): `platformio.ini` drives the PlatformIO Build/Upload/Monitor
+  buttons. Parallel path to `compile.sh`, not a replacement — see BUILD.md.
 - Tests: `./tests/run-tests.sh` — host-side invariant tests pinning the display
   profile, wiring pins, backlight wave, and ctags-shim contract. Run them after
   touching `EVE_config.h`, the Teensy4 target header, `backlight_wave.h`, or
-  the platform files.
+  the platform files. Needs host `gcc`; Git Bash has none, so **on Windows run
+  `wsl -- bash -lc "./tests/run-tests.sh"`** (or the VS Code task
+  "Tests: invariant suite"). All 4/4 pass.
 
 ## Hardware truths (don't re-derive)
 
@@ -64,12 +69,71 @@ the normal Teensyduino install is impossible here. A minimal offline
 
 On a normal workstation, just install Teensyduino and ignore all of the above.
 
+## Build environment (Kevin's Windows workstation)
+
+Nothing above applies here: network is open, and real Teensyduino is installed.
+
+- Teensyduino via Arduino IDE Board Manager: `teensy:avr` **1.62.0**,
+  `teensy-compile` 15.2.1. Sketchbook (`Documents/Arduino`) is empty, which is
+  fine — `compile.sh` passes `--libraries ./libraries` explicitly.
+- `arduino-cli` **1.5.1** on PATH (`winget install ArduinoSA.CLI`), at
+  `C:\Program Files\Arduino CLI\`. It defaults to the same `%LOCALAPPDATA%\Arduino15`
+  data dir the IDE uses, so it inherits the Teensy platform for free.
+- Arduino IDE also bundles its own `arduino-cli` at
+  `…/Programs/Arduino IDE/resources/app/lib/backend/resources/arduino-cli.exe`.
+  Works, but lives inside the IDE install tree — prefer the PATH one.
+- PlatformIO core lives at `~/.platformio/penv`. It was bootstrapped from the
+  **portable Python the VS Code extension ships predownloaded**
+  (`assets/predownloaded/python-portable-windows_amd64-*.tar.gz`) — there is no
+  system Python on this box, only the Microsoft Store alias stub, so do not
+  reach for `python -m pip`.
+- PlatformIO's `teensy41` board defines `ARDUINO_TEENSY41` (verified via
+  `pio run -t envdump`), so the EVE target header auto-selects correctly. It
+  resolves `framework-arduinoteensy 1.162.0` + `toolchain-…-teensy 15.2.1`,
+  matching Teensyduino 1.62.0 — hence byte-identical output to `compile.sh`.
+- PIO's `.ino` → `.cpp` conversion does its own prototype generation, so the
+  sketch's explicit prototypes are redundant here but harmless. Keep them: the
+  offline arduino-cli path still depends on them.
+- **CRLF vs WSL.** `core.autocrlf=true` is set globally, so `.sh` files check out
+  with CRLF. Git Bash silently tolerates the `\r`; WSL's bash does not
+  (``/usr/bin/env: 'bash\r'``). `.gitattributes` pins `*.sh` to `eol=lf`.
+  If a shell script suddenly fails only under WSL, suspect line endings first.
+- WSL2 `Ubuntu` (20.04, gcc 9.4.0) is installed and is the default distro; it is
+  how the host-side tests run on this box. `wsl` inherits the Windows cwd.
+- Windows has **no host C compiler at all** (no gcc/clang/cl/MSYS2/MinGW).
+  Don't write tooling that assumes one; use WSL.
+
 ## Verified state
 
-`arduino-cli compile -b teensy:avr:teensy41 --libraries ./libraries ./MustangDash`
-succeeds clean: 53,244 B flash (0%), 59,232 B RAM (11%), no warnings
-(full-newlib link; the earlier nano.specs build measured 31,740 / 37,888).
-Upload was NOT exercised here (no board attached); flash via Arduino IDE.
+On the **offline sandbox** platform, `arduino-cli compile -b teensy:avr:teensy41
+--libraries ./libraries ./MustangDash` succeeded clean: 53,244 B flash (0%),
+59,232 B RAM (11%), no warnings (full-newlib link; the earlier nano.specs build
+measured 31,740 / 37,888).
+
+On the **Windows workstation with real Teensyduino 1.62.0** (2026-07-08), both
+`./scripts/compile.sh` and `pio run` succeed clean and agree exactly:
+
+```
+FLASH: code:42192, data:7448, headers:8724
+RAM1:  variables:12480, code:39640, padding:25896
+RAM2:  variables:12416
+```
+
+Do not expect the sandbox's 53,244 to match — different toolchain, different
+libc. The two *workstation* paths agreeing is the invariant worth watching.
+
+**Hardware-verified (2026-07-09): FIRST LIGHT CONFIRMED.** Upload via
+`pio run -t upload` (Teensy Loader) works; `teensy_reboot.exe` + a raw COM4
+read (115200) captures the boot banner without an interactive monitor. On the
+real panel: `EVE_init()` returned `E_OK`, **`REG_ID == 0x7C` observed**, HELLO
+MUSTANG rendered at 8 MHz SPI, backlight pulsing under `REG_PWM_DUTY` control.
+Bring-up hazards actually hit on this bench (in symptom order): a damaged FFC
+end shorting pins 1-2 (VDD-GND -> Teensy won't enumerate on USB), and a flaky
+Teensy micro-USB cable that perfectly mimicked a dead board. Bench rules that
+came out of it: pins 19-20 (BLGND) beep to pin 2 (GND) — use that continuity
+to positively identify the backlight end (17-20) before applying 5 V; the FFC
+is down-side contact at the panel; the panel survives being driven with no
+5 V on BLVDD (renders, just dark).
 
 ## Knowledge store
 

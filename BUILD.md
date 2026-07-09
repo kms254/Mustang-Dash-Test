@@ -2,10 +2,65 @@
 
 The firmware in this repo was compiled clean for `teensy:avr:teensy41`. On a
 normal workstation you would just install **Teensyduino** (which registers the
-`teensy:avr` platform for arduino-cli / the Arduino IDE) and build. This file
-documents the toolchain that was assembled to verify the build in an
+`teensy:avr` platform for arduino-cli / the Arduino IDE) and build. Most of this
+file documents the toolchain that was assembled to verify the build in an
 environment where the usual PJRC / Arduino downloads (`pjrc.com`,
-`downloads.arduino.cc`) were blocked, in case it needs to be reproduced.
+`downloads.arduino.cc`) were blocked, in case it needs to be reproduced. If you
+are on a normal machine with network access, read the next section and stop.
+
+## Two build paths (both verified, byte-identical output)
+
+| Path | Entry point | Use it for |
+|------|-------------|------------|
+| `arduino-cli` | `./scripts/compile.sh` | the reference build; what `tests/` and CI assume |
+| PlatformIO | `platformio.ini` | the VS Code Build/Upload/Monitor buttons |
+
+They are not redundant by accident — keep them in sync. PlatformIO resolves
+`framework-arduinoteensy 1.162.0` and `toolchain-gccarmnoneeabi-teensy 15.2.1`,
+which are the same core and compiler that Teensyduino 1.62.0 installs, so the
+two paths produce identical section sizes. If they ever diverge, that is a real
+signal, not noise.
+
+Setup on a Windows workstation (verified 2026-07-08):
+
+```bash
+winget install --id ArduinoSA.CLI -e     # arduino-cli on PATH; shares the
+                                         # Arduino15 data dir, so it inherits
+                                         # the Teensy platform the IDE installed
+```
+
+Install Teensyduino through the Arduino IDE Board Manager (`teensy:avr`). For
+PlatformIO, just open the folder in VS Code — the extension bootstraps its own
+core from the **portable Python it ships predownloaded**, so no system Python is
+required.
+
+`platformio.ini` sets `src_dir = MustangDash` so the sketch folder is not moved,
+and `lib_extra_dirs = libraries` so the vendored (locally modified) EVE library
+is used instead of the registry copy. PlatformIO's `teensy41` board defines
+`ARDUINO_TEENSY41`, which is what auto-selects `EVE_target_Arduino_Teensy4.h` —
+verified, not assumed.
+
+## Running the tests on Windows
+
+`tests/run-tests.sh` compiles the host-side invariant tests with `gcc`, which
+Git Bash does not provide. On Windows, run them through WSL:
+
+```bash
+wsl -- bash -lc "./tests/run-tests.sh"      # from the repo root
+```
+
+`wsl` inherits the Windows working directory as `/mnt/c/...`, so no `cd` is
+needed. VS Code task **"Tests: invariant suite"** does exactly this, and runs
+the script directly on macOS/Linux.
+
+Two traps worth knowing:
+
+- **CRLF.** Git's `core.autocrlf=true` (Windows default) checks the `.sh` files
+  out with CRLF. Git Bash tolerates the trailing `\r` in a shebang; WSL's bash
+  does not, and fails with ``/usr/bin/env: 'bash\r': No such file or directory``.
+  `.gitattributes` pins `*.sh` to `eol=lf` to prevent this. Don't remove it.
+- **PATH.** A shell started *before* `winget install ArduinoSA.CLI` won't see
+  `arduino-cli`. Restart the terminal (or VS Code) after installing.
 
 ## Pieces used
 

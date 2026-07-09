@@ -1,0 +1,49 @@
+{
+    // Tracked on purpose (unlike c_cpp_properties.json / launch.json, which
+    // PlatformIO regenerates with absolute machine paths).
+    //
+    // Build/Upload/Monitor come from the PlatformIO toolbar and are not
+    // duplicated here. These tasks cover the two things PlatformIO does not:
+    // the host-side invariant suite, and the arduino-cli reference build.
+    "version": "2.0.0",
+    "tasks": [
+        {
+            // tests/run-tests.sh needs a host gcc. Windows has none, so shell
+            // out to WSL; macOS/Linux run it directly. Uses the default WSL
+            // distro (Ubuntu here) and inherits the workspace cwd as /mnt/c/...
+            "label": "Tests: invariant suite",
+            "type": "shell",
+            "command": "./tests/run-tests.sh",
+            "windows": {
+                "command": "wsl",
+                "args": ["--", "bash", "-lc", "./tests/run-tests.sh"]
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            }
+        },
+        {
+            // The reference build. PlatformIO's Build button is the fast path;
+            // this one is what tests/ and CI assume, and must stay in agreement.
+            "label": "Build: arduino-cli (reference)",
+            "type": "shell",
+            "command": "./scripts/compile.sh",
+            "windows": {
+                "command": "C:\\Program Files\\Git\\bin\\bash.exe",
+                "args": ["-lc", "./scripts/compile.sh"]
+            },
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            }
+        }
+    ]
+}
