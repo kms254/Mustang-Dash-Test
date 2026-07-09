@@ -11,7 +11,7 @@ applies_when:
   - "bringing up a Riverdi BT81x (EVE3/EVE4) display panel"
   - "matching a Riverdi RVT70xx model number to a library profile define"
 symptoms:
-  - "two Riverdi 7-inch profiles with confusingly similar names (EVE_RiTFT70 vs EVE_RVT70H)"
+  - "three Riverdi 7-inch profiles with confusingly similar names (EVE_RVT70, EVE_RiTFT70, EVE_RVT70H)"
   - "wrong profile still passes SPI init and REG_ID reads 0x7C, but panel output is garbled, scrolled, or blank"
 root_cause: config_error
 resolution_type: config_change
@@ -32,7 +32,7 @@ tags:
 
 ## Context
 
-During bring-up of the Riverdi SM-RVT70HSBNWN00 (7.0" 1024x600 IPS, BT817 / EVE4, no touch) on a Teensy 4.1 with the vendored RudolphRiedel FT800-FT813 library (v5.0.10, `libraries/FT800-FT813`), the display profile had to be selected in `EVE_config.h`. The library ships two Riverdi 7-inch profiles with confusingly similar names — `EVE_RiTFT70` and `EVE_RVT70H` — and the task description itself suggested "EVE_RiTFT70 or the closest current name". `EVE_RiTFT70` reads like "Riverdi TFT 7.0" but is actually the 800x480 EVE3 (BT815/BT816) profile; following the hint would have configured 800x480 timings on a 1024x600 panel. The correct profile for this panel is `EVE_RVT70H`.
+During bring-up of the Riverdi SM-RVT70HSBNWN00 (7.0" 1024x600 IPS, BT817 / EVE4, no touch) on a Teensy 4.1 with the vendored RudolphRiedel FT800-FT813 library (v5.0.10, `libraries/FT800-FT813`), the display profile had to be selected in `EVE_config.h`. The library ships three Riverdi 7-inch profiles (`EVE_RVT70`, `EVE_RiTFT70`, `EVE_RVT70H`); the two whose names are most easily confused for this panel are `EVE_RiTFT70` and `EVE_RVT70H` — and the task description itself suggested "EVE_RiTFT70 or the closest current name". `EVE_RiTFT70` reads like "Riverdi TFT 7.0" but is actually the 800x480 EVE3 (BT815/BT816) profile; following the hint would have configured 800x480 timings on a 1024x600 panel. The correct profile for this panel is `EVE_RVT70H`.
 
 ## Guidance
 
@@ -41,7 +41,8 @@ Pick the profile by matching the Riverdi model number against the comment above 
 Model-number decoding rule: the two letters after the size digits encode the series.
 
 - `RVT70HS...` — the "H" series: 1024x600, BT817, EVE4. Library profile suffix `H` (`EVE_RVT70H`), whose block comment is "RVT70HSBxxxxx 1024x600 7.0\" Riverdi, various options, BT817" (libraries/FT800-FT813/src/EVE_config.h:902).
-- `RVT70UQ...` / `RVT70xQ...` — the 800x480 series: `EVE_RiTFT70`'s block comment is "RVT70xQBxxxxx 800x480 7.0\" Riverdi, various options, BT815/BT816" (libraries/FT800-FT813/src/EVE_config.h:745).
+- `RVT70xQB...` — 800x480, BT815/BT816 (EVE3): `EVE_RiTFT70`, whose block comment is "RVT70xQBxxxxx 800x480 7.0\" Riverdi, various options, BT815/BT816" (libraries/FT800-FT813/src/EVE_config.h:745).
+- `RVT70xQF...` (e.g. RVT70UQFNWC0x) — 800x480, FT812/FT813 (EVE2): a third profile, `EVE_RVT70` (libraries/FT800-FT813/src/EVE_config.h:693).
 
 The commented-out master list of profiles near the top of the file is grouped by chipset ("BT817 / BT818" at libraries/FT800-FT813/src/EVE_config.h:107, "BT815 / BT816" at :125, "FT812 / F813" at :152), so a profile's section immediately tells you its EVE generation. Cross-check the chip printed on the panel's datasheet against the section before trusting a name.
 

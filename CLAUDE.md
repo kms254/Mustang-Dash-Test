@@ -63,3 +63,12 @@ On a normal workstation, just install Teensyduino and ignore all of the above.
 `arduino-cli compile -b teensy:avr:teensy41 --libraries ./libraries ./MustangDash`
 succeeds clean: 31,740 B flash (0%), 37,888 B RAM (7%), no warnings.
 Upload was NOT exercised here (no board attached); flash via Arduino IDE.
+
+## Knowledge store
+
+- `docs/solutions/` — documented solutions to past problems (best practices,
+  bugs, workflow patterns), organized by category with YAML frontmatter
+  (`module`, `tags`, `problem_type`). Relevant when implementing or debugging
+  in documented areas.
+- `CONCEPTS.md` — shared domain vocabulary (entities, named processes, status
+  concepts). Relevant when orienting to the codebase.
