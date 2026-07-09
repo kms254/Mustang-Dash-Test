@@ -39,16 +39,21 @@ environment where the usual PJRC / Arduino downloads (`pjrc.com`,
 ```bash
 # toolchain
 apt-get install -y gcc-arm-none-eabi
-git clone https://github.com/arduino/arduino-cli && (cd arduino-cli && go build -o /usr/local/bin/arduino-cli .)
+git clone --branch v1.5.1 https://github.com/arduino/arduino-cli && (cd arduino-cli && go build -o /usr/local/bin/arduino-cli .)
 
 # teensy platform into the sketchbook
 arduino-cli config init
 SB="$(arduino-cli config get directories.user)"   # e.g. ~/Arduino
 mkdir -p "$SB/hardware/teensy/avr/cores" "$SB/hardware/teensy/avr/libraries"
-git clone https://github.com/PaulStoffregen/cores && cp -r cores/teensy4 "$SB/hardware/teensy/avr/cores/teensy4"
-git clone https://github.com/PaulStoffregen/SPI  && cp -r SPI            "$SB/hardware/teensy/avr/libraries/SPI"
-# then add the boards.txt / platform.txt from this repo's git history and a
-# ctags shim at directories.data/tools-bin/ctags (see repo notes).
+# Pinned to the exact upstream snapshots the verified build used; drop the
+# checkout lines to track upstream HEAD (at your own risk -- TEENSYDUINO=159
+# in platform.txt describes this snapshot, not upstream HEAD).
+git clone https://github.com/PaulStoffregen/cores && git -C cores checkout 7f107ee0a309f3813ed13f0d8f615497eca2ee49 && cp -r cores/teensy4 "$SB/hardware/teensy/avr/cores/teensy4"
+git clone https://github.com/PaulStoffregen/SPI  && git -C SPI  checkout 7c83d0726746b652af37319e70cd3932c253ecae && cp -r SPI "$SB/hardware/teensy/avr/libraries/SPI"
 
+# boards.txt / platform.txt / the ctags shim are ordinary tracked files at
+# tools/teensy-avr-platform/ in this repo -- scripts/compile.sh installs them
+# into "$SB/hardware/teensy/avr/" (shim as tools-bin/ctags) before every build,
+# so no manual copy step is needed:
 ./scripts/compile.sh
 ```

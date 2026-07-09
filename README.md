@@ -31,11 +31,12 @@ Shared ground. Panel logic VDD on Teensy **3.3 V**. Backlight on an external **5
 2. Runs `EVE_init()` and prints the result code over Serial.
 3. Reads `REG_ID` (a healthy BT817 returns **0x7C**) so you can confirm the SPI
    link from the serial monitor.
-4. Writes `REG_PWM_DUTY = 128` to turn the backlight on (~50%).
+4. Writes `REG_PWM_DUTY = 128` to turn the backlight fully on (the PWM scale
+   is 0..128, so 128 = 100%).
 5. Draws one display list: dark background, **"HELLO MUSTANG"** centred in a
    large ROM font (font 31) with a smaller **"EVE4 first light"** line under it
    (font 27).
-6. In `loop()` slowly pulses `REG_PWM_DUTY` between **20 and 128** (a ~1 s
+6. In `loop()` slowly pulses `REG_PWM_DUTY` between **20 and 128** (a ~2.2 s
    triangle sweep) so the render loop and software dimming are visibly working.
 
 Serial is **115200** 8N1.
@@ -68,7 +69,12 @@ With a Teensy platform installed under `teensy:avr:teensy41`:
 
 ```bash
 ./scripts/compile.sh          # compiles to ./build/MustangDash.ino.hex
+./tests/run-tests.sh          # host-side invariant tests (no board needed)
 ```
+
+The tests pin the things that must not silently change: the `EVE_RVT70H`
+profile (1024x600, BT817, EVE4), the CS=14 / PD=17 wiring, the backlight
+sweep bounds/period, and the ctags shim's no-op contract.
 
 or directly:
 
@@ -95,3 +101,4 @@ sandbox (where the normal PJRC downloads were unavailable).
 | `EVE_init() did NOT return E_OK` | EVE never came out of reset — check `PDN` (pin 17), 3.3 V logic supply, and `CS` (pin 14). |
 | `EVE_init()` OK but `REG_ID = 0x00`/`0xFF` (not `0x7C`) | SPI link problem — MISO/MOSI swapped, SCLK not on 13, wrong CS, or clock too fast. |
 | Init OK and `REG_ID = 0x7C` but the panel stays dark | Backlight power (external 5 V) or `REG_PWM_DUTY` — the panel is alive but not lit. |
+| Init OK, `REG_ID = 0x7C`, backlight lit, but the image is garbled/scrolled/wrong geometry | Wrong display profile in `EVE_config.h` — confirm `EVE_RVT70H` is defined (not `EVE_RiTFT70` or `EVE_RVT70`); see [the profile-selection learning](docs/solutions/best-practices/riverdi-rvt70h-vs-ritft70-eve-display-profile-selection.md). |

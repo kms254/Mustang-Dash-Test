@@ -12,7 +12,8 @@
  * What it does:
  *   1. brings the EVE chip out of power-down and runs EVE_init()
  *   2. reads REG_ID (a healthy BT817 returns 0x7C) and reports it on Serial
- *   3. writes REG_PWM_DUTY = 128 to turn the backlight to ~50%
+ *   3. writes REG_PWM_DUTY = 128 to turn the backlight fully on (the PWM
+ *      scale is 0..128, so 128 = 100%; the library's own default is 0x20 = 25%)
  *   4. draws one display list: dark background, "HELLO MUSTANG" centered in a
  *      large ROM font with a smaller "EVE4 first light" line under it
  *   5. in loop() slowly pulses REG_PWM_DUTY between 20 and 128 so the render
@@ -28,6 +29,7 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include "EVE.h"
+#include "backlight_wave.h"
 
 /* ---- forward declarations (explicit prototypes, see note above) ---- */
 void draw_first_light(void);
@@ -85,7 +87,7 @@ void setup(void)
     if (E_OK == ret)
     {
         eve_ready = true;
-        set_backlight(BL_MAX);        /* backlight on at ~50% (REG_PWM_DUTY = 128) */
+        set_backlight(BL_MAX);        /* backlight fully on (REG_PWM_DUTY = 128 = 100%) */
         draw_first_light();           /* one static display list */
         Serial.println(F("EVE init OK: display list sent, backlight on. Pulsing now."));
     }
@@ -106,14 +108,12 @@ void loop(void)
         return; /* nothing to pulse if the panel never initialised */
     }
 
-    /* slow triangle wave between BL_MIN and BL_MAX on REG_PWM_DUTY */
-    int next = (int)duty + step;
-    if (next >= (int)BL_MAX) { next = BL_MAX; step = -2; }
-    if (next <= (int)BL_MIN) { next = BL_MIN; step =  2; }
-    duty = (uint8_t)next;
+    /* slow triangle wave between BL_MIN and BL_MAX on REG_PWM_DUTY
+     * (pure stepping logic lives in backlight_wave.h, host-tested in tests/) */
+    duty = bl_wave_next(duty, &step, BL_MIN, BL_MAX);
 
     set_backlight(duty);
-    delay(20);                       /* ~ 1.1 s for a full min->max->min sweep */
+    delay(20);                       /* 108 steps x 20 ms: ~2.2 s per full min->max->min sweep */
 }
 
 /* Write the backlight PWM duty (0..128 is the useful range on EVE). */

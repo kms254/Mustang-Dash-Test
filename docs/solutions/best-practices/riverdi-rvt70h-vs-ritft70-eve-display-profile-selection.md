@@ -60,7 +60,7 @@ Placing the define in the header (rather than a `-D` build flag) makes it active
 Adjacent configuration that goes with the profile:
 
 - Pins are set in `libraries/FT800-FT813/src/EVE_target/EVE_target_Arduino_Teensy4.h`: `EVE_CS 14` and `EVE_PDN 17`, each guarded by `#if !defined` (libraries/FT800-FT813/src/EVE_target/EVE_target_Arduino_Teensy4.h:61-67), so `-D EVE_CS=` / `-D EVE_PDN=` build flags still override.
-- SPI must stay at or below 11 MHz until EVE init completes (BT817 requirement); the sketch uses 8 MHz, mode 0, MSB-first (MustangDash/MustangDash.ino:70-74).
+- SPI must stay at or below 11 MHz until EVE init completes (BT817 requirement); the sketch uses 8 MHz, mode 0, MSB-first (MustangDash/MustangDash.ino:72-76).
 
 ## Why This Matters
 

@@ -5,8 +5,10 @@ version=1.59.0
 # Compiler tools (system-installed arm-none-eabi, gcc-arm-none-eabi)
 # ------------------------------------------------------------------
 compiler.path=/usr/bin/
-# ctags used by arduino-cli for .ino prototype generation (exuberant-ctags, arduino-compatible)
-runtime.tools.ctags.path=/root/.arduino15/tools-bin
+# ctags used by arduino-cli for .ino prototype generation: the no-op shim ships
+# inside the platform (tools-bin/ctags, installed by scripts/compile.sh), so the
+# path resolves on any machine/user instead of being tied to one home dir.
+runtime.tools.ctags.path={runtime.platform.path}/tools-bin
 compiler.c.cmd=arm-none-eabi-gcc
 compiler.cpp.cmd=arm-none-eabi-g++
 compiler.ar.cmd=arm-none-eabi-gcc-ar

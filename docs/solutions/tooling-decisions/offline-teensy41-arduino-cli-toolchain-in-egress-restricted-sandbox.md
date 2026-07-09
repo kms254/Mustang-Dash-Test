@@ -36,23 +36,23 @@ This session's sandbox routed all HTTPS through an organization policy proxy tha
 
 ## Guidance
 
-Five pieces replace the normal Teensyduino install (reproduction script: `BUILD.md:39-54`):
+Five pieces replace the normal Teensyduino install (reproduction script: `BUILD.md:39-59`):
 
-1. **arduino-cli from source, via `go build` — not `go install`.** In this session, `go install github.com/arduino/arduino-cli@latest` failed with "The go.mod file ... contains one or more replace directives": `go install` refuses modules that use `replace`, and arduino-cli's go.mod does. The working path is `git clone https://github.com/arduino/arduino-cli` then `go build -o /usr/local/bin/arduino-cli .` inside the clone (`BUILD.md:14`, `BUILD.md:42`); this session additionally pinned the clone with `--depth 1 --branch v1.5.1`, and Go auto-fetched the newer toolchain it needed through proxy.golang.org.
+1. **arduino-cli from source, via `go build` — not `go install`.** In this session, `go install github.com/arduino/arduino-cli@latest` failed with "The go.mod file ... contains one or more replace directives": `go install` refuses modules that use `replace`, and arduino-cli's go.mod does. The working path is `git clone https://github.com/arduino/arduino-cli` then `go build -o /usr/local/bin/arduino-cli .` inside the clone (`BUILD.md:14`, `BUILD.md:42` — the reproduce command pins `--branch v1.5.1`; this session also used `--depth 1`), and Go auto-fetched the newer toolchain it needed through proxy.golang.org.
 
 2. **ARM toolchain from apt.** `apt-get install -y gcc-arm-none-eabi` (13.2.1 in this session; `BUILD.md:15`, `BUILD.md:41`). The critical verification is that the distro toolchain ships the Cortex-M7 double-precision hard-float multilib — see Examples for the two commands. If `thumb/v7e-m+dp/hard` is present, no PJRC toolchain is needed to link IMXRT1062 binaries.
 
-3. **Teensy core + SPI via git clone.** `PaulStoffregen/cores` provides the full `teensy4/` core including the `imxrt1062_t41.ld` linker script; `PaulStoffregen/SPI` provides the SPI library, which the core repo does not ship (`BUILD.md:16-17`, `BUILD.md:48-49`). Neither repo contains `boards.txt`/`platform.txt` — those exist only inside the Teensyduino package, so they must be written by hand (piece 4). Copy `cores/teensy4` to the sketchbook's `hardware/teensy/avr/cores/teensy4` and SPI to `hardware/teensy/avr/libraries/SPI` so the FQBN resolves as exactly `teensy:avr:teensy41`.
+3. **Teensy core + SPI via git clone.** `PaulStoffregen/cores` provides the full `teensy4/` core including the `imxrt1062_t41.ld` linker script; `PaulStoffregen/SPI` provides the SPI library, which the core repo does not ship (`BUILD.md:16-17`, `BUILD.md:51-52`, pinned to the verified snapshot SHAs). Neither repo contains `boards.txt`/`platform.txt` — those exist only inside the Teensyduino package, so they must be written by hand (piece 4). Copy `cores/teensy4` to the sketchbook's `hardware/teensy/avr/cores/teensy4` and SPI to `hardware/teensy/avr/libraries/SPI` so the FQBN resolves as exactly `teensy:avr:teensy41`.
 
 4. **Hand-written minimal `boards.txt`/`platform.txt`**, preserved in-repo at `tools/teensy-avr-platform/`. Key content:
    - `compiler.path=/usr/bin/` drives the system compilers (`tools/teensy-avr-platform/platform.txt:7`).
-   - CPU flags `-mthumb -mcpu=cortex-m7 -mfloat-abi=hard -mfpu=fpv5-d16` (`platform.txt:22`).
-   - Defines `-DF_CPU={build.fcpu} -D{build.usbtype} ... -D__IMXRT1062__ -DTEENSYDUINO=159 ... -DARDUINO_{build.board}` (`platform.txt:24`), with board values `fcpu=600000000`, `usbtype=USB_SERIAL`, `board=TEENSY41` (`tools/teensy-avr-platform/boards.txt:12-15`).
-   - Link with `--specs=nano.specs -T{build.core.path}/imxrt1062_t41.ld` (`boards.txt:16`) and size ceilings 8,126,464 B flash / 524,288 B RAM1 (`boards.txt:18-19`).
-   - Both `recipe.preproc.includes` and `recipe.preproc.macros` are required (`platform.txt:44-47`) — in this session, omitting `recipe.preproc.macros` failed the build with "open .../sketch_merged.cpp: no such file or directory".
-   - Teensy-specific size regexes so the report counts `.text.itcm`/`.bss.dma`/`.bss.extram` correctly (`platform.txt:69-70`).
+   - CPU flags `-mthumb -mcpu=cortex-m7 -mfloat-abi=hard -mfpu=fpv5-d16` (`platform.txt:24`).
+   - Defines `-DF_CPU={build.fcpu} -D{build.usbtype} ... -D__IMXRT1062__ -DTEENSYDUINO=159 ... -DARDUINO_{build.board}` (`platform.txt:26`), with board values `fcpu=600000000`, `usbtype=USB_SERIAL`, `board=TEENSY41` (`tools/teensy-avr-platform/boards.txt:12-15`).
+   - Link with `-T{build.core.path}/imxrt1062_t41.ld` (`boards.txt:19`) and size ceilings 8,126,464 B flash / 524,288 B RAM1 (`boards.txt:21-22`). No `--specs=nano.specs`: PJRC's core links full newlib (its Makefile ships SPECS commented out), so the platform matches that for fidelity.
+   - Both `recipe.preproc.includes` and `recipe.preproc.macros` are required (`platform.txt:46-49`) — in this session, omitting `recipe.preproc.macros` failed the build with "open .../sketch_merged.cpp: no such file or directory".
+   - Teensy-specific size regexes so the report counts `.text.itcm`/`.bss.dma`/`.bss.extram` correctly (`platform.txt:71-72`).
 
-5. **The ctags no-op shim (the least obvious step).** arduino-cli's `.ino` prototype generation invokes `{runtime.tools.ctags.path}/ctags` (path wired at `platform.txt:9`). Arduino normally bundles a fork, **arduino-ctags**, which emits function *return types*; stock universal-ctags and stock exuberant-ctags both omit them, so arduino-cli inserts a broken prototype — literally ` setup();` with no return type — into the generated `.cpp`. Since arduino-ctags is only distributed via the blocked index, the fix is a shim that writes an *empty* tags file, making arduino-cli insert no auto-prototypes at all: `tools/teensy-avr-platform/ctags-shim.sh` (rationale comment at lines 2-5; the `: > "$out"` empty-file write at line 11). Consequence: sketches must declare their own prototypes before use — `MustangDash/MustangDash.ino:23-25` carries the explanatory note and lines 33-34 the forward declarations. Sub-gotcha from this session: the shim was first written *through* a symlink pointing at `/usr/bin/ctags-exuberant`, which overwrote the symlink target; remove the symlink before installing the shim. Finally, empty `package_index.json`/`library_index.json` in the arduino-cli data dir silence most index noise; the remaining "Error initializing instance" lines are harmless offline (`BUILD.md:33-35`).
+5. **The ctags no-op shim (the least obvious step).** arduino-cli's `.ino` prototype generation invokes `{runtime.tools.ctags.path}/ctags` (path wired at `platform.txt:11`; the shim ships inside the platform as `tools-bin/ctags`, installed by `scripts/compile.sh`). Arduino normally bundles a fork, **arduino-ctags**, which emits function *return types*; stock universal-ctags and stock exuberant-ctags both omit them, so arduino-cli inserts a broken prototype — literally ` setup();` with no return type — into the generated `.cpp`. Since arduino-ctags is only distributed via the blocked index, the fix is a shim that writes an *empty* tags file, making arduino-cli insert no auto-prototypes at all: `tools/teensy-avr-platform/ctags-shim.sh` (rationale comment at lines 2-5; the `: > "$out"` empty-file write at line 11). Consequence: sketches must declare their own prototypes before use — `MustangDash/MustangDash.ino:24-26` carries the explanatory note and lines 35-36 the forward declarations. Sub-gotcha from this session: the shim was first written *through* a symlink pointing at `/usr/bin/ctags-exuberant`, which overwrote the symlink target; remove the symlink before installing the shim. Finally, empty `package_index.json`/`library_index.json` in the arduino-cli data dir silence most index noise; the remaining "Error initializing instance" lines are harmless offline (`BUILD.md:33-35`).
 
 ## Why This Matters
 
@@ -78,20 +78,20 @@ arm-none-eabi-gcc -mcpu=cortex-m7 -mfloat-abi=hard -mfpu=fpv5-d16 -mthumb -print
 
 If the second command echoes back `libc.a` unresolved, the multilib is missing and linking will fail.
 
-**Broken-prototype failure signature (stock ctags) vs fixed state (shim):** with stock universal/exuberant ctags, the generated sketch `.cpp` gains a return-type-less ` setup();` line and compilation fails with "error: expected constructor, destructor, or type conversion before ';'" (as observed this session). With the no-op shim in place at `{runtime.tools.ctags.path}/ctags` (`tools/teensy-avr-platform/platform.txt:9`), the tags file is empty, arduino-cli inserts nothing, and the sketch supplies its own prototypes — `MustangDash/MustangDash.ino:33-34`:
+**Broken-prototype failure signature (stock ctags) vs fixed state (shim):** with stock universal/exuberant ctags, the generated sketch `.cpp` gains a return-type-less ` setup();` line and compilation fails with "error: expected constructor, destructor, or type conversion before ';'" (as observed this session). With the no-op shim in place at `{runtime.tools.ctags.path}/ctags` (`tools/teensy-avr-platform/platform.txt:11`), the tags file is empty, arduino-cli inserts nothing, and the sketch supplies its own prototypes — `MustangDash/MustangDash.ino:35-36`:
 
 ```c
 void draw_first_light(void);
 void set_backlight(uint8_t duty);
 ```
 
-**Final compile** — via the wrapper `scripts/compile.sh:14-19`:
+**Final compile** — via the wrapper `scripts/compile.sh:28-33` (the wrapper first syncs the tracked platform files into the sketchbook):
 
 ```bash
 arduino-cli compile --clean -b teensy:avr:teensy41 --libraries ./libraries --output-dir ./build ./MustangDash
 ```
 
-As observed this session: exit 0, no warnings, size report 31,740 bytes flash (0% of 8,126,464) and 37,888 bytes RAM (7% of 524,288), producing `build/MustangDash.ino.hex`.
+Verified: exit 0, no warnings, producing `build/MustangDash.ino.hex`. Size with the full-newlib link is 53,244 bytes flash (0% of 8,126,464) and 59,232 bytes RAM (11% of 524,288); this session's original nano.specs build measured 31,740 / 37,888 before nano.specs was dropped for Teensyduino fidelity.
 
 ## Related
 

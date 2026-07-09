@@ -12,6 +12,12 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
 
 - Sketch: `MustangDash/MustangDash.ino`
 - Build: `./scripts/compile.sh` → `teensy:avr:teensy41`, `--libraries ./libraries`
+  (also syncs `tools/teensy-avr-platform/` into the sketchbook first — the
+  tracked files are the source of truth)
+- Tests: `./tests/run-tests.sh` — host-side invariant tests pinning the display
+  profile, wiring pins, backlight wave, and ctags-shim contract. Run them after
+  touching `EVE_config.h`, the Teensy4 target header, `backlight_wave.h`, or
+  the platform files.
 
 ## Hardware truths (don't re-derive)
 
@@ -61,7 +67,8 @@ On a normal workstation, just install Teensyduino and ignore all of the above.
 ## Verified state
 
 `arduino-cli compile -b teensy:avr:teensy41 --libraries ./libraries ./MustangDash`
-succeeds clean: 31,740 B flash (0%), 37,888 B RAM (7%), no warnings.
+succeeds clean: 53,244 B flash (0%), 59,232 B RAM (11%), no warnings
+(full-newlib link; the earlier nano.specs build measured 31,740 / 37,888).
 Upload was NOT exercised here (no board attached); flash via Arduino IDE.
 
 ## Knowledge store

@@ -13,7 +13,10 @@ teensy41.build.fcpu=600000000
 teensy41.build.usbtype=USB_SERIAL
 teensy41.build.keylayout=US_ENGLISH
 teensy41.build.board=TEENSY41
-teensy41.build.flags.ldspecs=--specs=nano.specs -T{build.core.path}/imxrt1062_t41.ld
+# No nano.specs: PJRC's Teensy 4 core links full newlib (its Makefile ships
+# SPECS commented out), so we match that for fidelity -- newlib-nano would
+# silently change printf/scanf float behavior vs a real Teensyduino build.
+teensy41.build.flags.ldspecs=-T{build.core.path}/imxrt1062_t41.ld
 # Teensy 4.1: 8 MB flash, 512 KB tightly-coupled RAM (RAM1)
 teensy41.upload.maximum_size=8126464
 teensy41.upload.maximum_data_size=524288
