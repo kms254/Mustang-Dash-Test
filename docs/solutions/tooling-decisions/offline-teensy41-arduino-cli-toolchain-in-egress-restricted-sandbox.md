@@ -38,7 +38,7 @@ This session's sandbox routed all HTTPS through an organization policy proxy tha
 
 Five pieces replace the normal Teensyduino install (reproduction script: `BUILD.md:39-54`):
 
-1. **arduino-cli from source, via `go build` — not `go install`.** In this session, `go install github.com/arduino/arduino-cli@latest` failed with "The go.mod file ... contains one or more replace directives": `go install` refuses modules that use `replace`, and arduino-cli's go.mod does. The working path is `git clone --depth 1 --branch v1.5.1 https://github.com/arduino/arduino-cli` then `go build -o /usr/local/bin/arduino-cli .` inside the clone (`BUILD.md:14`, `BUILD.md:42`); Go auto-fetched the newer toolchain it needed through proxy.golang.org.
+1. **arduino-cli from source, via `go build` — not `go install`.** In this session, `go install github.com/arduino/arduino-cli@latest` failed with "The go.mod file ... contains one or more replace directives": `go install` refuses modules that use `replace`, and arduino-cli's go.mod does. The working path is `git clone https://github.com/arduino/arduino-cli` then `go build -o /usr/local/bin/arduino-cli .` inside the clone (`BUILD.md:14`, `BUILD.md:42`); this session additionally pinned the clone with `--depth 1 --branch v1.5.1`, and Go auto-fetched the newer toolchain it needed through proxy.golang.org.
 
 2. **ARM toolchain from apt.** `apt-get install -y gcc-arm-none-eabi` (13.2.1 in this session; `BUILD.md:15`, `BUILD.md:41`). The critical verification is that the distro toolchain ships the Cortex-M7 double-precision hard-float multilib — see Examples for the two commands. If `thumb/v7e-m+dp/hard` is present, no PJRC toolchain is needed to link IMXRT1062 binaries.
 
