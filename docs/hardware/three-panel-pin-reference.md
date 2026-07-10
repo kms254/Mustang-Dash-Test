@@ -41,8 +41,9 @@ can be reviewed/extended against real pin assignments, not assumptions.
 | CS — Left 5" | 15 | Unique per panel |
 | CS — Right 5" | 16 | Unique per panel |
 | PD/RST — Center 7" | 17 | Active low |
-| PD/RST — Left 5" | 20 | Active low |
+| PD/RST — Left 5" | 20 | Active low (18/19 skipped — see below) |
 | PD/RST — Right 5" | 21 | Active low |
+| I2C SDA0/SCL0 (reserved, unwired) | 18, 19 | Deliberately left free: the Teensy 4.1's primary I2C pair, and the last default-I2C pins available once CAN (0/1/22/23), telltales (2–9), and buttons (24–27) are counted. Future tenant: e.g. an ambient-light sensor for the unified dash dimmer. |
 | CAN1 TX (Ford bus, not yet wired) | 22 | Stage 4 |
 | CAN1 RX (Ford bus, not yet wired) | 23 | Stage 4 |
 | CAN2 TX (chassis bus, not yet wired) | 1 | Stage 4 |

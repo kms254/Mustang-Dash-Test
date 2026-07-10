@@ -67,6 +67,12 @@ typedef struct {
     uint16_t pclk_freq;  /* REG_PCLK_FREQ form (REG_PCLK=1); 0 = unused */
 } DashPanelDesc;
 
+/* Pin budget note: PD hops 17 -> 20/21 because Teensy 4.1 pins 18/19 are
+ * the primary I2C pair (SDA0/SCL0) -- deliberately left free for future
+ * I2C peripherals (e.g. an ambient-light sensor driving dash_brightness).
+ * With CAN on 0/1/22/23, telltales on 2-9, and buttons on 24-27, they are
+ * the last default-I2C pins available on the main header. PD is plain
+ * GPIO; nothing electrical binds it to these pin numbers. */
 static const DashPanelDesc DASH_PANELS[DASH_PANEL_COUNT] = {
     /* CENTER: RVT70HSBNWN00 1024x600, EVE_config.h EVE_RVT70H block
      * (bench-proven, see CLAUDE.md "Verified state"). */
