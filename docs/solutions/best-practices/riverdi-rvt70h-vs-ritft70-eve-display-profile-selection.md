@@ -40,11 +40,11 @@ Pick the profile by matching the Riverdi model number against the comment above 
 
 Model-number decoding rule: the two letters after the size digits encode the series.
 
-- `RVT70HS...` — the "H" series: 1024x600, BT817, EVE4. Library profile suffix `H` (`EVE_RVT70H`), whose block comment is "RVT70HSBxxxxx 1024x600 7.0\" Riverdi, various options, BT817" (libraries/FT800-FT813/src/EVE_config.h:902).
-- `RVT70xQB...` — 800x480, BT815/BT816 (EVE3): `EVE_RiTFT70`, whose block comment is "RVT70xQBxxxxx 800x480 7.0\" Riverdi, various options, BT815/BT816" (libraries/FT800-FT813/src/EVE_config.h:745).
-- `RVT70xQF...` (e.g. RVT70UQFNWC0x) — 800x480, FT812/FT813 (EVE2): a third profile, `EVE_RVT70` (libraries/FT800-FT813/src/EVE_config.h:693).
+- `RVT70HS...` — the "H" series: 1024x600, BT817, EVE4. Library profile suffix `H` (`EVE_RVT70H`), whose block comment is "RVT70HSBxxxxx 1024x600 7.0\" Riverdi, various options, BT817" (libraries/FT800-FT813/src/EVE_config.h:907).
+- `RVT70xQB...` — 800x480, BT815/BT816 (EVE3): `EVE_RiTFT70`, whose block comment is "RVT70xQBxxxxx 800x480 7.0\" Riverdi, various options, BT815/BT816" (libraries/FT800-FT813/src/EVE_config.h:750).
+- `RVT70xQF...` (e.g. RVT70UQFNWC0x) — 800x480, FT812/FT813 (EVE2): a third profile, `EVE_RVT70` (libraries/FT800-FT813/src/EVE_config.h:698).
 
-The commented-out master list of profiles near the top of the file is grouped by chipset ("BT817 / BT818" at libraries/FT800-FT813/src/EVE_config.h:107, "BT815 / BT816" at :125, "FT812 / F813" at :152), so a profile's section immediately tells you its EVE generation. Cross-check the chip printed on the panel's datasheet against the section before trusting a name.
+The commented-out master list of profiles near the top of the file is grouped by chipset ("BT817 / BT818" at libraries/FT800-FT813/src/EVE_config.h:112, "BT815 / BT816" at :125, "FT812 / F813" at :152), so a profile's section immediately tells you its EVE generation. Cross-check the chip printed on the panel's datasheet against the section before trusting a name.
 
 To enable the profile, define it in `EVE_config.h` right after the include guard (this project does so at libraries/FT800-FT813/src/EVE_config.h:101):
 
@@ -64,7 +64,7 @@ Adjacent configuration that goes with the profile:
 
 ## Why This Matters
 
-Choosing the wrong profile is a silent misconfiguration. SPI init still succeeds and REG_ID still reads 0x7C on a healthy BT81x regardless of which profile is selected — REG_ID health does not validate the profile. But HSIZE/VSIZE and the sync timings are wrong (`EVE_RiTFT70` sets `Resolution_800x480`, expanding to `EVE_HSIZE 800` / `EVE_VSIZE 480` at libraries/FT800-FT813/src/EVE_config.h:1375-1377, with `EVE_GEN 3` at :755), so the panel shows a garbled, scrolled, or dark image while nothing on the serial output flags a problem. The wrong profile also selects the wrong EVE generation, so BT817-specific features such as `EVE_PCLK_FREQ` are never configured.
+Choosing the wrong profile is a silent misconfiguration. SPI init still succeeds and REG_ID still reads 0x7C on a healthy BT81x regardless of which profile is selected — REG_ID health does not validate the profile. But HSIZE/VSIZE and the sync timings are wrong (`EVE_RiTFT70` sets `Resolution_800x480`, expanding to `EVE_HSIZE 800` / `EVE_VSIZE 480` at libraries/FT800-FT813/src/EVE_config.h:1380-1382, with `EVE_GEN 3` at :755), so the panel shows a garbled, scrolled, or dark image while nothing on the serial output flags a problem. The wrong profile also selects the wrong EVE generation, so BT817-specific features such as `EVE_PCLK_FREQ` are never configured.
 
 Note: in this environment the fix was verified by reading the library source and a clean teensy41 compile (the configured `EVE_HSIZE`/`EVE_VSIZE` flow into the sketch); the hardware render was not exercised here as no board was attached.
 
@@ -79,26 +79,26 @@ Note: in this environment the fix was verified by reading the library source and
 Wrong (what the task hint suggested) — `EVE_RiTFT70` is an 800x480 EVE3 profile:
 
 ```c
-/* RVT70xQBxxxxx 800x480 7.0" Riverdi, various options, BT815/BT816 */  /* EVE_config.h:745 */
-#if defined (EVE_RiTFT70)                                               /* EVE_config.h:747 */
-#define Resolution_800x480                                              /* EVE_config.h:748 -> HSIZE 800, VSIZE 480 (EVE_config.h:1375-1377) */
+/* RVT70xQBxxxxx 800x480 7.0" Riverdi, various options, BT815/BT816 */  /* EVE_config.h:750 */
+#if defined (EVE_RiTFT70)                                               /* EVE_config.h:752 */
+#define Resolution_800x480                                              /* EVE_config.h:753 -> HSIZE 800, VSIZE 480 (EVE_config.h:1380-1382) */
 ...
-#define EVE_GEN 3                                                       /* EVE_config.h:755 */
+#define EVE_GEN 3                                                       /* EVE_config.h:760 */
 ```
 
 Right (matches SM-RVT70HSBNWN00) — `EVE_RVT70H` is the 1024x600 EVE4 profile:
 
 ```c
-/* tested with RVT70HSBNWC00-B */                                       /* EVE_config.h:901 */
-/* RVT70HSBxxxxx 1024x600 7.0" Riverdi, various options, BT817 */       /* EVE_config.h:902 */
-#if defined (EVE_RVT70H)                                                /* EVE_config.h:903 */
-#define EVE_HSIZE ((uint32_t) 1024UL)                                   /* EVE_config.h:904 */
-#define EVE_VSIZE ((uint32_t) 600UL)                                    /* EVE_config.h:905 */
+/* tested with RVT70HSBNWC00-B */                                       /* EVE_config.h:906 */
+/* RVT70HSBxxxxx 1024x600 7.0" Riverdi, various options, BT817 */       /* EVE_config.h:907 */
+#if defined (EVE_RVT70H)                                                /* EVE_config.h:908 */
+#define EVE_HSIZE ((uint32_t) 1024UL)                                   /* EVE_config.h:909 */
+#define EVE_VSIZE ((uint32_t) 600UL)                                    /* EVE_config.h:910 */
 ...
-#define EVE_PCLK_FREQ ((uint32_t) 0x0D12UL) /* -> 51MHz */              /* EVE_config.h:915 */
-#define EVE_GEN 4                                                       /* EVE_config.h:920 */
+#define EVE_PCLK_FREQ ((uint32_t) 0x0D12UL) /* -> 51MHz */              /* EVE_config.h:920 */
+#define EVE_GEN 4                                                       /* EVE_config.h:925 */
 #if !defined (EVE_BACKLIGHT_FREQ)
-#define EVE_BACKLIGHT_FREQ ((uint32_t) 4000UL) /* 4kHz per Riverdi */   /* EVE_config.h:922 */
+#define EVE_BACKLIGHT_FREQ ((uint32_t) 4000UL) /* 4kHz per Riverdi */   /* EVE_config.h:927 */
 #endif
 ```
 
