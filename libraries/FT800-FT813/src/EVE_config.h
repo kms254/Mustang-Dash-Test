@@ -99,6 +99,11 @@ the IOT5
 /* for both the library translation units and the sketch, and works  */
 /* unchanged from the Arduino IDE.                                    */
 #define EVE_RVT70H
+/* Backlight PWM at 10 kHz, overriding the RVT70H block's 4 kHz default    */
+/* (guarded there by #if !defined). This panel's own datasheet recommends  */
+/* 10-100 kHz, REG_PWM_HZ tops out at 10000, and 4 kHz was audible as a    */
+/* whine from the backlight driver on the bench (2026-07-09).              */
+#define EVE_BACKLIGHT_FREQ ((uint32_t) 10000UL)
 /* ================================================================== */
 
 /* define one of these in your build-environment to select the settings for the TFT attached */

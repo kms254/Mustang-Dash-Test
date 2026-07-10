@@ -31,6 +31,8 @@ _Static_assert(EVE_HSIZE == 1024UL, "panel width must be 1024 (RVT70H)");
 _Static_assert(EVE_VSIZE == 600UL, "panel height must be 600 (RVT70H)");
 _Static_assert(EVE_GEN == 4, "chip generation must be EVE4 (BT817)");
 _Static_assert(EVE_PCLK_FREQ == 0x0D12UL, "REG_PCLK_FREQ must be 0x0D12 (51 MHz, RVT70H timing)");
-_Static_assert(EVE_BACKLIGHT_FREQ == 4000UL, "backlight PWM must be 4 kHz per Riverdi");
+_Static_assert(EVE_BACKLIGHT_FREQ == 10000UL,
+               "backlight PWM must be 10 kHz (panel datasheet recommends 10-100 kHz; "
+               "the library's 4 kHz default whines audibly - bench-verified 2026-07-09)");
 
 int main(void) { return 0; }

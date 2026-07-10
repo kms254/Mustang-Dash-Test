@@ -1,5 +1,5 @@
 /*
- * MustangDash - first light for a Riverdi 7" EVE4 panel on a Teensy 4.1
+ * MustangDash - Riverdi 7" EVE4 panel on a Teensy 4.1
  *
  * Display : Riverdi SM-RVT70HSBNWN00 (7.0" 1024x600 IPS, BT817 / EVE4, no touch)
  * MCU     : Teensy 4.1 (IMXRT1062)
@@ -12,12 +12,12 @@
  * What it does:
  *   1. brings the EVE chip out of power-down and runs EVE_init()
  *   2. reads REG_ID (a healthy BT817 returns 0x7C) and reports it on Serial
- *   3. writes REG_PWM_DUTY = 128 to turn the backlight fully on (the PWM
- *      scale is 0..128, so 128 = 100%; the library's own default is 0x20 = 25%)
- *   4. draws one display list: dark background, "HELLO MUSTANG" centered in a
- *      large ROM font with a smaller "EVE4 first light" line under it
- *   5. in loop() slowly pulses REG_PWM_DUTY between 20 and 128 so the render
- *      loop and software dimming are visibly working
+ *   3. sets a steady backlight: REG_PWM_DUTY = 128 (full brightness; the
+ *      PWM scale is 0..128) at 10 kHz PWM -- the library's 4 kHz default is
+ *      audible as a whine from the backlight driver, confirmed on this bench
+ *   4. decodes the embedded pony PNG on-chip (CMD_LOADIMAGE -> RAM_G) and
+ *      draws one static display list: dark background, galloping pony logo,
+ *      red/white/blue tri-bar accent, and "MUSTANG" in ROM font 31
  *
  * Serial is 115200 8N1.
  *
@@ -29,20 +29,28 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include "EVE.h"
-#include "backlight_wave.h"
+#include "pony_png.h"
 
 /* ---- forward declarations (explicit prototypes, see note above) ---- */
-void draw_first_light(void);
+void draw_dash(void);
 void set_backlight(uint8_t duty);
+
+/* raw display-list helpers (the library ships these macros commented out) */
+#define VERTEX2F(x, y) ((DL_VERTEX2F) | ((((uint32_t) (x)) & 0x7FFFUL) << 15U) | (((uint32_t) (y)) & 0x7FFFUL))
 
 /* colours (0xRRGGBB) */
 static const uint32_t COLOR_BG       = 0x0A0E14UL; /* near-black, faint blue */
+static const uint32_t COLOR_PONY     = 0xE8E8ECUL; /* silver-white */
 static const uint32_t COLOR_TITLE    = 0xFFFFFFUL; /* white */
-static const uint32_t COLOR_SUBTITLE = 0x8A93A6UL; /* muted grey-blue */
+static const uint32_t COLOR_BAR_R    = 0xC8102EUL; /* tri-bar red */
+static const uint32_t COLOR_BAR_W    = 0xF5F5F5UL; /* tri-bar white */
+static const uint32_t COLOR_BAR_B    = 0x1B3E8CUL; /* tri-bar blue */
 
-/* backlight pulse limits requested for the loop() demo */
-static const uint8_t BL_MIN = 20U;
-static const uint8_t BL_MAX = 128U;
+/* steady backlight duty: 128 = 100% (the EVE PWM scale tops out at 128) */
+static const uint8_t BL_STEADY = 128U;
+
+/* RAM_G address of the decoded logo bitmap */
+static const uint32_t MEM_LOGO = 0UL;
 
 static bool eve_ready = false; /* set true only if EVE_init() reported E_OK */
 
@@ -87,9 +95,15 @@ void setup(void)
     if (E_OK == ret)
     {
         eve_ready = true;
-        set_backlight(BL_MAX);        /* backlight fully on (REG_PWM_DUTY = 128 = 100%) */
-        draw_first_light();           /* one static display list */
-        Serial.println(F("EVE init OK: display list sent, backlight on. Pulsing now."));
+        set_backlight(BL_STEADY);     /* steady full brightness, no pulsing */
+
+        /* decode the embedded PNG into RAM_G (BT817 does this on-chip);
+         * PNG with alpha decodes to ARGB4, tintable at draw time */
+        EVE_cmd_loadimage(MEM_LOGO, EVE_OPT_NODL, pony_png, sizeof(pony_png));
+        EVE_execute_cmd();            /* wait for the decode to finish */
+
+        draw_dash();                  /* one static display list */
+        Serial.println(F("EVE init OK: pony logo drawn, backlight steady at 100%."));
     }
     else
     {
@@ -100,44 +114,54 @@ void setup(void)
 
 void loop(void)
 {
-    static uint8_t duty = BL_MAX;
-    static int8_t  step = -2;        /* start by dimming down */
-
-    if (!eve_ready)
-    {
-        return; /* nothing to pulse if the panel never initialised */
-    }
-
-    /* slow triangle wave between BL_MIN and BL_MAX on REG_PWM_DUTY
-     * (pure stepping logic lives in backlight_wave.h, host-tested in tests/) */
-    duty = bl_wave_next(duty, &step, BL_MIN, BL_MAX);
-
-    set_backlight(duty);
-    delay(20);                       /* 108 steps x 20 ms: ~2.2 s per full min->max->min sweep */
+    /* static image, steady backlight: nothing to do */
 }
 
-/* Write the backlight PWM duty (0..128 is the useful range on EVE). */
+/* Write the backlight PWM duty (0..128 is the full range on EVE). */
 void set_backlight(uint8_t duty)
 {
     EVE_memWrite8(REG_PWM_DUTY, duty);
 }
 
-/* Build and swap in a single display list: dark background + two text lines. */
-void draw_first_light(void)
+/* Build and swap in the dash display list: pony logo + tri-bar + wordmark. */
+void draw_dash(void)
 {
+    /* layout (1024 x 600): logo centered up top, tri-bar accent below it,
+     * MUSTANG wordmark at the bottom */
+    const int16_t logo_x = (int16_t)((EVE_HSIZE - PONY_PNG_WIDTH) / 2U);   /* 272 */
+    const int16_t logo_y = 90;
+    const int16_t bar_w = 18, bar_h = 56, bar_gap = 8;
+    const int16_t bars_x = (int16_t)((EVE_HSIZE - (3U * bar_w + 2U * bar_gap)) / 2U);
+    const int16_t bars_y = 406;
+
     EVE_cmd_dl(CMD_DLSTART);                              /* start a new display list */
     EVE_cmd_dl(DL_CLEAR_COLOR_RGB | COLOR_BG);            /* set background colour */
     EVE_cmd_dl(DL_CLEAR | CLR_COL | CLR_STN | CLR_TAG);   /* clear colour/stencil/tag */
 
-    /* title: large ROM font (31 is the largest built-in ROM font on BT817) */
-    EVE_color_rgb(COLOR_TITLE);
-    EVE_cmd_text((int16_t)(EVE_HSIZE / 2U), (int16_t)((EVE_VSIZE / 2U) - 40),
-                 31U, EVE_OPT_CENTER, "HELLO MUSTANG");
+    /* pony logo bitmap (decoded PNG in RAM_G), tinted silver-white */
+    EVE_color_rgb(COLOR_PONY);
+    EVE_cmd_setbitmap(MEM_LOGO, EVE_ARGB4, PONY_PNG_WIDTH, PONY_PNG_HEIGHT);
+    EVE_cmd_dl(DL_BEGIN | EVE_BITMAPS);
+    EVE_cmd_dl(VERTEX2F(logo_x * 16, logo_y * 16));       /* 1/16 pixel units */
+    EVE_cmd_dl(DL_END);
 
-    /* subtitle: smaller ROM font, just below the title */
-    EVE_color_rgb(COLOR_SUBTITLE);
-    EVE_cmd_text((int16_t)(EVE_HSIZE / 2U), (int16_t)((EVE_VSIZE / 2U) + 40),
-                 27U, EVE_OPT_CENTER, "EVE4 first light");
+    /* tri-bar accent: red / white / blue */
+    EVE_cmd_dl(DL_LINE_WIDTH | 16UL);                     /* 1 px corner radius */
+    EVE_cmd_dl(DL_BEGIN | EVE_RECTS);
+    EVE_color_rgb(COLOR_BAR_R);
+    EVE_cmd_dl(VERTEX2F(bars_x * 16, bars_y * 16));
+    EVE_cmd_dl(VERTEX2F((bars_x + bar_w) * 16, (bars_y + bar_h) * 16));
+    EVE_color_rgb(COLOR_BAR_W);
+    EVE_cmd_dl(VERTEX2F((bars_x + bar_w + bar_gap) * 16, bars_y * 16));
+    EVE_cmd_dl(VERTEX2F((bars_x + 2 * bar_w + bar_gap) * 16, (bars_y + bar_h) * 16));
+    EVE_color_rgb(COLOR_BAR_B);
+    EVE_cmd_dl(VERTEX2F((bars_x + 2 * (bar_w + bar_gap)) * 16, bars_y * 16));
+    EVE_cmd_dl(VERTEX2F((bars_x + 3 * bar_w + 2 * bar_gap) * 16, (bars_y + bar_h) * 16));
+    EVE_cmd_dl(DL_END);
+
+    /* wordmark */
+    EVE_color_rgb(COLOR_TITLE);
+    EVE_cmd_text((int16_t)(EVE_HSIZE / 2U), 512, 31U, EVE_OPT_CENTER, "MUSTANG");
 
     EVE_cmd_dl(DL_DISPLAY);                               /* mark end of display list */
     EVE_cmd_dl(CMD_SWAP);                                 /* make the new list active */
