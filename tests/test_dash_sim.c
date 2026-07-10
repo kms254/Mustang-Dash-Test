@@ -1,0 +1,197 @@
+/*
+ * Invariant test: the deterministic dash simulator (dash_sim.h) must stay
+ * inside physically plausible bounds, respect the data-interface ownership
+ * rules (override / cleared / frozen, KTD6), keep gear+speed consistent with
+ * the T56 ratios, cycle laps, and be bit-for-bit deterministic (plan U4,
+ * KTD5, R12).
+ *
+ * Runs on the host:
+ *   gcc -std=c11 -Wall -Wextra -Werror -I MustangDash tests/test_dash_sim.c \
+ *       -lm -o /tmp/tds && /tmp/tds
+ */
+
+#include <math.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+#include "dash_data.h"
+#include "dash_sim.h"
+
+/* the drivetrain table must be the six T56 forward gears */
+_Static_assert(sizeof(SIM_GEAR_RATIOS) / sizeof(SIM_GEAR_RATIOS[0]) == 6,
+               "SIM_GEAR_RATIOS must have exactly 6 entries");
+/* every channel id must fit the 16-bit valid/override/cleared masks */
+_Static_assert(DASH_CH_COUNT <= 16, "channel ids must fit a uint16_t mask");
+
+static int failures = 0;
+
+static void expect(int cond, const char *msg)
+{
+    if (!cond)
+    {
+        fprintf(stderr, "FAIL: %s\n", msg);
+        failures++;
+    }
+}
+
+/* the test's own copy of the speed law the sim must obey */
+static float expected_mph(float rpm, uint8_t gear)
+{
+    return rpm * 26.0f / (SIM_GEAR_RATIOS[gear - 1] * 3.73f * 336.0f);
+}
+
+int main(void)
+{
+    DashState s;
+    DashSimState sim;
+
+    dash_state_init(&s);
+    dash_sim_init(&sim);
+    expect(s.mode == DASH_MODE_TRACK, "boot mode must be TRACK");
+    expect(sim.gear == 1, "sim must init in gear 1");
+
+    /* ---- long-run bounds: 10 sim-minutes of TRACK at dt = 50 ms ---- */
+    uint8_t prev_gear = sim.gear;
+    float prev_fuel = 1e9f;
+    uint32_t prev_lap_count = 0;
+    uint32_t best_seen = 0;
+    int best_records = 0;
+
+    for (int i = 0; i < 12000; i++)
+    {
+        dash_sim_step(&sim, &s, 50u);
+
+        expect(s.ch.rpm >= 0.0f && s.ch.rpm <= 8000.0f, "rpm must stay in [0, 8000]");
+        expect(s.ch.speed_mph >= 0.0f && s.ch.speed_mph <= 210.0f,
+               "speed must stay in [0, 210] mph");
+        expect(s.ch.ect_f >= 40.0f && s.ch.ect_f <= 230.0f, "ECT must stay in [40, 230] F");
+        expect(s.ch.oil_temp_f >= 40.0f && s.ch.oil_temp_f <= 260.0f,
+               "oil temp must stay in [40, 260] F");
+        expect(s.ch.oil_press_psi >= 5.0f && s.ch.oil_press_psi <= 75.0f,
+               "oil pressure must stay in [5, 75] psi");
+        expect(s.ch.volts >= 12.5f && s.ch.volts <= 14.5f, "volts must stay in [12.5, 14.5]");
+        expect(s.ch.fuel_gal >= 0.0f, "fuel must never go negative");
+        expect(s.ch.fuel_gal <= prev_fuel + 1e-6f, "fuel must be monotonically non-increasing");
+        prev_fuel = s.ch.fuel_gal;
+
+        /* no spurious low-oil-pressure alarms once running hard */
+        if (s.ch.rpm > 2500.0f)
+        {
+            expect(s.ch.oil_press_psi > 29.0f,
+                   "oil pressure must stay above 29 psi when rpm > 2500");
+        }
+
+        /* gear/speed consistency at every 100th tick */
+        if (i % 100 == 0)
+        {
+            expect(fabsf(s.ch.speed_mph - expected_mph(s.ch.rpm, sim.gear)) <= 2.0f,
+                   "speed must match rpm * 26 / (ratio * 3.73 * 336) within 2 mph");
+        }
+
+        /* shift behavior: gear only climbs, and lands at 5200..5450 rpm */
+        expect(sim.gear >= prev_gear, "gear must never decrease");
+        expect(sim.gear >= 1 && sim.gear <= 6, "gear must stay in 1..6");
+        if (sim.gear > prev_gear)
+        {
+            expect(s.ch.rpm >= 5200.0f && s.ch.rpm <= 5450.0f,
+                   "rpm immediately after an upshift must be in [5200, 5450]");
+        }
+        prev_gear = sim.gear;
+
+        /* lap rollovers: best only ever improves */
+        if (sim.lap_count > prev_lap_count)
+        {
+            if (best_records > 0)
+            {
+                expect(s.ch.best_ms <= best_seen, "best lap must be non-increasing");
+            }
+            best_seen = s.ch.best_ms;
+            best_records++;
+            prev_lap_count = sim.lap_count;
+        }
+    }
+
+    /* ---- lap cycle after 10 sim-minutes ---- */
+    expect(sim.lap_count >= 8, "10 track minutes must complete at least 8 laps");
+    expect(dash_ch_valid(&s, DASH_CH_LAP), "current lap channel must be valid");
+    expect(dash_ch_valid(&s, DASH_CH_LAST), "last lap must be valid after a completed lap");
+    expect(dash_ch_valid(&s, DASH_CH_BEST), "best lap must be valid after a completed lap");
+    expect(s.ch.best_ms <= s.ch.last_ms, "best lap must be <= last lap");
+    expect(sim.gear == 6, "10 track minutes must reach top gear");
+
+    /* ---- alarm reachability: an override must survive sim steps ---- */
+    dash_ch_set(&s, DASH_CH_OILP, 25.0f);
+    s.overridden |= DASH_CH_BIT(DASH_CH_OILP);
+    for (int i = 0; i < 10; i++)
+    {
+        dash_sim_step(&sim, &s, 50u);
+    }
+    expect(s.ch.oil_press_psi == 25.0f, "sim must not clobber an overridden channel");
+    expect(dash_ch_valid(&s, DASH_CH_OILP), "overridden channel must stay valid");
+
+    /* ---- validity discipline: cleared channels stay invalid ---- */
+    s.cleared |= DASH_CH_BIT(DASH_CH_ECT);
+    s.valid &= (uint16_t) ~DASH_CH_BIT(DASH_CH_ECT);
+    for (int i = 0; i < 10; i++)
+    {
+        dash_sim_step(&sim, &s, 50u);
+    }
+    expect(!dash_ch_valid(&s, DASH_CH_ECT), "sim must not resurrect a cleared channel");
+
+    /* ---- sim_frozen: no time accrual, no writes ---- */
+    float rpm_snap = s.ch.rpm;
+    float t_snap = sim.t_s;
+    uint32_t lap_snap = sim.lap_ms;
+    s.sim_frozen = true;
+    for (int i = 0; i < 5; i++)
+    {
+        dash_sim_step(&sim, &s, 50u);
+    }
+    expect(s.ch.rpm == rpm_snap, "frozen sim must not change rpm");
+    expect(sim.t_s == t_snap, "frozen sim must not accrue time");
+    expect(sim.lap_ms == lap_snap, "frozen sim must not accrue lap time");
+    s.sim_frozen = false;
+
+    /* ---- determinism: two identical runs agree exactly ---- */
+    DashState sa, sb;
+    DashSimState ma, mb;
+    dash_state_init(&sa);
+    dash_state_init(&sb);
+    dash_sim_init(&ma);
+    dash_sim_init(&mb);
+    for (int i = 0; i < 1000; i++)
+    {
+        dash_sim_step(&ma, &sa, 50u);
+        dash_sim_step(&mb, &sb, 50u);
+    }
+    expect(sa.ch.rpm == sb.ch.rpm, "determinism: rpm must match exactly");
+    expect(sa.ch.speed_mph == sb.ch.speed_mph, "determinism: speed must match exactly");
+    expect(sa.ch.fuel_gal == sb.ch.fuel_gal, "determinism: fuel must match exactly");
+
+    /* ---- STREET mode: cruise band, no lap timing ---- */
+    DashState st;
+    DashSimState mt;
+    dash_state_init(&st);
+    dash_sim_init(&mt);
+    st.mode = DASH_MODE_STREET;
+    for (int i = 0; i < 2400; i++) /* 2 sim-minutes at dt = 50 ms */
+    {
+        dash_sim_step(&mt, &st, 50u);
+        expect(st.ch.speed_mph >= 50.0f && st.ch.speed_mph <= 70.0f,
+               "street speed must cruise in [50, 70] mph");
+        expect(st.ch.rpm >= 1900.0f && st.ch.rpm <= 3100.0f,
+               "street rpm must stay in [1900, 3100]");
+        expect(!dash_ch_valid(&st, DASH_CH_LAP), "street mode must never validate LAP");
+        expect(!dash_ch_valid(&st, DASH_CH_LAST), "street mode must never validate LAST");
+        expect(!dash_ch_valid(&st, DASH_CH_BEST), "street mode must never validate BEST");
+    }
+    expect(st.ch.fuel_gal >= 11.99f, "street fuel burn must be ~40x slower than track");
+
+    if (failures == 0)
+    {
+        printf("OK: dash sim honors bounds, ownership, laps, freeze, and determinism\n");
+        return 0;
+    }
+    return 1;
+}
