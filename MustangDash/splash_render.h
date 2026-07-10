@@ -320,6 +320,11 @@ void run_splash(const ThemeDesc *theme)
         draw_dash_content(millis(), in_a);
         eve_frame_end();
 
+        /* the sides fade in from black on this same alpha ramp, driven by
+         * the one shared crossfade (R8/KTD9) -- never their own timers;
+         * dash_sides_frame() reselects the center before returning */
+        dash_sides_frame(in_a);
+
         if (ft >= CROSSFADE_MS) { break; }
     }
 }
