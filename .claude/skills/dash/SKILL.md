@@ -1,0 +1,69 @@
+---
+name: dash
+description: Send a bench command to the running dash over serial. Use when the user wants to force a dash value or state - set RPM/speed/temps, switch TRACK/STREET mode, trigger or clear an alarm, set the odometer, freeze or resume the simulator, or read dash status. Examples - "/dash set-rpm 3500", "/dash mode street", "/dash alarm oilp", "/dash status".
+---
+
+# Dash Bench Control
+
+Send one line of the dash's serial protocol to the connected Teensy 4.1 and
+report the firmware's `ok …` / `err …` acknowledgement. The firmware prints
+nothing over serial after boot except these acks, so the reply you read is
+always the answer to the command you sent.
+
+## Protocol
+
+Line-based ASCII at 115200 8N1, newline-terminated. Commands (all
+case-insensitive):
+
+| Command | Effect |
+|---|---|
+| `set <channel> <value>` | Force a channel; sticky until cleared |
+| `clear <channel>` | Mark a channel invalid (renders `--` / dead-front) |
+| `mode track` / `mode street` | Switch the dash view instantly |
+| `alarm oilp\|oilt\|clt` | Force the matching alarm condition |
+| `alarm off` | Release forced alarm channels back to the simulator |
+| `odo set <miles>` | Reseed the persisted odometer |
+| `sim on` / `sim off` | Resume pure simulation / freeze all values |
+| `status` | One-line report (mode, fps, key values, odometer) |
+| `help` | List commands |
+
+Channels: `rpm speed ect oilt oilp volts fuel delta lap last best ambient`.
+
+## Steps
+
+1. **Translate the skill arguments to a protocol line.**
+   - Hyphenated shorthand: `set-rpm 3500` → `set rpm 3500` (any `set-<channel> <value>`).
+   - Everything else passes through verbatim: `mode street`, `alarm oilp`,
+     `odo set 24318`, `sim on`, `clear ect`, `status`, `help`.
+   - No arguments → send `status`.
+
+2. **Send the line and read the ack.**
+   - Windows (this bench): COM4 via `System.IO.Ports.SerialPort`, 115200 8N1,
+     DTR/RTS enabled. Open, write the line + `"\n"`, read lines for up to 3 s,
+     close. Example:
+
+     ```powershell
+     $p = New-Object System.IO.Ports.SerialPort 'COM4',115200,'None',8,'One'
+     $p.DtrEnable = $true; $p.RtsEnable = $true; $p.ReadTimeout = 3000
+     $p.Open(); $p.WriteLine('set rpm 3500')
+     try { $p.ReadLine() } catch { 'NO-ACK' }
+     $p.Close()
+     ```
+
+   - macOS/Linux: the Teensy enumerates as `/dev/tty.usbmodem*` /
+     `/dev/ttyACM*`; write the line and read the ack with a short
+     non-interactive tool (`python3 -c` with the `serial` module, or
+     `stty 115200` + redirection with a `timeout`).
+
+3. **Report the ack verbatim** (`ok set rpm 3500`, `err unknown channel`, or
+   the `status` line). An `err …` reply is the firmware talking, not a bench
+   failure — show it and explain briefly.
+
+## Failure notes
+
+- Port won't open: the Teensy isn't connected or another monitor holds COM4.
+  This bench has a documented flaky-cable history — see
+  docs/solutions/integration-issues/eve-panel-bringup-no-usb-enumeration-diagnosis.md.
+- `NO-ACK`: the firmware predates the dash serial protocol (reflash), or the
+  board is mid-boot — retry once after 3 s.
+- To replay the boot splash instead, use the `/reboot-dash` skill.
