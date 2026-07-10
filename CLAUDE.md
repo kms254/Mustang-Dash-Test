@@ -52,8 +52,10 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   INT not wired → poll.
 - Panel logic on 3.3 V, backlight on external 5 V, shared ground.
 - SPI: mode 0, MSB-first, **≤ 11 MHz during every panel's EVE_init()** (we init
-  at 8 MHz), then one bus-wide raise to `DASH_SPI_RUN_HZ` (24 MHz, pending the
-  U9 read-integrity soak).
+  at 8 MHz), then one bus-wide "raise" to `DASH_SPI_RUN_HZ` — **8 MHz, bench-
+  verified**. 24 MHz failed read AND write integrity on this wiring
+  (2026-07-10: white screen, flash init 0x01, all font inflates failed,
+  fps 25 with faults=0). Walk it up only via U9's read-integrity soak.
 
 ## Library gotchas (verified against the headers)
 

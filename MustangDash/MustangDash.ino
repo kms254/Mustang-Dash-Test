@@ -135,10 +135,14 @@ static const uint32_t COLOR_NODATA    = 0x2A323BUL; /* telltale "no data" state 
 static const uint8_t BL_STEADY = 128U;
 
 /* Post-init SPI operating point (R11/KTD8). All three EVE_init()s run at the
- * conservative 8 MHz; the bus then rises to this once. 24 MHz is the first
- * candidate (panels rated 30 MHz post-config); U9's bench read-integrity
- * soak validates or tunes it -- fps alone never accepts an operating point. */
-static const uint32_t DASH_SPI_RUN_HZ = 24000000UL;
+ * conservative 8 MHz; the bus then rises to this once. 24 MHz was the first
+ * candidate (panels rated 30 MHz post-config) but FAILED read integrity on
+ * the actual bench (2026-07-10): flash init returned 0x01, all 9 font
+ * inflates failed GETPTR verification, and corrupted REG_CMDB_SPACE reads
+ * dragged fps to 25 with faults=0 -- writes mostly survived, reads did not.
+ * 8 MHz is the verified operating point until the U9 soak walks it up --
+ * fps alone never accepts an operating point. */
+static const uint32_t DASH_SPI_RUN_HZ = 8000000UL;
 
 /* ---- forward declarations (explicit prototypes, see note above) ---- */
 void set_backlight(uint8_t duty);
