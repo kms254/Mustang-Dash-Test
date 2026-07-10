@@ -113,12 +113,13 @@ store `02 00 00 00` at offset 128. Fix flow (PR #3):
    and the file header (`tests/test_dash_fonts.c:4-5`) states the rule with
    its source: "L4 format code 2 (EVE.h EVE_L4; 17 is L2)".
 
-4. **Reflashed — but as of this writing the panel eyeball is still owed.**
-   The corrected fonts are on the hardware and serial-verified only; per
-   `docs/residual-review-findings/feat-dash-layout.md`, a human look at the
-   rendered glyphs (or a photo/capture) is required before "hardware-verified"
-   can be claimed for this fix. Fittingly, the bug's own lesson applies to
-   its fix.
+4. **Reflashed and visually verified.** Kevin eyeballed the panel
+   (2026-07-10): the pre-fix glyph corruption had been visually real —
+   his words, "the font fix fixed the biggest issue" — and the corrected
+   fonts render properly. The eyeball came a step after the fix landed
+   (the doc briefly and honestly carried an "eyeball still owed" note),
+   which is itself the bug's lesson operating: the claim waited for the
+   right verification channel instead of borrowing a green serial log.
 
 Verified in the current tree (host side): the test compiles and passes under
 WSL (`OK: dash fonts honor the EVE legacy format (148B metrics, L4, even

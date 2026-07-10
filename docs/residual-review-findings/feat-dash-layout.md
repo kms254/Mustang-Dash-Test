@@ -43,7 +43,11 @@ durable record of what was **not** applied.
 
 ## Verification still owed a human eyeball
 
-- The P0 font-format fix (L2→L4) and the ASTC splash migration are
+- ~~The P0 font-format fix (L2→L4) and the ASTC splash migration are
   serial-verified only; confirm rendered glyph quality and splash visual
-  fidelity on the panel (AE8 side-by-side vs
-  `assets/dash-design/renderings/`).
+  fidelity on the panel.~~ **Verified 2026-07-10 by Kevin on the panel:
+  "looks good — the font fix fixed the biggest issue"** — confirming both
+  that the pre-fix L2/L4 corruption was visually real and that the fix
+  resolved it, along with the flash-resident splash's fidelity. A formal
+  AE8 side-by-side against `assets/dash-design/renderings/` remains
+  optional polish.
