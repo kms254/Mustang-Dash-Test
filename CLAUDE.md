@@ -143,3 +143,21 @@ is down-side contact at the panel; the panel survives being driven with no
   in documented areas.
 - `CONCEPTS.md` — shared domain vocabulary (entities, named processes, status
   concepts). Relevant when orienting to the codebase.
+
+## CE workflow (Every compound-engineering skills, .claude/skills/)
+
+The loop: **Scope → Plan → Build → Review → Ship → Learn.**
+
+1. `/ce-brainstorm` — fuzzy idea → requirements
+2. `/ce-plan` — requirements → implementation plan (docs/plans/)
+3. `/ce-work` — execute the plan
+4. `/ce-code-review` — before every PR
+5. `/ce-commit` / `/ce-commit-push-pr` — commits ALWAYS go through these
+   skills, never hand-rolled `git commit` (`/ce-resolve-pr-feedback` for
+   review comments)
+6. `/ce-compound` — bank hard-won learnings into docs/solutions/
+
+`/lfg` chains 2-5. Situational: `/ce-debug` (bugs), `/ce-simplify-code`
+(cleanup), `/ce-pov` (adopt-or-not verdicts), `/ce-compound-refresh` (stale
+learnings), `/ce-worktree` (isolated experiments). Step 6 feeds step 1 —
+that's the compounding.
