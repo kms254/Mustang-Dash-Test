@@ -129,8 +129,16 @@ int main(void)
 
         dash_ch_set(&s, DASH_CH_OILP, 25.0f);
         dash_ch_set(&s, DASH_CH_ECT, 220.0f);
+        expect(dash_alarm_classify(&s) == DASH_ALARM_CLT,
+               "low oil pressure with no rpm (engine off) must not alarm OILP");
+
+        dash_ch_set(&s, DASH_CH_RPM, 300.0f);
+        expect(dash_alarm_classify(&s) == DASH_ALARM_CLT,
+               "low oil pressure below cranking rpm must not alarm OILP");
+
+        dash_ch_set(&s, DASH_CH_RPM, 3000.0f);
         expect(dash_alarm_classify(&s) == DASH_ALARM_OILP,
-               "low oil pressure must outrank hot coolant");
+               "low oil pressure with the engine running must outrank hot coolant");
 
         dash_ch_set(&s, DASH_CH_OILP, 60.0f);
         expect(dash_alarm_classify(&s) == DASH_ALARM_CLT,
@@ -143,6 +151,7 @@ int main(void)
 
         dash_state_init(&s);
         s.ch.oil_press_psi = 25.0f; /* value present but valid bit NOT set */
+        dash_ch_set(&s, DASH_CH_RPM, 3000.0f);
         dash_ch_set(&s, DASH_CH_ECT, 220.0f);
         expect(dash_alarm_classify(&s) == DASH_ALARM_CLT,
                "invalid oil pressure value must not assert OILP (R11)");

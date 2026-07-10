@@ -54,10 +54,12 @@ static const float SIM_GEAR_RATIOS[6] = { 2.66f, 1.78f, 1.30f, 1.00f, 0.80f, 0.6
 #define SIM_WARMUP_TAU_S    90.0f    /* exponential-approach time constant */
 #define SIM_ECT_OPERATING_F 195.0f
 #define SIM_OILT_OPERATING_F 220.0f
-/* oilp = base + rpm/8000*45 + 2*sin: base 17.5 keeps it > 29 psi whenever
- * rpm > 2500 (no spurious low-oil alarms) and < 64 psi at redline */
-#define SIM_OILP_BASE_PSI   17.5f
-#define SIM_OILP_RPM_SPAN   45.0f
+/* oilp = base + rpm/8000*40 + 2*sin: base 25 keeps normal running (any
+ * rpm above ~800) clear of the 29 psi alarm threshold -- no flapping
+ * alarms at cruise-idle dips -- and tops out ~67 psi at redline. Forcing
+ * the alarm on the bench is `set oilp 25` / `alarm oilp`. */
+#define SIM_OILP_BASE_PSI   25.0f
+#define SIM_OILP_RPM_SPAN   40.0f
 #define SIM_VOLTS_NOMINAL   13.6f
 
 /* ---- fuel ---- */

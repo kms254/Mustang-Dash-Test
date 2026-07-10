@@ -34,6 +34,12 @@
 #define DASH_SHIFT_FLASH_HALF_MS  62U  /* ~8 Hz */
 #define DASH_ALARM_FLASH_HALF_MS 179U  /* ~2.8 Hz */
 
+/* The oil-pressure ALARM is meaningless with the engine off -- every real
+ * cluster suppresses it below cranking speed, or key-on before start would
+ * be a permanent takeover. The OIL telltale dot stays ungated (design
+ * spec); only the full-screen alarm requires a running engine. */
+#define DASH_ENGINE_RUNNING_RPM 500.0f
+
 /* ---- warning thresholds (README spec, display units) ---- */
 #define DASH_ECT_AMBER_F    210.0f  /* amber above */
 #define DASH_ECT_RED_F      217.0f  /* red above */
@@ -176,7 +182,10 @@ static inline bool dash_telltale_oil(float oil_press_psi, bool oilp_valid,
  * oil pressure > oil temperature > coolant. */
 static inline DashAlarm dash_alarm_classify(const DashState *s)
 {
-    if (dash_ch_valid(s, DASH_CH_OILP) && s->ch.oil_press_psi < DASH_OILP_RED_PSI)
+    const bool engine_running = dash_ch_valid(s, DASH_CH_RPM)
+        && (s->ch.rpm >= DASH_ENGINE_RUNNING_RPM);
+    if (engine_running
+        && dash_ch_valid(s, DASH_CH_OILP) && s->ch.oil_press_psi < DASH_OILP_RED_PSI)
     {
         return DASH_ALARM_OILP;
     }

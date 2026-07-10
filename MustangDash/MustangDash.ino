@@ -17,18 +17,20 @@
  *      (a healthy BT817 returns 0x7C) and reports both on Serial
  *   3. checks the splash ASTC assets in the panel's QSPI flash against the
  *      embedded pack (splash_flash.h) and provisions them once on mismatch
- *      (CMD_FLASHUPDATE, sector 0 never touched); decodes the pony PNG into
- *      RAM_G -- all with the backlight held dark so nothing flashes
+ *      (CMD_FLASHUPDATE, sector 0 never touched); inflates the dash fonts
+ *      into RAM_G (dash_fonts.h) -- all with the backlight held dark
  *   4. plays the 2000 ms animated splash (assets/splash/README.md spec,
  *      timing in splash_timeline.h; theme picked in splash_config.h),
  *      rendering ASTC bitmaps directly from flash, lighting the backlight
  *      only after the first frame is on screen
- *   5. crossfades ~400 ms into the pony screen: dark background, galloping
- *      pony logo, red/white/blue tri-bar, and "MUSTANG" in ROM font 31 --
- *      the standing display (steady 100% backlight at 10 kHz PWM)
+ *   5. crossfades ~400 ms into the dash -- TRACK or STREET view fed by the
+ *      built-in simulator (dash_sim.h) with serial overrides (dash_serial.h),
+ *      alarm takeover on critical conditions, EEPROM-persisted odometer --
+ *      the standing display, redrawn continuously from loop()
  *
- * Serial is 115200 8N1. After the splash it prints the rendered frame
- * count -- >= 100 frames in the 2000 ms window means the >= 50 fps target.
+ * Serial is 115200 8N1. Boot prints a diagnostic banner; after boot the
+ * firmware emits nothing except one `ok ...` / `err ...` ack per received
+ * command line (see dash_serial.h for the protocol; /dash skill wraps it).
  *
  * Note: this project also builds offline with a minimal arduino-cli Teensy
  * platform that does not run the arduino .ino prototype generator, so every
@@ -37,11 +39,18 @@
 
 #include <Arduino.h>
 #include <SPI.h>
+#include <avr/eeprom.h> /* Teensy 4.1 wear-leveled EEPROM emulation (4284 B) */
 #include "EVE.h"
-#include "pony_png.h"
 #include "splash_config.h"
 #include "splash_timeline.h"
 #include "splash_flash.h" /* after EVE.h so its guarded EVE_ASTC_* defer to the library */
+#include "dash_data.h"
+#include "dash_math.h"
+#include "dash_layout.h"
+#include "dash_sim.h"
+#include "dash_serial.h"
+#include "dash_odo.h"
+#include "dash_fonts.h"
 
 /* Teensy 4 USB device state: non-zero once the USB host has configured us
  * (cores/teensy4/usb.c). Zero when running from a wall adapter / car power. */
@@ -96,39 +105,82 @@ static_assert((SPLASH_THEME_BLUE == 0) && (SPLASH_THEME_RED == 1) && (SPLASH_THE
  * R5; the flash pack always carries all three asset sets anyway). */
 static volatile uint8_t g_theme = SPLASH_THEME;
 
-/* The pony PNG still decodes into RAM_G (address 0); a later unit retires
- * the pony screen. */
-struct LoadedAsset
+/* ---- dash state ---- */
+
+/* Fonts occupy RAM_G from address 0 (~273 KB decoded; dash_fonts.h footer
+ * has the exact figure). The splash renders from QSPI flash, so fonts are
+ * RAM_G's only standing tenant. */
+struct DashFontLoaded
 {
-    uint32_t addr;
-    uint16_t fmt;
-    uint16_t w;
-    uint16_t h;
+    uint32_t metrics_addr; /* 148-byte block, passed to CMD_SETFONT2 */
+    bool ok;               /* false -> renderers fall back to ROM font 31 */
 };
 
-enum
+static DashFontLoaded g_fonts[DASH_FONT_COUNT];
+static DashState g_dash;
+static DashSimState g_sim;
+static DashOdo g_odo;
+
+/* One sweep gauge (KTD2/KTD9): geometry derives from the design's shared
+ * viewBox fractions (ticks r80-88, labels r66, needle r62, hub r7). */
+struct GaugeSpec
 {
-    L_PONY = 0,
-    L_COUNT
+    float cx, cy, r;      /* panel px */
+    int16_t stroke;       /* arc stroke, panel px */
+    uint8_t label_font;   /* DF_* index for tick labels */
+    uint8_t hub_font;     /* DF_* index for the hub value */
+    const char *hub_unit; /* "MPH" / "RPM" */
 };
 
-static LoadedAsset g_loaded[L_COUNT];
+struct Telltale
+{
+    const char *label;
+    bool valid;
+    bool lit;
+    uint32_t color;
+};
+
+static char g_serial_line[DASH_SERIAL_MAX_LINE + 17]; /* headroom to detect too-long */
+static uint8_t g_serial_len = 0U;
+
+static uint32_t g_loop_last_ms = 0UL;
+static uint16_t g_fps = 0U;         /* frames completed in the last full second */
+static uint16_t g_fps_frames = 0U;
+static uint32_t g_fps_window_ms = 0UL;
+static uint16_t g_dl_track = 0U;    /* boot-measured DL usage per mode (bytes/4) */
+static uint16_t g_dl_street = 0U;
 
 /* RAM_G scratch used only while provisioning the splash pack at boot:
  * a 64-byte header readback at the top of RAM_G and a 32 KB staging
  * buffer for CMD_FLASHUPDATE chunks just below it -- both far above the
- * pony bitmap at address 0 (~288 KB). */
+ * fonts (~273 KB from address 0). */
 static const uint32_t SCRATCH_HDR = 0xFF000UL;
 static const uint32_t SCRATCH_BUF = 0xF7000UL;
 static const uint32_t PROVISION_CHUNK = 0x8000UL; /* 32 KB, multiple of 4096 */
 
-/* ---- colours (0xRRGGBB) ---- */
-static const uint32_t COLOR_BG       = 0x0A0E14UL; /* near-black, faint blue */
-static const uint32_t COLOR_PONY     = 0xE8E8ECUL; /* silver-white */
-static const uint32_t COLOR_TITLE    = 0xFFFFFFUL; /* white */
-static const uint32_t COLOR_BAR_R    = 0xC8102EUL; /* tri-bar red */
-static const uint32_t COLOR_BAR_W    = 0xF5F5F5UL; /* tri-bar white */
-static const uint32_t COLOR_BAR_B    = 0x1B3E8CUL; /* tri-bar blue */
+/* ---- colours (0xRRGGBB, design tokens from assets/dash-design/README.md) ---- */
+static const uint32_t COLOR_BG        = 0x080B0FUL; /* flat panel fill (spec-sanctioned) */
+static const uint32_t COLOR_ACCENT    = 0xE8A33CUL; /* gold: arcs, RPM fill */
+static const uint32_t COLOR_GREEN     = 0x3DDF77UL; /* ok / delta ahead */
+static const uint32_t COLOR_AMBER     = 0xF2B13EUL; /* warn */
+static const uint32_t COLOR_RED_FILL  = 0xFF3B3BUL; /* alert fills / LEDs */
+static const uint32_t COLOR_RED_TEXT  = 0xFF5252UL; /* alert text */
+static const uint32_t COLOR_VALUE     = 0xF4F7F9UL; /* primary numerals */
+static const uint32_t COLOR_VALUE_DIM = 0xC3CCD4UL; /* secondary values */
+static const uint32_t COLOR_ODO       = 0x8B97A3UL; /* odometer value */
+static const uint32_t COLOR_LABEL     = 0x5F6B76UL; /* small caps labels */
+static const uint32_t COLOR_FAINT     = 0x454F59UL; /* footer / compressed ticks */
+static const uint32_t COLOR_TICK_DIM  = 0x49545FUL; /* dim knee-region tick labels */
+static const uint32_t COLOR_HAIRLINE  = 0x151B22UL; /* dividers */
+static const uint32_t COLOR_ARC_TRACK = 0x141B23UL; /* gauge background arc */
+static const uint32_t COLOR_BAR_TRACK = 0x0C1117UL; /* RPM bar track / hub disc */
+static const uint32_t COLOR_REDZONE   = 0x5C1616UL; /* static tach red-zone arc */
+static const uint32_t COLOR_MUTED_RED = 0x864B4BUL; /* the muted "8" scale mark */
+static const uint32_t COLOR_BEST      = 0xB79AFFUL; /* best-lap purple */
+static const uint32_t COLOR_ALARM_TXT = 0xFFD9D9UL; /* alarm header/limit text */
+static const uint32_t COLOR_HUB_RING  = 0x39434DUL; /* gauge hub ring / dead labels */
+static const uint32_t COLOR_DEAD_DOT  = 0x161D25UL; /* telltale dead-front dot */
+static const uint32_t COLOR_NODATA    = 0x2A323BUL; /* telltale "no data" state (KTD4) */
 
 /* steady backlight duty: 128 = 100% (the EVE PWM scale tops out at 128) */
 static const uint8_t BL_STEADY = 128U;
@@ -141,16 +193,27 @@ static bool eve_ready = false; /* set true only if EVE_init() reported E_OK */
 void set_backlight(uint8_t duty);
 void eve_frame_begin(uint32_t clear_rgb);
 void eve_frame_end(void);
-void load_pony_asset(void);
 bool splash_header_current(void);
 bool splash_flash_provision(void);
 void draw_flash_asset(const SplashFlashAsset *a, int16_t x, int16_t y);
 void draw_splash_background(const SplashFlashAsset *bg, uint8_t alpha);
 void draw_splash_emblem(const SplashFlashAsset *emblem, float scale, uint8_t alpha);
 void draw_splash_elements(const ThemeDesc *theme, uint32_t now_ms, uint8_t global_alpha);
-void draw_pony_elements(uint8_t alpha);
-void draw_dash(void);
 void run_splash(const ThemeDesc *theme);
+bool load_dash_fonts(void);
+uint16_t dash_font(uint8_t idx);
+void dash_register_fonts(void);
+void odo_eeprom_load(void);
+void odo_eeprom_write(void);
+void pump_serial(void);
+void handle_serial_line(const char *line);
+void dash_color(uint32_t rgb, uint8_t alpha);
+void draw_dash_content(uint32_t now_ms, uint8_t alpha);
+void draw_track_mode(uint32_t now_ms, uint8_t alpha);
+void draw_street_mode(uint32_t now_ms, uint8_t alpha);
+void draw_alarm_takeover(DashAlarm alarm, uint32_t now_ms, uint8_t alpha);
+uint16_t measure_mode_dl(DashMode mode);
+void dash_frame(uint32_t now_ms);
 
 void setup(void)
 {
@@ -214,16 +277,22 @@ void setup(void)
     Serial.printf("EVE_init_flash() returned 0x%02X (E_OK=0x00), REG_FLASH_SIZE = %lu MB\r\n",
                   flash_ret, (unsigned long)flash_mb);
 
+    /* Odometer loads regardless of panel state -- it is Teensy-local. */
+    dash_state_init(&g_dash);
+    dash_sim_init(&g_sim);
+    dash_odo_init(&g_odo);
+    odo_eeprom_load();
+    Serial.printf("Odometer: %.1f mi (trip %.1f)\r\n",
+                  (double)dash_odo_miles(&g_odo), (double)dash_trip_miles(&g_odo));
+
     if (E_OK == ret)
     {
         eve_ready = true;
 
-        /* Backlight stays dark through flash provisioning + the pony PNG
-         * decode so power-up never flashes a lit blank panel; run_splash()
-         * lights it once the first splash frame is on screen. */
+        /* Backlight stays dark through flash provisioning + font upload so
+         * power-up never flashes a lit blank panel; run_splash() lights it
+         * once the first splash frame is on screen. */
         set_backlight(0U);
-
-        load_pony_asset();
 
         /* Splash needs its ASTC assets in the panel's QSPI flash; verify
          * (and provision on first boot / asset change). Skipped -- along
@@ -239,26 +308,82 @@ void setup(void)
             Serial.println(F("QSPI flash unavailable -> skipping splash (assets live in flash)."));
         }
 
+        /* Dash fonts into RAM_G before the splash starts (KTD3): the upload
+         * replaces the old splash-PNG decode in the boot budget, so
+         * time-to-splash stays roughly what it was. */
+        load_dash_fonts();
+
+        /* Seed the first visible dash frame: everything starts invalid,
+         * then one sim step fills plausible values -- an uninitialized
+         * channel can never flash a false alarm at power-up (KTD3). */
+        g_loop_last_ms = millis();
+        dash_sim_step(&g_sim, &g_dash, 50U);
+
+        /* One-time DL-usage diagnostic per mode (KTD8): built un-swapped
+         * while the panel still shows nothing, printed into the banner --
+         * after boot the only serial output is command acks. */
+        g_dl_track = measure_mode_dl(DASH_MODE_TRACK);
+        g_dl_street = measure_mode_dl(DASH_MODE_STREET);
+        Serial.printf("DL usage: track %u/2048 words, street %u/2048\r\n",
+                      (unsigned)g_dl_track, (unsigned)g_dl_street);
+
         if (splash_ok)
         {
             const ThemeDesc *theme = &THEMES[g_theme];
-            run_splash(theme); /* 2000 ms animation + 400 ms crossfade, blocking */
+            run_splash(theme); /* 2000 ms animation + 400 ms crossfade into the dash */
         }
 
-        draw_dash(); /* the standing pony screen */
         set_backlight(BL_STEADY); /* no-op after the splash; lights the panel if it was skipped */
-        Serial.println(F("EVE init OK: splash played, pony screen up, backlight steady at 100%."));
+        Serial.println(F("EVE init OK: dash live. Serial is command-only from here (try 'help')."));
     }
     else
     {
-        Serial.println(F("EVE_init() did NOT return E_OK - see failure guide in the summary."));
-        Serial.println(F("Halting render; will still print this once. Check wiring / power / SPI."));
+        Serial.println(F("EVE_init() did NOT return E_OK - dash rendering disabled."));
+        Serial.println(F("Serial commands still ack ('status' reports the failure). Check wiring / power / SPI."));
     }
+
+    g_loop_last_ms = millis();
+    g_fps_window_ms = g_loop_last_ms;
 }
 
 void loop(void)
 {
-    /* static image, steady backlight: nothing to do */
+    /* The live pipeline (KTD8): serial -> sim -> odometer -> alarm -> frame.
+     * Runs even when the panel is dead (eve_ready false) so the bench
+     * control surface survives -- only the render step is gated. */
+    pump_serial();
+
+    const uint32_t now = millis();
+    const uint32_t dt = now - g_loop_last_ms;
+    g_loop_last_ms = now;
+
+    dash_sim_step(&g_sim, &g_dash, dt); /* honors sim_frozen + overrides */
+
+    if (dash_ch_valid(&g_dash, DASH_CH_SPEED))
+    {
+        dash_odo_advance(&g_odo, g_dash.ch.speed_mph, dt);
+    }
+    if (dash_odo_should_write(&g_odo))
+    {
+        odo_eeprom_write();
+        dash_odo_mark_written(&g_odo);
+    }
+
+    if (!eve_ready)
+    {
+        return;
+    }
+
+    dash_frame(now);
+
+    /* fps accounting for the status ack: frames completed per full second */
+    g_fps_frames++;
+    if ((now - g_fps_window_ms) >= 1000UL)
+    {
+        g_fps = g_fps_frames;
+        g_fps_frames = 0U;
+        g_fps_window_ms = now;
+    }
 }
 
 /* Write the backlight PWM duty (0..128 is the full range on EVE). */
@@ -283,16 +408,171 @@ void eve_frame_end(void)
     EVE_execute_cmd();
 }
 
-/* Decode the pony PNG into RAM_G at address 0 (~288 KB as ARGB4). The
- * splash renders straight from QSPI flash, so this is RAM_G's only tenant. */
-void load_pony_asset(void)
+/* Inflate every dash font into RAM_G from address 0 and patch each metric
+ * block's glyph pointer (KTD1). Success is verified with CMD_GETPTR: the
+ * coprocessor reports the inflate end address, which must equal the packed
+ * glyph size exactly. One retry per instance; a failed instance falls back
+ * to ROM font 31 at render time (a degraded dash beats a black panel). */
+bool load_dash_fonts(void)
 {
-    g_loaded[L_PONY].addr = 0UL;
-    g_loaded[L_PONY].fmt = EVE_ARGB4;
-    g_loaded[L_PONY].w = PONY_PNG_WIDTH;
-    g_loaded[L_PONY].h = PONY_PNG_HEIGHT;
-    EVE_cmd_loadimage(0UL, EVE_OPT_NODL, pony_png, sizeof(pony_png));
-    EVE_execute_cmd(); /* wait for the on-chip decode to finish */
+    uint32_t addr = 0UL;
+    bool all_ok = true;
+
+    for (uint8_t i = 0U; i < DASH_FONT_COUNT; i++)
+    {
+        const DashFontDesc *f = &DASH_FONTS[i];
+        const uint32_t maddr = addr;
+        const uint32_t gaddr = (maddr + 148UL + 3UL) & ~3UL;
+        const uint32_t gend_expected = gaddr + f->glyph_bytes;
+        bool ok = false;
+
+        for (uint8_t attempt = 0U; (attempt < 2U) && !ok; attempt++)
+        {
+            EVE_cmd_inflate(gaddr, f->glyphs_z, f->zbytes);
+            EVE_execute_cmd();
+            ok = (EVE_cmd_getptr() == gend_expected);
+        }
+
+        if (ok)
+        {
+            uint8_t block[148];
+            memcpy(block, f->metrics, 148U);
+            block[144] = (uint8_t)(gaddr & 0xFFU); /* patch gptr, LE */
+            block[145] = (uint8_t)((gaddr >> 8) & 0xFFU);
+            block[146] = (uint8_t)((gaddr >> 16) & 0xFFU);
+            block[147] = (uint8_t)((gaddr >> 24) & 0xFFU);
+            EVE_memWrite_flash_buffer(maddr, block, 148UL);
+        }
+        else
+        {
+            Serial.printf("Font %u inflate FAILED twice -> ROM font 31 fallback\r\n", (unsigned)i);
+            all_ok = false;
+        }
+
+        g_fonts[i].metrics_addr = maddr;
+        g_fonts[i].ok = ok;
+        addr = (gend_expected + 3UL) & ~3UL;
+    }
+
+    Serial.printf("RAM_G: fonts %lu bytes (headroom %lu)\r\n",
+                  (unsigned long)addr, (unsigned long)(EVE_RAM_G_SIZE - addr));
+    return all_ok;
+}
+
+/* Render-time font selector: the instance's bitmap handle, or ROM font 31
+ * when that instance failed to load. */
+uint16_t dash_font(uint8_t idx)
+{
+    return g_fonts[idx].ok ? (uint16_t)DASH_FONTS[idx].handle : 31U;
+}
+
+/* CMD_SETFONT2 emits display-list commands, so every frame that uses the
+ * custom fonts re-registers them at its top (~5 words per instance). */
+void dash_register_fonts(void)
+{
+    for (uint8_t i = 0U; i < DASH_FONT_COUNT; i++)
+    {
+        if (g_fonts[i].ok)
+        {
+            EVE_cmd_setfont2((uint32_t)DASH_FONTS[i].handle,
+                             g_fonts[i].metrics_addr,
+                             (uint32_t)DASH_FONTS[i].firstchar);
+        }
+    }
+}
+
+/* ---- odometer EEPROM glue (KTD7): the pure record logic lives in
+ * dash_odo.h; this is the only code that touches the EEPROM API ---- */
+void odo_eeprom_load(void)
+{
+    uint8_t rec[DASH_ODO_RECORD_SIZE];
+    eeprom_read_block(rec, (const void *)DASH_ODO_EEPROM_ADDR, DASH_ODO_RECORD_SIZE);
+    if (!dash_odo_decode(&g_odo, rec))
+    {
+        dash_odo_init(&g_odo); /* blank or corrupt record: clean zero start */
+    }
+}
+
+void odo_eeprom_write(void)
+{
+    uint8_t rec[DASH_ODO_RECORD_SIZE];
+    dash_odo_encode(&g_odo, rec);
+    eeprom_write_block(rec, (void *)DASH_ODO_EEPROM_ADDR, DASH_ODO_RECORD_SIZE);
+}
+
+/* ---- serial pump (KTD6): accumulate a line, parse, apply, ack ---- */
+void pump_serial(void)
+{
+    while (Serial.available() > 0)
+    {
+        const char c = (char)Serial.read();
+        if ('\n' == c)
+        {
+            g_serial_line[g_serial_len] = '\0';
+            handle_serial_line(g_serial_line);
+            g_serial_len = 0U;
+        }
+        else if (g_serial_len < (sizeof(g_serial_line) - 1U))
+        {
+            g_serial_line[g_serial_len++] = c;
+        }
+    }
+}
+
+void handle_serial_line(const char *line)
+{
+    DashCommand cmd;
+    const DashSerialErr err = dash_parse_line(line, &cmd);
+
+    if (DASH_ERR_EMPTY == err)
+    {
+        return; /* blank lines are ignored silently */
+    }
+    if (DASH_ERR_NONE != err)
+    {
+        static const char *const reasons[] = {
+            "none", "empty", "unknown command", "unknown channel",
+            "missing value", "bad value", "value out of range", "line too long"
+        };
+        Serial.printf("err %s\r\n", reasons[err]);
+        return;
+    }
+
+    char reply[96];
+    if (dash_apply_command(&g_dash, &cmd, reply, sizeof(reply)))
+    {
+        Serial.println(reply);
+        return;
+    }
+
+    /* ODO_SET / STATUS / HELP are the caller's (ours) to handle */
+    switch (cmd.kind)
+    {
+        case DASH_CMD_ODO_SET:
+            dash_odo_reseed(&g_odo, cmd.value);
+            odo_eeprom_write();
+            dash_odo_mark_written(&g_odo);
+            Serial.printf("ok odo set %.1f\r\n", (double)dash_odo_miles(&g_odo));
+            break;
+        case DASH_CMD_STATUS:
+            Serial.printf("ok status mode=%s fps=%u rpm=%.0f speed=%.0f ect=%.0f oilp=%.1f "
+                          "fuel=%.1f odo=%.1f trip=%.1f dl=%u/%u eve=%s\r\n",
+                          (DASH_MODE_TRACK == g_dash.mode) ? "track" : "street",
+                          (unsigned)g_fps,
+                          (double)g_dash.ch.rpm, (double)g_dash.ch.speed_mph,
+                          (double)g_dash.ch.ect_f, (double)g_dash.ch.oil_press_psi,
+                          (double)g_dash.ch.fuel_gal,
+                          (double)dash_odo_miles(&g_odo), (double)dash_trip_miles(&g_odo),
+                          (unsigned)g_dl_track, (unsigned)g_dl_street,
+                          eve_ready ? "ok" : "INIT-FAILED");
+            break;
+        case DASH_CMD_HELP:
+            Serial.printf("ok %s\r\n", DASH_HELP_TEXT);
+            break;
+        default:
+            Serial.println(F("err unhandled command"));
+            break;
+    }
 }
 
 /* Read the 64-byte pack header from flash and compare it against the
@@ -493,54 +773,603 @@ void draw_splash_elements(const ThemeDesc *theme, uint32_t now_ms, uint8_t globa
 #undef SPLASH_A
 }
 
-/* The pony screen's elements (logo + tri-bar + wordmark) at a given alpha,
- * shared by the standing screen (alpha 255) and the crossfade ramp. */
-void draw_pony_elements(uint8_t alpha)
+/* ---- dash rendering ----
+ *
+ * Everything below draws in plain (non-burst) command mode: at 8 MHz SPI a
+ * full STREET frame is a few ms of transfer, comfortably over 30 fps, and
+ * plain mode lets the crossfade mix splash + dash in one display list. The
+ * _burst path (KTD8) stays available as an optimization if the measured fps
+ * ever drops.
+ *
+ * Layout: mock coordinates (620x400) scaled through DASH_LX/LY (positions,
+ * rect extents) and DASH_LR (radii, strokes, font-ish sizes) per KTD9.
+ * Invalid channels follow the KTD4 convention: text renders "--", fills
+ * render empty, LEDs dark, needles park at rest at dead-front opacity,
+ * telltales show the distinct COLOR_NODATA state. */
+
+/* font registry indices (order fixed by tools/make_dash_fonts.py) */
+enum
 {
-    /* layout (1024 x 600): logo centered up top, tri-bar accent below it,
-     * MUSTANG wordmark at the bottom */
-    const int16_t logo_x = (int16_t)((EVE_HSIZE - PONY_PNG_WIDTH) / 2U); /* 272 */
-    const int16_t logo_y = 90;
-    const int16_t bar_w = 18, bar_h = 56, bar_gap = 8;
-    const int16_t bars_x = (int16_t)((EVE_HSIZE - (3U * bar_w + 2U * bar_gap)) / 2U);
-    const int16_t bars_y = 406;
-    const LoadedAsset *pony = &g_loaded[L_PONY];
+    DF_HERO = 0, DF_BIG, DF_MID, DF_VAL, DF_SMALL, DF_TITLE, DF_LABEL, DF_TINY
+};
 
+/* COLOR_RGB + COLOR_A in one call; alpha pre-scaled by the crossfade. */
+void dash_color(uint32_t rgb, uint8_t alpha)
+{
+    EVE_color_rgb(rgb);
     EVE_cmd_dl(COLOR_A(alpha));
+}
 
-    /* pony logo bitmap (decoded PNG in RAM_G), tinted silver-white */
-    EVE_color_rgb(COLOR_PONY);
-    EVE_cmd_setbitmap(pony->addr, pony->fmt, pony->w, pony->h);
-    EVE_cmd_dl(DL_BEGIN | EVE_BITMAPS);
-    EVE_cmd_dl(VERTEX2F((int16_t)(logo_x * 16), (int16_t)(logo_y * 16)));
-    EVE_cmd_dl(DL_END);
+#define DA(a) ((uint8_t)(((uint16_t)(a) * (uint16_t)alpha) / 255U))
 
-    /* tri-bar accent: red / white / blue */
-    EVE_cmd_dl(DL_LINE_WIDTH | 16UL); /* 1 px corner radius */
+/* A rounded-capsule bar: RECTS with LINE_WIDTH as the corner radius. */
+static void draw_pill(int16_t x, int16_t y, int16_t w, int16_t h)
+{
+    const int16_t r = (int16_t)(h / 2);
+    EVE_cmd_dl(DL_LINE_WIDTH | (uint32_t)(r * 16));
     EVE_cmd_dl(DL_BEGIN | EVE_RECTS);
-    EVE_color_rgb(COLOR_BAR_R);
-    EVE_cmd_dl(VERTEX2F((int16_t)(bars_x * 16), (int16_t)(bars_y * 16)));
-    EVE_cmd_dl(VERTEX2F((int16_t)((bars_x + bar_w) * 16), (int16_t)((bars_y + bar_h) * 16)));
-    EVE_color_rgb(COLOR_BAR_W);
-    EVE_cmd_dl(VERTEX2F((int16_t)((bars_x + bar_w + bar_gap) * 16), (int16_t)(bars_y * 16)));
-    EVE_cmd_dl(VERTEX2F((int16_t)((bars_x + 2 * bar_w + bar_gap) * 16), (int16_t)((bars_y + bar_h) * 16)));
-    EVE_color_rgb(COLOR_BAR_B);
-    EVE_cmd_dl(VERTEX2F((int16_t)((bars_x + 2 * (bar_w + bar_gap)) * 16), (int16_t)(bars_y * 16)));
-    EVE_cmd_dl(VERTEX2F((int16_t)((bars_x + 3 * bar_w + 2 * bar_gap) * 16), (int16_t)((bars_y + bar_h) * 16)));
+    EVE_cmd_dl(VERTEX2F((int16_t)((x + r) * 16), (int16_t)((y + r) * 16)));
+    EVE_cmd_dl(VERTEX2F((int16_t)((x + w - r) * 16), (int16_t)((y + h - r) * 16)));
+    EVE_cmd_dl(DL_END);
+}
+
+/* Value arc as a LINE_STRIP polyline, one segment per ~3 degrees, endpoints
+ * precomputed on the M7 (no CMD_ARC on BT817). frac0 < frac1 in gauge
+ * fractions; stroke_px is the full stroke width. */
+static void draw_arc(float cx, float cy, float r, float frac0, float frac1, int16_t stroke_px)
+{
+    const float sweep = frac1 - frac0;
+    if (sweep <= 0.0f)
+    {
+        return;
+    }
+    int n = (int)(sweep * 80.0f) + 1; /* 80 segments per full 240 deg sweep */
+    if (n < 2) { n = 2; }
+
+    EVE_cmd_dl(DL_LINE_WIDTH | (uint32_t)(stroke_px * 8)); /* half-width in 1/16 px */
+    EVE_cmd_dl(DL_BEGIN | EVE_LINE_STRIP);
+    for (int i = 0; i <= n; i++)
+    {
+        float x;
+        float y;
+        dash_arc_point(cx, cy, r, frac0 + sweep * ((float)i / (float)n), &x, &y);
+        EVE_cmd_dl(VERTEX2F((int16_t)(x * 16.0f), (int16_t)(y * 16.0f)));
+    }
+    EVE_cmd_dl(DL_END);
+}
+
+static void draw_gauge_chrome(const GaugeSpec *g, uint8_t alpha)
+{
+    dash_color(COLOR_ARC_TRACK, alpha);
+    draw_arc(g->cx, g->cy, g->r, 0.0f, 1.0f, g->stroke);
+}
+
+static void draw_gauge_needle_hub(const GaugeSpec *g, float frac, bool valid, uint8_t alpha)
+{
+    const uint8_t na = valid ? alpha : DA(70); /* dead-front park when invalid */
+    float nx;
+    float ny;
+    dash_arc_point(g->cx, g->cy, g->r * DASH_GAUGE_NEEDLE_R_FRAC,
+                   valid ? frac : 0.0f, &nx, &ny);
+
+    dash_color(COLOR_VALUE, na);
+    EVE_cmd_dl(DL_LINE_WIDTH | (uint32_t)(DASH_LR(3) * 8));
+    EVE_cmd_dl(DL_BEGIN | EVE_LINES);
+    EVE_cmd_dl(VERTEX2F((int16_t)(g->cx * 16.0f), (int16_t)(g->cy * 16.0f)));
+    EVE_cmd_dl(VERTEX2F((int16_t)(nx * 16.0f), (int16_t)(ny * 16.0f)));
     EVE_cmd_dl(DL_END);
 
-    /* wordmark */
-    EVE_color_rgb(COLOR_TITLE);
-    EVE_cmd_text((int16_t)(EVE_HSIZE / 2U), 512, 31U, EVE_OPT_CENTER, "MUSTANG");
+    /* hub disc + ring */
+    const int16_t hub_r = (int16_t)(g->r * DASH_GAUGE_HUB_R_FRAC);
+    dash_color(COLOR_HUB_RING, alpha);
+    EVE_cmd_dl(DL_POINT_SIZE | (uint32_t)((hub_r + DASH_LR(2)) * 16));
+    EVE_cmd_dl(DL_BEGIN | EVE_POINTS);
+    EVE_cmd_dl(VERTEX2F((int16_t)(g->cx * 16.0f), (int16_t)(g->cy * 16.0f)));
+    EVE_cmd_dl(DL_END);
+    dash_color(COLOR_BAR_TRACK, alpha);
+    EVE_cmd_dl(DL_POINT_SIZE | (uint32_t)(hub_r * 16));
+    EVE_cmd_dl(DL_BEGIN | EVE_POINTS);
+    EVE_cmd_dl(VERTEX2F((int16_t)(g->cx * 16.0f), (int16_t)(g->cy * 16.0f)));
+    EVE_cmd_dl(DL_END);
+}
 
+static void draw_gauge_ticks(const GaugeSpec *g, const float *fracs, uint8_t count, uint8_t alpha)
+{
+    dash_color(COLOR_HUB_RING, alpha);
+    EVE_cmd_dl(DL_LINE_WIDTH | (uint32_t)(DASH_LR(2) * 8));
+    EVE_cmd_dl(DL_BEGIN | EVE_LINES);
+    for (uint8_t i = 0U; i < count; i++)
+    {
+        float x0, y0, x1, y1;
+        dash_arc_point(g->cx, g->cy, g->r * DASH_GAUGE_TICK_IN_FRAC, fracs[i], &x0, &y0);
+        dash_arc_point(g->cx, g->cy, g->r * DASH_GAUGE_TICK_OUT_FRAC, fracs[i], &x1, &y1);
+        EVE_cmd_dl(VERTEX2F((int16_t)(x0 * 16.0f), (int16_t)(y0 * 16.0f)));
+        EVE_cmd_dl(VERTEX2F((int16_t)(x1 * 16.0f), (int16_t)(y1 * 16.0f)));
+    }
+    EVE_cmd_dl(DL_END);
+}
+
+/* ---- TRACK mode (U7): shift lights, GPS hero, RPM bar, lap/delta ---- */
+void draw_track_mode(uint32_t now_ms, uint8_t alpha)
+{
+    char buf[24];
+    const bool rpm_ok = dash_ch_valid(&g_dash, DASH_CH_RPM);
+    const bool spd_ok = dash_ch_valid(&g_dash, DASH_CH_SPEED);
+    const float rpm = g_dash.ch.rpm;
+
+    /* shift lights: 15 LEDs, dia 18 mock, gap 9; all dark when rpm invalid */
+    const bool flash_zone = rpm_ok && dash_shift_flash_zone(rpm);
+    const bool flash_on = dash_flash_phase(now_ms, DASH_SHIFT_FLASH_HALF_MS);
+    const uint8_t lit = rpm_ok ? dash_shift_led_count(rpm) : 0U;
+    const int16_t led_r = (int16_t)(DASH_LR(18) / 2);
+    for (uint8_t i = 0U; i < DASH_SHIFT_LED_COUNT; i++)
+    {
+        const int16_t cx = DASH_LX(121 + i * 27);
+        const int16_t cy = DASH_LY(31);
+        bool on = rpm_ok && ((i + 1U) <= lit);
+        uint32_t col = (i < 10U) ? COLOR_GREEN : (i < 13U) ? COLOR_AMBER : COLOR_RED_FILL;
+        if (flash_zone)
+        {
+            on = flash_on;
+            col = COLOR_RED_FILL;
+        }
+        if (on)
+        {
+            /* glow: a larger soft point behind the lit LED */
+            dash_color(col, DA(60));
+            EVE_cmd_dl(DL_POINT_SIZE | (uint32_t)((led_r + DASH_LR(6)) * 16));
+            EVE_cmd_dl(DL_BEGIN | EVE_POINTS);
+            EVE_cmd_dl(VERTEX2F((int16_t)(cx * 16), (int16_t)(cy * 16)));
+            EVE_cmd_dl(DL_END);
+        }
+        dash_color(on ? col : COLOR_DEAD_DOT, on ? alpha : DA(230));
+        EVE_cmd_dl(DL_POINT_SIZE | (uint32_t)(led_r * 16));
+        EVE_cmd_dl(DL_BEGIN | EVE_POINTS);
+        EVE_cmd_dl(VERTEX2F((int16_t)(cx * 16), (int16_t)(cy * 16)));
+        EVE_cmd_dl(DL_END);
+    }
+
+    /* hairline divider under the LED row */
+    dash_color(COLOR_HAIRLINE, alpha);
+    EVE_cmd_dl(DL_LINE_WIDTH | 8UL);
+    EVE_cmd_dl(DL_BEGIN | EVE_LINES);
+    EVE_cmd_dl(VERTEX2F((int16_t)(DASH_LX(20) * 16), (int16_t)(DASH_LY(60) * 16)));
+    EVE_cmd_dl(VERTEX2F((int16_t)(DASH_LX(600) * 16), (int16_t)(DASH_LY(60) * 16)));
+    EVE_cmd_dl(DL_END);
+
+    /* GPS SPEED hero, centered in the left column (mock center x 210) */
+    const int16_t hx = DASH_LX(210);
+    dash_color(COLOR_LABEL, alpha);
+    EVE_cmd_text(hx, DASH_LY(112), dash_font(DF_LABEL), EVE_OPT_CENTERX, "GPS SPEED");
+    dash_color(COLOR_VALUE, alpha);
+    if (spd_ok)
+    {
+        snprintf(buf, sizeof(buf), "%d", (int)(g_dash.ch.speed_mph + 0.5f));
+    }
+    else
+    {
+        snprintf(buf, sizeof(buf), "--");
+    }
+    EVE_cmd_text(hx, DASH_LY(185), dash_font(DF_HERO), EVE_OPT_CENTER, buf);
+    dash_color(COLOR_LABEL, alpha);
+    EVE_cmd_text(hx, DASH_LY(250), dash_font(DF_LABEL), EVE_OPT_CENTERX, "MPH");
+
+    /* RPM row: label, live value, capsule bar, redline marker, scale */
+    const int16_t bar_x = DASH_LX(37);
+    const int16_t bar_w = (int16_t)(DASH_LX(383) - bar_x);
+    const int16_t bar_y = DASH_LY(285);
+    const int16_t bar_h = DASH_LY(8);
+
+    dash_color(COLOR_LABEL, alpha);
+    EVE_cmd_text(bar_x, DASH_LY(262), dash_font(DF_LABEL), 0U, "RPM");
+    const DashColorState rc = rpm_ok ? dash_rpm_color(rpm) : DASH_COLOR_NORMAL;
+    dash_color((DASH_COLOR_RED == rc) ? COLOR_RED_TEXT :
+               (DASH_COLOR_AMBER == rc) ? COLOR_AMBER : COLOR_VALUE, alpha);
+    if (rpm_ok)
+    {
+        snprintf(buf, sizeof(buf), "%d", (int)(rpm + 0.5f));
+    }
+    else
+    {
+        snprintf(buf, sizeof(buf), "--");
+    }
+    EVE_cmd_text((int16_t)(bar_x + bar_w), DASH_LY(258), dash_font(DF_VAL), EVE_OPT_RIGHTX, buf);
+
+    dash_color(COLOR_BAR_TRACK, alpha);
+    draw_pill(bar_x, bar_y, bar_w, bar_h);
+    if (rpm_ok && (rpm > 0.0f))
+    {
+        const float bfrac = (rpm >= (float)DASH_REDLINE_RPM) ? 1.0f : (rpm / (float)DASH_REDLINE_RPM);
+        const int16_t fw = (int16_t)((float)bar_w * bfrac);
+        if (fw > bar_h)
+        {
+            dash_color((DASH_COLOR_RED == rc) ? COLOR_RED_FILL : COLOR_ACCENT, alpha);
+            draw_pill(bar_x, bar_y, fw, bar_h);
+        }
+    }
+    /* redline marker at 96% of the bar, 2 px, half opacity */
+    dash_color(COLOR_RED_FILL, DA(128));
+    EVE_cmd_dl(DL_LINE_WIDTH | 16UL);
+    EVE_cmd_dl(DL_BEGIN | EVE_LINES);
+    const int16_t red_x = (int16_t)(bar_x + (int16_t)((float)bar_w * 0.96f));
+    EVE_cmd_dl(VERTEX2F((int16_t)(red_x * 16), (int16_t)(bar_y * 16)));
+    EVE_cmd_dl(VERTEX2F((int16_t)(red_x * 16), (int16_t)((bar_y + bar_h) * 16)));
+    EVE_cmd_dl(DL_END);
+
+    for (uint8_t i = 0U; i < 5U; i++)
+    {
+        dash_color((4U == i) ? COLOR_MUTED_RED : COLOR_FAINT, alpha);
+        const int16_t sx = (int16_t)(bar_x + (int32_t)bar_w * i / 4);
+        snprintf(buf, sizeof(buf), "%u", (unsigned)(i * 2U));
+        EVE_cmd_text(sx, DASH_LY(300), dash_font(DF_TINY), EVE_OPT_CENTERX, buf);
+    }
+
+    /* right column: hairline, LAP TIME, DELTA value + center-zero bar */
+    dash_color(COLOR_HAIRLINE, alpha);
+    EVE_cmd_dl(DL_LINE_WIDTH | 8UL);
+    EVE_cmd_dl(DL_BEGIN | EVE_LINES);
+    EVE_cmd_dl(VERTEX2F((int16_t)(DASH_LX(412) * 16), (int16_t)(DASH_LY(100) * 16)));
+    EVE_cmd_dl(VERTEX2F((int16_t)(DASH_LX(412) * 16), (int16_t)(DASH_LY(300) * 16)));
+    EVE_cmd_dl(DL_END);
+
+    const int16_t col_x = DASH_LX(428);
+    const int16_t col_x1 = DASH_LX(582);
+    dash_color(COLOR_LABEL, alpha);
+    EVE_cmd_text(col_x, DASH_LY(140), dash_font(DF_LABEL), 0U, "LAP TIME");
+    dash_color(COLOR_VALUE, alpha);
+    dash_fmt_lap(g_dash.ch.lap_ms, dash_ch_valid(&g_dash, DASH_CH_LAP), buf);
+    EVE_cmd_text(col_x, DASH_LY(158), dash_font(DF_MID), 0U, buf);
+
+    const bool delta_ok = dash_ch_valid(&g_dash, DASH_CH_DELTA);
+    const float dfill = delta_ok ? dash_delta_fill(g_dash.ch.delta_s) : 0.0f;
+    const uint32_t dcol = (dfill <= 0.0f) ? COLOR_GREEN : COLOR_RED_TEXT;
+    dash_color(COLOR_LABEL, alpha);
+    EVE_cmd_text(col_x, DASH_LY(212), dash_font(DF_LABEL), 0U, "DELTA");
+    dash_color(delta_ok ? dcol : COLOR_VALUE, alpha);
+    if (delta_ok)
+    {
+        snprintf(buf, sizeof(buf), "%+.2f", (double)g_dash.ch.delta_s);
+    }
+    else
+    {
+        snprintf(buf, sizeof(buf), "--");
+    }
+    EVE_cmd_text(col_x1, DASH_LY(208), dash_font(DF_VAL), EVE_OPT_RIGHTX, buf);
+
+    const int16_t db_x = col_x;
+    const int16_t db_w = (int16_t)(col_x1 - col_x);
+    const int16_t db_y = DASH_LY(232);
+    const int16_t db_h = DASH_LY(8);
+    const int16_t db_cx = (int16_t)(db_x + db_w / 2);
+    dash_color(COLOR_BAR_TRACK, alpha);
+    draw_pill(db_x, db_y, db_w, db_h);
+    dash_color(COLOR_HUB_RING, alpha); /* center-zero marker */
+    EVE_cmd_dl(DL_LINE_WIDTH | 8UL);
+    EVE_cmd_dl(DL_BEGIN | EVE_LINES);
+    EVE_cmd_dl(VERTEX2F((int16_t)(db_cx * 16), (int16_t)(db_y * 16)));
+    EVE_cmd_dl(VERTEX2F((int16_t)(db_cx * 16), (int16_t)((db_y + db_h) * 16)));
+    EVE_cmd_dl(DL_END);
+    if (delta_ok && (dfill != 0.0f))
+    {
+        const int16_t fw = (int16_t)((float)(db_w / 2) * ((dfill < 0.0f) ? -dfill : dfill));
+        if (fw > 1)
+        {
+            dash_color(dcol, alpha);
+            EVE_cmd_dl(DL_BEGIN | EVE_RECTS);
+            EVE_cmd_dl(DL_LINE_WIDTH | 16UL);
+            if (dfill < 0.0f) /* ahead: fill left of center */
+            {
+                EVE_cmd_dl(VERTEX2F((int16_t)((db_cx - fw) * 16), (int16_t)(db_y * 16)));
+                EVE_cmd_dl(VERTEX2F((int16_t)(db_cx * 16), (int16_t)((db_y + db_h) * 16)));
+            }
+            else /* behind: fill right of center */
+            {
+                EVE_cmd_dl(VERTEX2F((int16_t)(db_cx * 16), (int16_t)(db_y * 16)));
+                EVE_cmd_dl(VERTEX2F((int16_t)((db_cx + fw) * 16), (int16_t)((db_y + db_h) * 16)));
+            }
+            EVE_cmd_dl(DL_END);
+        }
+    }
+
+    /* footer: odometer (label left, value right) */
+    dash_color(COLOR_HAIRLINE, alpha);
+    EVE_cmd_dl(DL_LINE_WIDTH | 8UL);
+    EVE_cmd_dl(DL_BEGIN | EVE_LINES);
+    EVE_cmd_dl(VERTEX2F((int16_t)(DASH_LX(22) * 16), (int16_t)(DASH_LY(358) * 16)));
+    EVE_cmd_dl(VERTEX2F((int16_t)(DASH_LX(598) * 16), (int16_t)(DASH_LY(358) * 16)));
+    EVE_cmd_dl(DL_END);
+    dash_color(COLOR_FAINT, alpha);
+    EVE_cmd_text(DASH_LX(22), DASH_LY(368), dash_font(DF_TINY), 0U, "ODOMETER");
+    dash_color(COLOR_ODO, alpha);
+    snprintf(buf, sizeof(buf), "%.1f", (double)dash_odo_miles(&g_odo));
+    EVE_cmd_text(DASH_LX(570), DASH_LY(365), dash_font(DF_SMALL), EVE_OPT_RIGHTX, buf);
+    dash_color(COLOR_FAINT, alpha);
+    EVE_cmd_text(DASH_LX(578), DASH_LY(368), dash_font(DF_TINY), 0U, "MI");
+}
+
+/* ---- STREET mode (U8): dual sweep gauges, telltales, odometer ---- */
+
+/* speedo tick fractions: every 20 MPH through the non-linear knee map */
+static void street_speedo(uint8_t alpha)
+{
+    char buf[16];
+    const GaugeSpec g = { (float)DASH_LX(193), (float)DASH_LY(186), (float)DASH_LR(156),
+                          DASH_LR(16), DF_TINY, DF_BIG, "MPH" };
+    const bool ok = dash_ch_valid(&g_dash, DASH_CH_SPEED);
+    const float mph = g_dash.ch.speed_mph;
+
+    draw_gauge_chrome(&g, alpha);
+
+    float tick_fracs[11];
+    for (uint8_t i = 0U; i < 11U; i++)
+    {
+        tick_fracs[i] = dash_speed_frac((float)(i * 20U));
+    }
+    draw_gauge_ticks(&g, tick_fracs, 11U, alpha);
+
+    /* tick labels at r66/88; 160/180/200 smaller + dimmer past the knee */
+    for (uint8_t i = 0U; i < 11U; i++)
+    {
+        const uint16_t v = (uint16_t)(i * 20U);
+        float lx;
+        float ly;
+        dash_arc_point(g.cx, g.cy, g.r * DASH_GAUGE_LABEL_R_FRAC, tick_fracs[i], &lx, &ly);
+        const bool knee = (v > DASH_SPEED_KNEE);
+        dash_color(knee ? COLOR_TICK_DIM : COLOR_LABEL, knee ? DA(200) : alpha);
+        snprintf(buf, sizeof(buf), "%u", (unsigned)v);
+        EVE_cmd_text((int16_t)lx, (int16_t)(ly - (float)DASH_LR(7)),
+                     dash_font(DF_TINY), EVE_OPT_CENTER, buf);
+    }
+
+    if (ok && (mph > 0.5f))
+    {
+        dash_color(COLOR_ACCENT, alpha);
+        draw_arc(g.cx, g.cy, g.r, 0.0f, dash_speed_frac(mph), g.stroke);
+    }
+
+    draw_gauge_needle_hub(&g, ok ? dash_speed_frac(mph) : 0.0f, ok, alpha);
+
+    /* hub readout below center */
+    dash_color(COLOR_VALUE, alpha);
+    if (ok)
+    {
+        snprintf(buf, sizeof(buf), "%d", (int)(mph + 0.5f));
+    }
+    else
+    {
+        snprintf(buf, sizeof(buf), "--");
+    }
+    EVE_cmd_text((int16_t)g.cx, DASH_LY(255), dash_font(DF_BIG), EVE_OPT_CENTER, buf);
+    dash_color(COLOR_LABEL, alpha);
+    EVE_cmd_text((int16_t)g.cx, DASH_LY(292), dash_font(DF_LABEL), EVE_OPT_CENTERX, "MPH");
+}
+
+static void street_tach(uint8_t alpha)
+{
+    char buf[16];
+    const GaugeSpec g = { (float)DASH_LX(487), (float)DASH_LY(182), (float)DASH_LR(101),
+                          DASH_LR(10), DF_TINY, DF_MID, "RPM" };
+    const bool ok = dash_ch_valid(&g_dash, DASH_CH_RPM);
+    const float rpm = g_dash.ch.rpm;
+    const float frac = ok ? (rpm / (float)DASH_REDLINE_RPM) : 0.0f;
+
+    draw_gauge_chrome(&g, alpha);
+
+    /* static red zone 7600..8000 */
+    dash_color(COLOR_REDZONE, alpha);
+    draw_arc(g.cx, g.cy, g.r,
+             (float)DASH_SHIFT_RPM / (float)DASH_REDLINE_RPM, 1.0f, g.stroke);
+
+    float tick_fracs[9];
+    for (uint8_t i = 0U; i < 9U; i++)
+    {
+        tick_fracs[i] = (float)i / 8.0f;
+    }
+    draw_gauge_ticks(&g, tick_fracs, 9U, alpha);
+    for (uint8_t i = 0U; i < 9U; i++)
+    {
+        float lx;
+        float ly;
+        dash_arc_point(g.cx, g.cy, g.r * DASH_GAUGE_LABEL_R_FRAC, tick_fracs[i], &lx, &ly);
+        dash_color((8U == i) ? COLOR_MUTED_RED : COLOR_LABEL, alpha);
+        snprintf(buf, sizeof(buf), "%u", (unsigned)i);
+        EVE_cmd_text((int16_t)lx, (int16_t)(ly - (float)DASH_LR(7)),
+                     dash_font(DF_TINY), EVE_OPT_CENTER, buf);
+    }
+
+    if (ok && (frac > 0.005f))
+    {
+        const DashColorState rc = dash_rpm_color(rpm);
+        dash_color((DASH_COLOR_RED == rc) ? COLOR_RED_FILL : COLOR_ACCENT, alpha);
+        draw_arc(g.cx, g.cy, g.r, 0.0f, (frac > 1.0f) ? 1.0f : frac, g.stroke);
+    }
+
+    draw_gauge_needle_hub(&g, (frac > 1.0f) ? 1.0f : frac, ok, alpha);
+
+    const DashColorState rc = ok ? dash_rpm_color(rpm) : DASH_COLOR_NORMAL;
+    dash_color((DASH_COLOR_RED == rc) ? COLOR_RED_TEXT :
+               (DASH_COLOR_AMBER == rc) ? COLOR_AMBER : COLOR_VALUE, alpha);
+    if (ok)
+    {
+        snprintf(buf, sizeof(buf), "%d", (int)(rpm + 0.5f));
+    }
+    else
+    {
+        snprintf(buf, sizeof(buf), "--");
+    }
+    EVE_cmd_text((int16_t)g.cx, DASH_LY(228), dash_font(DF_MID), EVE_OPT_CENTER, buf);
+    dash_color(COLOR_LABEL, alpha);
+    EVE_cmd_text((int16_t)g.cx, DASH_LY(252), dash_font(DF_TINY), EVE_OPT_CENTERX, "RPM");
+}
+
+/* telltale row: dead-front dots; lit = filled + glow + colored label; a
+ * channel with NO data renders the distinct muted state (KTD4/R8 note) */
+static void street_telltales(uint8_t alpha)
+{
+    const bool oilp_ok = dash_ch_valid(&g_dash, DASH_CH_OILP);
+    const bool oilt_ok = dash_ch_valid(&g_dash, DASH_CH_OILT);
+    const struct Telltale tt[4] = {
+        { "FUEL", dash_ch_valid(&g_dash, DASH_CH_FUEL),
+          dash_ch_valid(&g_dash, DASH_CH_FUEL) &&
+              (DASH_COLOR_AMBER == dash_fuel_state(g_dash.ch.fuel_gal)),
+          COLOR_AMBER },
+        { "OIL", oilp_ok || oilt_ok,
+          dash_telltale_oil(g_dash.ch.oil_press_psi, oilp_ok, g_dash.ch.oil_temp_f, oilt_ok),
+          COLOR_RED_FILL },
+        { "ECT", dash_ch_valid(&g_dash, DASH_CH_ECT),
+          dash_ch_valid(&g_dash, DASH_CH_ECT) &&
+              (DASH_COLOR_RED == dash_ect_state(g_dash.ch.ect_f)),
+          COLOR_RED_FILL },
+        { "VOLTS", dash_ch_valid(&g_dash, DASH_CH_VOLTS),
+          dash_ch_valid(&g_dash, DASH_CH_VOLTS) &&
+              (DASH_COLOR_RED == dash_volts_state(g_dash.ch.volts)),
+          COLOR_RED_FILL },
+    };
+
+    /* four groups (dot + label) centered with 26 px mock gaps */
+    const int16_t cy = DASH_LY(346);
+    const int16_t dot_r = (int16_t)(DASH_LR(9) / 2);
+    int16_t x = DASH_LX(214); /* row roughly centered for 4 groups */
+    for (uint8_t i = 0U; i < 4U; i++)
+    {
+        uint32_t dot_col = COLOR_DEAD_DOT;
+        uint32_t lab_col = COLOR_HUB_RING;
+        uint8_t a = DA(230);
+        if (!tt[i].valid)
+        {
+            dot_col = COLOR_NODATA; /* lost sensor is never "confirmed OK" */
+            lab_col = COLOR_NODATA;
+        }
+        else if (tt[i].lit)
+        {
+            dot_col = tt[i].color;
+            lab_col = tt[i].color;
+            a = alpha;
+            dash_color(dot_col, DA(60)); /* glow */
+            EVE_cmd_dl(DL_POINT_SIZE | (uint32_t)((dot_r + DASH_LR(5)) * 16));
+            EVE_cmd_dl(DL_BEGIN | EVE_POINTS);
+            EVE_cmd_dl(VERTEX2F((int16_t)(x * 16), (int16_t)(cy * 16)));
+            EVE_cmd_dl(DL_END);
+        }
+        dash_color(dot_col, a);
+        EVE_cmd_dl(DL_POINT_SIZE | (uint32_t)(dot_r * 16));
+        EVE_cmd_dl(DL_BEGIN | EVE_POINTS);
+        EVE_cmd_dl(VERTEX2F((int16_t)(x * 16), (int16_t)(cy * 16)));
+        EVE_cmd_dl(DL_END);
+        dash_color(lab_col, a);
+        EVE_cmd_text((int16_t)(x + DASH_LX(10)), (int16_t)(cy - DASH_LR(7)),
+                     dash_font(DF_TINY), 0U, tt[i].label);
+        x = (int16_t)(x + DASH_LX(48));
+    }
+}
+
+void draw_street_mode(uint32_t now_ms, uint8_t alpha)
+{
+    (void)now_ms;
+    char buf[24];
+
+    street_speedo(alpha);
+    street_tach(alpha);
+    street_telltales(alpha);
+
+    /* odometer, bottom center */
+    dash_color(COLOR_FAINT, alpha);
+    EVE_cmd_text(DASH_LX(258), DASH_LY(368), dash_font(DF_TINY), 0U, "ODOMETER");
+    dash_color(COLOR_ODO, alpha);
+    snprintf(buf, sizeof(buf), "%.1f", (double)dash_odo_miles(&g_odo));
+    EVE_cmd_text(DASH_LX(310), DASH_LY(378), dash_font(DF_SMALL), EVE_OPT_CENTER, buf);
+    dash_color(COLOR_FAINT, alpha);
+    EVE_cmd_text(DASH_LX(352), DASH_LY(368), dash_font(DF_TINY), 0U, "MI");
+}
+
+/* ---- alarm takeover (U9): preempts both modes at ~2.8 Hz ---- */
+void draw_alarm_takeover(DashAlarm alarm, uint32_t now_ms, uint8_t alpha)
+{
+    char buf[24];
+    const bool bright = dash_flash_phase(now_ms, DASH_ALARM_FLASH_HALF_MS);
+
+    if (bright)
+    {
+        /* vertical gradient approximation of the spec's red radial */
+        EVE_cmd_dl(COLOR_A(alpha));
+        EVE_cmd_gradient(0, 0, 0xD92020UL, 0, (int16_t)EVE_VSIZE, 0x700C0CUL);
+    }
+    else
+    {
+        dash_color(0x260606UL, alpha);
+        EVE_cmd_dl(DL_LINE_WIDTH | 16UL);
+        EVE_cmd_dl(DL_BEGIN | EVE_RECTS);
+        EVE_cmd_dl(VERTEX2F(0, 0));
+        /* bottom-right corner: EVE_HSIZE*16 = 16384 overflows VERTEX2F's
+         * signed 15-bit field (the splash-round wraparound lesson), so the
+         * rect ends at the last representable 1/16 px inside the panel */
+        EVE_cmd_dl(VERTEX2F((int16_t)(EVE_HSIZE * 16 - 1), (int16_t)(EVE_VSIZE * 16)));
+        EVE_cmd_dl(DL_END);
+    }
+
+    const int16_t cx = (int16_t)(EVE_HSIZE / 2U);
+    const char *title = (DASH_ALARM_OILP == alarm) ? "OIL PRESSURE" :
+                        (DASH_ALARM_OILT == alarm) ? "OIL TEMP" : "COOLANT TEMP";
+    const char *limit = (DASH_ALARM_OILP == alarm) ? "MINIMUM 29 PSI" :
+                        (DASH_ALARM_OILT == alarm) ? "MAXIMUM 248 F" : "MAXIMUM 217 F";
+    const float live = (DASH_ALARM_OILP == alarm) ? g_dash.ch.oil_press_psi :
+                       (DASH_ALARM_OILT == alarm) ? g_dash.ch.oil_temp_f : g_dash.ch.ect_f;
+
+    dash_color(COLOR_ALARM_TXT, alpha);
+    EVE_cmd_text(cx, DASH_LY(120), dash_font(DF_LABEL), EVE_OPT_CENTER, "WARNING");
+    dash_color(COLOR_VALUE, alpha);
+    EVE_cmd_text(cx, DASH_LY(165), dash_font(DF_TITLE), EVE_OPT_CENTER, title);
+    snprintf(buf, sizeof(buf), "%d", (int)(live + 0.5f));
+    EVE_cmd_text(cx, DASH_LY(245), dash_font(DF_HERO), EVE_OPT_CENTER, buf);
+    dash_color(COLOR_ALARM_TXT, alpha);
+    EVE_cmd_text(cx, DASH_LY(330), dash_font(DF_LABEL), EVE_OPT_CENTER, limit);
+}
+
+/* One dash composition: fonts registered, then alarm-or-mode content. The
+ * alarm classifier reads valid channels only, so a missing sensor can never
+ * assert (or hold) a takeover (R10/R11). */
+void draw_dash_content(uint32_t now_ms, uint8_t alpha)
+{
+    dash_register_fonts();
+
+    const DashAlarm alarm = dash_alarm_classify(&g_dash);
+    if (DASH_ALARM_NONE != alarm)
+    {
+        draw_alarm_takeover(alarm, now_ms, alpha);
+    }
+    else if (DASH_MODE_STREET == g_dash.mode)
+    {
+        draw_street_mode(now_ms, alpha);
+    }
+    else
+    {
+        draw_track_mode(now_ms, alpha);
+    }
     EVE_cmd_dl(COLOR_A(255U));
 }
 
-/* Build and swap in the standing pony screen. */
-void draw_dash(void)
+/* Build one un-swapped frame for a mode and read back its display-list
+ * usage (REG_CMD_DL, bytes -> words). Boot-time diagnostic only (KTD8);
+ * the DL is discarded by the next CMD_DLSTART. */
+uint16_t measure_mode_dl(DashMode mode)
+{
+    const DashMode saved = g_dash.mode;
+    g_dash.mode = mode;
+    EVE_cmd_dl(CMD_DLSTART);
+    EVE_cmd_dl(DL_CLEAR_COLOR_RGB | COLOR_BG);
+    EVE_cmd_dl(DL_CLEAR | CLR_COL | CLR_STN | CLR_TAG);
+    draw_dash_content(0UL, 255U);
+    EVE_execute_cmd();
+    const uint32_t dl_bytes = EVE_memRead32(REG_CMD_DL);
+    g_dash.mode = saved;
+    return (uint16_t)(dl_bytes / 4UL);
+}
+
+/* The standing display: one full dash frame, swapped in. */
+void dash_frame(uint32_t now_ms)
 {
     eve_frame_begin(COLOR_BG);
-    draw_pony_elements(255U);
+    draw_dash_content(now_ms, 255U);
     eve_frame_end();
 }
 
@@ -574,7 +1403,9 @@ void run_splash(const ThemeDesc *theme)
     Serial.printf("Splash: %lu frames in %lu ms (target >= 100 in 2000)\r\n",
                   (unsigned long)frames, (unsigned long)SPLASH_DURATION_MS);
 
-    /* crossfade: splash final frame out, pony screen in */
+    /* crossfade: splash final frame out, live dash in (R17 -- direct
+     * crossfade; splash draws from flash, dash text from RAM_G fonts, so
+     * both are resident with no memory contention) */
     const uint32_t f0 = millis();
     for (;;)
     {
@@ -585,7 +1416,7 @@ void run_splash(const ThemeDesc *theme)
 
         eve_frame_begin(COLOR_BG);
         draw_splash_elements(theme, SPLASH_DURATION_MS, out_a);
-        draw_pony_elements(in_a);
+        draw_dash_content(millis(), in_a);
         eve_frame_end();
 
         if (ft >= CROSSFADE_MS) { break; }
