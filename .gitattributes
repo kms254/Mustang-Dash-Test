@@ -1,0 +1,10 @@
+# Shell scripts must stay LF even when checked out on Windows.
+#
+# Git's core.autocrlf=true (the Windows default) otherwise rewrites them to
+# CRLF on checkout. Git Bash tolerates the trailing \r in a shebang; WSL's
+# bash does not, and fails with:  /usr/bin/env: 'bash\r': No such file or directory
+# tests/run-tests.sh needs a host gcc, so it runs under WSL -- hence this file.
+*.sh text eol=lf
+
+# The ctags shim is installed into the arduino-cli platform and exec'd there.
+tools/teensy-avr-platform/ctags-shim.sh text eol=lf
