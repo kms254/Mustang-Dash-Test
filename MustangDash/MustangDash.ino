@@ -420,11 +420,20 @@ void eve_frame_begin(uint32_t clear_rgb)
 /* Close the display list, swap it in, and wait for the co-processor.
  * EVE_busy() detects and auto-recovers coprocessor faults but the recovery
  * is silent inside EVE_execute_cmd(); spinning here instead lets us count
- * recoveries so `status` can surface faults=N (review finding). */
+ * recoveries so `status` can surface faults=N (review finding).
+ *
+ * The wait is BOUNDED (review finding, R9): a panel that dies after boot
+ * (FFC loose at speed, wedged chip) never reads REG_CMDB_SPACE == 0xffc
+ * again, and an unbounded spin here would freeze all three panels plus
+ * the serial pump and odometer writes. A healthy frame drains in < 17 ms;
+ * on timeout the panel is retired (g_panel_ok false -> dark, skipped by
+ * dash_select_panel) and `status` shows it as eve=-- for diagnosis. */
+static const uint32_t EVE_FRAME_DRAIN_TIMEOUT_MS = 250UL;
 void eve_frame_end(void)
 {
     EVE_cmd_dl(DL_DISPLAY);
     EVE_cmd_dl(CMD_SWAP);
+    const uint32_t t0 = millis();
     for (;;)
     {
         const uint8_t st = EVE_busy();
@@ -435,6 +444,11 @@ void eve_frame_end(void)
         if (EVE_FAULT_RECOVERED == st)
         {
             g_eve_faults[g_active_panel]++;
+        }
+        if ((millis() - t0) > EVE_FRAME_DRAIN_TIMEOUT_MS)
+        {
+            g_panel_ok[g_active_panel] = false;
+            break;
         }
     }
 }

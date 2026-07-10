@@ -55,7 +55,10 @@ enum {
 };
 
 #define DASH_CH_BIT(ch) ((uint32_t) (1U << (ch)))
-#define DASH_CH_ALL ((uint32_t) ((1U << DASH_CH_COUNT) - 1U))
+/* 1ULL: at DASH_CH_COUNT == 32 the uint32 form (1U << 32) is UB -- the
+ * <= 32 guard in tests would green-light exactly the count that breaks
+ * the macro (review finding; the CAN round grows the enum toward it). */
+#define DASH_CH_ALL ((uint32_t) ((1ULL << DASH_CH_COUNT) - 1ULL))
 
 typedef enum {
     DASH_MODE_TRACK = 0,

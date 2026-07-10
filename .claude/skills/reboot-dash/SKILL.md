@@ -31,8 +31,9 @@ returns. Does not rebuild or reflash anything.
 
 4. **Only if the arguments ask for serial/banner/diagnostics capture**
    (e.g. `capture`): after the reboot, retry-open the board's serial port for
-   up to 12 s and read for ~8 s, then print the captured banner (pins, panel,
-   `EVE_init` result, `REG_ID`, `RAM_G` load, splash frame count).
+   up to 12 s and read for ~8 s, then print the captured banner (per-panel
+   pins, per-panel `EVE_init`/`REG_ID`, per-panel `RAM_G` font load, DL usage,
+   boot timing).
    - Windows: COM4 at 115200 8N1 with DTR/RTS enabled, via
      `System.IO.Ports.SerialPort` (the bench workflow documented in
      CLAUDE.md — there is no interactive monitor in this harness).
@@ -41,9 +42,15 @@ returns. Does not rebuild or reflash anything.
      `python3 -c` with the `serial` module, or `timeout 8 cat` after `stty
      115200`).
 
-   Healthy boot reads `EVE_init()... returned 0x00` and `REG_ID = 0x7C`. If
-   the port never opens, the Teensy likely isn't connected over USB — report
-   that instead of retrying forever.
+   Healthy boot prints one line per panel of the form
+   `Panel CENTER: EVE_init 0x00 (E_OK=0x00), REG_ID 0x7C (want 0x7C)` (then
+   `Panel LEFT:` and `Panel RIGHT:`), one `RAM_G panel N: fonts ... bytes`
+   line per healthy panel, a `DL usage (track/street of 2048): ...` line, and
+   two boot-timing lines (`Boot: <n> ms to splash start`, `Boot: dash live at
+   <n> ms`). A dead side panel shows a non-0x00 init / non-0x7C REG_ID on its
+   own line while the others stay healthy. If the port never opens, the
+   Teensy likely isn't connected over USB — report that instead of retrying
+   forever.
 
 ## Failure notes
 

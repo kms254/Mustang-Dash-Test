@@ -41,15 +41,20 @@ static uint32_t dash_state_text_color(DashColorState rc)
  * leaks across headers -- the splash SPLASH_A lesson. */
 #define DA(a) ((uint8_t)(((uint16_t)(a) * (uint16_t)alpha) / 255U))
 
-/* A rounded-capsule bar: RECTS with LINE_WIDTH as the corner radius. */
-static void draw_pill(int16_t x, int16_t y, int16_t w, int16_t h)
+/* Rounded rect: RECTS with LINE_WIDTH as an explicit corner radius. */
+static void draw_round_rect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t r)
 {
-    const int16_t r = (int16_t)(h / 2);
     EVE_cmd_dl(DL_LINE_WIDTH | (uint32_t)(r * 16));
     EVE_cmd_dl(DL_BEGIN | EVE_RECTS);
     EVE_cmd_dl(VERTEX2F((int16_t)((x + r) * 16), (int16_t)((y + r) * 16)));
     EVE_cmd_dl(VERTEX2F((int16_t)((x + w - r) * 16), (int16_t)((y + h - r) * 16)));
     EVE_cmd_dl(DL_END);
+}
+
+/* A rounded-capsule bar: the full-round special case (r = h/2). */
+static void draw_pill(int16_t x, int16_t y, int16_t w, int16_t h)
+{
+    draw_round_rect(x, y, w, h, (int16_t)(h / 2));
 }
 
 /* Value arc as a LINE_STRIP polyline, one segment per ~3 degrees, endpoints

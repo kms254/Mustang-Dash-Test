@@ -185,6 +185,33 @@ int main(void)
         expect(strcmp(buf, "--:--.---") == 0, "invalid lap must format --:--.---");
     }
 
+    /* ---- shared value formatter (dash_fmt_value) ---- */
+    {
+        char buf[16];
+        dash_fmt_value(buf, sizeof(buf), 42.7f, 0U, false);
+        expect(strcmp(buf, "--") == 0, "invalid value must format --");
+        dash_fmt_value(buf, sizeof(buf), 42.44f, 1U, true);
+        expect(strcmp(buf, "42.4") == 0, "decimals=1 must format one decimal");
+        dash_fmt_value(buf, sizeof(buf), 42.5f, 0U, true);
+        expect(strcmp(buf, "43") == 0, "decimals=0 must round half up (42.5 -> 43)");
+        dash_fmt_value(buf, sizeof(buf), 42.4f, 0U, true);
+        expect(strcmp(buf, "42") == 0, "decimals=0 must round down (42.4 -> 42)");
+        dash_fmt_value(buf, sizeof(buf), -10.6f, 0U, true);
+        expect(strcmp(buf, "-11") == 0,
+               "negative must round half away from zero (-10.6 -> -11)");
+        dash_fmt_value(buf, sizeof(buf), -0.4f, 0U, true);
+        expect(strcmp(buf, "0") == 0, "-0.4 must round to 0");
+        dash_fmt_value(buf, sizeof(buf), -40.0f, 0U, true);
+        expect(strcmp(buf, "-40") == 0, "AMB floor -40 must format -40");
+    }
+
+    /* ---- shared clamp (dash_clampf) ---- */
+    {
+        expect(dash_clampf(-0.5f, 0.0f, 1.0f) == 0.0f, "clamp below lo must return lo");
+        expect(dash_clampf(1.5f, 0.0f, 1.0f) == 1.0f, "clamp above hi must return hi");
+        expect(dash_clampf(0.25f, 0.0f, 1.0f) == 0.25f, "clamp inside range must pass through");
+    }
+
     /* ---- odometer tenths integration: exact, drift-free carry ---- */
     {
         uint32_t rem_big = 0U;

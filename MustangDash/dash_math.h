@@ -244,7 +244,9 @@ static inline float dash_delta_fill(float delta_s)
 /* "--" when invalid, else the value at 0 or 1 decimals (house rounding).
  * The one numeric dead-front formatter for every plain cell readout on any
  * screen; deliberate exceptions keep their own snprintf (zero-padded LAP,
- * "P"-prefixed POS, floored LAPS, h:mm TIME). */
+ * "P"-prefixed POS, floored LAPS, h:mm TIME). Rounding is half-away-from-
+ * zero on both signs: the old (int)(v + 0.5f) idiom truncated negatives
+ * toward zero (-10.6 -> "-10"), and AMB/IAT range below 0 F. */
 static inline void dash_fmt_value(char *buf, size_t n, float v, uint8_t decimals, bool ok)
 {
     if (!ok)
@@ -257,7 +259,7 @@ static inline void dash_fmt_value(char *buf, size_t n, float v, uint8_t decimals
     }
     else
     {
-        snprintf(buf, n, "%d", (int)(v + 0.5f));
+        snprintf(buf, n, "%d", (int)((v >= 0.0f) ? (v + 0.5f) : (v - 0.5f)));
     }
 }
 

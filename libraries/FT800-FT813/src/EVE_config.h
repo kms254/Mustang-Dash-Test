@@ -104,6 +104,11 @@ the IOT5
 /* 10-100 kHz, REG_PWM_HZ tops out at 10000, and 4 kHz was audible as a    */
 /* whine from the backlight driver on the bench (2026-07-09).              */
 #define EVE_BACKLIGHT_FREQ ((uint32_t) 10000UL)
+/* Backlight duty 0 during EVE_init() (KTD9 dark-boot contract): without   */
+/* this the library defaults every panel to 25% duty for the few ms until  */
+/* the sketch's post-init set_backlight(0) lands -- a visible blink on a   */
+/* car boot. The sketch still forces duty 0 after init, belt-and-braces.   */
+#define EVE_BACKLIGHT_PWM ((uint8_t) 0U)
 /* ================================================================== */
 
 /* define one of these in your build-environment to select the settings for the TFT attached */

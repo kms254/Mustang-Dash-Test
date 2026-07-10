@@ -47,9 +47,13 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
 
 ## Hardware truths (don't re-derive)
 
-- Pins: SCLK=13, MISO=12, MOSI=11, **CS=14**, **PD/RST=17**. INT not wired → poll.
+- Bus pins: SCLK=13, MISO=12, MOSI=11, shared by all three panels. Per-panel
+  CS / PD-RST: **center 14/17, left 15/20, right 16/21** (`dash_panels.h`).
+  INT not wired → poll.
 - Panel logic on 3.3 V, backlight on external 5 V, shared ground.
-- SPI: mode 0, MSB-first, **≤ 11 MHz during EVE_init()** (we use 8 MHz and stay there).
+- SPI: mode 0, MSB-first, **≤ 11 MHz during every panel's EVE_init()** (we init
+  at 8 MHz), then one bus-wide raise to `DASH_SPI_RUN_HZ` (24 MHz, pending the
+  U9 read-integrity soak).
 
 ## Library gotchas (verified against the headers)
 

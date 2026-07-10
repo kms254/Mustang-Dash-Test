@@ -90,17 +90,6 @@ static const int16_t ENG_GAUGE_CY[2] = { 117, 240 };
 #define ENG_FONTS ((uint16_t)((1U << DF_LABEL) | (1U << DF_TINY) \
                             | (1U << DF_VAL) | (1U << DF_SMALL)))
 
-/* Rounded rect with an explicit corner radius (the PMU chips' 6 mock px;
- * draw_pill hardcodes r = h/2, too round for a chip). */
-static void engine_round_rect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t r)
-{
-    EVE_cmd_dl(DL_LINE_WIDTH | (uint32_t)(r * 16));
-    EVE_cmd_dl(DL_BEGIN | EVE_RECTS);
-    EVE_cmd_dl(VERTEX2F((int16_t)((x + r) * 16), (int16_t)((y + r) * 16)));
-    EVE_cmd_dl(VERTEX2F((int16_t)((x + w - r) * 16), (int16_t)((y + h - r) * 16)));
-    EVE_cmd_dl(DL_END);
-}
-
 /* Header row, both modes: "ENGINE" + source tag ("COYOTE CAN ; 5"" renders
  * as the design's "COYOTE CAN <middot> 5<inch>" through the label charset). */
 static void engine_header(uint8_t alpha)
@@ -225,12 +214,12 @@ static void engine_pmu_strip(uint8_t alpha)
          * interior punched back to the panel background */
         uint32_t edge = ok ? (on ? COLOR_GREEN : COLOR_HUB_RING) : COLOR_NODATA;
         dash_color(edge, on ? DA(110) : DA(180)); /* mock border sits dim */
-        engine_round_rect(DASH5_LX(cx0), DASH5_LY(chip_y),
-                          DASH5_LX(chip_w), DASH5_LY(chip_h), DASH5_LR(6));
+        draw_round_rect(DASH5_LX(cx0), DASH5_LY(chip_y),
+                        DASH5_LX(chip_w), DASH5_LY(chip_h), DASH5_LR(6));
         dash_color(COLOR_BG, 255U); /* opaque punch-out, crossfade-safe */
-        engine_round_rect((int16_t)(DASH5_LX(cx0) + 2), (int16_t)(DASH5_LY(chip_y) + 2),
-                          (int16_t)(DASH5_LX(chip_w) - 4), (int16_t)(DASH5_LY(chip_h) - 4),
-                          (int16_t)(DASH5_LR(6) - 2));
+        draw_round_rect((int16_t)(DASH5_LX(cx0) + 2), (int16_t)(DASH5_LY(chip_y) + 2),
+                        (int16_t)(DASH5_LX(chip_w) - 4), (int16_t)(DASH5_LY(chip_h) - 4),
+                        (int16_t)(DASH5_LR(6) - 2));
 
         dash_color(edge, on ? DA(190) : alpha); /* label at .75 opacity when lit */
         EVE_cmd_text(DASH5_LX(ccx), DASH5_LY(chip_y + 5),
