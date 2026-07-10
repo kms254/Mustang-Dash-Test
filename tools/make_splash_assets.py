@@ -51,15 +51,15 @@ CHECKER_STRIP_BOTTOM_Y = 574
 
 def load_asset(filename, downscale=None):
     """Return (png_bytes, width, height, eve_format) for one asset."""
-    path = ASSETS / filename
-    with Image.open(path) as im:
+    data = (ASSETS / filename).read_bytes()
+    with Image.open(io.BytesIO(data)) as im:
         if downscale is not None:
             small = im.convert("RGB").resize(downscale, Image.LANCZOS)
             buf = io.BytesIO()
             small.save(buf, format="PNG", optimize=True)
             return buf.getvalue(), small.width, small.height, "RGB565"
         fmt = "ARGB4" if im.mode in ("RGBA", "LA", "PA") else "RGB565"
-        return path.read_bytes(), im.width, im.height, fmt
+        return data, im.width, im.height, fmt
 
 
 def emit_asset(out, name, data, width, height, fmt):

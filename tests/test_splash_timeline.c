@@ -9,6 +9,7 @@
  *   gcc -std=c11 -I MustangDash tests/test_splash_timeline.c -o /tmp/st && /tmp/st
  */
 
+#include <math.h>
 #include <stdio.h>
 #include <stdint.h>
 
@@ -32,6 +33,18 @@ _Static_assert(SPLASH_BAR_RIGHT_X_FROM == 934 && SPLASH_BAR_RIGHT_X_TO == 646,
                "right bar must slide 934 -> 646");
 _Static_assert(SPLASH_WORD_RISE_PX == 26, "wordmark/year must rise 26 px");
 
+/* the layout table's absolute positions must agree with their centering:
+ * the 200 px emblem at (412, 124) centers on the (512, 224) scale pivot,
+ * and both accent-line variants center on x = 512 */
+_Static_assert(SPLASH_EMBLEM_X + 200 / 2 == SPLASH_EMBLEM_CX,
+               "emblem position must center on the x=512 pivot");
+_Static_assert(SPLASH_EMBLEM_Y + 200 / 2 == SPLASH_EMBLEM_CY,
+               "emblem position must center on the y=224 pivot");
+_Static_assert(SPLASH_LINE_X == SPLASH_EMBLEM_CX - SPLASH_LINE_W / 2,
+               "accent line canvas must center on x=512");
+_Static_assert(SPLASH_CLINE_X == SPLASH_EMBLEM_CX - SPLASH_CLINE_W / 2,
+               "checker line must center on x=512");
+
 static int failures = 0;
 
 static void expect(int cond, const char *msg)
@@ -43,11 +56,9 @@ static void expect(int cond, const char *msg)
     }
 }
 
-static float fabsf_local(float x) { return (x < 0.0f) ? -x : x; }
-
 static int nearf(float a, float b, float eps)
 {
-    return fabsf_local(a - b) <= eps;
+    return fabsf(a - b) <= eps;
 }
 
 int main(void)

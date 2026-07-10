@@ -99,6 +99,12 @@ static inline float splash_lerp(float from, float to, float eased)
     return from + (to - from) * eased;
 }
 
+/* Round a pixel position to the nearest integer, halves away from zero. */
+static inline int16_t splash_round_px(float x)
+{
+    return (int16_t)(x + ((x >= 0.0f) ? 0.5f : -0.5f));
+}
+
 /* ---- per-element state at now_ms ---- */
 
 static inline float splash_bars_eased(uint32_t now_ms)
@@ -108,16 +114,16 @@ static inline float splash_bars_eased(uint32_t now_ms)
 
 static inline int16_t splash_bar_left_x(uint32_t now_ms)
 {
-    float x = splash_lerp((float)SPLASH_BAR_LEFT_X_FROM, (float)SPLASH_BAR_LEFT_X_TO,
-                          splash_bars_eased(now_ms));
-    return (int16_t)(x + (x >= 0.0f ? 0.5f : -0.5f));
+    return splash_round_px(splash_lerp((float)SPLASH_BAR_LEFT_X_FROM,
+                                       (float)SPLASH_BAR_LEFT_X_TO,
+                                       splash_bars_eased(now_ms)));
 }
 
 static inline int16_t splash_bar_right_x(uint32_t now_ms)
 {
-    float x = splash_lerp((float)SPLASH_BAR_RIGHT_X_FROM, (float)SPLASH_BAR_RIGHT_X_TO,
-                          splash_bars_eased(now_ms));
-    return (int16_t)(x + 0.5f);
+    return splash_round_px(splash_lerp((float)SPLASH_BAR_RIGHT_X_FROM,
+                                       (float)SPLASH_BAR_RIGHT_X_TO,
+                                       splash_bars_eased(now_ms)));
 }
 
 static inline uint8_t splash_bars_alpha(uint32_t now_ms)
@@ -141,7 +147,7 @@ static inline uint8_t splash_emblem_alpha(uint32_t now_ms)
 static inline int16_t splash_word_dy(uint32_t now_ms)
 {
     float eased = splash_ease_out_cubic(splash_progress(now_ms, SPLASH_WORD_START, SPLASH_WORD_END));
-    return (int16_t)(splash_lerp((float)SPLASH_WORD_RISE_PX, 0.0f, eased) + 0.5f);
+    return splash_round_px(splash_lerp((float)SPLASH_WORD_RISE_PX, 0.0f, eased));
 }
 
 static inline uint8_t splash_word_alpha(uint32_t now_ms)

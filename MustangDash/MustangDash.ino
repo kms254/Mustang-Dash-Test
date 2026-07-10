@@ -144,6 +144,8 @@ static bool eve_ready = false; /* set true only if EVE_init() reported E_OK */
 
 /* ---- forward declarations (explicit prototypes, see note above) ---- */
 void set_backlight(uint8_t duty);
+void eve_frame_begin(uint32_t clear_rgb);
+void eve_frame_end(void);
 void load_png_asset(LoadedAsset *dst, const SplashAssetDesc *src);
 void load_splash_assets(const ThemeDesc *theme);
 void draw_loaded(const LoadedAsset *a, int16_t x, int16_t y);
@@ -239,6 +241,22 @@ void loop(void)
 void set_backlight(uint8_t duty)
 {
     EVE_memWrite8(REG_PWM_DUTY, duty);
+}
+
+/* Open a new display list: clear color/stencil/tag to the given background. */
+void eve_frame_begin(uint32_t clear_rgb)
+{
+    EVE_cmd_dl(CMD_DLSTART);
+    EVE_cmd_dl(DL_CLEAR_COLOR_RGB | clear_rgb);
+    EVE_cmd_dl(DL_CLEAR | CLR_COL | CLR_STN | CLR_TAG);
+}
+
+/* Close the display list, swap it in, and wait for the co-processor. */
+void eve_frame_end(void)
+{
+    EVE_cmd_dl(DL_DISPLAY);
+    EVE_cmd_dl(CMD_SWAP);
+    EVE_execute_cmd();
 }
 
 /* Decode one embedded PNG into RAM_G at the next packed address. */
@@ -345,8 +363,6 @@ void draw_splash_emblem(const LoadedAsset *emblem, float scale, uint8_t alpha)
  * (255 during the animation; ramps down during the crossfade). */
 void draw_splash_elements(const ThemeDesc *theme, uint32_t now_ms, uint8_t global_alpha)
 {
-    const uint8_t theme_is_checkered = theme->has_strip ? 1U : 0U;
-
     /* alpha helper: element alpha scaled by the crossfade's global alpha */
 #define SPLASH_A(elem_a) ((uint8_t)(((uint16_t)(elem_a) * (uint16_t)global_alpha) / 255U))
 
@@ -363,7 +379,7 @@ void draw_splash_elements(const ThemeDesc *theme, uint32_t now_ms, uint8_t globa
         draw_loaded(&g_loaded[L_SIDE], splash_bar_left_x(now_ms), theme->side_y);
         draw_loaded(&g_loaded[L_SIDE], splash_bar_right_x(now_ms), theme->side_y);
 
-        if (theme_is_checkered)
+        if (theme->has_strip)
         {
             /* edge strips ride the bars' timing: top with the left bar's
              * travel, bottom with the right's; the bottom starts 13 px
@@ -464,13 +480,9 @@ void draw_pony_elements(uint8_t alpha)
 /* Build and swap in the standing pony screen. */
 void draw_dash(void)
 {
-    EVE_cmd_dl(CMD_DLSTART);
-    EVE_cmd_dl(DL_CLEAR_COLOR_RGB | COLOR_BG);
-    EVE_cmd_dl(DL_CLEAR | CLR_COL | CLR_STN | CLR_TAG);
+    eve_frame_begin(COLOR_BG);
     draw_pony_elements(255U);
-    EVE_cmd_dl(DL_DISPLAY);
-    EVE_cmd_dl(CMD_SWAP);
-    EVE_execute_cmd();
+    eve_frame_end();
 }
 
 /* Play the 2000 ms splash, then crossfade ~400 ms into the pony screen.
@@ -484,15 +496,11 @@ void run_splash(const ThemeDesc *theme)
     for (;;)
     {
         const uint32_t now = millis() - t0;
-        const uint32_t t = (now < SPLASH_DURATION_MS) ? now : SPLASH_DURATION_MS;
+        const uint32_t t = min(now, SPLASH_DURATION_MS);
 
-        EVE_cmd_dl(CMD_DLSTART);
-        EVE_cmd_dl(DL_CLEAR_COLOR_RGB | 0x000000UL);
-        EVE_cmd_dl(DL_CLEAR | CLR_COL | CLR_STN | CLR_TAG);
+        eve_frame_begin(0x000000UL);
         draw_splash_elements(theme, t, 255U);
-        EVE_cmd_dl(DL_DISPLAY);
-        EVE_cmd_dl(CMD_SWAP);
-        EVE_execute_cmd();
+        eve_frame_end();
 
         if (0UL == frames)
         {
@@ -512,18 +520,14 @@ void run_splash(const ThemeDesc *theme)
     for (;;)
     {
         const uint32_t fnow = millis() - f0;
-        const uint32_t ft = (fnow < CROSSFADE_MS) ? fnow : CROSSFADE_MS;
+        const uint32_t ft = min(fnow, CROSSFADE_MS);
         const uint8_t in_a = (uint8_t)((ft * 255UL) / CROSSFADE_MS);
         const uint8_t out_a = (uint8_t)(255U - in_a);
 
-        EVE_cmd_dl(CMD_DLSTART);
-        EVE_cmd_dl(DL_CLEAR_COLOR_RGB | COLOR_BG);
-        EVE_cmd_dl(DL_CLEAR | CLR_COL | CLR_STN | CLR_TAG);
+        eve_frame_begin(COLOR_BG);
         draw_splash_elements(theme, SPLASH_DURATION_MS, out_a);
         draw_pony_elements(in_a);
-        EVE_cmd_dl(DL_DISPLAY);
-        EVE_cmd_dl(CMD_SWAP);
-        EVE_execute_cmd();
+        eve_frame_end();
 
         if (ft >= CROSSFADE_MS) { break; }
     }
