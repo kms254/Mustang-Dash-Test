@@ -237,6 +237,20 @@ int main(void)
     expect(DASH_LX(310) == 512, "LX(310) must be 512 (mock center -> panel center)");
     expect(DASH_W == 1024 && DASH_H == 600, "panel size must be 1024x600");
 
+    /* ---- 5" side-panel layout scale macros: 420x320 mock -> 800x480 panel,
+     * same round-half-up convention as the center macros above ---- */
+    expect(DASH5_LX(420) == 800, "DASH5_LX(420) must be 800 (full width)");
+    expect(DASH5_LY(320) == 480, "DASH5_LY(320) must be 480 (full height)");
+    expect(DASH5_LX(0) == 0, "DASH5_LX(0) must be 0");
+    expect(DASH5_LY(0) == 0, "DASH5_LY(0) must be 0");
+    /* half-pixel rounding: 3*1.5 = 4.5 -> round-half-up gives 5, same
+     * convention DASH_LY(3) uses ((3*600+200)/400 = 5)) */
+    expect(DASH5_LY(3) == 5, "DASH5_LY(3) must round 4.5 up to 5 (half-pixel, center convention)");
+    /* 1*1.5 = 1.5 -> round-half-up gives 2 */
+    expect(DASH5_LR(1) == 2, "DASH5_LR(1) must round 1.5 up to 2 (half-pixel, center convention)");
+    expect(DASH5_LR(118) == 177, "DASH5_LR(118) must be 177 (radius scales by 1.5)");
+    expect(DASH5_W == 800 && DASH5_H == 480, "5\" panel size must be 800x480");
+
     if (failures == 0)
     {
         printf("OK: dash math matches the U3 spec (%d checks: knee map, gauge geometry, "

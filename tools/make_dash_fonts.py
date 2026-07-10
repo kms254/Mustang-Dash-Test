@@ -63,6 +63,11 @@ INSTANCES = [
      {";": "·"}),
     ("tiny", "ChakraPetch-Medium.ttf", 15, LABEL_SET, 8, 2,
      {";": "·"}),
+    # Right 5" (TIMING/ROAD) side panel: LAP number, POS ("P3"), and
+    # LAST/BEST/PRED lap times ("1:23.456", "--") all share this instance,
+    # so on top of the "mid"/"val" numeric set it also carries the letter
+    # "P" for position.
+    ("lap", "SairaCondensed-SemiBold.ttf", 42, "0123456789:.-P", 9, 0, {}),
 ]
 
 
