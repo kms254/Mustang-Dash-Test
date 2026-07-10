@@ -18,19 +18,29 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
 - Build (VS Code): `platformio.ini` drives the PlatformIO Build/Upload/Monitor
   buttons. Parallel path to `compile.sh`, not a replacement — see BUILD.md.
 - Tests: `./tests/run-tests.sh` — host-side invariant tests pinning the display
-  profile, wiring pins, backlight wave, splash timeline, and ctags-shim
-  contract. Run them after touching `EVE_config.h`, the Teensy4 target header,
-  `backlight_wave.h`, `splash_timeline.h`, or the platform files. Needs host
-  `gcc`; Git Bash has none, so **on Windows run
+  profile, wiring pins, backlight wave, splash timeline, dash math/sim/serial/
+  odometer logic, font-format invariants, the splash flash-pack layout, and
+  the ctags-shim contract. Run them after touching `EVE_config.h`, the Teensy4
+  target header, any `MustangDash/*.h` pure header, or the platform files.
+  Needs host `gcc`; Git Bash has none, so **on Windows run
   `wsl -- bash -lc "./tests/run-tests.sh"`** (or the VS Code task
-  "Tests: invariant suite"). All 5/5 pass.
+  "Tests: invariant suite"). All 11/11 pass.
 - Boot splash: a 2000 ms animated splash (spec vendored in `assets/splash/`)
-  plays at power-up, then crossfades to the pony screen. Theme is build-time:
-  edit `SPLASH_THEME` in `MustangDash/splash_config.h` (or `-D SPLASH_THEME=n`)
-  and rebuild — all three themes stay embedded in flash. Assets regenerate via
-  `wsl -- python3 tools/make_splash_assets.py` (Pillow, like `tools/pony.py`);
-  output is deterministic and the generated `splash_assets_*.h` are committed.
-  Flash `data` grew ~7 KB → ~206 KB with the embedded PNGs — expected.
+  plays at power-up, then crossfades directly into the dash. Splash assets are
+  **ASTC bitmaps in the panel's 64 MB QSPI flash**, rendered direct from flash
+  (zero RAM_G): `tools/make_splash_flash.py` (astcenc pinned by
+  `tools/get-astcenc.sh`, WSL) emits `splash_flash.h`; the firmware provisions
+  the panel flash once at boot when the pack CRC differs — sector 0 (the
+  vendor flashfast blob) is never written. Theme stays build-time via
+  `SPLASH_THEME` in `MustangDash/splash_config.h`.
+- Dash: TRACK/STREET screens per the vendored design handoff
+  (`assets/dash-design/`), all-procedural at ~60 fps with custom EVE bitmap
+  fonts (`tools/make_dash_fonts.py` → `dash_fonts.h`, ~273 KB — RAM_G's only
+  tenant). Data flows simulator → `DashState` channels (validity bitmask) →
+  renderers; the serial protocol (115200; `ok`/`err` acks are the ONLY output
+  after boot) overrides any channel — the `/dash` skill wraps it. Odometer
+  persists in Teensy EEPROM (CRC8 record). Alarm takeover preempts both
+  modes; the oil-pressure alarm is gated on rpm ≥ 500 (engine running).
 
 ## Hardware truths (don't re-derive)
 
