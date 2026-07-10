@@ -38,7 +38,7 @@ durable record of what was **not** applied.
 - **Stale solution docs** (compound-refresh candidates):
   `docs/solutions/design-patterns/eve-ram-g-budgeting-multi-theme-splash-assets.md`
   (splash-resident-in-RAM_G worked example) and
-  `docs/solutions/design-patterns/eve-logo-onchip-png-decode-skeleton-silhouette.md`
+  `docs/solutions/design-patterns/eve-logo-onchip-png-decode-skeleton-silhouette.md` (since deleted in the 2026-07-10 refresh — subject removed by this branch)
   (pony screen) describe superseded architecture.
 
 ## Verification still owed a human eyeball

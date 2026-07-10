@@ -177,7 +177,6 @@ comfortably in 15 signed bits.)
 
 ## Related
 
-- `docs/solutions/design-patterns/eve-logo-onchip-png-decode-skeleton-silhouette.md` — carries the prior, partial mention of this territory ("VERTEX2F coordinates are in 1/16-pixel units — multiply by 16") without the signed-15-bit ceiling that makes the unit conversion a trap on a 1024-px panel; this doc supplies the missing half.
 - `docs/solutions/ui-bugs/eve-font-format-l4-l2-confusion-serial-verification-blind-spot.md` — same bug family: a silently-wrong value encoded into an EVE structure, nothing faults, serial verification cannot see it, only the panel (or an independent reviewer) reveals it.
 - `docs/solutions/design-patterns/eve-ram-g-budgeting-multi-theme-splash-assets.md` — sibling field-width trap at the same 511-px boundary family: BITMAP_SIZE's 9/10-bit base fields need the _H companion words on wide draws, just as VERTEX2II's 9-bit fields disqualify it entirely here.
 - `docs/solutions/architecture-patterns/bt817-flash-resident-astc-assets.md` — `draw_flash_asset()`'s `VERTEX2F(x*16, y*16)` is the code site most likely to meet this overflow when drawing 1024-px-wide flash assets; its callers gate coordinates per this doc's rule.

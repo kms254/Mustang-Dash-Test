@@ -101,5 +101,4 @@ That is the whole runtime cost of a flash-resident asset: one CMD_SETBITMAP with
 
 - `docs/solutions/design-patterns/eve-ram-g-budgeting-multi-theme-splash-assets.md` — the RAM_G budgeting pattern this architecture supersedes *for the splash*; the budgeting technique itself still applies to whatever remains RAM_G-resident (today: the dash fonts), but its splash worked example and per-theme resident totals describe the retired architecture.
 - `docs/solutions/ui-bugs/boot-splash-radial-gradient-banding-double-quantization.md` — the RGB565 dither pipeline that no longer applies to the splash background (ASTC quantizes by block, not by 5/6/5 truncation); still valid as general RGB565 dithering guidance.
-- `docs/solutions/design-patterns/eve-logo-onchip-png-decode-skeleton-silhouette.md` — the on-chip PNG-decode-into-RAM_G pattern that was the project's previous default asset path; its subject (the pony screen) was removed by PR #3.
 - `docs/solutions/best-practices/riverdi-rvt70h-vs-ritft70-eve-display-profile-selection.md` — the BT817/EVE4 profile grounding that the ASTC + CMD_FLASHUPDATE feature set depends on.

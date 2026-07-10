@@ -11,6 +11,7 @@ symptoms:
 root_cause: logic_error
 resolution_type: code_fix
 severity: medium
+last_updated: 2026-07-10
 tags:
   - boot-splash
   - gradient-banding
@@ -23,6 +24,18 @@ tags:
 ---
 
 # Boot splash gradient banding from stacked 8-bit-source and RGB565 quantization
+
+> **Scope note (2026-07-10):** this pipeline served the embedded-PNG RGB565
+> splash backgrounds and was retired for that use when PR #3 moved the splash
+> to ASTC assets in panel flash. The successor keeps the float-reconstruction
+> stage but deliberately drops the Bayer dither (ordered noise fights ASTC's
+> block encoder) — see `smooth_background()` in `tools/make_splash_flash.py`
+> and `docs/solutions/architecture-patterns/bt817-flash-resident-astc-assets.md`.
+> The two-quantizer analysis and the full pipeline below remain valid guidance
+> for any future RGB565-stored gradient asset; the cited
+> `smooth_dither_background()` implementation now lives in git history
+> (removed when `tools/make_splash_assets.py` was trimmed to reference
+> composites), so its file:line cites below are historical (as of PR #2).
 
 ## Problem
 
@@ -42,7 +55,7 @@ It did — and the panel still banded. The chip's 8→5/6-bit truncation was now
 
 ## Solution
 
-Reconstruct the gradient in float *first*, then dither onto the 565 grid. Implemented in `tools/make_splash_assets.py` as `smooth_dither_background()` (tools/make_splash_assets.py:83) with helper `_box_blur_axis()` (tools/make_splash_assets.py:68), the classic `BAYER8` 8x8 matrix (tools/make_splash_assets.py:54), and `BG_BLUR_RADIUS = 6` (tools/make_splash_assets.py:65). Landed as "fix(assets): band-free background gradients via float reconstruction + 565 dithering" on `feat/boot-splash`, in open PR #2 (unmerged as of this writing).
+Reconstruct the gradient in float *first*, then dither onto the 565 grid. Implemented (as of PR #2 — see the scope note above; the code now lives in git history) in `tools/make_splash_assets.py` as `smooth_dither_background()` with helper `_box_blur_axis()`, the classic `BAYER8` 8x8 matrix, and `BG_BLUR_RADIUS = 6`. Landed as "fix(assets): band-free background gradients via float reconstruction + 565 dithering" in PR #2 (merged).
 
 The essential pipeline (condensed from tools/make_splash_assets.py:97-112):
 
@@ -94,10 +107,6 @@ Verified: user approved the smoothed gradients on the physical panel (red and bl
 
 ## Related Issues
 
-- [docs/solutions/design-patterns/eve-logo-onchip-png-decode-skeleton-silhouette.md](../design-patterns/eve-logo-onchip-png-decode-skeleton-silhouette.md) —
-  sibling asset-pipeline doc: same on-chip `CMD_LOADIMAGE` PNG decode pattern and
-  same `tools/` directory, but for silhouette generation (ARGB4) rather than
-  gradient dithering (RGB565).
 - [docs/solutions/best-practices/riverdi-rvt70h-vs-ritft70-eve-display-profile-selection.md](../best-practices/riverdi-rvt70h-vs-ritft70-eve-display-profile-selection.md) —
   the panel/profile this dithered asset renders on; same verify-against-the-
   hardware discipline.
