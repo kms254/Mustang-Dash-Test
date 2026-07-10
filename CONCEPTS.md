@@ -17,3 +17,9 @@ The compile-time selection that binds the driver library to one specific panel: 
 
 ### Display List
 The bounded sequence of drawing commands EVE executes to render a frame. The microcontroller builds a new list, then swaps it in atomically; the previous list keeps rendering until the swap, so partial updates are never visible. A list is size-limited, so complex scenes are composed by appending previously built fragments rather than growing a single list without bound.
+
+### RAM_G
+EVE's fixed-size on-chip graphics memory, the only place bitmap data can live at render time. Every image an on-chip decode produces lands here, so its capacity is a hard budget that shapes asset decisions — storage formats, downscaling with render-time upscaling, and which assets are resident at once. The decoder also borrows the top of RAM_G as scratch space during image loads, so the packed assets must leave headroom there rather than filling the memory to the brim.
+
+### Splash Theme
+One of several complete visual variants of the boot splash — background, accent hardware, and year mark as a matched set. Every theme ships embedded in the firmware; which one plays is a build-time selection, since the panel has no input hardware for runtime switching. Changing themes means rebuilding and reflashing, never editing assets or code.
