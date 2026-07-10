@@ -248,20 +248,33 @@ volatile uint8_t EVE_dma_busy = 0;
 
 EventResponder EVE_spi_event;
 
+/* multi-panel support: CS pin of the in-flight DMA transfer, the callback runs */
+/* asynchronously and has to deassert the pin the transfer was started with */
+static volatile uint8_t EVE_dma_cs_pin = EVE_CS;
+
 /* Callback for end-of-DMA-transfer */
 void dma_callback(EventResponderRef event_responder)
 {
     EVE_dma_busy = 0;
-    EVE_cs_clear();
+    digitalWrite(EVE_dma_cs_pin, HIGH); /* tell EVE to stop listen */
 }
 
 void EVE_init_dma(void)
 {
-    EVE_spi_event.attachImmediate(&dma_callback);
+    static bool EVE_dma_initialized = false;
+
+    if (false == EVE_dma_initialized) /* multi-panel support: EVE_init() runs once per panel, only attach the callback once */
+    {
+        EVE_dma_initialized = true;
+        EVE_spi_event.attachImmediate(&dma_callback);
+    }
 }
 
 void EVE_start_dma_transfer(void)
 {
+#if defined (EVE_MULTI_PANEL)
+    EVE_dma_cs_pin = EVE_cs_pin(); /* latch the CS pin for the callback, panels must not be switched mid-transfer */
+#endif
     EVE_cs_set();
     EVE_dma_busy = 42;
     SPI.transfer( ((uint8_t *) &EVE_dma_buffer[0]) + 1U, NULL, (((EVE_dma_buffer_index) * 4U) - 1U), EVE_spi_event);

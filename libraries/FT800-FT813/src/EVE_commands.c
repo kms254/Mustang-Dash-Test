@@ -231,7 +231,18 @@ without the traling _burst in the name when exceution speed is not an issue - e.
 #endif
 
 static volatile uint8_t cmd_burst = 0U; /* flag to indicate cmd-burst is active */
+#if defined (EVE_MULTI_PANEL)
+const EVE_panel_t *EVE_active_panel = NULL; /* multi-panel support: selected panel, NULL = compile-time configuration */
+static volatile uint8_t fault_recovered[EVE_PANEL_SLOTS] = {E_OK}; /* per-panel flags to indicate if EVE_busy triggered a fault recovery */
+
+/* multi-panel support: fault-state slot of the selected panel, the no-panel legacy mode uses slot 0 */
+static uint8_t active_panel_slot(void)
+{
+    return ((NULL == EVE_active_panel) ? 0U : (uint8_t) (EVE_active_panel->slot % EVE_PANEL_SLOTS));
+}
+#else
 static volatile uint8_t fault_recovered = E_OK; /* flag to indicate if EVE_busy triggered a fault recovery */
+#endif
 
 /* ##################################################################
     helper functions
@@ -411,11 +422,32 @@ static void CoprocessorFaultRecover(void)
         EVE_memWrite16(REG_COPRO_PATCH_PTR, copro_patch_pointer);
 
         /* restore REG_PCLK in case it was set to zero by an error */
+#if defined (EVE_MULTI_PANEL)
+        if (NULL != EVE_active_panel)
+        {
+#if EVE_GEN > 3
+            if (0U != EVE_active_panel->pclk_freq)
+            {
+                EVE_memWrite16(REG_PCLK_FREQ, EVE_active_panel->pclk_freq);
+                EVE_memWrite8(REG_PCLK, (uint8_t) 1); /* enable extsync mode */
+            }
+            else
+#endif
+            {
+                EVE_memWrite8(REG_PCLK, EVE_active_panel->pclk);
+            }
+        }
+        else
+        {
+#endif
 #if (EVE_GEN > 3) && (defined EVE_PCLK_FREQ)
         EVE_memWrite16(REG_PCLK_FREQ, (uint16_t) EVE_PCLK_FREQ);
         EVE_memWrite8(REG_PCLK, (uint8_t) 1); /* enable extsync mode */
 #else
         EVE_memWrite8(REG_PCLK, EVE_PCLK);
+#endif
+#if defined (EVE_MULTI_PANEL)
+        }
 #endif
 
 #endif
@@ -447,7 +479,11 @@ uint8_t EVE_busy(void)
     if ((space & 3U) != 0U) /* we have a coprocessor fault, make EVE play with us again */
     {
         ret = EVE_FAULT_RECOVERED;
+#if defined (EVE_MULTI_PANEL)
+        fault_recovered[active_panel_slot()] = EVE_FAULT_RECOVERED; /* save fault recovery state */
+#else
         fault_recovered = EVE_FAULT_RECOVERED; /* save fault recovery state */
+#endif
         CoprocessorFaultRecover();
     }
     else
@@ -483,11 +519,19 @@ uint8_t EVE_get_and_reset_fault_state(void)
 {
     uint8_t ret = E_OK;
 
+#if defined (EVE_MULTI_PANEL)
+    if (EVE_FAULT_RECOVERED == fault_recovered[active_panel_slot()])
+    {
+        ret = EVE_FAULT_RECOVERED;
+        fault_recovered[active_panel_slot()] = E_OK;
+    }
+#else
     if (EVE_FAULT_RECOVERED == fault_recovered)
     {
         ret = EVE_FAULT_RECOVERED;
         fault_recovered = E_OK;
     }
+#endif
     return (ret);
 }
 
@@ -1686,6 +1730,50 @@ static uint8_t wait_reset(void)
     return (ret);
 }
 
+#if defined (EVE_MULTI_PANEL)
+/**
+ * @brief Select the panel to be addressed by all following calls.
+ * @param p_panel pointer to the configuration of the panel to select,
+ * NULL selects the compile-time configuration from EVE_config.h.
+ * @return - E_OK - if the panel was selected
+ * @return - EVE_IS_BUSY - if a cmd-burst is active, the panel was not switched
+ * @return - EVE_FAIL_PANEL_TIMEOUT - if a DMA transfer did not finish in time, the panel was not switched
+ * @note - The pointer is stored, the configuration has to stay valid while the panel is selected.
+ * @note - Waits for an active DMA transfer to finish as the completion callback
+ * deasserts the chip-select line of the panel the transfer was started for.
+ */
+uint8_t EVE_select_panel(const EVE_panel_t * const p_panel)
+{
+    uint8_t ret = E_OK;
+
+    if (0U != cmd_burst) /* switching panels within a cmd-burst would break the burst */
+    {
+        ret = EVE_IS_BUSY;
+    }
+#if defined (EVE_DMA)
+    else
+    {
+        for (uint16_t timeout = 0U; 0 != EVE_dma_busy; timeout++)
+        {
+            if (timeout > 100U) /* the transfer should be long done, do not wait forever */
+            {
+                ret = EVE_FAIL_PANEL_TIMEOUT;
+                break;
+            }
+            DELAY_MS((uint16_t) 1);
+        }
+    }
+#endif
+
+    if (E_OK == ret)
+    {
+        EVE_active_panel = p_panel;
+    }
+
+    return (ret);
+}
+#endif /* EVE_MULTI_PANEL */
+
 /**
  * @brief Writes all parameters defined for the display selected in EVE_config.h.
  * to the corresponding registers.
@@ -1694,6 +1782,26 @@ static uint8_t wait_reset(void)
 void EVE_write_display_parameters(void)
 {
     /* Initialize Display */
+#if defined (EVE_MULTI_PANEL)
+    if (NULL != EVE_active_panel)
+    {
+        EVE_memWrite32(REG_HSIZE, (uint32_t) EVE_active_panel->hsize);       /* active display width */
+        EVE_memWrite32(REG_HCYCLE, (uint32_t) EVE_active_panel->hcycle);     /* total number of clocks per line, incl front/back porch */
+        EVE_memWrite32(REG_HOFFSET, (uint32_t) EVE_active_panel->hoffset);   /* start of active line */
+        EVE_memWrite32(REG_HSYNC0, (uint32_t) EVE_active_panel->hsync0);     /* start of horizontal sync pulse */
+        EVE_memWrite32(REG_HSYNC1, (uint32_t) EVE_active_panel->hsync1);     /* end of horizontal sync pulse */
+        EVE_memWrite32(REG_VSIZE, (uint32_t) EVE_active_panel->vsize);       /* active display height */
+        EVE_memWrite32(REG_VCYCLE, (uint32_t) EVE_active_panel->vcycle);     /* total number of lines per screen, including pre/post */
+        EVE_memWrite32(REG_VOFFSET, (uint32_t) EVE_active_panel->voffset);   /* start of active screen */
+        EVE_memWrite32(REG_VSYNC0, (uint32_t) EVE_active_panel->vsync0);     /* start of vertical sync pulse */
+        EVE_memWrite32(REG_VSYNC1, (uint32_t) EVE_active_panel->vsync1);     /* end of vertical sync pulse */
+        EVE_memWrite32(REG_SWIZZLE, (uint32_t) EVE_active_panel->swizzle);   /* FT8xx output to LCD - pin order */
+        EVE_memWrite32(REG_PCLK_POL, (uint32_t) EVE_active_panel->pclkpol);  /* LCD data is clocked in on this PCLK edge */
+        EVE_memWrite32(REG_CSPREAD, (uint32_t) EVE_active_panel->cspread);   /* helps with noise, when set to 1 fewer signals are changed simultaneously, reset-default: 1 */
+    }
+    else
+    {
+#endif
     EVE_memWrite32(REG_HSIZE, EVE_HSIZE);      /* active display width */
     EVE_memWrite32(REG_HCYCLE, EVE_HCYCLE);    /* total number of clocks per line, incl front/back porch */
     EVE_memWrite32(REG_HOFFSET, EVE_HOFFSET);  /* start of active line */
@@ -1707,6 +1815,9 @@ void EVE_write_display_parameters(void)
     EVE_memWrite32(REG_SWIZZLE, EVE_SWIZZLE);  /* FT8xx output to LCD - pin order */
     EVE_memWrite32(REG_PCLK_POL, EVE_PCLKPOL); /* LCD data is clocked in on this PCLK edge */
     EVE_memWrite32(REG_CSPREAD, EVE_CSPREAD);  /* helps with noise, when set to 1 fewer signals are changed simultaneously, reset-default: 1 */
+#if defined (EVE_MULTI_PANEL)
+    }
+#endif
 
     /* configure Touch */
     EVE_memWrite8(REG_TOUCH_MODE, EVE_TMODE_CONTINUOUS); /* enable touch */
@@ -1726,6 +1837,24 @@ static void enable_pixel_clock(void)
 {
     EVE_memWrite8(REG_GPIO, (uint8_t) 0x80U); /* enable the DISP signal to the LCD panel, it is set to output in REG_GPIO_DIR by default */
 
+#if defined (EVE_MULTI_PANEL)
+    if (NULL != EVE_active_panel)
+    {
+#if EVE_GEN > 3
+        if (0U != EVE_active_panel->pclk_freq)
+        {
+            EVE_memWrite16(REG_PCLK_FREQ, EVE_active_panel->pclk_freq);
+            EVE_memWrite32(REG_PCLK, (uint32_t) 1U); /* enable extsync mode */
+        }
+        else
+#endif
+        {
+            EVE_memWrite32(REG_PCLK, (uint32_t) EVE_active_panel->pclk); /* start clocking data to the LCD panel */
+        }
+    }
+    else
+    {
+#endif
 #if (EVE_GEN > 3) && (defined EVE_PCLK_FREQ)
     EVE_memWrite16(REG_PCLK_FREQ, (uint16_t) EVE_PCLK_FREQ);
 
@@ -1736,6 +1865,9 @@ static void enable_pixel_clock(void)
     EVE_memWrite32(REG_PCLK, (uint32_t) 1U); /* enable extsync mode */
 #else
     EVE_memWrite32(REG_PCLK, EVE_PCLK); /* start clocking data to the LCD panel */
+#endif
+#if defined (EVE_MULTI_PANEL)
+    }
 #endif
 }
 
