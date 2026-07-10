@@ -2,7 +2,7 @@
  * Invariant test: the generated EVE legacy bitmap-font header
  * (MustangDash/dash_fonts.h, from tools/make_dash_fonts.py) must honor the
  * BT81x Programming Guide 5.4.1 legacy font format -- 148-byte metric block,
- * L4 format code 17, stride = cell_w/2 with an even cell width, width bytes
+ * L4 format code 2 (EVE.h EVE_L4; 17 is L2), stride = cell_w/2 with an even
  * zero below firstchar, zlib-wrapped glyph streams -- and the plan's RAM_G
  * budget. Uses the header's own _CELL_W/_STRIDE/... defines so a regenerated
  * header keeps passing; only the format rules themselves are hardcoded.
@@ -154,7 +154,7 @@ int main(void)
         expectf(d->zbytes == EXP_ZBYTES[i], name, "registry zbytes must match its define");
 
         /* metric-block fields (BT81x guide 5.4.1), all little-endian u32 */
-        expectf(rd32(m, 128) == 17U, name, "format field must be 17 (L4)");
+        expectf(rd32(m, 128) == 2U, name, "format field must be 2 (EVE_L4 per EVE.h:190; 17 would be L2)");
         expectf(rd32(m, 132) == d->stride, name, "stride field must match registry stride");
         expectf(rd32(m, 136) == d->cell_w, name, "cell-width field must match registry cell_w");
         expectf(rd32(m, 140) == d->cell_h, name, "cell-height field must match registry cell_h");

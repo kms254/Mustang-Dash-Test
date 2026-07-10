@@ -58,11 +58,13 @@ typedef enum {
     DASH_ERR_TOO_LONG,        /* line longer than DASH_SERIAL_MAX_LINE */
 } DashSerialErr;
 
-/* alarm codes carried in DashCommand.alarm */
-#define DASH_ALARM_OFF  0U
-#define DASH_ALARM_OILP 1U
-#define DASH_ALARM_OILT 2U
-#define DASH_ALARM_CLT  3U
+/* alarm codes carried in DashCommand.alarm -- protocol-side, deliberately
+ * NOT named DASH_ALARM_* so they cannot collide with dash_math.h's
+ * DashAlarm enum constants (values coincide: 1/2/3, 0 = off) */
+#define DASH_SERIAL_ALARM_OFF  0U
+#define DASH_SERIAL_ALARM_OILP 1U
+#define DASH_SERIAL_ALARM_OILT 2U
+#define DASH_SERIAL_ALARM_CLT  3U
 
 /* forced values for the alarm shortcuts (alarm-worthy by design) */
 #define DASH_ALARM_OILP_PSI 20.0f
@@ -79,7 +81,7 @@ typedef struct {
     uint8_t channel; /* SET / CLEAR: a DASH_CH_ id */
     float value;     /* SET: channel value; ODO_SET: miles */
     DashMode mode;   /* MODE */
-    uint8_t alarm;   /* ALARM: DASH_ALARM_OFF/OILP/OILT/CLT */
+    uint8_t alarm;   /* ALARM: DASH_SERIAL_ALARM_OFF/OILP/OILT/CLT */
     bool sim_on;     /* SIM */
 } DashCommand;
 
@@ -189,7 +191,7 @@ static inline DashSerialErr dash_parse_line(const char *line, DashCommand *out)
     out->channel = 0U;
     out->value = 0.0f;
     out->mode = DASH_MODE_TRACK;
-    out->alarm = DASH_ALARM_OFF;
+    out->alarm = DASH_SERIAL_ALARM_OFF;
     out->sim_on = false;
 
     if (line == NULL) { return DASH_ERR_EMPTY; }
@@ -234,10 +236,10 @@ static inline DashSerialErr dash_parse_line(const char *line, DashCommand *out)
 
     if (dash_serial_ieq_(tok[0], "alarm")) {
         if (ntok < 2) { return DASH_ERR_MISSING_VALUE; }
-        if (dash_serial_ieq_(tok[1], "oilp")) { out->alarm = DASH_ALARM_OILP; }
-        else if (dash_serial_ieq_(tok[1], "oilt")) { out->alarm = DASH_ALARM_OILT; }
-        else if (dash_serial_ieq_(tok[1], "clt")) { out->alarm = DASH_ALARM_CLT; }
-        else if (dash_serial_ieq_(tok[1], "off")) { out->alarm = DASH_ALARM_OFF; }
+        if (dash_serial_ieq_(tok[1], "oilp")) { out->alarm = DASH_SERIAL_ALARM_OILP; }
+        else if (dash_serial_ieq_(tok[1], "oilt")) { out->alarm = DASH_SERIAL_ALARM_OILT; }
+        else if (dash_serial_ieq_(tok[1], "clt")) { out->alarm = DASH_SERIAL_ALARM_CLT; }
+        else if (dash_serial_ieq_(tok[1], "off")) { out->alarm = DASH_SERIAL_ALARM_OFF; }
         else { return DASH_ERR_BAD_VALUE; }
         out->kind = DASH_CMD_ALARM;
         return DASH_ERR_NONE;
@@ -328,24 +330,31 @@ static inline bool dash_apply_command(DashState *s, const DashCommand *cmd,
         case DASH_CMD_ALARM: {
             const char *which = "off";
             switch (cmd->alarm) {
-                case DASH_ALARM_OILP:
+                case DASH_SERIAL_ALARM_OILP:
                     dash_serial_do_set_(s, DASH_CH_OILP, DASH_ALARM_OILP_PSI);
                     which = "oilp";
                     break;
-                case DASH_ALARM_OILT:
+                case DASH_SERIAL_ALARM_OILT:
                     dash_serial_do_set_(s, DASH_CH_OILT, DASH_ALARM_OILT_F);
                     which = "oilt";
                     break;
-                case DASH_ALARM_CLT:
+                case DASH_SERIAL_ALARM_CLT:
                     dash_serial_do_set_(s, DASH_CH_ECT, DASH_ALARM_CLT_F);
                     which = "clt";
                     break;
-                default: { /* off: the sim reclaims all three alarm channels */
+                default: { /* off: release all three alarm channels, valid
+                            * bits included -- otherwise a forced value stays
+                            * valid and the takeover latches when the sim is
+                            * frozen. Sim running: it revalidates them next
+                            * step. Sim frozen: they render `--` (the
+                            * missing-data convention), which beats showing a
+                            * stale forced 20 psi. */
                     uint16_t bits = (uint16_t) (DASH_CH_BIT(DASH_CH_OILP) |
                                                 DASH_CH_BIT(DASH_CH_OILT) |
                                                 DASH_CH_BIT(DASH_CH_ECT));
                     s->overridden = (uint16_t) (s->overridden & ~bits);
                     s->cleared = (uint16_t) (s->cleared & ~bits);
+                    s->valid = (uint16_t) (s->valid & ~bits);
                     break;
                 }
             }

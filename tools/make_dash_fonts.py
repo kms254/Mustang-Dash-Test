@@ -29,6 +29,7 @@ must produce byte-identical headers (the invariant the plan's verification
 pins).
 """
 
+import struct
 import zlib
 from pathlib import Path
 
@@ -39,7 +40,10 @@ ROOT = Path(__file__).resolve().parent.parent
 FONTS = ROOT / "assets" / "fonts"
 OUT = ROOT / "MustangDash"
 
-EVE_L4 = 17  # BITMAP_LAYOUT format code for 4-bit grayscale
+# BITMAP_LAYOUT format code for 4-bit grayscale. The BT81x format table
+# (and the vendored library's EVE.h:190) define L4 = 2; 17 is L2. A wrong
+# value here renders every glyph through the wrong bit depth.
+EVE_L4 = 2
 METRIC_BLOCK_SIZE = 148
 
 LABEL_SET = ' "/0123456789;ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -62,9 +66,6 @@ INSTANCES = [
 ]
 
 
-def le32(value):
-    return bytes((value & 0xFF, (value >> 8) & 0xFF,
-                  (value >> 16) & 0xFF, (value >> 24) & 0xFF))
 
 
 def align4(n):
@@ -132,8 +133,7 @@ def build_instance(name, ttf, px, glyphs, handle, tracking, artwork):
     widths = [0] * 128
     for ch in glyphs:
         widths[ord(ch)] = glyph[ch][1]
-    metrics = (bytes(widths) + le32(EVE_L4) + le32(stride) +
-               le32(cell_w) + le32(cell_h) + le32(0))
+    metrics = bytes(widths) + struct.pack("<5I", EVE_L4, stride, cell_w, cell_h, 0)
     assert len(metrics) == METRIC_BLOCK_SIZE
 
     return {

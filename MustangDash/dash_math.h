@@ -170,12 +170,13 @@ static inline DashColorState dash_fuel_state(float gal)
 }
 
 /* Oil telltale: low pressure or overheated oil -- but an invalid channel
- * can never assert it (R11). */
+ * can never assert it (R11). Delegates to the per-channel classifiers so
+ * each threshold has exactly one definition. */
 static inline bool dash_telltale_oil(float oil_press_psi, bool oilp_valid,
                                      float oil_temp_f, bool oilt_valid)
 {
-    return (oilp_valid && oil_press_psi < DASH_OILP_RED_PSI)
-        || (oilt_valid && oil_temp_f > DASH_OILT_RED_F);
+    return (oilp_valid && (DASH_COLOR_RED == dash_oil_press_state(oil_press_psi)))
+        || (oilt_valid && (DASH_COLOR_RED == dash_oil_temp_state(oil_temp_f)));
 }
 
 /* Highest-priority active alarm, checking ONLY valid channels (R11):

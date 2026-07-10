@@ -50,6 +50,28 @@ static uint32_t rd32le(const uint8_t *p)
            ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
 }
 
+/* Independent CRC-32 (IEEE 802.3 / zlib / Python binascii.crc32): reflected,
+ * poly 0xEDB88320, init 0xFFFFFFFF, final xor 0xFFFFFFFF. Bitwise, no table --
+ * this exists specifically so a generator bug that CRCs the wrong byte range
+ * (tools/make_splash_flash.py's build_pack() computes
+ * binascii.crc32(bytes(body)) where body is every pack byte from offset 64
+ * -- i.e. after the 64-byte header -- through the end of the sector-padded
+ * pack) cannot stay self-consistent against a baked-in comparison value. */
+static uint32_t crc32_ieee(const uint8_t *data, size_t len)
+{
+    uint32_t crc = 0xFFFFFFFFUL;
+    for (size_t i = 0; i < len; i++)
+    {
+        crc ^= data[i];
+        for (int j = 0; j < 8; j++)
+        {
+            uint32_t mask = (uint32_t)(-(int32_t)(crc & 1U));
+            crc = (crc >> 1) ^ (0xEDB88320UL & mask);
+        }
+    }
+    return crc ^ 0xFFFFFFFFUL;
+}
+
 int main(void)
 {
     const uint32_t base = (uint32_t)SPLASH_FLASH_BASE;
@@ -80,6 +102,19 @@ int main(void)
            "pack asset-count field must equal SPLASH_FA_COUNT");
     expect(rd32le(&splash_flash_pack[16]) == SPLASH_FLASH_CRC,
            "pack CRC field must equal SPLASH_FLASH_CRC");
+
+    /* Independent recomputation over the actual pack bytes, not just a second
+     * copy of the value the generator baked from the same run. Per
+     * tools/make_splash_flash.py build_pack(), the CRC covers every pack
+     * byte after the 64-byte header through the end of the sector-padded
+     * pack: pack[64 .. pack_size). */
+    {
+        uint32_t recomputed = crc32_ieee(&splash_flash_pack[64], pack_size - 64U);
+        expect(recomputed == SPLASH_FLASH_CRC,
+               "independently recomputed CRC-32 over pack[64..pack_size) must equal SPLASH_FLASH_CRC");
+        expect(recomputed == rd32le(&splash_flash_pack[16]),
+               "independently recomputed CRC-32 must equal the pack's on-disk CRC header field");
+    }
 
     /* per-asset invariants: inside the pack, aligned, ascending, no overlap */
     uint32_t prev_end = base + 64U; /* assets start after the 64-byte header */

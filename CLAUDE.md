@@ -133,20 +133,28 @@ On the **Windows workstation with real Teensyduino 1.62.0** (2026-07-08), both
 
 ```
 FLASH: code:42192, data:7448, headers:8724   (pre-splash, 2026-07-08)
-FLASH: code:45584, data:205700, headers:8808 (with boot splash, 2026-07-09)
-RAM1:  variables:12576, code:43032, padding:22504
+FLASH: code:45584, data:205700, headers:8808 (embedded-PNG splash era, 2026-07-09)
+FLASH: code:~70300, data:~690900, headers:~8900 (dash + flash-splash, 2026-07-09)
+RAM1:  variables:~17000, code:~67700
 RAM2:  variables:12416
 ```
 
-The `data` jump to ~206 KB is the three embedded splash themes' PNGs. Do not
-expect the sandbox's 53,244 to match — different toolchain, different libc.
-The two *workstation* paths agreeing is the invariant worth watching.
+The dash-era `data` (~675 KB) is the embedded panel-flash provisioning pack
+(~644 KB of ASTC splash assets, all three themes) plus the zlib font glyphs;
+the older ~206 KB embedded-PNG figures describe a deleted architecture and are
+kept only as history. Do not expect the sandbox's numbers to match — different
+toolchain, different libc. The two *workstation* paths agreeing byte-for-byte
+is the invariant worth watching (re-confirmed for the dash build).
 
-**Hardware-verified (2026-07-09): FIRST LIGHT CONFIRMED.** Upload via
-`pio run -t upload` (Teensy Loader) works; `teensy_reboot.exe` + a raw COM4
-read (115200) captures the boot banner without an interactive monitor. On the
-real panel: `EVE_init()` returned `E_OK`, **`REG_ID == 0x7C` observed**, HELLO
-MUSTANG rendered at 8 MHz SPI, backlight pulsing under `REG_PWM_DUTY` control.
+**Hardware-verified (2026-07-09): FIRST LIGHT CONFIRMED** (original bring-up;
+the HELLO MUSTANG / pony screens it referenced are since replaced by the dash).
+Upload via `pio run -t upload` (Teensy Loader) works; `teensy_reboot.exe` + a
+raw COM4 read (115200) captures the boot banner without an interactive monitor.
+On the real panel: `EVE_init()` returned `E_OK`, **`REG_ID == 0x7C` observed**,
+rendering at 8 MHz SPI, backlight under `REG_PWM_DUTY` control. Dash-era bench
+facts (2026-07-09): 64 MB QSPI flash detected on the panel, one-time splash
+provisioning + CRC no-op reboot path verified, 60 fps sustained, serial AE walk
+acked, odometer persistence across power cycles verified.
 Bring-up hazards actually hit on this bench (in symptom order): a damaged FFC
 end shorting pins 1-2 (VDD-GND -> Teensy won't enumerate on USB), and a flaky
 Teensy micro-USB cable that perfectly mimicked a dead board. Bench rules that

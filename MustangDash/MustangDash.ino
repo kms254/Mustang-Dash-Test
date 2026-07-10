@@ -62,9 +62,8 @@ extern volatile uint8_t usb_configuration;
 
 /* Splash assets are ASTC bitmaps resident in the panel's 64 MB QSPI flash
  * (address table + provisioning pack in splash_flash.h) and are rendered
- * directly from flash. RAM_G is now UNUSED by the splash -- only the pony
- * screen's PNG decode below occupies it (dash fonts arrive in a later
- * unit). */
+ * directly from flash. RAM_G is untouched by the splash -- the dash fonts
+ * below are its only tenant. */
 
 struct ThemeDesc
 {
@@ -125,11 +124,8 @@ static DashOdo g_odo;
  * viewBox fractions (ticks r80-88, labels r66, needle r62, hub r7). */
 struct GaugeSpec
 {
-    float cx, cy, r;      /* panel px */
-    int16_t stroke;       /* arc stroke, panel px */
-    uint8_t label_font;   /* DF_* index for tick labels */
-    uint8_t hub_font;     /* DF_* index for the hub value */
-    const char *hub_unit; /* "MPH" / "RPM" */
+    float cx, cy, r; /* panel px */
+    int16_t stroke;  /* arc stroke, panel px */
 };
 
 struct Telltale
@@ -149,6 +145,7 @@ static uint16_t g_fps_frames = 0U;
 static uint32_t g_fps_window_ms = 0UL;
 static uint16_t g_dl_track = 0U;    /* boot-measured DL usage per mode (bytes/4) */
 static uint16_t g_dl_street = 0U;
+static uint32_t g_eve_faults = 0UL; /* coprocessor faults auto-recovered by EVE_busy() */
 
 /* RAM_G scratch used only while provisioning the splash pack at boot:
  * a 64-byte header readback at the top of RAM_G and a 32 KB staging
@@ -400,12 +397,26 @@ void eve_frame_begin(uint32_t clear_rgb)
     EVE_cmd_dl(DL_CLEAR | CLR_COL | CLR_STN | CLR_TAG);
 }
 
-/* Close the display list, swap it in, and wait for the co-processor. */
+/* Close the display list, swap it in, and wait for the co-processor.
+ * EVE_busy() detects and auto-recovers coprocessor faults but the recovery
+ * is silent inside EVE_execute_cmd(); spinning here instead lets us count
+ * recoveries so `status` can surface faults=N (review finding). */
 void eve_frame_end(void)
 {
     EVE_cmd_dl(DL_DISPLAY);
     EVE_cmd_dl(CMD_SWAP);
-    EVE_execute_cmd();
+    for (;;)
+    {
+        const uint8_t st = EVE_busy();
+        if (E_OK == st)
+        {
+            break;
+        }
+        if (EVE_FAULT_RECOVERED == st)
+        {
+            g_eve_faults++;
+        }
+    }
 }
 
 /* Inflate every dash font into RAM_G from address 0 and patch each metric
@@ -485,19 +496,26 @@ void dash_register_fonts(void)
  * dash_odo.h; this is the only code that touches the EEPROM API ---- */
 void odo_eeprom_load(void)
 {
-    uint8_t rec[DASH_ODO_RECORD_SIZE];
-    eeprom_read_block(rec, (const void *)DASH_ODO_EEPROM_ADDR, DASH_ODO_RECORD_SIZE);
-    if (!dash_odo_decode(&g_odo, rec))
+    /* Two-slot ping-pong (review finding): a torn write -- power loss
+     * mid-write on the 12V rail -- corrupts at most the slot being
+     * written; the other slot still holds the previous odometer, so a
+     * tear costs 0.1 mi, never the lifetime count. */
+    uint8_t rec0[DASH_ODO_RECORD_SIZE];
+    uint8_t rec1[DASH_ODO_RECORD_SIZE];
+    eeprom_read_block(rec0, (const void *)DASH_ODO_SLOT_ADDR(0), DASH_ODO_RECORD_SIZE);
+    eeprom_read_block(rec1, (const void *)DASH_ODO_SLOT_ADDR(1), DASH_ODO_RECORD_SIZE);
+    if (dash_odo_pick_load_slot(rec0, rec1, &g_odo) == 0xFFU)
     {
-        dash_odo_init(&g_odo); /* blank or corrupt record: clean zero start */
+        dash_odo_init(&g_odo); /* blank or corrupt EEPROM: clean zero start */
     }
 }
 
 void odo_eeprom_write(void)
 {
     uint8_t rec[DASH_ODO_RECORD_SIZE];
-    dash_odo_encode(&g_odo, rec);
-    eeprom_write_block(rec, (void *)DASH_ODO_EEPROM_ADDR, DASH_ODO_RECORD_SIZE);
+    uint8_t slot;
+    dash_odo_encode_next(&g_odo, rec, &slot); /* bumps seq, alternates slots */
+    eeprom_write_block(rec, (void *)DASH_ODO_SLOT_ADDR(slot), DASH_ODO_RECORD_SIZE);
 }
 
 /* ---- serial pump (KTD6): accumulate a line, parse, apply, ack ---- */
@@ -554,18 +572,37 @@ void handle_serial_line(const char *line)
             dash_odo_mark_written(&g_odo);
             Serial.printf("ok odo set %.1f\r\n", (double)dash_odo_miles(&g_odo));
             break;
-        case DASH_CMD_STATUS:
-            Serial.printf("ok status mode=%s fps=%u rpm=%.0f speed=%.0f ect=%.0f oilp=%.1f "
-                          "fuel=%.1f odo=%.1f trip=%.1f dl=%u/%u eve=%s\r\n",
+        case DASH_CMD_STATUS: {
+            /* Full-state snapshot (context parity, review finding): every
+             * channel with `--` for invalid -- matching what the panel
+             * dead-fronts -- plus the active alarm, sim state, and the
+             * auto-recovered coprocessor fault count. One line, one ack. */
+            const DashAlarm alarm = dash_alarm_classify(&g_dash);
+            Serial.printf("ok status mode=%s fps=%u alarm=%s sim=%s faults=%lu",
                           (DASH_MODE_TRACK == g_dash.mode) ? "track" : "street",
                           (unsigned)g_fps,
-                          (double)g_dash.ch.rpm, (double)g_dash.ch.speed_mph,
-                          (double)g_dash.ch.ect_f, (double)g_dash.ch.oil_press_psi,
-                          (double)g_dash.ch.fuel_gal,
+                          (DASH_ALARM_OILP == alarm) ? "oilp" :
+                          (DASH_ALARM_OILT == alarm) ? "oilt" :
+                          (DASH_ALARM_CLT == alarm) ? "clt" : "none",
+                          g_dash.sim_frozen ? "off" : "on",
+                          (unsigned long)g_eve_faults);
+            for (uint8_t ch = 0U; ch < DASH_CH_COUNT; ch++)
+            {
+                if (dash_ch_valid(&g_dash, ch))
+                {
+                    Serial.printf(" %s=%g", dash_ch_name(ch), (double)dash_ch_get(&g_dash, ch));
+                }
+                else
+                {
+                    Serial.printf(" %s=--", dash_ch_name(ch));
+                }
+            }
+            Serial.printf(" odo=%.1f trip=%.1f dl=%u/%u eve=%s\r\n",
                           (double)dash_odo_miles(&g_odo), (double)dash_trip_miles(&g_odo),
                           (unsigned)g_dl_track, (unsigned)g_dl_street,
                           eve_ready ? "ok" : "INIT-FAILED");
             break;
+        }
         case DASH_CMD_HELP:
             Serial.printf("ok %s\r\n", DASH_HELP_TEXT);
             break;
@@ -613,13 +650,24 @@ bool splash_flash_provision(void)
 
     Serial.printf("Splash flash assets stale/missing -> provisioning %lu KB ",
                   (unsigned long)(SPLASH_FLASH_PACK_SIZE / 1024UL));
-    for (uint32_t off = 0UL; off < SPLASH_FLASH_PACK_SIZE; off += PROVISION_CHUNK)
+    /* The 64-byte header lives in chunk 0, and splash_header_current() only
+     * ever reads the header back -- so the header chunk is the COMMIT
+     * RECORD and must be written LAST. Writing it first would let a
+     * power-cut provisioning run (header ok, later chunks never written)
+     * pass verification on every subsequent boot and render garbage
+     * assets forever (review finding: torn provisioning). */
+    for (uint32_t off = PROVISION_CHUNK; off < SPLASH_FLASH_PACK_SIZE; off += PROVISION_CHUNK)
     {
         const uint32_t n = min(PROVISION_CHUNK, SPLASH_FLASH_PACK_SIZE - off);
         EVE_memWrite_flash_buffer(SCRATCH_BUF, &splash_flash_pack[off], n);
         EVE_cmd_flashupdate(SPLASH_FLASH_BASE + off, SCRATCH_BUF, n);
         Serial.print('.');
     }
+    EVE_memWrite_flash_buffer(SCRATCH_BUF, &splash_flash_pack[0],
+                              min(PROVISION_CHUNK, SPLASH_FLASH_PACK_SIZE));
+    EVE_cmd_flashupdate(SPLASH_FLASH_BASE, SCRATCH_BUF,
+                        min(PROVISION_CHUNK, SPLASH_FLASH_PACK_SIZE));
+    Serial.print('.');
     Serial.println();
 
     /* flash contents changed: clear the graphics engine's bitmap cache so
@@ -800,6 +848,14 @@ void dash_color(uint32_t rgb, uint8_t alpha)
     EVE_cmd_dl(COLOR_A(alpha));
 }
 
+/* Text color for an RPM-driven readout (shared by the TRACK value and the
+ * STREET tach hub). */
+static uint32_t dash_state_text_color(DashColorState rc)
+{
+    return (DASH_COLOR_RED == rc) ? COLOR_RED_TEXT :
+           (DASH_COLOR_AMBER == rc) ? COLOR_AMBER : COLOR_VALUE;
+}
+
 #define DA(a) ((uint8_t)(((uint16_t)(a) * (uint16_t)alpha) / 255U))
 
 /* A rounded-capsule bar: RECTS with LINE_WIDTH as the corner radius. */
@@ -963,8 +1019,7 @@ void draw_track_mode(uint32_t now_ms, uint8_t alpha)
     dash_color(COLOR_LABEL, alpha);
     EVE_cmd_text(bar_x, DASH_LY(262), dash_font(DF_LABEL), 0U, "RPM");
     const DashColorState rc = rpm_ok ? dash_rpm_color(rpm) : DASH_COLOR_NORMAL;
-    dash_color((DASH_COLOR_RED == rc) ? COLOR_RED_TEXT :
-               (DASH_COLOR_AMBER == rc) ? COLOR_AMBER : COLOR_VALUE, alpha);
+    dash_color(dash_state_text_color(rc), alpha);
     if (rpm_ok)
     {
         snprintf(buf, sizeof(buf), "%d", (int)(rpm + 0.5f));
@@ -1094,7 +1149,7 @@ static void street_speedo(uint8_t alpha)
 {
     char buf[16];
     const GaugeSpec g = { (float)DASH_LX(193), (float)DASH_LY(186), (float)DASH_LR(156),
-                          DASH_LR(16), DF_TINY, DF_BIG, "MPH" };
+                          DASH_LR(16) };
     const bool ok = dash_ch_valid(&g_dash, DASH_CH_SPEED);
     const float mph = g_dash.ch.speed_mph;
 
@@ -1148,7 +1203,7 @@ static void street_tach(uint8_t alpha)
 {
     char buf[16];
     const GaugeSpec g = { (float)DASH_LX(487), (float)DASH_LY(182), (float)DASH_LR(101),
-                          DASH_LR(10), DF_TINY, DF_MID, "RPM" };
+                          DASH_LR(10) };
     const bool ok = dash_ch_valid(&g_dash, DASH_CH_RPM);
     const float rpm = g_dash.ch.rpm;
     const float frac = ok ? (rpm / (float)DASH_REDLINE_RPM) : 0.0f;
@@ -1187,8 +1242,7 @@ static void street_tach(uint8_t alpha)
     draw_gauge_needle_hub(&g, (frac > 1.0f) ? 1.0f : frac, ok, alpha);
 
     const DashColorState rc = ok ? dash_rpm_color(rpm) : DASH_COLOR_NORMAL;
-    dash_color((DASH_COLOR_RED == rc) ? COLOR_RED_TEXT :
-               (DASH_COLOR_AMBER == rc) ? COLOR_AMBER : COLOR_VALUE, alpha);
+    dash_color(dash_state_text_color(rc), alpha);
     if (ok)
     {
         snprintf(buf, sizeof(buf), "%d", (int)(rpm + 0.5f));
@@ -1310,8 +1364,19 @@ void draw_alarm_takeover(DashAlarm alarm, uint32_t now_ms, uint8_t alpha)
     const int16_t cx = (int16_t)(EVE_HSIZE / 2U);
     const char *title = (DASH_ALARM_OILP == alarm) ? "OIL PRESSURE" :
                         (DASH_ALARM_OILT == alarm) ? "OIL TEMP" : "COOLANT TEMP";
-    const char *limit = (DASH_ALARM_OILP == alarm) ? "MINIMUM 29 PSI" :
-                        (DASH_ALARM_OILT == alarm) ? "MAXIMUM 248 F" : "MAXIMUM 217 F";
+    /* limit text derives from the same constants dash_alarm_classify()
+     * compares against, so a threshold tune can never leave the banner
+     * showing a stale number */
+    char limit[24];
+    if (DASH_ALARM_OILP == alarm)
+    {
+        snprintf(limit, sizeof(limit), "MINIMUM %d PSI", (int)DASH_OILP_RED_PSI);
+    }
+    else
+    {
+        snprintf(limit, sizeof(limit), "MAXIMUM %d F",
+                 (DASH_ALARM_OILT == alarm) ? (int)DASH_OILT_RED_F : (int)DASH_ECT_RED_F);
+    }
     const float live = (DASH_ALARM_OILP == alarm) ? g_dash.ch.oil_press_psi :
                        (DASH_ALARM_OILT == alarm) ? g_dash.ch.oil_temp_f : g_dash.ch.ect_f;
 

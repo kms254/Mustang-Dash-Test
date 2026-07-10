@@ -20,6 +20,13 @@ _Static_assert(DASH_SERIAL_MAX_LINE == 63, "max line must be 63 chars + NUL");
 _Static_assert(DASH_CH_COUNT == 12, "serial protocol names exactly 12 channels");
 _Static_assert(DASH_CMD_NONE == 0, "DASH_CMD_NONE must be the zero value");
 _Static_assert(DASH_ERR_NONE == 0, "DASH_ERR_NONE must be the zero value");
+/* protocol alarm codes stay numerically identical to dash_math.h's DashAlarm
+ * enum even though the macros are now DASH_SERIAL_-prefixed to avoid the
+ * name collision */
+_Static_assert(DASH_SERIAL_ALARM_OFF == 0, "alarm off must stay wire code 0");
+_Static_assert(DASH_SERIAL_ALARM_OILP == 1, "alarm oilp must stay wire code 1");
+_Static_assert(DASH_SERIAL_ALARM_OILT == 2, "alarm oilt must stay wire code 2");
+_Static_assert(DASH_SERIAL_ALARM_CLT == 3, "alarm clt must stay wire code 3");
 
 static int failures = 0;
 
@@ -148,6 +155,8 @@ int main(void)
     expect(parse("   ", &c) == DASH_ERR_EMPTY, "whitespace-only line must be EMPTY");
     expect(parse("mode sideways", &c) == DASH_ERR_BAD_VALUE,
            "mode sideways must be BAD_VALUE");
+    expect(parse("odo bogus 1", &c) == DASH_ERR_BAD_VALUE,
+           "odo bogus must be BAD_VALUE (only 'odo set' exists)");
     expect(parse("odo set -1", &c) == DASH_ERR_RANGE, "odo set -1 must be RANGE");
 
     /* 70-char line -> TOO_LONG */
@@ -248,6 +257,47 @@ int main(void)
         expect(parse("help", &c) == DASH_ERR_NONE, "apply: help parses");
         expect(!dash_apply_command(&s, &c, reply, sizeof reply),
                "apply must NOT handle HELP");
+    }
+
+    /* ---- ALARM off with the sim frozen must not latch the takeover:
+     * the forced values may stay in memory, but the valid bits must drop
+     * so dash_alarm_classify() stops firing ('--' beats a stale 20 psi) ---- */
+    {
+        DashState s;
+        char reply[64];
+        dash_state_init(&s);
+        s.sim_frozen = true; /* as after `sim off` */
+
+        expect(parse("alarm oilp", &c) == DASH_ERR_NONE, "frozen: alarm oilp parses");
+        expect(dash_apply_command(&s, &c, reply, sizeof reply),
+               "frozen: apply must handle ALARM oilp");
+        expect(dash_ch_valid(&s, DASH_CH_OILP), "frozen: ALARM oilp must mark oilp valid");
+        expect((s.overridden & DASH_CH_BIT(DASH_CH_OILP)) != 0,
+               "frozen: ALARM oilp must override oilp");
+        expect(nearf(s.ch.oil_press_psi, 20.0f, 1e-4f),
+               "frozen: ALARM oilp must force oilp to 20");
+
+        expect(parse("alarm off", &c) == DASH_ERR_NONE, "frozen: alarm off parses");
+        expect(dash_apply_command(&s, &c, reply, sizeof reply),
+               "frozen: apply must handle ALARM off");
+        expect(!dash_ch_valid(&s, DASH_CH_OILP),
+               "frozen: ALARM off must drop the oilp valid bit (no latched takeover)");
+        expect(!dash_ch_valid(&s, DASH_CH_OILT),
+               "frozen: ALARM off must drop the oilt valid bit");
+        expect(!dash_ch_valid(&s, DASH_CH_ECT),
+               "frozen: ALARM off must drop the ect valid bit");
+        expect((s.overridden & (DASH_CH_BIT(DASH_CH_OILP) | DASH_CH_BIT(DASH_CH_OILT) |
+                                DASH_CH_BIT(DASH_CH_ECT))) == 0,
+               "frozen: ALARM off must drop all three override bits");
+
+        /* a later SET revalidates the channel */
+        expect(parse("set oilp 45", &c) == DASH_ERR_NONE, "frozen: set oilp 45 parses");
+        expect(dash_apply_command(&s, &c, reply, sizeof reply),
+               "frozen: apply must handle SET after alarm off");
+        expect(dash_ch_valid(&s, DASH_CH_OILP),
+               "frozen: SET after ALARM off must revalidate oilp");
+        expect(nearf(s.ch.oil_press_psi, 45.0f, 1e-4f),
+               "frozen: SET after ALARM off must write the new value");
     }
 
     /* ---- reply truncation: a tiny reply buffer must not overrun ---- */
