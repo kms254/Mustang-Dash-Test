@@ -84,22 +84,11 @@ static const struct EngineMiniGauge ENG_GAUGES[4] = {
 static const int16_t ENG_GAUGE_CX[2] = { 118, 302 };
 static const int16_t ENG_GAUGE_CY[2] = { 117, 240 };
 
-/* "--" when invalid, else the value at 0 or 1 decimals (house rounding). */
-static void engine_fmt_value(char *buf, size_t n, float v, uint8_t decimals, bool ok)
-{
-    if (!ok)
-    {
-        snprintf(buf, n, "--");
-    }
-    else if (0U != decimals)
-    {
-        snprintf(buf, n, "%.1f", (double)v);
-    }
-    else
-    {
-        snprintf(buf, n, "%d", (int)(v + 0.5f));
-    }
-}
+/* Font instances this screen references (dash_register_fonts bitmask):
+ * registering only these keeps the unused instances' CMD_SETFONT2 words
+ * out of the left panel's per-frame display list. */
+#define ENG_FONTS ((uint16_t)((1U << DF_LABEL) | (1U << DF_TINY) \
+                            | (1U << DF_VAL) | (1U << DF_SMALL)))
 
 /* Rounded rect with an explicit corner radius (the PMU chips' 6 mock px;
  * draw_pill hardcodes r = h/2, too round for a chip). */
@@ -165,7 +154,7 @@ static void engine_track_grid(uint8_t alpha)
         /* value color from the channel's classifier; invalid = plain "--" */
         const DashColorState rc = ok ? c->state(v) : DASH_COLOR_NORMAL;
         dash_color(dash_state_text_color(rc), alpha);
-        engine_fmt_value(buf, sizeof(buf), v, c->decimals, ok);
+        dash_fmt_value(buf, sizeof(buf), v, c->decimals, ok);
         EVE_cmd_text(DASH5_LX(x0 + 10), DASH5_LY(y1 - 31),
                      dash_font(DF_VAL), 0U, buf);
 
@@ -283,9 +272,8 @@ static void engine_mini_gauge(const struct EngineMiniGauge *mg,
     const bool ok = dash_ch_valid(&g_dash, mg->ch);
     const float v = dash_ch_get(&g_dash, mg->ch);
 
-    float frac = ok ? (v - mg->vmin) / (mg->vmax - mg->vmin) : 0.0f;
-    if (frac < 0.0f) { frac = 0.0f; }
-    if (frac > 1.0f) { frac = 1.0f; }
+    const float frac = dash_clampf(ok ? (v - mg->vmin) / (mg->vmax - mg->vmin) : 0.0f,
+                                   0.0f, 1.0f);
     const DashColorState rc = ok ? mg->state(v) : DASH_COLOR_NORMAL;
 
     draw_gauge_chrome(&g, alpha);
@@ -299,7 +287,7 @@ static void engine_mini_gauge(const struct EngineMiniGauge *mg,
     /* hub readout: value below center in the open 120-degree gap, label
      * under it (DF_VAL: mock's 19 px value = 28.5 native, the closest rung) */
     dash_color(dash_state_text_color(rc), alpha);
-    engine_fmt_value(buf, sizeof(buf), v, mg->decimals, ok);
+    dash_fmt_value(buf, sizeof(buf), v, mg->decimals, ok);
     EVE_cmd_text((int16_t)g.cx, DASH5_LY(cy_mock + 24),
                  dash_font(DF_VAL), EVE_OPT_CENTER, buf);
     dash_color(COLOR_LABEL, alpha);

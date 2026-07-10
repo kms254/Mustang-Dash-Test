@@ -28,6 +28,13 @@
  * renders with it too -- DF_MID has no 'P' glyph. */
 #define TF_LAP 8
 
+/* Font instances this screen references (dash_register_fonts bitmask):
+ * registering only these keeps the unused instances' CMD_SETFONT2 words
+ * out of the right panel's per-frame display list. */
+#define TIMING_FONTS ((uint16_t)((1U << DF_LABEL) | (1U << DF_TINY) \
+                               | (1U << DF_VAL) | (1U << DF_SMALL) \
+                               | (1U << DF_MID) | (1U << TF_LAP)))
+
 /* Header-title gray from the design mock (#9aa6b1) -- no shared COLOR_
  * token exists for it, so it stays local to this screen. */
 #define TIMING_COLOR_TITLE 0x9AA6B1UL
@@ -78,14 +85,7 @@ static void timing_pct_bar(const char *label, int16_t label_y, int16_t bar_y,
     dash_color(COLOR_LABEL, alpha);
     EVE_cmd_text(bar_x, DASH5_LY(label_y), dash_font(DF_TINY), 0U, label);
     dash_color(ok ? text_col : COLOR_VALUE, alpha);
-    if (ok)
-    {
-        snprintf(buf, sizeof(buf), "%d", (int)(pct + 0.5f));
-    }
-    else
-    {
-        snprintf(buf, sizeof(buf), "--");
-    }
+    dash_fmt_value(buf, sizeof(buf), pct, 0U, ok);
     EVE_cmd_text(DASH5_LX(394), (int16_t)(DASH5_LY(label_y) - DASH5_LR(4)),
                  dash_font(DF_VAL), EVE_OPT_RIGHTX, buf);
 
@@ -93,8 +93,7 @@ static void timing_pct_bar(const char *label, int16_t label_y, int16_t bar_y,
     draw_pill(bar_x, DASH5_LY(bar_y), bar_w, bar_h);
     if (ok && (pct > 0.0f))
     {
-        float frac = pct / 100.0f;
-        if (frac > 1.0f) { frac = 1.0f; }
+        const float frac = dash_clampf(pct / 100.0f, 0.0f, 1.0f);
         const int16_t fw = (int16_t)((float)bar_w * frac);
         const int16_t glow_h = (int16_t)(bar_h + DASH5_LR(4));
         if (fw > glow_h) /* glow pill is the tallest; gate on it */
@@ -215,14 +214,7 @@ void timing_track_screen(uint8_t alpha)
     EVE_cmd_dl(DL_END);
 
     const bool fuel_ok = dash_ch_valid(&g_dash, DASH_CH_FUEL);
-    if (fuel_ok)
-    {
-        snprintf(buf, sizeof(buf), "%.1f", (double)g_dash.ch.fuel_gal);
-    }
-    else
-    {
-        snprintf(buf, sizeof(buf), "--");
-    }
+    dash_fmt_value(buf, sizeof(buf), g_dash.ch.fuel_gal, 1U, fuel_ok);
     timing_grid_cell(26, 122,
                      (fuel_ok && (DASH_COLOR_AMBER == dash_fuel_state(g_dash.ch.fuel_gal)))
                          ? COLOR_AMBER : COLOR_VALUE,
@@ -241,14 +233,8 @@ void timing_track_screen(uint8_t alpha)
     }
     timing_grid_cell(149, 271, COLOR_VALUE, "LAPS", buf, alpha);
 
-    if (dash_ch_valid(&g_dash, DASH_CH_AMBIENT))
-    {
-        snprintf(buf, sizeof(buf), "%d", (int)(g_dash.ch.ambient_f + 0.5f));
-    }
-    else
-    {
-        snprintf(buf, sizeof(buf), "--");
-    }
+    dash_fmt_value(buf, sizeof(buf), g_dash.ch.ambient_f, 0U,
+                   dash_ch_valid(&g_dash, DASH_CH_AMBIENT));
     timing_grid_cell(271, 394, COLOR_VALUE, "AMB", buf, alpha);
 
     timing_odo_footer(alpha);
@@ -267,9 +253,8 @@ static void road_fuel_gauge(uint8_t alpha)
                           (float)DASH5_LR(88), DASH5_LR(10) };
     const bool ok = dash_ch_valid(&g_dash, DASH_CH_FUEL);
     const float gal = g_dash.ch.fuel_gal;
-    float frac = ok ? (gal / 16.0f) : 0.0f; /* README: 0-16 gal usable scale */
-    if (frac < 0.0f) { frac = 0.0f; }
-    if (frac > 1.0f) { frac = 1.0f; }
+    /* README: 0-16 gal usable scale */
+    const float frac = dash_clampf(ok ? (gal / 16.0f) : 0.0f, 0.0f, 1.0f);
     const bool amber = ok && (DASH_COLOR_AMBER == dash_fuel_state(gal));
 
     draw_gauge_chrome(&g, alpha);
@@ -293,14 +278,7 @@ static void road_fuel_gauge(uint8_t alpha)
 
     /* hub readout: gallons, 1 decimal, amber when low */
     dash_color(amber ? COLOR_AMBER : COLOR_VALUE, alpha);
-    if (ok)
-    {
-        snprintf(buf, sizeof(buf), "%.1f", (double)gal);
-    }
-    else
-    {
-        snprintf(buf, sizeof(buf), "--");
-    }
+    dash_fmt_value(buf, sizeof(buf), gal, 1U, ok);
     EVE_cmd_text((int16_t)g.cx, (int16_t)(g.cy + (float)DASH5_LR(34)),
                  dash_font(DF_MID), EVE_OPT_CENTER, buf);
     dash_color(COLOR_LABEL, alpha);
@@ -331,24 +309,13 @@ void timing_street_screen(uint8_t alpha)
     EVE_cmd_text(DASH5_LX(26), DASH5_LY(284), dash_font(DF_VAL), 0U, buf);
 
     float range;
-    if (dash_range_mi(g_dash.ch.fuel_gal, dash_ch_valid(&g_dash, DASH_CH_FUEL), &range))
-    {
-        snprintf(buf, sizeof(buf), "%d", (int)(range + 0.5f));
-    }
-    else
-    {
-        snprintf(buf, sizeof(buf), "--");
-    }
+    const bool range_ok = dash_range_mi(g_dash.ch.fuel_gal,
+                                        dash_ch_valid(&g_dash, DASH_CH_FUEL), &range);
+    dash_fmt_value(buf, sizeof(buf), range, 0U, range_ok);
     EVE_cmd_text(DASH5_LX(163), DASH5_LY(284), dash_font(DF_VAL), EVE_OPT_CENTERX, buf);
 
-    if (dash_ch_valid(&g_dash, DASH_CH_AMBIENT))
-    {
-        snprintf(buf, sizeof(buf), "%d", (int)(g_dash.ch.ambient_f + 0.5f));
-    }
-    else
-    {
-        snprintf(buf, sizeof(buf), "--");
-    }
+    dash_fmt_value(buf, sizeof(buf), g_dash.ch.ambient_f, 0U,
+                   dash_ch_valid(&g_dash, DASH_CH_AMBIENT));
     EVE_cmd_text(DASH5_LX(257), DASH5_LY(284), dash_font(DF_VAL), EVE_OPT_CENTERX, buf);
 
     /* TIME: 12-hour h:mm (the mock's clock convention) + tiny AM/PM */

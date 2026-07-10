@@ -75,13 +75,20 @@ typedef enum {
     DASH_ALARM_CLT,
 } DashAlarm;
 
+/* Clamp v into [lo, hi]. */
+static inline float dash_clampf(float v, float lo, float hi)
+{
+    if (v < lo) { return lo; }
+    if (v > hi) { return hi; }
+    return v;
+}
+
 /* Speedo needle fraction 0..1 with the mock's knee mapping: linear to
  * 0.8235 at 140 mph, then a shallower 0.0588-per-20-mph segment to 200. */
 static inline float dash_speed_frac(float mph)
 {
     float f;
-    if (mph < 0.0f) { mph = 0.0f; }
-    if (mph > (float)DASH_SPEED_MAX) { mph = (float)DASH_SPEED_MAX; }
+    mph = dash_clampf(mph, 0.0f, (float)DASH_SPEED_MAX);
     if (mph <= (float)DASH_SPEED_KNEE)
     {
         f = (mph / (float)DASH_SPEED_KNEE) * 0.8235f;
@@ -90,9 +97,7 @@ static inline float dash_speed_frac(float mph)
     {
         f = 0.8235f + ((mph - (float)DASH_SPEED_KNEE) / 20.0f) * 0.0588f;
     }
-    if (f < 0.0f) { f = 0.0f; }
-    if (f > 1.0f) { f = 1.0f; }
-    return f;
+    return dash_clampf(f, 0.0f, 1.0f);
 }
 
 /* Needle angle in radians: 210 deg at frac 0, sweeping 240 deg clockwise
@@ -234,6 +239,26 @@ static inline float dash_delta_fill(float delta_s)
     if (delta_s < -1.0f) { return -1.0f; }
     if (delta_s > 1.0f) { return 1.0f; }
     return delta_s;
+}
+
+/* "--" when invalid, else the value at 0 or 1 decimals (house rounding).
+ * The one numeric dead-front formatter for every plain cell readout on any
+ * screen; deliberate exceptions keep their own snprintf (zero-padded LAP,
+ * "P"-prefixed POS, floored LAPS, h:mm TIME). */
+static inline void dash_fmt_value(char *buf, size_t n, float v, uint8_t decimals, bool ok)
+{
+    if (!ok)
+    {
+        snprintf(buf, n, "--");
+    }
+    else if (0U != decimals)
+    {
+        snprintf(buf, n, "%.1f", (double)v);
+    }
+    else
+    {
+        snprintf(buf, n, "%d", (int)(v + 0.5f));
+    }
 }
 
 /* "m:ss.mmm" (minutes unpadded), or "--:--.---" when the time is invalid. */

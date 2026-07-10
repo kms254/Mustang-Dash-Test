@@ -42,6 +42,14 @@ enum
     DF_HERO = 0, DF_BIG, DF_MID, DF_VAL, DF_SMALL, DF_TITLE, DF_LABEL, DF_TINY
 };
 
+/* Font instances the center compositions reference -- every DF_ above but
+ * not the side-only lap instance (TF_LAP, index 8). dash_register_fonts
+ * bitmask: registering only these keeps unused instances' CMD_SETFONT2
+ * words out of the center's per-frame display list. */
+#define CENTER_FONTS ((uint16_t)((1U << DF_HERO) | (1U << DF_BIG) | (1U << DF_MID) \
+                               | (1U << DF_VAL) | (1U << DF_SMALL) | (1U << DF_TITLE) \
+                               | (1U << DF_LABEL) | (1U << DF_TINY)))
+
 /* Alpha pre-scaled by the crossfade; each render header carries its own
  * scoped copy of this one-liner (define/#undef pair) so the macro never
  * leaks across headers -- the splash SPLASH_A lesson. */
@@ -497,7 +505,7 @@ void draw_alarm_takeover(DashAlarm alarm, uint32_t now_ms, uint8_t alpha)
  * assert (or hold) a takeover (R10/R11). */
 void draw_dash_content(uint32_t now_ms, uint8_t alpha)
 {
-    dash_register_fonts();
+    dash_register_fonts(CENTER_FONTS);
 
     const DashAlarm alarm = dash_alarm_classify(&g_dash);
     if (DASH_ALARM_NONE != alarm)

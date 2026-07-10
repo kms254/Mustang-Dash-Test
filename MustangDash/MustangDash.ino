@@ -140,8 +140,6 @@ static const uint8_t BL_STEADY = 128U;
  * soak validates or tunes it -- fps alone never accepts an operating point. */
 static const uint32_t DASH_SPI_RUN_HZ = 24000000UL;
 
-static bool eve_ready = false; /* center panel initialized OK (sides have their own g_panel_ok flags) */
-
 /* ---- forward declarations (explicit prototypes, see note above) ---- */
 void set_backlight(uint8_t duty);
 void eve_frame_begin(uint32_t clear_rgb);
@@ -149,9 +147,10 @@ void eve_frame_end(void);
 bool dash_select_panel(uint8_t idx);
 void dash_set_brightness(uint8_t duty);
 void dash_sides_frame(uint8_t alpha);
+void draw_side_content(uint8_t panel, DashMode mode, uint8_t alpha);
 bool load_dash_fonts(uint8_t panel);
 uint16_t dash_font(uint8_t idx);
-void dash_register_fonts(void);
+void dash_register_fonts(uint16_t needed);
 uint16_t measure_side_dl(uint8_t panel, DashMode mode);
 void odo_eeprom_load(void);
 void odo_eeprom_write(void);
@@ -255,7 +254,6 @@ void setup(void)
         Serial.printf("Panel %s: EVE_init 0x%02X (E_OK=0x00), REG_ID 0x%02X (want 0x7C)\r\n",
                       kPanelNames[p], ret, reg_id);
     }
-    eve_ready = g_panel_ok[DASH_PANEL_CENTER];
     const bool any_panel_ok = g_panel_ok[0] || g_panel_ok[1] || g_panel_ok[2];
 
     /* One bus-wide raise after every init is done (KTD8). */
@@ -291,7 +289,8 @@ void setup(void)
          * along with the splash itself -- if the center or its flash probe
          * failed: the dash must never depend on flash. */
         bool splash_ok = false;
-        if (eve_ready && (E_OK == flash_ret) && dash_select_panel(DASH_PANEL_CENTER))
+        if (g_panel_ok[DASH_PANEL_CENTER] && (E_OK == flash_ret)
+            && dash_select_panel(DASH_PANEL_CENTER))
         {
             splash_ok = splash_flash_provision();
         }
@@ -360,8 +359,8 @@ void setup(void)
 void loop(void)
 {
     /* The live pipeline (KTD8): serial -> sim -> odometer -> alarm -> frame.
-     * Runs even when the panel is dead (eve_ready false) so the bench
-     * control surface survives -- only the render step is gated. */
+     * Runs even when every panel is dead so the bench control surface
+     * survives -- only the render step is gated. */
     pump_serial();
 
     const uint32_t now = millis();
@@ -491,35 +490,34 @@ void dash_sides_frame(uint8_t alpha)
         sides_lit = true;
     }
 
-    if (dash_select_panel(DASH_PANEL_LEFT))
+    for (uint8_t p = DASH_PANEL_LEFT; p <= DASH_PANEL_RIGHT; p++)
     {
-        eve_frame_begin(COLOR_BG);
-        dash_register_fonts();
-        if (DASH_MODE_STREET == g_dash.mode)
+        if (dash_select_panel(p))
         {
-            engine_street_screen(alpha);
+            eve_frame_begin(COLOR_BG);
+            draw_side_content(p, g_dash.mode, alpha);
+            eve_frame_end();
         }
-        else
-        {
-            engine_track_screen(alpha);
-        }
-        eve_frame_end();
-    }
-    if (dash_select_panel(DASH_PANEL_RIGHT))
-    {
-        eve_frame_begin(COLOR_BG);
-        dash_register_fonts();
-        if (DASH_MODE_STREET == g_dash.mode)
-        {
-            timing_street_screen(alpha);
-        }
-        else
-        {
-            timing_track_screen(alpha);
-        }
-        eve_frame_end();
     }
     (void)dash_select_panel(DASH_PANEL_CENTER);
+}
+
+/* One side composition: that screen's fonts registered, then its mode
+ * content -- the single LEFT->engine / RIGHT->timing dispatch, shared by
+ * the frame loop and the boot DL diagnostic (draw_dash_content's shape).
+ * The caller has already selected the panel. */
+void draw_side_content(uint8_t panel, DashMode mode, uint8_t alpha)
+{
+    if (DASH_PANEL_LEFT == panel)
+    {
+        dash_register_fonts(ENG_FONTS);
+        if (DASH_MODE_STREET == mode) { engine_street_screen(alpha); } else { engine_track_screen(alpha); }
+    }
+    else
+    {
+        dash_register_fonts(TIMING_FONTS);
+        if (DASH_MODE_STREET == mode) { timing_street_screen(alpha); } else { timing_track_screen(alpha); }
+    }
 }
 
 /* Build one un-swapped side frame and read back its display-list usage
@@ -536,15 +534,7 @@ uint16_t measure_side_dl(uint8_t panel, DashMode mode)
     EVE_cmd_dl(CMD_DLSTART);
     EVE_cmd_dl(DL_CLEAR_COLOR_RGB | COLOR_BG);
     EVE_cmd_dl(DL_CLEAR | CLR_COL | CLR_STN | CLR_TAG);
-    dash_register_fonts();
-    if (DASH_PANEL_LEFT == panel)
-    {
-        if (DASH_MODE_STREET == mode) { engine_street_screen(255U); } else { engine_track_screen(255U); }
-    }
-    else
-    {
-        if (DASH_MODE_STREET == mode) { timing_street_screen(255U); } else { timing_track_screen(255U); }
-    }
+    draw_side_content(panel, mode, 255U);
     EVE_execute_cmd();
     const uint32_t dl_bytes = EVE_memRead32(REG_CMD_DL);
     g_dash.mode = saved;
@@ -614,14 +604,17 @@ uint16_t dash_font(uint8_t idx)
     return ok ? (uint16_t)DASH_FONTS[idx].handle : 31U;
 }
 
-/* CMD_SETFONT2 emits display-list commands, so every frame that uses the
- * custom fonts re-registers them at its top (~5 words per instance),
- * per panel -- each panel's DL carries its own registrations. */
-void dash_register_fonts(void)
+/* CMD_SETFONT2 emits display-list commands, so every frame re-registers
+ * its fonts at its top (~5 words per instance), per panel -- each panel's
+ * DL carries its own registrations. `needed` is the calling screen's
+ * font-index bitmask (CENTER_FONTS / ENG_FONTS / TIMING_FONTS): instances
+ * a screen never references stay out of its display list entirely. */
+void dash_register_fonts(uint16_t needed)
 {
     for (uint8_t i = 0U; i < DASH_FONT_COUNT; i++)
     {
-        if (0U != ((g_fonts[i].ok_mask >> g_active_panel) & 1U))
+        if ((0U != ((needed >> i) & 1U))
+            && (0U != ((g_fonts[i].ok_mask >> g_active_panel) & 1U)))
         {
             EVE_cmd_setfont2((uint32_t)DASH_FONTS[i].handle,
                              g_fonts[i].metrics_addr,
