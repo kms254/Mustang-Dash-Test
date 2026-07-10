@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Saira+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  a{color:#34e1ff;} a:hover{color:#9fefff;}
+</style>
+</helmet>
+<div style="width:1600px;height:520px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(120% 150% at 50% -10%, #101318 0%, #08090c 55%, #040507 100%);font-family:'Chakra Petch',sans-serif;color:#fff;overflow:hidden;letter-spacing:.02em;">
+
+  <!-- plate label -->
+  <div style="position:absolute;top:16px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:14px;">
+    <div style="width:44px;height:1px;background:linear-gradient(90deg,transparent,#39424c);"></div>
+    <div style="font-size:11px;color:#5c6874;font-weight:500;letter-spacing:.5em;padding-left:.5em;">RIVERDI&nbsp;·&nbsp;EVE&nbsp;TRIPLE&nbsp;DASH</div>
+    <div style="width:44px;height:1px;background:linear-gradient(90deg,#39424c,transparent);"></div>
+  </div>
+
+  <!-- screens row -->
+  <div style="display:flex;align-items:center;justify-content:center;gap:26px;margin-top:16px;">
+
+    <!-- ===================== LEFT 5" — ENGINE ===================== -->
+    <div style="width:420px;height:320px;border-radius:14px;background:linear-gradient(180deg,#14171c,#0a0c0f 30%,#060809);border:1px solid #22272e;padding:9px;box-shadow:0 18px 44px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.06);">
+      <div style="width:100%;height:100%;border-radius:8px;background:linear-gradient(180deg,#0b0f14,#06080b);border:1px solid #0d1116;box-shadow:inset 0 0 24px rgba(0,0,0,.55);padding:15px 16px;display:flex;flex-direction:column;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
+          <span style="font-size:12px;color:#9aa6b1;font-weight:600;letter-spacing:.3em;">ENGINE</span>
+          <span style="font-size:9px;color:#454f59;font-weight:500;letter-spacing:.2em;">COYOTE CAN · 5″</span>
+        </div>
+        <sc-if value="{{ isStreet }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;justify-items:center;align-items:center;">
+            <sc-for list="{{ engineGauges }}" as="g" hint-placeholder-count="4">
+              <div style="position:relative;width:132px;height:118px;">
+                <svg viewBox="24 -14 192 172" style="width:132px;height:118px;display:block;">
+                  <path d="M 43.8 124 A 88 88 0 1 1 196.2 124" style="fill:none;stroke:#141b23;stroke-width:10;stroke-linecap:round;"></path>
+                  <path d="M 43.8 124 A 88 88 0 1 1 196.2 124" style="{{ g.arcStyle }}"></path>
+                  <line x1="120" y1="80" x2="{{ g.nX }}" y2="{{ g.nY }}" style="{{ needleStyle }}"></line>
+                  <circle cx="120" cy="80" r="7" style="fill:#0c1117;stroke:#39434d;stroke-width:1.5;"></circle>
+                </svg>
+                <div style="position:absolute;left:0;right:0;top:79px;display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+                  <div style="font-family:'Saira Condensed',sans-serif;font-weight:700;font-size:19px;line-height:.9;color:{{ g.valColor }};font-feature-settings:'tnum';">{{ g.valStr }}</div>
+                  <div style="font-size:7.5px;color:#5f6b76;font-weight:600;letter-spacing:.22em;padding-left:.22em;margin-top:1px;">{{ g.label }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isTrack }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr;gap:1px;background:#151b22;border:1px solid #151b22;border-radius:8px;overflow:hidden;">
+          <sc-for list="{{ engineTiles }}" as="t" hint-placeholder-count="8">
+            <div style="background:#080b0f;padding:9px 10px;display:flex;flex-direction:column;justify-content:space-between;">
+              <div style="font-size:10px;color:#5f6b76;font-weight:500;letter-spacing:.16em;">{{ t.label }}</div>
+              <div style="display:flex;align-items:baseline;gap:4px;">
+                <span style="font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:31px;line-height:.85;color:{{ t.color }};font-feature-settings:'tnum';">{{ t.value }}</span>
+                <span style="font-size:10px;color:#4c5761;font-weight:500;">{{ t.unit }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:11px;margin-bottom:6px;">
+          <span style="font-size:9px;color:#454f59;font-weight:500;letter-spacing:.24em;">PMU16 ×2 · OUTPUTS</span>
+          <span style="font-size:9px;color:#454f59;font-weight:500;letter-spacing:.1em;font-feature-settings:'tnum';">{{ pmuTotal }}A TOTAL</span>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <sc-for list="{{ pmu }}" as="c" hint-placeholder-count="3">
+            <div style="{{ c.style }}">
+              <div style="opacity:.75;letter-spacing:.14em;">{{ c.label }}</div>
+              <div style="font-family:'Saira Condensed',sans-serif;font-size:15px;font-weight:600;letter-spacing:.02em;margin-top:2px;">{{ c.amps }}</div>
+            </div>
+          </sc-for>
+        </div>
+        </sc-if>
+      </div>
+    </div>
+
+    <!-- ===================== CENTER 7" — DASH ===================== -->
+    <div style="width:620px;height:400px;border-radius:16px;background:linear-gradient(180deg,#14171c,#0a0c0f 30%,#060809);border:1px solid #22272e;padding:10px;box-shadow:0 22px 56px rgba(0,0,0,.75),inset 0 1px 0 rgba(255,255,255,.07);">
+      <div style="width:100%;height:100%;border-radius:9px;background:radial-gradient(140% 100% at 50% -14%,#0e141b,#05070a 70%);border:1px solid #0d1116;box-shadow:inset 0 0 30px rgba(0,0,0,.55);display:flex;flex-direction:column;overflow:hidden;position:relative;">
+
+        <!-- ALARM TAKEOVER -->
+        <sc-if value="{{ alarmOn }}" hint-placeholder-val="{{ false }}">
+          <div style="{{ alarmStyle }}">
+            <div style="font-size:14px;font-weight:600;letter-spacing:.6em;padding-left:.6em;color:#ffd9d9;">WARNING</div>
+            <div style="font-family:'Chakra Petch',sans-serif;font-size:48px;font-weight:700;letter-spacing:.05em;color:#ffffff;line-height:1;">{{ alarmTitle }}</div>
+            <div style="font-family:'Saira Condensed',sans-serif;font-size:116px;font-weight:800;line-height:.85;color:#ffffff;font-feature-settings:'tnum';">{{ alarmValue }}</div>
+            <div style="font-size:15px;font-weight:500;letter-spacing:.28em;color:#ffd9d9;">{{ alarmLimit }}</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isTrack }}" hint-placeholder-val="{{ true }}">
+        <!-- shift LEDs -->
+        <div style="display:flex;gap:9px;height:36px;padding:13px 22px 0;flex:0 0 auto;justify-content:center;align-items:center;">
+          <sc-for list="{{ segs }}" as="seg" hint-placeholder-count="15">
+            <div style="{{ seg.style }}"></div>
+          </sc-for>
+        </div>
+        <div style="height:1px;background:linear-gradient(90deg,transparent,#1a222b 20%,#1a222b 80%,transparent);margin:11px 20px 0;"></div>
+
+        <!-- middle -->
+        <div style="flex:1;display:grid;grid-template-columns:1fr 186px;gap:14px;padding:2px 22px 0;align-items:center;">
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <sc-if value="{{ isTrack }}" hint-placeholder-val="{{ true }}">
+              <div style="font-size:11px;color:#5f6b76;font-weight:500;letter-spacing:.44em;padding-left:.44em;">GPS SPEED</div>
+              <div style="font-family:'Saira Condensed',sans-serif;font-weight:700;font-size:148px;line-height:.78;color:#f4f7f9;font-feature-settings:'tnum';text-shadow:0 2px 24px rgba(120,160,200,.12);">{{ speed }}</div>
+              <div style="font-size:14px;color:#7c8894;font-weight:500;letter-spacing:.34em;padding-left:.34em;margin-top:4px;">{{ unitLabel }}</div>
+            </sc-if>
+
+            <div style="width:92%;margin-top:15px;">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
+                <span style="font-size:10px;color:#5f6b76;font-weight:500;letter-spacing:.22em;">RPM</span>
+                <span style="font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:21px;line-height:1;color:{{ rpmColor }};font-feature-settings:'tnum';">{{ rpmStr }}</span>
+              </div>
+              <div style="position:relative;height:8px;background:#0c1117;border-radius:99px;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.6);">
+                <div style="{{ rpmBarStyle }}"></div>
+                <div style="position:absolute;right:4%;top:0;bottom:0;width:2px;background:#ff3b3b;opacity:.5;z-index:2;"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-top:4px;">
+                <span style="font-size:9px;color:#3d4650;font-feature-settings:'tnum';">0</span>
+                <span style="font-size:9px;color:#3d4650;font-feature-settings:'tnum';">2</span>
+                <span style="font-size:9px;color:#3d4650;font-feature-settings:'tnum';">4</span>
+                <span style="font-size:9px;color:#3d4650;font-feature-settings:'tnum';">6</span>
+                <span style="font-size:9px;color:#864b4b;font-feature-settings:'tnum';">8</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;justify-content:center;gap:14px;border-left:1px solid #131a22;padding-left:16px;">
+            <sc-if value="{{ isTrack }}" hint-placeholder-val="{{ true }}">
+              <div>
+                <div style="font-size:10px;color:#5f6b76;font-weight:500;letter-spacing:.22em;margin-bottom:2px;">LAP TIME</div>
+                <div style="font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:34px;line-height:.9;color:#f4f7f9;font-feature-settings:'tnum';">{{ lapStr }}</div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
+                  <span style="font-size:10px;color:#5f6b76;font-weight:500;letter-spacing:.22em;">DELTA</span>
+                  <span style="font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:24px;line-height:1;color:{{ deltaColor }};font-feature-settings:'tnum';">{{ deltaStr }}</span>
+                </div>
+                <div style="position:relative;height:8px;background:#0c1117;border-radius:99px;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.6);">
+                  <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:#39434d;z-index:2;"></div>
+                  <div style="{{ fillStyle }}"></div>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- STREET: dual sweep gauges -->
+        <sc-if value="{{ isStreet }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:14px;padding:4px 12px 0;min-height:0;">
+
+          <!-- speed gauge -->
+          <div style="position:relative;width:340px;height:305px;">
+            <svg viewBox="24 -14 192 172" style="width:340px;height:305px;display:block;">
+              <path d="M 43.8 124 A 88 88 0 1 1 196.2 124" style="fill:none;stroke:#141b23;stroke-width:9;stroke-linecap:round;"></path>
+              <path d="M 43.8 124 A 88 88 0 1 1 196.2 124" style="{{ speedArcStyle }}"></path>
+              <sc-for list="{{ speedTicks }}" as="tk" hint-placeholder-count="11">
+                <line x1="{{ tk.x1 }}" y1="{{ tk.y1 }}" x2="{{ tk.x2 }}" y2="{{ tk.y2 }}" style="stroke:#39434d;stroke-width:2;"></line>
+              </sc-for>
+              <text x="62.8" y="116.5" text-anchor="middle" style="fill:#5f6b76;font-size:9.5px;font-family:'Chakra Petch',sans-serif;font-weight:600;">0</text>
+              <text x="54" y="81.5" text-anchor="middle" style="fill:#5f6b76;font-size:9.5px;font-family:'Chakra Petch',sans-serif;font-weight:600;">20</text>
+              <text x="60.9" y="54.1" text-anchor="middle" style="fill:#5f6b76;font-size:9.5px;font-family:'Chakra Petch',sans-serif;font-weight:600;">40</text>
+              <text x="81.9" y="29.6" text-anchor="middle" style="fill:#5f6b76;font-size:9.5px;font-family:'Chakra Petch',sans-serif;font-weight:600;">60</text>
+              <text x="111.9" y="18" text-anchor="middle" style="fill:#5f6b76;font-size:9.5px;font-family:'Chakra Petch',sans-serif;font-weight:600;">80</text>
+              <text x="143.8" y="22" text-anchor="middle" style="fill:#5f6b76;font-size:9.5px;font-family:'Chakra Petch',sans-serif;font-weight:600;">100</text>
+              <text x="170.1" y="40.6" text-anchor="middle" style="fill:#5f6b76;font-size:9.5px;font-family:'Chakra Petch',sans-serif;font-weight:600;">120</text>
+              <text x="184.5" y="69.4" text-anchor="middle" style="fill:#5f6b76;font-size:9.5px;font-family:'Chakra Petch',sans-serif;font-weight:600;">140</text>
+              <text x="186" y="85.5" text-anchor="middle" style="fill:#49545f;font-size:8px;font-family:'Chakra Petch',sans-serif;font-weight:600;">160</text>
+              <text x="183.5" y="101.6" text-anchor="middle" style="fill:#49545f;font-size:8px;font-family:'Chakra Petch',sans-serif;font-weight:600;">180</text>
+              <text x="177.2" y="116.5" text-anchor="middle" style="fill:#49545f;font-size:8px;font-family:'Chakra Petch',sans-serif;font-weight:600;">200</text>
+              <line x1="120" y1="80" x2="{{ needleX }}" y2="{{ needleY }}" style="{{ needleStyle }}"></line>
+              <circle cx="120" cy="80" r="7" style="fill:#0c1117;stroke:#39434d;stroke-width:1.5;"></circle>
+            </svg>
+            <div style="position:absolute;left:0;right:0;top:204px;display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+              <div style="font-family:'Saira Condensed',sans-serif;font-weight:700;font-size:60px;line-height:.9;color:#f4f7f9;font-feature-settings:'tnum';">{{ speed }}</div>
+              <div style="font-size:13px;color:#5f6b76;font-weight:600;letter-spacing:.3em;padding-left:.3em;margin-top:2px;">{{ unitLabel }}</div>
+            </div>
+          </div>
+
+          <!-- tach gauge -->
+          <div style="position:relative;width:220px;height:197px;">
+            <svg viewBox="24 -14 192 172" style="width:220px;height:197px;display:block;">
+              <path d="M 43.8 124 A 88 88 0 1 1 196.2 124" style="fill:none;stroke:#141b23;stroke-width:9;stroke-linecap:round;"></path>
+              <path d="M 203.7 107.2 A 88 88 0 0 1 196.2 124" style="fill:none;stroke:#5c1616;stroke-width:9;stroke-linecap:round;"></path>
+              <path d="M 43.8 124 A 88 88 0 1 1 196.2 124" style="{{ tachArcStyle }}"></path>
+              <sc-for list="{{ tachTicks }}" as="tk" hint-placeholder-count="9">
+                <line x1="{{ tk.x1 }}" y1="{{ tk.y1 }}" x2="{{ tk.x2 }}" y2="{{ tk.y2 }}" style="stroke:#39434d;stroke-width:2;"></line>
+              </sc-for>
+              <text x="62.8" y="116.5" text-anchor="middle" style="fill:#5f6b76;font-size:9.5px;font-family:'Chakra Petch',sans-serif;font-weight:600;">0</text>
+              <text x="54" y="83.5" text-anchor="middle" style="fill:#5f6b76;font-size:9.5px;font-family:'Chakra Petch',sans-serif;font-weight:600;">1</text>
+              <text x="62.8" y="50.5" text-anchor="middle" style="fill:#5f6b76;font-size:9.5px;font-family:'Chakra Petch',sans-serif;font-weight:600;">2</text>
+              <text x="87" y="26.3" text-anchor="middle" style="fill:#5f6b76;font-size:9.5px;font-family:'Chakra Petch',sans-serif;font-weight:600;">3</text>
+              <text x="120" y="17.5" text-anchor="middle" style="fill:#5f6b76;font-size:9.5px;font-family:'Chakra Petch',sans-serif;font-weight:600;">4</text>
+              <text x="153" y="26.3" text-anchor="middle" style="fill:#5f6b76;font-size:9.5px;font-family:'Chakra Petch',sans-serif;font-weight:600;">5</text>
+              <text x="177.2" y="50.5" text-anchor="middle" style="fill:#5f6b76;font-size:9.5px;font-family:'Chakra Petch',sans-serif;font-weight:600;">6</text>
+              <text x="186" y="83.5" text-anchor="middle" style="fill:#5f6b76;font-size:9.5px;font-family:'Chakra Petch',sans-serif;font-weight:600;">7</text>
+              <text x="177.2" y="116.5" text-anchor="middle" style="fill:#864b4b;font-size:9.5px;font-family:'Chakra Petch',sans-serif;font-weight:600;">8</text>
+              <line x1="120" y1="80" x2="{{ tachNeedleX }}" y2="{{ tachNeedleY }}" style="{{ needleStyle }}"></line>
+              <circle cx="120" cy="80" r="7" style="fill:#0c1117;stroke:#39434d;stroke-width:1.5;"></circle>
+            </svg>
+            <div style="position:absolute;left:0;right:0;top:132px;display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+              <div style="font-family:'Saira Condensed',sans-serif;font-weight:700;font-size:38px;line-height:.9;color:{{ rpmColor }};font-feature-settings:'tnum';">{{ rpmStr }}</div>
+              <div style="font-size:10px;color:#5f6b76;font-weight:600;letter-spacing:.3em;padding-left:.3em;margin-top:2px;">RPM</div>
+            </div>
+          </div>
+
+        </div>
+
+        <div style="flex:0 0 auto;display:flex;justify-content:center;gap:26px;padding:0 0 8px;">
+          <sc-for list="{{ streetDots }}" as="d" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <div style="{{ d.dotStyle }}"></div>
+              <span style="{{ d.labelStyle }}">{{ d.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="flex:0 0 auto;display:flex;justify-content:center;align-items:baseline;gap:8px;padding:2px 0 12px;">
+          <span style="font-size:10px;color:#454f59;font-weight:500;letter-spacing:.24em;">ODOMETER</span>
+          <span style="font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:20px;line-height:1;color:#8b97a3;font-feature-settings:'tnum';">{{ odoStr }}</span>
+          <span style="font-size:10px;color:#454f59;font-weight:500;">MI</span>
+        </div>
+        </sc-if>
+
+        <div style="flex:0 0 auto;height:14px;"></div>
+      </div>
+    </div>
+
+    <!-- ===================== RIGHT 5" — TIMING / ROAD ===================== -->
+    <div style="width:420px;height:320px;border-radius:14px;background:linear-gradient(180deg,#14171c,#0a0c0f 30%,#060809);border:1px solid #22272e;padding:9px;box-shadow:0 18px 44px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.06);">
+      <div style="width:100%;height:100%;border-radius:8px;background:linear-gradient(180deg,#0b0f14,#06080b);border:1px solid #0d1116;box-shadow:inset 0 0 24px rgba(0,0,0,.55);padding:13px 16px 12px;display:flex;flex-direction:column;overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+          <span style="font-size:12px;color:#9aa6b1;font-weight:600;letter-spacing:.3em;">{{ rightPanelTitle }}</span>
+          <span style="font-size:9px;color:#454f59;font-weight:500;letter-spacing:.2em;">RACECAPTURE · 5″</span>
+        </div>
+
+        <sc-if value="{{ isTrack }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:9px;">
+          <div style="display:flex;align-items:baseline;gap:9px;">
+            <span style="font-size:11px;color:#5f6b76;font-weight:500;letter-spacing:.22em;">LAP</span>
+            <span style="font-family:'Saira Condensed',sans-serif;font-weight:700;font-size:42px;line-height:.8;color:#f4f7f9;font-feature-settings:'tnum';">{{ lapNum }}</span>
+          </div>
+          <div style="display:flex;align-items:baseline;gap:7px;">
+            <span style="font-size:10px;color:#5f6b76;font-weight:500;letter-spacing:.22em;">POS</span>
+            <span style="font-family:'Saira Condensed',sans-serif;font-weight:700;font-size:30px;line-height:.85;color:{{ accent }};">P{{ position }}</span>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:9px;border-top:1px solid #11171e;border-bottom:1px solid #11171e;padding:7px 0;">
+          <div><div style="font-size:9px;color:#5f6b76;font-weight:500;letter-spacing:.2em;margin-bottom:1px;">LAST</div><div style="font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:20px;color:#c3ccd4;font-feature-settings:'tnum';">{{ lastStr }}</div></div>
+          <div style="text-align:center;"><div style="font-size:9px;color:#5f6b76;font-weight:500;letter-spacing:.2em;margin-bottom:1px;">BEST</div><div style="font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:20px;color:#b79aff;font-feature-settings:'tnum';">{{ bestStr }}</div></div>
+          <div style="text-align:right;"><div style="font-size:9px;color:#5f6b76;font-weight:500;letter-spacing:.2em;margin-bottom:1px;">PRED</div><div style="font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:20px;color:{{ deltaColor }};font-feature-settings:'tnum';">{{ predStr }}</div></div>
+        </div>
+
+        <!-- throttle / brake -->
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:9px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="font-size:10px;color:#5f6b76;font-weight:500;letter-spacing:.2em;">THROTTLE</span><span style="font-family:'Saira Condensed',sans-serif;font-size:15px;color:#3ddf77;font-weight:600;font-feature-settings:'tnum';">{{ throttle }}%</span></div>
+            <div style="height:7px;background:#0c1117;border-radius:99px;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.6);"><div style="{{ throttleStyle }}"></div></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="font-size:10px;color:#5f6b76;font-weight:500;letter-spacing:.2em;">BRAKE</span><span style="font-family:'Saira Condensed',sans-serif;font-size:15px;color:#ff5252;font-weight:600;font-feature-settings:'tnum';">{{ brake }}%</span></div>
+            <div style="height:7px;background:#0c1117;border-radius:99px;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.6);"><div style="{{ brakeStyle }}"></div></div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:1px;margin-top:8px;background:#151b22;border:1px solid #151b22;border-radius:7px;overflow:hidden;">
+          <div style="flex:1;background:#080b0f;padding:6px 9px;display:flex;justify-content:space-between;align-items:baseline;">
+            <span style="font-size:10px;color:#5f6b76;font-weight:500;letter-spacing:.14em;">FUEL</span>
+            <span style="font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:20px;color:{{ fuelColor }};font-feature-settings:'tnum';">{{ fuelStr }}<span style="font-size:11px;color:#4c5761;"> GAL</span></span>
+          </div>
+          <div style="flex:1;background:#080b0f;padding:6px 9px;display:flex;justify-content:space-between;align-items:baseline;">
+            <span style="font-size:10px;color:#5f6b76;font-weight:500;letter-spacing:.14em;">LAPS</span>
+            <span style="font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:20px;color:#dfe7ee;font-feature-settings:'tnum';">{{ lapsLeft }}</span>
+          </div>
+          <div style="flex:1;background:#080b0f;padding:6px 9px;display:flex;justify-content:space-between;align-items:baseline;">
+            <span style="font-size:10px;color:#5f6b76;font-weight:500;letter-spacing:.14em;">AMB</span>
+            <span style="font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:20px;color:#dfe7ee;font-feature-settings:'tnum';">{{ ambStr }}</span>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isStreet }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+            <div style="position:relative;width:190px;height:170px;">
+              <svg viewBox="24 -14 192 172" style="width:190px;height:170px;display:block;">
+                <path d="M 43.8 124 A 88 88 0 1 1 196.2 124" style="fill:none;stroke:#141b23;stroke-width:10;stroke-linecap:round;"></path>
+                <path d="M 43.8 124 A 88 88 0 1 1 196.2 124" style="{{ fuelArcStyle }}"></path>
+                <text x="62.8" y="116.5" text-anchor="middle" style="fill:#5f6b76;font-size:11px;font-family:'Chakra Petch',sans-serif;font-weight:600;">E</text>
+                <text x="177.2" y="116.5" text-anchor="middle" style="fill:#5f6b76;font-size:11px;font-family:'Chakra Petch',sans-serif;font-weight:600;">F</text>
+                <line x1="120" y1="80" x2="{{ fuelNX }}" y2="{{ fuelNY }}" style="{{ needleStyle }}"></line>
+                <circle cx="120" cy="80" r="7" style="fill:#0c1117;stroke:#39434d;stroke-width:1.5;"></circle>
+              </svg>
+              <div style="position:absolute;left:0;right:0;top:114px;display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+                <div style="font-family:'Saira Condensed',sans-serif;font-weight:700;font-size:27px;line-height:.9;color:{{ fuelColor }};font-feature-settings:'tnum';">{{ fuelStr }}</div>
+                <div style="font-size:8px;color:#5f6b76;font-weight:600;letter-spacing:.26em;padding-left:.26em;margin-top:1px;">GAL</div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;width:100%;padding:2px 4px 0;border-top:1px solid #11171e;margin-top:4px;padding-top:6px;">
+              <div><div style="font-size:8px;color:#5f6b76;font-weight:500;letter-spacing:.18em;margin-bottom:1px;">TRIP A</div><div style="font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:17px;line-height:1;color:#c3ccd4;font-feature-settings:'tnum';">{{ tripStr }}</div></div>
+              <div style="text-align:center;"><div style="font-size:8px;color:#5f6b76;font-weight:500;letter-spacing:.18em;margin-bottom:1px;">RANGE</div><div style="font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:17px;line-height:1;color:#c3ccd4;font-feature-settings:'tnum';">{{ rangeStr }} MI</div></div>
+              <div style="text-align:center;"><div style="font-size:8px;color:#5f6b76;font-weight:500;letter-spacing:.18em;margin-bottom:1px;">AMB</div><div style="font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:17px;line-height:1;color:#c3ccd4;font-feature-settings:'tnum';">{{ ambStr }}</div></div>
+              <div style="text-align:right;"><div style="font-size:8px;color:#5f6b76;font-weight:500;letter-spacing:.18em;margin-bottom:1px;">TIME</div><div style="font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:17px;line-height:1;color:#c3ccd4;font-feature-settings:'tnum';">{{ clockStr }}</div></div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isTrack }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;border-top:1px solid #11171e;padding-top:6px;">
+          <span style="font-size:9px;color:#454f59;font-weight:500;letter-spacing:.24em;">ODOMETER</span>
+          <span style="display:flex;align-items:baseline;gap:5px;">
+            <span style="font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:17px;line-height:1;color:#8b97a3;font-feature-settings:'tnum';">{{ odoStr }}</span>
+            <span style="font-size:9px;color:#454f59;font-weight:500;">MI</span>
+          </span>
+        </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1600,&quot;height&quot;:520},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;TRACK&quot;,&quot;STREET&quot;],&quot;default&quot;:&quot;TRACK&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Dash&quot;},&quot;units&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;KM/H&quot;,&quot;MPH&quot;],&quot;default&quot;:&quot;MPH&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Dash&quot;},&quot;running&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Dash&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#e8a33c&quot;,&quot;options&quot;:[&quot;#e8a33c&quot;,&quot;#2c5aa8&quot;,&quot;#ff9d2e&quot;,&quot;#34e1ff&quot;,&quot;#2ee66b&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Dash&quot;},&quot;alarmTest&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;NONE&quot;,&quot;OIL PRESS&quot;,&quot;OIL TEMP&quot;,&quot;COOLANT&quot;],&quot;default&quot;:&quot;NONE&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Alarms&quot;},&quot;manual&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Manual override&quot;},&quot;rpm&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:6200,&quot;min&quot;:0,&quot;max&quot;:8000,&quot;step&quot;:50,&quot;unit&quot;:&quot;rpm&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Manual override&quot;},&quot;mph&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:128,&quot;min&quot;:0,&quot;max&quot;:200,&quot;step&quot;:1,&quot;unit&quot;:&quot;mph&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Manual override&quot;}}">
+class Component extends DCLogic {
+  state = {
+    rpm: 6400, gear: 3, speed: 168, flash: false, t: 0,
+    water: 91, oilT: 106, oilP: 4.7, batt: 13.6, fuelP: 3.9, lambda: 0.94, airT: 34,
+    lapMs: 42300, lastMs: 58120, bestMs: 57640, delta: -0.34,
+    throttle: 88, brake: 0, fuelLevel: 46.0, lapNum: 7, ambient: 31, odo: 24318.2, trip: 142.6
+  };
+  componentDidMount(){ this.iv = setInterval(() => this.tick(), 60); }
+  componentWillUnmount(){ clearInterval(this.iv); }
+  tick(){
+    if (this.props.running === false) return;
+    this.setState(s => {
+      let { rpm, gear, speed, lapMs, lastMs, bestMs, t, fuelLevel, lapNum } = s;
+      t += 0.06;
+      rpm += 125 + Math.random() * 80;
+      const shiftUp = 7900;
+      if (rpm >= shiftUp && gear < 6){ gear += 1; rpm = 5200 + Math.random() * 250; }
+      if (rpm >= shiftUp) rpm = shiftUp;
+      const top = [0, 76, 118, 160, 205, 252, 300][gear] || 300;
+      const bot = [0, 22, 62, 102, 142, 182, 226][gear] || 0;
+      let frac = (rpm - 4500) / 3500; frac = Math.max(0, Math.min(1, frac));
+      speed = Math.round(bot + (top - bot) * frac);
+      lapMs += 60;
+      fuelLevel = Math.max(0, fuelLevel - 0.02);
+      const delta = Math.sin(t * 0.8) * 0.55 + Math.sin(t * 0.27) * 0.25 - 0.08;
+      if (lapMs > 62000){ lastMs = lapMs; if (lastMs < bestMs) bestMs = lastMs; lapMs = 0; lapNum += 1; }
+      const flash = rpm > 7600 ? !s.flash : false;
+      const water = 90 + Math.round(Math.sin(t * 0.15) * 3);
+      const oilT = 104 + Math.round(Math.sin(t * 0.12 + 1) * 4);
+      const oilP = +(4.2 + Math.sin(t * 0.9) * 0.6).toFixed(1);
+      const batt = +(13.6 + Math.sin(t * 0.3) * 0.3).toFixed(1);
+      const lambda = +(0.88 + Math.sin(t * 1.3) * 0.03).toFixed(3);
+      const lambda2 = +(0.885 + Math.sin(t * 1.1 + 0.8) * 0.03).toFixed(3);
+      const airT = 42 + Math.round(Math.sin(t * 0.1) * 3);
+      let throttle = Math.max(0, Math.min(100, Math.round(70 + 32 * Math.sin(t * 0.9))));
+      let brake = Math.max(0, Math.round(-Math.sin(t * 0.9 + 0.6) * 78));
+      if (this.props.mode === 'STREET'){
+        gear = 6;
+        rpm = 2500 + Math.sin(t * 0.5) * 450 + Math.random() * 60;
+        speed = Math.round(96 + Math.sin(t * 0.22) * 14);
+        throttle = Math.max(0, Math.round(20 + Math.sin(t * 0.5) * 9));
+        brake = 0;
+        fuelLevel = Math.max(0, s.fuelLevel - 0.0015);
+        lapMs = s.lapMs; lastMs = s.lastMs; bestMs = s.bestMs; lapNum = s.lapNum;
+      }
+      const ambient = 31 + Math.sin(t * 0.04) * 1.5;
+      const odo = s.odo + speed * 0.6214 * (0.06 / 3600);
+      const trip = s.trip + speed * 0.6214 * (0.06 / 3600);
+      return { rpm, gear, speed, lapMs, lastMs, bestMs, delta, t, flash, water, oilT, oilP, batt, lambda, lambda2, airT, throttle, brake, fuelLevel, lapNum, ambient, odo, trip, fuelP: s.fuelP };
+    });
+  }
+  fmtLap(ms){
+    if (ms == null || ms < 0) return '--:--.---';
+    const m = Math.floor(ms / 60000), sec = Math.floor((ms % 60000) / 1000), mm = ms % 1000;
+    return m + ':' + String(sec).padStart(2, '0') + '.' + String(mm).padStart(3, '0');
+  }
+  renderVals(){
+    const s = Object.assign({}, this.state);
+    if (this.props.manual === true){
+      s.rpm = this.props.rpm ?? 6200;
+      s.speed = (this.props.mph ?? 128) / 0.6214;
+      s.flash = Math.floor(s.t / 0.12) % 2 === 0;
+    }
+    const accent = this.props.accent || '#e8a33c';
+    const mph = this.props.units === 'MPH';
+    const redline = 8000, segCount = 15;
+    const segs = [];
+    for (let i = 0; i < segCount; i++){
+      const segRpm = ((i + 1) / segCount) * redline;
+      let base = i < 10 ? '#3ddf77' : i < 13 ? '#f2b13e' : '#ff3b3b';
+      let on = s.rpm >= segRpm;
+      if (s.rpm > 7600){ on = s.flash; base = '#ff3b3b'; }
+      segs.push({ key: 's' + i, style: {
+        width: '18px', height: '18px', borderRadius: '50%',
+        background: on ? 'radial-gradient(circle at 35% 30%, #ffffffcc, ' + base + ' 45%, ' + base + ')' : 'radial-gradient(circle at 35% 30%, #1a222b, #0d1218 60%)',
+        boxShadow: on ? '0 0 14px ' + base + ', 0 0 3px ' + base : 'inset 0 1px 2px rgba(0,0,0,.7), 0 1px 0 rgba(255,255,255,.03)',
+        transition: 'background 40ms'
+      }});
+    }
+    const dAbs = Math.min(Math.abs(s.delta), 1);
+    const deltaColor = s.delta <= 0 ? '#3ddf77' : '#ff5252';
+    const deltaStr = (s.delta <= 0 ? '-' : '+') + Math.abs(s.delta).toFixed(2);
+    const fillStyle = { position: 'absolute', top: 0, bottom: 0, width: (dAbs * 50) + '%', background: deltaColor, boxShadow: '0 0 10px ' + deltaColor + '66', [s.delta <= 0 ? 'right' : 'left']: '50%', transition: 'width 60ms linear' };
+    const spd = mph ? Math.round(s.speed * 0.6214) : s.speed;
+
+    const f = (c) => Math.round(c * 9 / 5 + 32);
+    const psi = (bar) => Math.round(bar * 14.504);
+    const engineTiles = [
+      { key: 'op', label: 'OIL P', value: psi(s.oilP), unit: 'psi', color: s.oilP < 2 ? '#ff5252' : '#e8edf2' },
+      { key: 'w', label: 'ECT', value: f(s.water), unit: '°F', color: s.water > 103 ? '#ff5252' : s.water > 99 ? '#f2b13e' : '#e8edf2' },
+      { key: 'fp', label: 'FUEL P', value: psi(s.fuelP), unit: 'psi', color: s.fuelP < 3 ? '#ff5252' : '#e8edf2' },
+      { key: 'a1', label: 'AFR L', value: (s.lambda * 14.7).toFixed(1), unit: '', color: s.lambda > 0.94 ? '#f2b13e' : '#e8edf2' },
+      { key: 'ot', label: 'OIL T', value: f(s.oilT), unit: '°F', color: s.oilT > 120 ? '#ff5252' : s.oilT > 113 ? '#f2b13e' : '#e8edf2' },
+      { key: 'ia', label: 'IAT', value: f(s.airT), unit: '°F', color: s.airT > 55 ? '#f2b13e' : '#e8edf2' },
+      { key: 'b', label: 'VOLTS', value: s.batt.toFixed(1), unit: 'V', color: s.batt < 12 ? '#ff5252' : '#e8edf2' },
+      { key: 'a2', label: 'AFR R', value: ((s.lambda2 || 0.89) * 14.7).toFixed(1), unit: '', color: (s.lambda2 || 0.89) > 0.94 ? '#f2b13e' : '#e8edf2' }
+    ];
+    const chan = (label, on, amps, fault) => ({
+      key: label, label, amps: fault ? 'FAULT' : on ? amps.toFixed(1) + 'A' : 'OFF',
+      style: { flex: 1, textAlign: 'center', fontSize: '9px', fontWeight: 600, padding: '5px 0 6px', borderRadius: '6px',
+        color: fault ? '#0a0d10' : on ? '#3ddf77' : '#3d4650',
+        background: fault ? '#ff3b3b' : '#080b0f',
+        border: '1px solid ' + (fault ? '#ff3b3b' : on ? '#1d3d2a' : '#151b22'),
+        boxShadow: fault ? '0 0 12px #ff3b3b' : 'none' }
+    });
+    const fan1on = Math.sin(s.t * 0.15) > 0.1;
+    const pmuChans = [
+      { label: 'PUMP', on: true, amps: 8.6 + Math.sin(s.t * 0.7) * 0.8 },
+      { label: 'FAN 1', on: fan1on, amps: fan1on ? 13.8 + Math.sin(s.t) * 0.4 : 0 },
+      { label: 'FAN 2', on: false, amps: 0 }
+    ];
+    const pmu = pmuChans.map(c => chan(c.label, c.on, c.amps, false));
+    const pmuTotal = pmuChans.reduce((a, c) => a + (c.on ? c.amps : 0), 6.4).toFixed(1);
+    const odoStr = Math.floor(s.odo).toLocaleString();
+    const isStreet = this.props.mode === 'STREET';
+    const isTrack = !isStreet;
+    const now = new Date();
+    let hh = now.getHours(); const ampm = hh >= 12 ? 'PM' : 'AM'; hh = hh % 12 || 12;
+    const clockStr = hh + ':' + String(now.getMinutes()).padStart(2, '0') + ' ' + ampm;
+    const gal = s.fuelLevel * 0.2642;
+    const rangeStr = String(Math.round(gal * 16));
+    const tripStr = s.trip.toFixed(1);
+    const fuelBarStyle = { width: Math.min(100, s.fuelLevel / 46 * 100) + '%', height: '100%', background: gal < 2.5 ? '#f2b13e' : '#3ddf77', boxShadow: '0 0 8px ' + (gal < 2.5 ? '#f2b13e66' : '#3ddf7766'), transition: 'width 60ms linear' };
+    const test = this.props.alarmTest;
+    let alarm = null;
+    if (test === 'OIL PRESS' || s.oilP < 2) alarm = { title: 'OIL PRESSURE', value: (test === 'OIL PRESS' ? 17 : psi(s.oilP)) + ' PSI', limit: 'MINIMUM 29 PSI' };
+    else if (test === 'OIL TEMP' || s.oilT > 120) alarm = { title: 'OIL TEMP', value: (test === 'OIL TEMP' ? 266 : f(s.oilT)) + '°F', limit: 'MAXIMUM 248°F' };
+    else if (test === 'COOLANT' || s.water > 103) alarm = { title: 'COOLANT TEMP', value: (test === 'COOLANT' ? 226 : f(s.water)) + '°F', limit: 'MAXIMUM 217°F' };
+    const blink = Math.floor(s.t / 0.36) % 2 === 0;
+    const alarmStyle = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', background: blink ? 'radial-gradient(130% 130% at 50% 0%, #d92020, #700c0c)' : '#260606', transition: 'background 140ms' };
+    const rpmPct = Math.min(s.rpm / 8000, 1) * 100;
+    const rpmColor = s.rpm > 7600 ? '#ff5252' : s.rpm > 7100 ? '#f2b13e' : '#f4f7f9';
+    const rpmBarStyle = { position: 'absolute', left: 0, top: 0, bottom: 0, width: rpmPct + '%', background: s.rpm > 7600 ? '#ff3b3b' : 'linear-gradient(90deg,' + accent + '55,' + accent + ')', boxShadow: '0 0 10px ' + (s.rpm > 7600 ? '#ff3b3b66' : accent + '55'), borderRadius: '99px', transition: 'width 50ms linear' };
+    const predMs = s.bestMs + s.delta * 1000;
+
+    // ---- street sweep gauge: non-linear, 0-140 linear over ~82% of sweep, 140-200 compressed ----
+    const cx = 120, cy = 80;
+    const gFracOf = (v) => {
+      const c = Math.max(0, Math.min(v, 200));
+      return c <= 140 ? (c / 140) * 0.8235 : 0.8235 + ((c - 140) / 20) * 0.0588;
+    };
+    const ang = (v) => (210 - gFracOf(v) * 240) * Math.PI / 180;
+    const speedTicks = [];
+    for (let v = 0; v <= 200; v += 20){
+      const a = ang(v);
+      speedTicks.push({
+        key: 'tk' + v,
+        x1: +(cx + 80 * Math.cos(a)).toFixed(1), y1: +(cy - 80 * Math.sin(a)).toFixed(1),
+        x2: +(cx + 88 * Math.cos(a)).toFixed(1), y2: +(cy - 88 * Math.sin(a)).toFixed(1)
+      });
+    }
+    const arcLen = 2 * Math.PI * 88 * (240 / 360);
+    const gFrac = gFracOf(spd);
+    const speedArcStyle = { fill: 'none', stroke: accent, strokeWidth: '9px', strokeLinecap: 'round', strokeDasharray: arcLen, strokeDashoffset: arcLen * (1 - gFrac), filter: 'drop-shadow(0 0 6px ' + accent + '66)', transition: 'stroke-dashoffset 60ms linear' };
+    const na = ang(spd);
+    const needleX = +(cx + 62 * Math.cos(na)).toFixed(1);
+    const needleY = +(cy - 62 * Math.sin(na)).toFixed(1);
+    const needleStyle = { stroke: '#f4f7f9', strokeWidth: '3px', strokeLinecap: 'round', filter: 'drop-shadow(0 0 4px rgba(255,255,255,.35))' };
+
+    // ---- street tach gauge (0-8000 linear over 240°) ----
+    const tAng = (v) => (210 - (Math.min(v, 8000) / 8000) * 240) * Math.PI / 180;
+    const tachTicks = [];
+    for (let v = 0; v <= 8000; v += 1000){
+      const a = tAng(v);
+      tachTicks.push({
+        key: 'tt' + v,
+        x1: +(cx + 80 * Math.cos(a)).toFixed(1), y1: +(cy - 80 * Math.sin(a)).toFixed(1),
+        x2: +(cx + 88 * Math.cos(a)).toFixed(1), y2: +(cy - 88 * Math.sin(a)).toFixed(1)
+      });
+    }
+    const tachArcStyle = { fill: 'none', stroke: s.rpm > 7600 ? '#ff3b3b' : accent, strokeWidth: '9px', strokeLinecap: 'round', strokeDasharray: arcLen, strokeDashoffset: arcLen * (1 - Math.min(s.rpm / 8000, 1)), filter: 'drop-shadow(0 0 6px ' + (s.rpm > 7600 ? '#ff3b3b66' : accent + '66') + ')', transition: 'stroke-dashoffset 60ms linear' };
+    const ta = tAng(s.rpm);
+    const tachNeedleX = +(cx + 62 * Math.cos(ta)).toFixed(1);
+    const tachNeedleY = +(cy - 62 * Math.sin(ta)).toFixed(1);
+
+    // ---- street mini gauges ----
+    const mkGauge = (val, min, max, col) => {
+      const fr = Math.max(0, Math.min((val - min) / (max - min), 1));
+      const a = (210 - fr * 240) * Math.PI / 180;
+      return {
+        arcStyle: { fill: 'none', stroke: col, strokeWidth: '10px', strokeLinecap: 'round', strokeDasharray: arcLen, strokeDashoffset: arcLen * (1 - fr), filter: 'drop-shadow(0 0 5px ' + col + '55)', transition: 'stroke-dashoffset 80ms linear' },
+        nX: +(cx + 62 * Math.cos(a)).toFixed(1),
+        nY: +(cy - 62 * Math.sin(a)).toFixed(1)
+      };
+    };
+    const eg = (label, valStr, val, min, max, alert) => {
+      const g = mkGauge(val, min, max, alert ? '#ff3b3b' : accent);
+      return { key: label, label, valStr, valColor: alert ? '#ff5252' : '#e8edf2', arcStyle: g.arcStyle, nX: g.nX, nY: g.nY };
+    };
+    const engineGauges = [
+      eg('OIL P · PSI', String(psi(s.oilP)), psi(s.oilP), 0, 100, s.oilP < 2),
+      eg('ECT · °F', String(f(s.water)), f(s.water), 100, 260, s.water > 103),
+      eg('OIL T · °F', String(f(s.oilT)), f(s.oilT), 100, 300, s.oilT > 120),
+      eg('VOLTS', s.batt.toFixed(1), s.batt, 8, 16, s.batt < 12)
+    ];
+    const fuelG = mkGauge(gal, 0, 16, gal < 2.5 ? '#f2b13e' : accent);
+
+    return {
+      segs, accent,
+      rpmStr: String(Math.round(s.rpm)),
+      speed: String(spd), unitLabel: mph ? 'MPH' : 'KM/H',
+      lapStr: this.fmtLap(s.lapMs), lastStr: this.fmtLap(s.lastMs), bestStr: this.fmtLap(s.bestMs), predStr: this.fmtLap(Math.round(predMs)),
+      deltaStr, deltaColor, fillStyle,
+      engineTiles, pmu, pmuTotal, rpmColor, rpmBarStyle,
+      speedTicks, speedArcStyle, needleX, needleY, needleStyle,
+      tachTicks, tachArcStyle, tachNeedleX, tachNeedleY,
+      engineGauges, fuelArcStyle: fuelG.arcStyle, fuelNX: fuelG.nX, fuelNY: fuelG.nY,
+      streetDots: [
+        { label: 'FUEL', on: gal < 2.5, col: '#f2b13e' },
+        { label: 'OIL', on: s.oilP < 2 || s.oilT > 120, col: '#ff3b3b' },
+        { label: 'ECT', on: s.water > 103, col: '#ff3b3b' },
+        { label: 'VOLTS', on: s.batt < 12, col: '#ff3b3b' }
+      ].map(d => ({
+        key: d.label, label: d.label,
+        dotStyle: { width: '9px', height: '9px', borderRadius: '50%',
+          background: d.on ? d.col : '#161d25',
+          boxShadow: d.on ? '0 0 10px ' + d.col + ', 0 0 3px ' + d.col : 'inset 0 1px 1px rgba(0,0,0,.6)',
+          transition: 'background 200ms' },
+        labelStyle: { fontSize: '9px', fontWeight: 600, letterSpacing: '.2em',
+          color: d.on ? d.col : '#39434d', transition: 'color 200ms' }
+      })),
+      lapNum: String(s.lapNum).padStart(2, '0'), position: 3,
+      throttle: s.throttle, brake: s.brake,
+      throttleStyle: { width: s.throttle + '%', height: '100%', background: '#3ddf77', boxShadow: '0 0 8px #3ddf7766', transition: 'width 60ms linear' },
+      brakeStyle: { width: s.brake + '%', height: '100%', background: '#ff5252', boxShadow: '0 0 8px #ff525266', transition: 'width 60ms linear' },
+      fuelStr: (s.fuelLevel * 0.2642).toFixed(1), fuelColor: s.fuelLevel < 8 ? '#f2b13e' : '#e8edf2',
+      lapsLeft: Math.floor(s.fuelLevel / 2.1),
+      ambStr: f(s.ambient) + '°', odoStr,
+      isTrack, isStreet, clockStr, tripStr, rangeStr, fuelBarStyle,
+      rightPanelTitle: isStreet ? 'ROAD' : 'TIMING',
+      alarmOn: !!alarm, alarmStyle,
+      alarmTitle: alarm ? alarm.title : '', alarmValue: alarm ? alarm.value : '', alarmLimit: alarm ? alarm.limit : ''
+    };
+  }
+}
+</script>
+</body>
+</html>
