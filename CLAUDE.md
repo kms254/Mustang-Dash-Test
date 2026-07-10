@@ -18,11 +18,19 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
 - Build (VS Code): `platformio.ini` drives the PlatformIO Build/Upload/Monitor
   buttons. Parallel path to `compile.sh`, not a replacement — see BUILD.md.
 - Tests: `./tests/run-tests.sh` — host-side invariant tests pinning the display
-  profile, wiring pins, backlight wave, and ctags-shim contract. Run them after
-  touching `EVE_config.h`, the Teensy4 target header, `backlight_wave.h`, or
-  the platform files. Needs host `gcc`; Git Bash has none, so **on Windows run
+  profile, wiring pins, backlight wave, splash timeline, and ctags-shim
+  contract. Run them after touching `EVE_config.h`, the Teensy4 target header,
+  `backlight_wave.h`, `splash_timeline.h`, or the platform files. Needs host
+  `gcc`; Git Bash has none, so **on Windows run
   `wsl -- bash -lc "./tests/run-tests.sh"`** (or the VS Code task
-  "Tests: invariant suite"). All 4/4 pass.
+  "Tests: invariant suite"). All 5/5 pass.
+- Boot splash: a 2000 ms animated splash (spec vendored in `assets/splash/`)
+  plays at power-up, then crossfades to the pony screen. Theme is build-time:
+  edit `SPLASH_THEME` in `MustangDash/splash_config.h` (or `-D SPLASH_THEME=n`)
+  and rebuild — all three themes stay embedded in flash. Assets regenerate via
+  `wsl -- python3 tools/make_splash_assets.py` (Pillow, like `tools/pony.py`);
+  output is deterministic and the generated `splash_assets_*.h` are committed.
+  Flash `data` grew ~7 KB → ~206 KB with the embedded PNGs — expected.
 
 ## Hardware truths (don't re-derive)
 
@@ -114,13 +122,15 @@ On the **Windows workstation with real Teensyduino 1.62.0** (2026-07-08), both
 `./scripts/compile.sh` and `pio run` succeed clean and agree exactly:
 
 ```
-FLASH: code:42192, data:7448, headers:8724
-RAM1:  variables:12480, code:39640, padding:25896
+FLASH: code:42192, data:7448, headers:8724   (pre-splash, 2026-07-08)
+FLASH: code:45584, data:205700, headers:8808 (with boot splash, 2026-07-09)
+RAM1:  variables:12576, code:43032, padding:22504
 RAM2:  variables:12416
 ```
 
-Do not expect the sandbox's 53,244 to match — different toolchain, different
-libc. The two *workstation* paths agreeing is the invariant worth watching.
+The `data` jump to ~206 KB is the three embedded splash themes' PNGs. Do not
+expect the sandbox's 53,244 to match — different toolchain, different libc.
+The two *workstation* paths agreeing is the invariant worth watching.
 
 **Hardware-verified (2026-07-09): FIRST LIGHT CONFIRMED.** Upload via
 `pio run -t upload` (Teensy Loader) works; `teensy_reboot.exe` + a raw COM4

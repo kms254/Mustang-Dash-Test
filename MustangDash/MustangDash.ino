@@ -11,7 +11,8 @@
  *
  * What it does:
  *   1. waits for the serial monitor only when a USB host is present
- *      (usb_configuration != 0), so boot is instant in the car
+ *      (usb_configuration != 0); a car boot spends at most the bounded
+ *      500 ms enumeration window before display init, not the 2 s wait
  *   2. brings the EVE chip out of power-down, runs EVE_init(), reads REG_ID
  *      (a healthy BT817 returns 0x7C) and reports both on Serial
  *   3. decodes the boot-splash PNGs + the pony PNG on-chip into RAM_G,
@@ -96,13 +97,19 @@ static const ThemeDesc THEMES[3] = {
       SPLASH_CBLOCK_Y, SPLASH_CLINE_Y },
 };
 
+/* THEMES[] rows are positional: the theme id doubles as the array index. */
+static_assert((SPLASH_THEME_BLUE == 0) && (SPLASH_THEME_RED == 1) && (SPLASH_THEME_CHECKERED == 2),
+              "THEMES[] rows are ordered blue, red, checkered and indexed by the SPLASH_THEME_* values");
+
 /* Volatile so the compiler cannot fold the table access to one theme and let
  * the linker garbage-collect the other two asset sets -- all three themes
  * must stay embedded in flash (plan requirement R5). */
 static volatile uint8_t g_theme = SPLASH_THEME;
 
 /* PNGs decode into RAM_G back to back, biggest first from address 0, leaving
- * the top of RAM_G (~160 KiB here) free for the decoder's scratch area. */
+ * the top of RAM_G free for the decoder's scratch area (~160 KiB worst case
+ * with the checkered theme; blue/red leave ~197 KiB -- the load log prints
+ * the live figure for the compiled theme). */
 struct LoadedAsset
 {
     uint32_t addr;
@@ -164,7 +171,8 @@ void setup(void)
      * enumeration takes ~100-300 ms when a host is present, so give it a
      * bounded 500 ms window; only then is the longer wait for the monitor
      * (DTR) worth it. From a wall adapter / car supply, usb_configuration
-     * stays 0 and boot continues immediately -- no black pause. */
+     * stays 0 and the loop exits at its 500 ms timeout -- the car boot
+     * cost is that bounded window, not the 2 s monitor wait. */
     uint32_t t_start = millis();
     while ((0U == usb_configuration) && ((millis() - t_start) < 500U))
     {
@@ -390,7 +398,15 @@ void draw_splash_elements(const ThemeDesc *theme, uint32_t now_ms, uint8_t globa
             draw_loaded(strip, (int16_t)(0 - travel), SPLASH_CSTRIP_TOP_Y);
             const int16_t bot_x = (int16_t)(-SPLASH_CSTRIP_ALT_OFFSET + travel);
             draw_loaded(strip, bot_x, SPLASH_CSTRIP_BOT_Y);
-            draw_loaded(strip, (int16_t)(bot_x + strip->w), SPLASH_CSTRIP_BOT_Y);
+            /* wraparound copy for the right-edge sliver -- drawn only once it
+             * starts on-screen: past EVE_HSIZE the x*16 value exceeds
+             * VERTEX2F's signed 15-bit field and would wrap to the left side
+             * of the panel mid-slide, defeating the slide-in */
+            const int16_t wrap_x = (int16_t)(bot_x + (int16_t)strip->w);
+            if (wrap_x < (int16_t)EVE_HSIZE)
+            {
+                draw_loaded(strip, wrap_x, SPLASH_CSTRIP_BOT_Y);
+            }
         }
     }
 
