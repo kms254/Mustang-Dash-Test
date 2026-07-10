@@ -16,7 +16,7 @@ All other assets pass through byte-identical. Each asset becomes a PROGMEM
 PNG byte array plus W/H/FMT defines; the decoded RAM_G footprint is W*H*2
 bytes for both ARGB4 (alpha PNGs) and RGB565 (opaque PNGs).
 
-Run under WSL (Pillow required, same as tools/pony.py):
+Run under WSL (Pillow + numpy required; Pillow same as tools/pony.py):
   wsl -- python3 tools/make_splash_assets.py
 
 The output is deterministic for a given Pillow version; re-running must
@@ -26,6 +26,7 @@ produce byte-identical headers (the invariant the plan's verification pins).
 import io
 from pathlib import Path
 
+import numpy as np
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -49,12 +50,74 @@ CHECKER_STRIP_TOP_Y = 0
 CHECKER_STRIP_BOTTOM_Y = 574
 
 
+# 8x8 Bayer matrix (values 0..63) for ordered dithering.
+BAYER8 = (
+    (0, 32, 8, 40, 2, 34, 10, 42),
+    (48, 16, 56, 24, 50, 18, 58, 26),
+    (12, 44, 4, 36, 14, 46, 6, 38),
+    (60, 28, 52, 20, 62, 30, 54, 22),
+    (3, 35, 11, 43, 1, 33, 9, 41),
+    (51, 19, 59, 27, 49, 17, 57, 25),
+    (15, 47, 7, 39, 13, 45, 5, 37),
+    (63, 31, 55, 23, 61, 29, 53, 21),
+)
+
+BG_BLUR_RADIUS = 6  # half-res px per box pass; two passes = ~25 px triangle
+
+
+def _box_blur_axis(arr, radius, axis):
+    """Edge-clamped box blur along one axis via cumulative sums (float)."""
+    n = arr.shape[axis]
+    idx = np.clip(np.arange(-radius, n + radius), 0, n - 1)
+    padded = np.take(arr, idx, axis=axis)
+    csum = np.cumsum(padded, axis=axis, dtype=np.float64)
+    zero_shape = list(csum.shape)
+    zero_shape[axis] = 1
+    csum = np.concatenate([np.zeros(zero_shape, csum.dtype), csum], axis=axis)
+    k = 2 * radius + 1
+    hi = np.take(csum, np.arange(k, k + n), axis=axis)
+    lo = np.take(csum, np.arange(0, n), axis=axis)
+    return ((hi - lo) / k).astype(np.float32)
+
+
+def smooth_dither_background(im, downscale):
+    """Downscale a background and dither it onto the RGB565 grid, band-free.
+
+    Two quantizers band these dark radial gradients: the source PNG's own
+    8-bit steps, and the BT817's PNG decode truncating each channel to 5/6
+    bits. So the pipeline reconstructs the gradient in float first --
+    block-mean 2x downscale, then two edge-clamped box-blur passes (a ~25 px
+    triangular kernel at half-res, far wider than the source's 8-bit plateau
+    bands and harmless on an already-soft vignette) -- and Bayer-dithers the
+    float image straight onto the 5/6/5 grid. Stored bytes use bit-replication
+    values, so the chip's 8->5/6-bit truncation is exact and the renderer's
+    2x bilinear upscale averages the ordered noise back toward the true
+    gradient. Fully deterministic.
+    """
+    w, h = downscale
+    src = np.asarray(im.convert("RGB"), dtype=np.float32)[: h * 2, : w * 2]
+    small = src.reshape(h, 2, w, 2, 3).mean(axis=(1, 3), dtype=np.float64).astype(np.float32)
+    for _ in range(2):
+        small = _box_blur_axis(small, BG_BLUR_RADIUS, axis=0)
+        small = _box_blur_axis(small, BG_BLUR_RADIUS, axis=1)
+
+    bayer = (np.asarray(BAYER8, dtype=np.float32) + 0.5) / 64.0
+    tiled = np.tile(bayer, (h // 8 + 1, w // 8 + 1))[:h, :w]
+    out = np.empty((h, w, 3), dtype=np.uint8)
+    for ch, bits in enumerate((5, 6, 5)):
+        levels = float((1 << bits) - 1)
+        v = small[:, :, ch] / 255.0 * levels
+        q = np.clip(np.floor(v + tiled), 0.0, levels)
+        out[:, :, ch] = np.round(q * (255.0 / levels)).astype(np.uint8)
+    return Image.fromarray(out, "RGB")
+
+
 def load_asset(filename, downscale=None):
     """Return (png_bytes, width, height, eve_format) for one asset."""
     data = (ASSETS / filename).read_bytes()
     with Image.open(io.BytesIO(data)) as im:
         if downscale is not None:
-            small = im.convert("RGB").resize(downscale, Image.LANCZOS)
+            small = smooth_dither_background(im, downscale)
             buf = io.BytesIO()
             small.save(buf, format="PNG", optimize=True)
             return buf.getvalue(), small.width, small.height, "RGB565"
