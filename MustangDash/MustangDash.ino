@@ -216,6 +216,15 @@ void setup(void)
     uint8_t reg_id = EVE_memRead8(REG_ID);
     Serial.printf("REG_ID = 0x%02X (expected 0x7C)\r\n", reg_id);
 
+    /* Probe the panel's onboard QSPI flash (dash plan KTD11): attach and
+     * switch to fast mode. REG_FLASH_SIZE reports the detected capacity in
+     * megabytes. A failure here is logged, never fatal -- the dash must
+     * not depend on flash. */
+    uint8_t flash_ret = EVE_init_flash();
+    uint32_t flash_mb = EVE_memRead32(REG_FLASH_SIZE);
+    Serial.printf("EVE_init_flash() returned 0x%02X (E_OK=0x00), REG_FLASH_SIZE = %lu MB\r\n",
+                  flash_ret, (unsigned long)flash_mb);
+
     if (E_OK == ret)
     {
         eve_ready = true;
