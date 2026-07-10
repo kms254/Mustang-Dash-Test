@@ -17,7 +17,7 @@
 
 /* protocol constants that must never drift */
 _Static_assert(DASH_SERIAL_MAX_LINE == 63, "max line must be 63 chars + NUL");
-_Static_assert(DASH_CH_COUNT == 12, "serial protocol names exactly 12 channels");
+_Static_assert(DASH_CH_COUNT == 25, "serial protocol names exactly 25 channels");
 _Static_assert(DASH_CMD_NONE == 0, "DASH_CMD_NONE must be the zero value");
 _Static_assert(DASH_ERR_NONE == 0, "DASH_ERR_NONE must be the zero value");
 /* protocol alarm codes stay numerically identical to dash_math.h's DashAlarm
@@ -102,7 +102,7 @@ int main(void)
     expect(parse("help", &c) == DASH_ERR_NONE && c.kind == DASH_CMD_HELP,
            "help must be DASH_CMD_HELP");
 
-    /* ---- every channel name maps to its id (12 names, incl. last) ---- */
+    /* ---- every channel name maps to its id (25 names, incl. last) ---- */
     {
         static const struct { const char *name; uint8_t ch; } map[] = {
             { "rpm", DASH_CH_RPM },       { "speed", DASH_CH_SPEED },
@@ -111,6 +111,13 @@ int main(void)
             { "fuel", DASH_CH_FUEL },     { "delta", DASH_CH_DELTA },
             { "lap", DASH_CH_LAP },       { "last", DASH_CH_LAST },
             { "best", DASH_CH_BEST },     { "ambient", DASH_CH_AMBIENT },
+            { "afr_l", DASH_CH_AFR_L },   { "afr_r", DASH_CH_AFR_R },
+            { "iat", DASH_CH_IAT },       { "fuelp", DASH_CH_FUELP },
+            { "throttle", DASH_CH_THROTTLE }, { "brake", DASH_CH_BRAKE },
+            { "lapn", DASH_CH_LAPN },     { "pos", DASH_CH_POS },
+            { "pred", DASH_CH_PRED },     { "time", DASH_CH_TIME },
+            { "pump", DASH_CH_PUMP },     { "fan1", DASH_CH_FAN1 },
+            { "fan2", DASH_CH_FAN2 },
         };
         for (unsigned i = 0; i < sizeof map / sizeof map[0]; i++)
         {
@@ -149,6 +156,38 @@ int main(void)
     expect(parse("set delta -30.5", &c) == DASH_ERR_RANGE, "set delta -30.5 must be RANGE");
     expect(parse("set best 3600000", &c) == DASH_ERR_NONE, "set best 3600000 must be in range");
     expect(parse("set best 3600001", &c) == DASH_ERR_RANGE, "set best 3600001 must be RANGE");
+
+    /* ---- range rejection: each new channel's bounds, above and below (KTD5) ---- */
+    {
+        static const struct { const char *name; float lo; float hi; float eps; } ranges[] = {
+            { "afr_l", 8.0f, 20.0f, 0.1f },
+            { "afr_r", 8.0f, 20.0f, 0.1f },
+            { "iat", -20.0f, 300.0f, 0.1f },
+            { "fuelp", 0.0f, 100.0f, 0.1f },
+            { "throttle", 0.0f, 100.0f, 0.1f },
+            { "brake", 0.0f, 100.0f, 0.1f },
+            { "lapn", 0.0f, 999.0f, 1.0f },
+            { "pos", 1.0f, 99.0f, 1.0f },
+            { "pred", 0.0f, 599999.0f, 1.0f },
+            { "time", 0.0f, 1439.0f, 1.0f },
+            { "pump", 0.0f, 30.0f, 0.1f },
+            { "fan1", 0.0f, 30.0f, 0.1f },
+            { "fan2", 0.0f, 30.0f, 0.1f },
+        };
+        for (unsigned i = 0; i < sizeof ranges / sizeof ranges[0]; i++)
+        {
+            char line[48];
+            snprintf(line, sizeof line, "set %s %g", ranges[i].name, (double) ranges[i].lo);
+            expect(parse(line, &c) == DASH_ERR_NONE, "new channel: lo bound must be in range");
+            snprintf(line, sizeof line, "set %s %g", ranges[i].name, (double) ranges[i].hi);
+            expect(parse(line, &c) == DASH_ERR_NONE, "new channel: hi bound must be in range");
+            snprintf(line, sizeof line, "set %s %g", ranges[i].name, (double) (ranges[i].lo - ranges[i].eps));
+            expect(parse(line, &c) == DASH_ERR_RANGE, "new channel: below lo bound must be RANGE");
+            snprintf(line, sizeof line, "set %s %g", ranges[i].name, (double) (ranges[i].hi + ranges[i].eps));
+            expect(parse(line, &c) == DASH_ERR_RANGE, "new channel: above hi bound must be RANGE");
+        }
+    }
+
     expect(parse("frobnicate 1", &c) == DASH_ERR_UNKNOWN_CMD,
            "frobnicate must be UNKNOWN_CMD");
     expect(parse("", &c) == DASH_ERR_EMPTY, "empty line must be EMPTY");
@@ -317,7 +356,25 @@ int main(void)
         expect(strlen(g.reply) < sizeof g.reply, "truncated reply must stay NUL-terminated");
     }
 
-    /* help text exists and mentions every command verb */
+    /* ---- AE5 (host half): set/clear afr_l round trip ---- */
+    {
+        DashState s;
+        char reply[64];
+        dash_state_init(&s);
+
+        expect(parse("set afr_l 12.8", &c) == DASH_ERR_NONE, "AE5: set afr_l 12.8 parses");
+        expect(dash_apply_command(&s, &c, reply, sizeof reply), "AE5: apply must handle SET afr_l");
+        expect(dash_ch_valid(&s, DASH_CH_AFR_L), "AE5: SET afr_l must mark it valid");
+        expect(nearf(dash_ch_get(&s, DASH_CH_AFR_L), 12.8f, 1e-4f), "AE5: afr_l must read back 12.8");
+        expect(strcmp(reply, "ok set afr_l 12.8") == 0, "AE5: reply must be 'ok set afr_l 12.8'");
+
+        expect(parse("clear afr_l", &c) == DASH_ERR_NONE, "AE5: clear afr_l parses");
+        expect(dash_apply_command(&s, &c, reply, sizeof reply), "AE5: apply must handle CLEAR afr_l");
+        expect(!dash_ch_valid(&s, DASH_CH_AFR_L), "AE5: clear afr_l must invalidate it");
+        expect((s.cleared & DASH_CH_BIT(DASH_CH_AFR_L)) != 0, "AE5: clear afr_l must set the cleared bit");
+    }
+
+    /* help text exists and mentions every command verb and new channels */
     expect(strstr(DASH_HELP_TEXT, "set") != NULL &&
                strstr(DASH_HELP_TEXT, "clear") != NULL &&
                strstr(DASH_HELP_TEXT, "mode") != NULL &&
@@ -326,6 +383,20 @@ int main(void)
                strstr(DASH_HELP_TEXT, "sim") != NULL &&
                strstr(DASH_HELP_TEXT, "status") != NULL,
            "DASH_HELP_TEXT must list every command verb");
+    expect(strstr(DASH_HELP_TEXT, "afr_l") != NULL &&
+               strstr(DASH_HELP_TEXT, "afr_r") != NULL &&
+               strstr(DASH_HELP_TEXT, "iat") != NULL &&
+               strstr(DASH_HELP_TEXT, "fuelp") != NULL &&
+               strstr(DASH_HELP_TEXT, "throttle") != NULL &&
+               strstr(DASH_HELP_TEXT, "brake") != NULL &&
+               strstr(DASH_HELP_TEXT, "lapn") != NULL &&
+               strstr(DASH_HELP_TEXT, "pos") != NULL &&
+               strstr(DASH_HELP_TEXT, "pred") != NULL &&
+               strstr(DASH_HELP_TEXT, "time") != NULL &&
+               strstr(DASH_HELP_TEXT, "pump") != NULL &&
+               strstr(DASH_HELP_TEXT, "fan1") != NULL &&
+               strstr(DASH_HELP_TEXT, "fan2") != NULL,
+           "DASH_HELP_TEXT must list every new Phase-2 channel");
 
     if (failures == 0)
     {

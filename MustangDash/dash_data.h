@@ -37,11 +37,25 @@ enum {
     DASH_CH_LAST,    /* last lap, ms */
     DASH_CH_BEST,    /* best lap, ms */
     DASH_CH_AMBIENT, /* degF */
+    /* Phase-2 set (plan KTD5): side-screen channels. */
+    DASH_CH_AFR_L,    /* air/fuel ratio, left bank */
+    DASH_CH_AFR_R,    /* air/fuel ratio, right bank */
+    DASH_CH_IAT,      /* intake air temperature, degF */
+    DASH_CH_FUELP,    /* fuel pressure, psi */
+    DASH_CH_THROTTLE, /* throttle position, percent */
+    DASH_CH_BRAKE,    /* brake position, percent */
+    DASH_CH_LAPN,     /* lap number */
+    DASH_CH_POS,      /* race position */
+    DASH_CH_PRED,     /* predicted lap time, ms */
+    DASH_CH_TIME,     /* minutes since midnight, 0..1439 */
+    DASH_CH_PUMP,     /* PMU output: fuel pump, amps (0 = off) */
+    DASH_CH_FAN1,     /* PMU output: fan 1, amps (0 = off) */
+    DASH_CH_FAN2,     /* PMU output: fan 2, amps (0 = off) */
     DASH_CH_COUNT
 };
 
-#define DASH_CH_BIT(ch) ((uint16_t) (1U << (ch)))
-#define DASH_CH_ALL ((uint16_t) ((1U << DASH_CH_COUNT) - 1U))
+#define DASH_CH_BIT(ch) ((uint32_t) (1U << (ch)))
+#define DASH_CH_ALL ((uint32_t) ((1U << DASH_CH_COUNT) - 1U))
 
 typedef enum {
     DASH_MODE_TRACK = 0,
@@ -61,13 +75,27 @@ typedef struct {
     uint32_t last_ms;
     uint32_t best_ms;
     float ambient_f;
+    /* Phase-2 fields (plan KTD5). */
+    float afr_l;
+    float afr_r;
+    float iat_f;
+    float fuel_press_psi;
+    float throttle_pct;
+    float brake_pct;
+    uint32_t lap_n;
+    uint32_t pos;
+    uint32_t pred_ms;
+    uint32_t time_min;
+    float pump_a;
+    float fan1_a;
+    float fan2_a;
 } DashChannels;
 
 typedef struct {
     DashChannels ch;
-    uint16_t valid;      /* DASH_CH_BIT() per channel */
-    uint16_t overridden; /* serial `set` freezes these against the sim */
-    uint16_t cleared;    /* serial `clear` holds these invalid */
+    uint32_t valid;      /* DASH_CH_BIT() per channel */
+    uint32_t overridden; /* serial `set` freezes these against the sim */
+    uint32_t cleared;    /* serial `clear` holds these invalid */
     DashMode mode;
     bool sim_frozen;     /* `sim off`: hold current values, stop stepping */
 } DashState;
@@ -98,6 +126,19 @@ static inline void dash_ch_set(DashState *s, uint8_t ch, float v)
         case DASH_CH_LAST: s->ch.last_ms = (uint32_t) v; break;
         case DASH_CH_BEST: s->ch.best_ms = (uint32_t) v; break;
         case DASH_CH_AMBIENT: s->ch.ambient_f = v; break;
+        case DASH_CH_AFR_L: s->ch.afr_l = v; break;
+        case DASH_CH_AFR_R: s->ch.afr_r = v; break;
+        case DASH_CH_IAT: s->ch.iat_f = v; break;
+        case DASH_CH_FUELP: s->ch.fuel_press_psi = v; break;
+        case DASH_CH_THROTTLE: s->ch.throttle_pct = v; break;
+        case DASH_CH_BRAKE: s->ch.brake_pct = v; break;
+        case DASH_CH_LAPN: s->ch.lap_n = (uint32_t) v; break;
+        case DASH_CH_POS: s->ch.pos = (uint32_t) v; break;
+        case DASH_CH_PRED: s->ch.pred_ms = (uint32_t) v; break;
+        case DASH_CH_TIME: s->ch.time_min = (uint32_t) v; break;
+        case DASH_CH_PUMP: s->ch.pump_a = v; break;
+        case DASH_CH_FAN1: s->ch.fan1_a = v; break;
+        case DASH_CH_FAN2: s->ch.fan2_a = v; break;
         default: return;
     }
     s->valid |= DASH_CH_BIT(ch);
@@ -118,6 +159,19 @@ static inline float dash_ch_get(const DashState *s, uint8_t ch)
         case DASH_CH_LAST: return (float) s->ch.last_ms;
         case DASH_CH_BEST: return (float) s->ch.best_ms;
         case DASH_CH_AMBIENT: return s->ch.ambient_f;
+        case DASH_CH_AFR_L: return s->ch.afr_l;
+        case DASH_CH_AFR_R: return s->ch.afr_r;
+        case DASH_CH_IAT: return s->ch.iat_f;
+        case DASH_CH_FUELP: return s->ch.fuel_press_psi;
+        case DASH_CH_THROTTLE: return s->ch.throttle_pct;
+        case DASH_CH_BRAKE: return s->ch.brake_pct;
+        case DASH_CH_LAPN: return (float) s->ch.lap_n;
+        case DASH_CH_POS: return (float) s->ch.pos;
+        case DASH_CH_PRED: return (float) s->ch.pred_ms;
+        case DASH_CH_TIME: return (float) s->ch.time_min;
+        case DASH_CH_PUMP: return s->ch.pump_a;
+        case DASH_CH_FAN1: return s->ch.fan1_a;
+        case DASH_CH_FAN2: return s->ch.fan2_a;
         default: return 0.0f;
     }
 }

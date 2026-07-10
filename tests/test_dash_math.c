@@ -115,6 +115,16 @@ int main(void)
     expect(dash_oil_temp_state(235.1f) == DASH_COLOR_AMBER, "oil temp 235.1 must be amber");
     expect(dash_oil_temp_state(248.1f) == DASH_COLOR_RED, "oil temp 248.1 must be red");
 
+    /* ---- Phase-2 thresholds (KTD5): fuel pressure red, IAT/AFR amber ---- */
+    expect(dash_fuelp_state(42.9f) == DASH_COLOR_RED, "fuel pressure 42.9 must be red");
+    expect(dash_fuelp_state(43.0f) == DASH_COLOR_NORMAL, "fuel pressure 43.0 must be normal (<43 rule)");
+    expect(dash_fuelp_state(43.1f) == DASH_COLOR_NORMAL, "fuel pressure 43.1 must be normal");
+    expect(dash_iat_state(131.0f) == DASH_COLOR_NORMAL, "IAT 131.0 must be normal");
+    expect(dash_iat_state(131.1f) == DASH_COLOR_AMBER, "IAT 131.1 must be amber");
+    expect(dash_iat_state(132.0f) == DASH_COLOR_AMBER, "IAT 132.0 must be amber");
+    expect(dash_afr_state(13.8f) == DASH_COLOR_NORMAL, "AFR 13.8 must be normal (>13.8 rule)");
+    expect(dash_afr_state(13.9f) == DASH_COLOR_AMBER, "AFR 13.9 must be amber");
+
     /* ---- oil telltale: invalid channels never trigger (R11) ---- */
     expect(dash_telltale_oil(25.0f, true, 200.0f, true), "valid low oil pressure must trip telltale");
     expect(!dash_telltale_oil(25.0f, false, 200.0f, true), "invalid oil pressure must not trip telltale");
@@ -193,6 +203,30 @@ int main(void)
         uint32_t rem_zero = 0U;
         expect(dash_odo_step(0.0f, 1000U, &rem_zero) == 0U, "0 mph must add 0 tenths");
         expect(rem_zero == 0U, "0 mph must leave the remainder untouched");
+    }
+
+    /* ---- fuel derivations (README ~L103, KTD5): range = gal*16, laps at
+     * the design's per-lap burn; both signal "not computable" via a bool
+     * return + zeroed out-param when fuel is invalid ---- */
+    {
+        float out = -1.0f;
+
+        expect(dash_range_mi(5.0f, true, &out) == true, "range_mi must compute when fuel valid");
+        expect(nearf(out, 80.0f, 1e-4f), "range_mi(5 gal) must be exactly 5*16 = 80 mi");
+        expect(dash_range_mi(0.0f, true, &out) == true, "range_mi must compute at 0 gal");
+        expect(nearf(out, 0.0f, 1e-6f), "range_mi(0 gal) must be 0 mi");
+        out = -1.0f;
+        expect(dash_range_mi(5.0f, false, &out) == false, "range_mi must be not-computable when fuel invalid");
+        expect(out == 0.0f, "range_mi must zero the out-param when not computable");
+
+        out = -1.0f;
+        expect(dash_laps_remaining(DASH_LAP_BURN_GAL * 3.0f, true, &out) == true,
+               "laps_remaining must compute when fuel valid");
+        expect(nearf(out, 3.0f, 1e-4f), "laps_remaining must be fuel / DASH_LAP_BURN_GAL");
+        out = -1.0f;
+        expect(dash_laps_remaining(12.0f, false, &out) == false,
+               "laps_remaining must be not-computable when fuel invalid");
+        expect(out == 0.0f, "laps_remaining must zero the out-param when not computable");
     }
 
     /* ---- layout scale macros: 620x400 mock -> 1024x600 panel ---- */

@@ -67,6 +67,25 @@ static const float SIM_GEAR_RATIOS[6] = { 2.66f, 1.78f, 1.30f, 1.00f, 0.80f, 0.6
 #define SIM_FUEL_BURN_GPS   (0.02f / 60.0f) /* gal per second at track pace */
 #define SIM_FUEL_STREET_DIV 40.0f           /* street burns 40x slower */
 
+/* ---- Phase-2 channels (plan KTD5): engine + PMU sensors, always published
+ * (both modes, like ECT/OILT/OILP/VOLTS above); lap-timing channels
+ * (lapn/pos/pred/throttle/brake) are TRACK-only, mirroring the existing
+ * DELTA/LAP/LAST/BEST gating. ---- */
+#define SIM_REDLINE_RPM      8000.0f /* SIM_-local copy; dash_sim.h does not include dash_math.h */
+#define SIM_AFR_BASE          13.5f  /* leaner at idle */
+#define SIM_AFR_LOAD_SPAN      2.0f  /* richer (lower AFR) toward redline */
+#define SIM_IAT_HEATSOAK_F    25.0f  /* intake runs hotter than ambient */
+#define SIM_FUELP_BASE_PSI    46.5f
+#define SIM_FUELP_WANDER_PSI   3.5f
+#define SIM_PUMP_BASE_A        8.0f
+#define SIM_FAN_ON_A           12.0f
+#define SIM_FAN1_PERIOD_S      20.0f
+#define SIM_FAN1_ON_S          12.0f
+#define SIM_FAN2_PERIOD_S      25.0f
+#define SIM_FAN2_ON_S          10.0f
+#define SIM_FAN2_PHASE_S       10.0f
+#define SIM_MIN_PER_DAY      1440.0f
+
 /* ---- deterministic jitter ---- */
 #define SIM_LCG_SEED        0x4D757354u /* "MusT" */
 
@@ -189,6 +208,29 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
         sim->fuel_gal = 0.0f;
     }
 
+    /* AFR: tracks rpm load -- richer (lower AFR) toward redline, small
+     * bank-to-bank variation; deterministic wander via sinf(t). */
+    float afr_load = SIM_AFR_BASE - (sim->rpm / SIM_REDLINE_RPM) * SIM_AFR_LOAD_SPAN;
+    float afr_l = afr_load + 0.3f * sinf(t * 0.7f);
+    float afr_r = afr_load - 0.3f * sinf(t * 0.7f + 0.5f);
+
+    /* IAT: ambient plus under-hood heat soak. */
+    float iat_f = ambient_f + SIM_IAT_HEATSOAK_F + 8.0f * sinf(t * 0.09f);
+
+    /* fuel pressure: steady with small wander, per README ~43-50 psi. */
+    float fuelp_psi = SIM_FUELP_BASE_PSI + SIM_FUELP_WANDER_PSI * sinf(t * 0.15f);
+
+    /* PMU outputs: pump steady, fans duty-cycle on a temperature-ish cadence
+     * (independent periods so they are not always in lockstep). */
+    float pump_a = SIM_PUMP_BASE_A + 0.3f * sinf(t * 0.2f);
+    float fan1_phase = fmodf(t, SIM_FAN1_PERIOD_S);
+    float fan1_a = (fan1_phase < SIM_FAN1_ON_S) ? SIM_FAN_ON_A + 0.5f * sinf(t * 1.3f) : 0.0f;
+    float fan2_phase = fmodf(t + SIM_FAN2_PHASE_S, SIM_FAN2_PERIOD_S);
+    float fan2_a = (fan2_phase < SIM_FAN2_ON_S) ? (SIM_FAN_ON_A - 1.0f) + 0.5f * sinf(t * 1.1f) : 0.0f;
+
+    /* time of day: ~1 minute of clock per minute of sim time, from 00:00. */
+    float time_min = fmodf(t / 60.0f, SIM_MIN_PER_DAY);
+
     /* publish -- only channels the sim still owns (KTD6) */
     if (dash_ch_sim_owned(s, DASH_CH_RPM))     { dash_ch_set(s, DASH_CH_RPM, sim->rpm); }
     if (dash_ch_sim_owned(s, DASH_CH_SPEED))   { dash_ch_set(s, DASH_CH_SPEED, speed_mph); }
@@ -199,6 +241,17 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
     if (dash_ch_sim_owned(s, DASH_CH_FUEL))    { dash_ch_set(s, DASH_CH_FUEL, sim->fuel_gal); }
     if (dash_ch_sim_owned(s, DASH_CH_AMBIENT)) { dash_ch_set(s, DASH_CH_AMBIENT, ambient_f); }
 
+    /* Phase-2 engine/PMU channels -- always published (both modes), like
+     * ECT/OILT/OILP/VOLTS above. */
+    if (dash_ch_sim_owned(s, DASH_CH_AFR_L))  { dash_ch_set(s, DASH_CH_AFR_L, afr_l); }
+    if (dash_ch_sim_owned(s, DASH_CH_AFR_R))  { dash_ch_set(s, DASH_CH_AFR_R, afr_r); }
+    if (dash_ch_sim_owned(s, DASH_CH_IAT))    { dash_ch_set(s, DASH_CH_IAT, iat_f); }
+    if (dash_ch_sim_owned(s, DASH_CH_FUELP))  { dash_ch_set(s, DASH_CH_FUELP, fuelp_psi); }
+    if (dash_ch_sim_owned(s, DASH_CH_PUMP))   { dash_ch_set(s, DASH_CH_PUMP, pump_a); }
+    if (dash_ch_sim_owned(s, DASH_CH_FAN1))   { dash_ch_set(s, DASH_CH_FAN1, fan1_a); }
+    if (dash_ch_sim_owned(s, DASH_CH_FAN2))   { dash_ch_set(s, DASH_CH_FAN2, fan2_a); }
+    if (dash_ch_sim_owned(s, DASH_CH_TIME))   { dash_ch_set(s, DASH_CH_TIME, time_min); }
+
     if (track)
     {
         if (dash_ch_sim_owned(s, DASH_CH_DELTA)) { dash_ch_set(s, DASH_CH_DELTA, delta_s); }
@@ -207,6 +260,34 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
         {
             if (dash_ch_sim_owned(s, DASH_CH_LAST)) { dash_ch_set(s, DASH_CH_LAST, (float) sim->last_ms); }
             if (dash_ch_sim_owned(s, DASH_CH_BEST)) { dash_ch_set(s, DASH_CH_BEST, (float) sim->best_ms); }
+
+            /* predicted lap: near the last lap, +/-200 ms deterministic jitter */
+            {
+                int32_t jitter = (int32_t) dash_sim_jitter(sim, 400u) - 200;
+                int64_t pred = (int64_t) sim->last_ms + jitter;
+                if (pred < 0) { pred = 0; }
+                if (dash_ch_sim_owned(s, DASH_CH_PRED)) { dash_ch_set(s, DASH_CH_PRED, (float) pred); }
+            }
+        }
+
+        /* lap number (1-indexed, current lap) and race position -- position
+         * is a small integer that changes occasionally (every other lap),
+         * not every tick. */
+        if (dash_ch_sim_owned(s, DASH_CH_LAPN)) { dash_ch_set(s, DASH_CH_LAPN, (float) (sim->lap_count + 1u)); }
+        if (dash_ch_sim_owned(s, DASH_CH_POS))
+        {
+            uint32_t pos = 1u + ((sim->lap_count / 2u) % 5u);
+            dash_ch_set(s, DASH_CH_POS, (float) pos);
+        }
+
+        /* throttle/brake: anticorrelated 0-100%, following the same rpm
+         * ramp/shift cycle as the lap delta above. */
+        {
+            float accel_phase = 0.5f + 0.5f * sinf(t * 0.8f); /* 0..1 */
+            float throttle_pct = accel_phase * 100.0f;
+            float brake_pct = (1.0f - accel_phase) * 35.0f;
+            if (dash_ch_sim_owned(s, DASH_CH_THROTTLE)) { dash_ch_set(s, DASH_CH_THROTTLE, throttle_pct); }
+            if (dash_ch_sim_owned(s, DASH_CH_BRAKE))    { dash_ch_set(s, DASH_CH_BRAKE, brake_pct); }
         }
     }
 }

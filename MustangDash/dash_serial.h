@@ -18,7 +18,8 @@
  *   status                  caller composes the reply
  *   help                    caller replies DASH_HELP_TEXT
  *
- * Channels: rpm speed ect oilt oilp volts fuel delta lap last best ambient.
+ * Channels: rpm speed ect oilt oilp volts fuel delta lap last best ambient
+ * afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2.
  */
 
 #ifndef DASH_SERIAL_H
@@ -74,7 +75,8 @@ typedef enum {
 #define DASH_HELP_TEXT \
     "commands: set <ch> <v> | clear <ch> | mode track|street | " \
     "alarm oilp|oilt|clt|off | odo set <miles> | sim on|off | status | help " \
-    "(ch: rpm speed ect oilt oilp volts fuel delta lap last best ambient)"
+    "(ch: rpm speed ect oilt oilp volts fuel delta lap last best ambient " \
+    "afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2)"
 
 typedef struct {
     DashCmdKind kind;
@@ -119,6 +121,19 @@ static inline const char *dash_ch_name(uint8_t ch)
         case DASH_CH_LAST: return "last";
         case DASH_CH_BEST: return "best";
         case DASH_CH_AMBIENT: return "ambient";
+        case DASH_CH_AFR_L: return "afr_l";
+        case DASH_CH_AFR_R: return "afr_r";
+        case DASH_CH_IAT: return "iat";
+        case DASH_CH_FUELP: return "fuelp";
+        case DASH_CH_THROTTLE: return "throttle";
+        case DASH_CH_BRAKE: return "brake";
+        case DASH_CH_LAPN: return "lapn";
+        case DASH_CH_POS: return "pos";
+        case DASH_CH_PRED: return "pred";
+        case DASH_CH_TIME: return "time";
+        case DASH_CH_PUMP: return "pump";
+        case DASH_CH_FAN1: return "fan1";
+        case DASH_CH_FAN2: return "fan2";
         default: return "?";
     }
 }
@@ -148,6 +163,19 @@ static inline void dash_ch_range_(uint8_t ch, float *lo, float *hi)
         case DASH_CH_LAST:
         case DASH_CH_BEST: *lo = 0.0f; *hi = 3600000.0f; break;
         case DASH_CH_AMBIENT: *lo = -40.0f; *hi = 150.0f; break;
+        case DASH_CH_AFR_L: /* fall through: both banks share a range */
+        case DASH_CH_AFR_R: *lo = 8.0f; *hi = 20.0f; break;
+        case DASH_CH_IAT: *lo = -20.0f; *hi = 300.0f; break;
+        case DASH_CH_FUELP: *lo = 0.0f; *hi = 100.0f; break;
+        case DASH_CH_THROTTLE: /* fall through: both pedals are 0..100% */
+        case DASH_CH_BRAKE: *lo = 0.0f; *hi = 100.0f; break;
+        case DASH_CH_LAPN: *lo = 0.0f; *hi = 999.0f; break;
+        case DASH_CH_POS: *lo = 1.0f; *hi = 99.0f; break;
+        case DASH_CH_PRED: *lo = 0.0f; *hi = 599999.0f; break;
+        case DASH_CH_TIME: *lo = 0.0f; *hi = 1439.0f; break;
+        case DASH_CH_PUMP: /* fall through: PMU outputs share a range */
+        case DASH_CH_FAN1:
+        case DASH_CH_FAN2: *lo = 0.0f; *hi = 30.0f; break;
         default: *lo = 0.0f; *hi = 0.0f; break;
     }
 }
@@ -283,10 +311,10 @@ static inline DashSerialErr dash_parse_line(const char *line, DashCommand *out)
  * mark valid + overridden (sim keeps hands off), drop any sticky clear. */
 static inline void dash_serial_do_set_(DashState *s, uint8_t ch, float v)
 {
-    uint16_t bit = DASH_CH_BIT(ch);
+    uint32_t bit = DASH_CH_BIT(ch);
     dash_ch_set(s, ch, v);
     s->overridden |= bit;
-    s->cleared = (uint16_t) (s->cleared & ~bit);
+    s->cleared = (uint32_t) (s->cleared & ~bit);
 }
 
 /* Applies everything except ODO_SET/STATUS/HELP (caller handles those --
@@ -309,10 +337,10 @@ static inline bool dash_apply_command(DashState *s, const DashCommand *cmd,
             return true;
 
         case DASH_CMD_CLEAR: {
-            uint16_t bit = DASH_CH_BIT(cmd->channel);
-            s->valid = (uint16_t) (s->valid & ~bit);
+            uint32_t bit = DASH_CH_BIT(cmd->channel);
+            s->valid = (uint32_t) (s->valid & ~bit);
             s->cleared |= bit;
-            s->overridden = (uint16_t) (s->overridden & ~bit);
+            s->overridden = (uint32_t) (s->overridden & ~bit);
             if (can_reply) {
                 snprintf(reply, reply_len, "ok clear %s", dash_ch_name(cmd->channel));
             }
@@ -349,12 +377,12 @@ static inline bool dash_apply_command(DashState *s, const DashCommand *cmd,
                             * step. Sim frozen: they render `--` (the
                             * missing-data convention), which beats showing a
                             * stale forced 20 psi. */
-                    uint16_t bits = (uint16_t) (DASH_CH_BIT(DASH_CH_OILP) |
+                    uint32_t bits = (uint32_t) (DASH_CH_BIT(DASH_CH_OILP) |
                                                 DASH_CH_BIT(DASH_CH_OILT) |
                                                 DASH_CH_BIT(DASH_CH_ECT));
-                    s->overridden = (uint16_t) (s->overridden & ~bits);
-                    s->cleared = (uint16_t) (s->cleared & ~bits);
-                    s->valid = (uint16_t) (s->valid & ~bits);
+                    s->overridden = (uint32_t) (s->overridden & ~bits);
+                    s->cleared = (uint32_t) (s->cleared & ~bits);
+                    s->valid = (uint32_t) (s->valid & ~bits);
                     break;
                 }
             }
