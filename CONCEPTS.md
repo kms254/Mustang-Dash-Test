@@ -31,7 +31,13 @@ One of several complete visual variants of the boot splash — background, accen
 The dash's active view: TRACK (shift lights, speed hero, lap timing) or STREET (sweep gauges, telltales, odometer). All screens switch together and instantly, with no state loss. The selection is an external input to the firmware — a serial command during bench development, a CAN message in the car — never something the dash decides for itself.
 
 ### Alarm Takeover
-A full-screen flashing overlay that preempts the active Dash Mode while any critical engine condition holds, showing only the highest-priority active alarm with its live value and limit. It clears itself when the condition clears; a missing data channel never triggers or sustains one.
+A full-screen flashing overlay that preempts the active Dash Mode on the center screen while any critical engine condition holds, showing only the highest-priority active alarm with its live value and limit. The side panels are deliberately not preempted — the Engine Screen keeps showing live vitals during the event. It clears itself when the condition clears; a missing data channel never triggers or sustains one.
+
+### Engine Screen
+The left 5" side panel: engine vitals sourced from engine-side CAN (oil pressure/temp, coolant, fuel pressure, AFR, IAT, volts). Renders a dense data grid in TRACK and mini sweep gauges in STREET, and stays live during an Alarm Takeover.
+
+### Timing Screen
+The right 5" side panel: TIMING in TRACK mode (lap number, position, last/best/predicted times, throttle and brake bars) and ROAD in STREET mode (fuel gauge, trip, range, ambient, clock). Sourced from RaceCapture-side data once CAN lands.
 
 ### Data Channel
 One live value the dash consumes (RPM, oil pressure, lap delta…), carried in a single shared structure with a per-channel validity flag. Producers fill channels — the built-in simulator today, CAN decoders later — and renderers only read them; the source is invisible to rendering. An invalid channel displays `--` and can never assert an alarm, which is what makes "no stale alarms" a structural guarantee rather than a convention.
