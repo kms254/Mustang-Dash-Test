@@ -4,6 +4,9 @@
 *.elf
 *.map
 
+# Pinned astcenc binary fetched by tools/get-astcenc.sh
+/tools/.astcenc/
+
 # PlatformIO build output and per-machine IDE config.
 # .vscode/extensions.json IS tracked; the rest embed absolute paths.
 .pio/

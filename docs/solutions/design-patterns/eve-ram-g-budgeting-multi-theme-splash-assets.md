@@ -7,11 +7,12 @@ problem_type: design_pattern
 component: tooling
 severity: medium
 applies_when:
-  - "rendering full-screen or near-full-screen bitmap assets on a BT81x/EVE panel where RAM_G is the only bitmap-render memory"
+  - "budgeting assets that must be RAM_G-resident at render time (decoded bitmaps, uploaded fonts) on a BT81x/EVE panel"
   - "multiple decoded assets must be resident simultaneously (crossfade, layered UI) under a fixed RAM_G ceiling"
   - "supporting several selectable themes/asset sets that must not all occupy RAM_G at once"
   - "deciding whether a soft/gradient asset can be shipped downscaled and rendered via bitmap transform without visible loss"
   - "needing a build-time budget check plus a runtime verification that decoded totals match the plan"
+last_updated: 2026-07-10
 tags:
   - ram-g
   - memory-budget
@@ -25,11 +26,21 @@ tags:
 
 # Fitting multi-theme splash assets under EVE RAM_G: downscale, pack, verify
 
+> **Scope note (2026-07-10):** the worked example below — the boot splash — no
+> longer lives in RAM_G: PR #3 migrated the splash to ASTC assets in the
+> panel's QSPI flash, rendered directly from flash (see
+> `docs/solutions/architecture-patterns/bt817-flash-resident-astc-assets.md`).
+> The budgeting technique itself is unchanged and still governs whatever must
+> be RAM_G-resident — today, the dash's custom fonts, whose loader logs
+> `RAM_G: fonts N bytes (headroom M)` in exactly this doc's pattern. Read the
+> splash-specific numbers and load-order details below as a historical case
+> study of the technique.
+
 ## Context
 
-The BT817 renders bitmaps only from RAM_G, and RAM_G is 1 MiB — `#define EVE_RAM_G_SIZE ((uint32_t) 1024UL*1024UL)` (libraries/FT800-FT813/src/EVE.h:103). Compressed PNG size is irrelevant to this budget: on-chip decode expands every asset to its full raster footprint (ARGB4 and RGB565 are both 2 bytes/pixel), so a single full-screen 1024x600 background costs 1,228,800 B — more than the entire chip.
+The BT817 renders bitmaps from RAM_G — 1 MiB, `#define EVE_RAM_G_SIZE ((uint32_t) 1024UL*1024UL)` (libraries/FT800-FT813/src/EVE.h:103) — with one exception: ASTC-compressed bitmaps in attached QSPI flash render directly from flash (the escape hatch the splash later took). Compressed PNG size is irrelevant to this budget: on-chip decode expands every asset to its full raster footprint (ARGB4 and RGB565 are both 2 bytes/pixel), so a single full-screen 1024x600 background costs 1,228,800 B — more than the entire chip.
 
-The boot splash (branch `feat/boot-splash`, open PR #2, unmerged as of this writing) made the constraint acute in two ways:
+The boot splash (merged in PR #2; asset storage later rearchitected in PR #3) made the constraint acute in two ways:
 
 1. **Composition depth.** The final frame stacks a full-screen background, emblem, wordmark, side bars/blocks, accent line, year, and (checkered theme) two edge strips.
 2. **Crossfade residency.** The splash-to-pony transition draws both compositions in the same display list per frame (`draw_splash_elements` calls `draw_splash_background` and the caller mixes in the pony via `DL_COLOR_A`), so the splash asset set *and* the 480x300 pony (MustangDash/pony_png.h:13-14, 288,000 B decoded) must be resident simultaneously. There is no "swap assets mid-transition" escape hatch.
@@ -66,7 +77,7 @@ This turns the plan table into a checkable fact on every boot: if an asset regen
 
 **5. Residency is per-theme; embedding is total.** Only the compiled theme's PNGs decode into RAM_G, but all three themes' byte arrays stay in the Teensy's flash via the `THEMES[3]` descriptor table (MustangDash/MustangDash.ino:78) indexed through `static volatile uint8_t g_theme` — volatile specifically so the compiler cannot fold the table access to one theme and let the linker garbage-collect the other two (comment at MustangDash/MustangDash.ino:104-107, plan requirement R5). RAM_G budgets the worst-case theme; flash budgets the sum.
 
-This pattern extends the single-asset on-chip PNG-decode skeleton in docs/solutions/design-patterns/eve-logo-onchip-png-decode-skeleton-silhouette.md to a multi-asset, multi-theme working set.
+This pattern generalizes the earlier single-asset on-chip PNG-decode approach (the since-retired pony logo) to a multi-asset, multi-theme working set.
 
 ## Why This Matters
 
@@ -98,9 +109,6 @@ Concrete numbers from this tree (all decoded sizes are w x h x 2 B):
 - [docs/solutions/ui-bugs/boot-splash-radial-gradient-banding-double-quantization.md](../ui-bugs/boot-splash-radial-gradient-banding-double-quantization.md) —
   the companion fix for the downscaled layer: same converter and 2x-bilinear
   render path, different concern (color banding vs the byte budget).
-- [docs/solutions/design-patterns/eve-logo-onchip-png-decode-skeleton-silhouette.md](eve-logo-onchip-png-decode-skeleton-silhouette.md) —
-  the single-asset on-chip PNG-decode pipeline this pattern extends to a
-  multi-asset, multi-theme working set.
 - [docs/solutions/best-practices/riverdi-rvt70h-vs-ritft70-eve-display-profile-selection.md](../best-practices/riverdi-rvt70h-vs-ritft70-eve-display-profile-selection.md) —
   defines the panel resolution and EVE generation the budget arithmetic is
   built against.

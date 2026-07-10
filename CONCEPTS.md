@@ -19,7 +19,19 @@ The compile-time selection that binds the driver library to one specific panel: 
 The bounded sequence of drawing commands EVE executes to render a frame. The microcontroller builds a new list, then swaps it in atomically; the previous list keeps rendering until the swap, so partial updates are never visible. A list is size-limited, so complex scenes are composed by appending previously built fragments rather than growing a single list without bound.
 
 ### RAM_G
-EVE's fixed-size on-chip graphics memory, the only place bitmap data can live at render time. Every image an on-chip decode produces lands here, so its capacity is a hard budget that shapes asset decisions — storage formats, downscaling with render-time upscaling, and which assets are resident at once. The decoder also borrows the top of RAM_G as scratch space during image loads, so the packed assets must leave headroom there rather than filling the memory to the brim.
+EVE's fixed-size on-chip graphics memory — the home of any bitmap the chip decodes or the firmware uploads at runtime, and the fastest asset storage the renderer has. Its capacity is a hard budget that shapes asset decisions: storage formats, downscaling with render-time upscaling, and which assets are resident at once. Two escape valves exist: static ASTC-compressed bitmaps can live in the panel's own flash and render without touching RAM_G (see Asset Pack), and the on-chip PNG decoder borrows the top of RAM_G as scratch during image loads, so anything packed near the top must leave it headroom.
+
+### Asset Pack
+The versioned bundle of ASTC-compressed static assets provisioned once into the display module's onboard flash, where the render engine reads them directly with no RAM_G residency. The pack carries an integrity header that firmware compares at boot — matching means a no-op, mismatch triggers a rewrite — and the header's chunk is written last so an interrupted provisioning run can never pass verification. The module's first flash sector belongs to the vendor's speed-mode firmware and is never part of the pack.
 
 ### Splash Theme
 One of several complete visual variants of the boot splash — background, accent hardware, and year mark as a matched set. Every theme ships embedded in the firmware; which one plays is a build-time selection, since the panel has no input hardware for runtime switching. Changing themes means rebuilding and reflashing, never editing assets or code.
+
+### Dash Mode
+The dash's active view: TRACK (shift lights, speed hero, lap timing) or STREET (sweep gauges, telltales, odometer). All screens switch together and instantly, with no state loss. The selection is an external input to the firmware — a serial command during bench development, a CAN message in the car — never something the dash decides for itself.
+
+### Alarm Takeover
+A full-screen flashing overlay that preempts the active Dash Mode while any critical engine condition holds, showing only the highest-priority active alarm with its live value and limit. It clears itself when the condition clears; a missing data channel never triggers or sustains one.
+
+### Data Channel
+One live value the dash consumes (RPM, oil pressure, lap delta…), carried in a single shared structure with a per-channel validity flag. Producers fill channels — the built-in simulator today, CAN decoders later — and renderers only read them; the source is invisible to rendering. An invalid channel displays `--` and can never assert an alarm, which is what makes "no stale alarms" a structural guarantee rather than a convention.
