@@ -4,6 +4,7 @@
 #   - the EVE display profile (EVE_RVT70H: 1024x600, BT817, EVE4)
 #   - the hardware control pins (CS=14, PD/RST=17)
 #   - the backlight triangle-wave bounds and period
+#   - the boot-splash timeline (windows, easing, endpoints, overshoot bound)
 #   - the ctags shim's no-op contract
 # The firmware build itself is verified separately by scripts/compile.sh.
 set -euo pipefail
@@ -13,24 +14,30 @@ CC="${CC:-gcc}"
 LIB=libraries/FT800-FT813/src
 PASS=0
 
-echo "1/4 EVE profile invariants (EVE_config.h)"
+echo "1/5 EVE profile invariants (EVE_config.h)"
 "$CC" -std=c11 -Wall -Werror -fsyntax-only -I "$LIB" tests/test_eve_config.c
 echo "    OK"; PASS=$((PASS + 1))
 
-echo "2/4 pin invariants (EVE_target_Arduino_Teensy4.h)"
+echo "2/5 pin invariants (EVE_target_Arduino_Teensy4.h)"
 "$CC" -std=c11 -Wall -Werror -fsyntax-only -DARDUINO=10819 -DARDUINO_TEENSY41 \
     -I tests/stubs -I "$LIB" tests/test_eve_pins.c
 echo "    OK"; PASS=$((PASS + 1))
 
-echo "3/4 backlight wave behavior (backlight_wave.h)"
+echo "3/5 backlight wave behavior (backlight_wave.h)"
 BIN="$(mktemp)"
 "$CC" -std=c11 -Wall -Werror -I MustangDash tests/test_backlight_wave.c -o "$BIN"
 "$BIN"; rm -f "$BIN"
 PASS=$((PASS + 1))
 
-echo "4/4 ctags shim no-op contract"
+echo "4/5 splash timeline behavior (splash_timeline.h)"
+BIN="$(mktemp)"
+"$CC" -std=c11 -Wall -Werror -I MustangDash tests/test_splash_timeline.c -o "$BIN"
+"$BIN"; rm -f "$BIN"
+PASS=$((PASS + 1))
+
+echo "5/5 ctags shim no-op contract"
 bash tests/test_ctags_shim.sh
 PASS=$((PASS + 1))
 
 echo
-echo "All $PASS/4 invariant tests passed."
+echo "All $PASS/5 invariant tests passed."
