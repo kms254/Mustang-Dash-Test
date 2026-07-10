@@ -87,7 +87,13 @@ Reading the `REG_ID` serial diagnostic as a symptom ladder:
 |---|---|
 | `0x00` | MISO dead low — panel unpowered, CS not reaching the panel, or the MISO path broken |
 | `0xFF` | chip not driving MISO — CS fault or MOSI/MISO swap |
-| `0x7C` | BT81x alive — the SPI link is good |
+| `0x7C` | BT81x alive — the SPI link is good *at the init clock* |
+
+The `0x7C` verdict is scoped: `REG_ID` is read during init, at the
+conservative init-rate SPI clock, so it proves nothing about any faster
+post-init operating point — the bus can read `0x7C` all day and still
+corrupt reads after the run-rate raise (see
+[the SPI run-clock learning](spi-run-clock-24mhz-overclock-corrupts-eve-coprocessor-reads.md)).
 
 ## Why This Works
 
@@ -120,5 +126,9 @@ per-step pass/fail oracle that needs no tools.
 - [docs/solutions/best-practices/riverdi-rvt70h-vs-ritft70-eve-display-profile-selection.md](../best-practices/riverdi-rvt70h-vs-ritft70-eve-display-profile-selection.md) —
   the fourth failure mode in this space: everything above passes but the wrong
   display profile still renders garbage.
+- [docs/solutions/integration-issues/spi-run-clock-24mhz-overclock-corrupts-eve-coprocessor-reads.md](spi-run-clock-24mhz-overclock-corrupts-eve-coprocessor-reads.md) —
+  the fifth: bring-up fully healthy at the init clock, but the post-init SPI
+  operating point silently corrupts reads while every automatic check stays
+  green.
 - [CLAUDE.md](../../../CLAUDE.md) — "Hardware-verified" section records the
   bench rules distilled from this session.
