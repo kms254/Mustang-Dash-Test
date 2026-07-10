@@ -10,7 +10,10 @@ IPS, **BT817 / EVE4**, no touch) on a **Teensy 4.1**, using the
 RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
 `libraries/FT800-FT813`.
 
-- Sketch: `MustangDash/MustangDash.ino`
+- Sketch: `MustangDash/MustangDash.ino` (setup/loop/glue) — the renderers live
+  in `MustangDash/dash_render.h` (dash) and `MustangDash/splash_render.h`
+  (splash), single-TU headers included only by the `.ino`; they are EVE-bound,
+  **not** pure headers, and not host-tested
 - Build: `./scripts/compile.sh` → `teensy:avr:teensy41`, `--libraries ./libraries`
   (also syncs `tools/teensy-avr-platform/` into the sketchbook first — the
   tracked files are the source of truth; the sync self-skips on a real

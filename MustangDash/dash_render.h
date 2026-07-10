@@ -646,4 +646,9 @@ void dash_frame(uint32_t now_ms)
     eve_frame_end();
 }
 
+/* DA is this header's private alpha-scaling helper; end its scope here so it
+ * cannot silently capture an `alpha` parameter in splash_render.h or the
+ * .ino below (review finding; mirrors splash_render.h's SPLASH_A pattern). */
+#undef DA
+
 #endif /* DASH_RENDER_H */
