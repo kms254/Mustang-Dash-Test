@@ -140,6 +140,7 @@ void handle_serial_line(const char *line);
 /* Renderers (pure code motion out of this file): dash first, then splash --
  * run_splash() calls draw_dash_content() during the crossfade. Both read the
  * shared state and glue prototypes above. */
+#include "dash_draw.h"
 #include "dash_render.h"
 #include "splash_render.h"
 
