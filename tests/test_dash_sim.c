@@ -53,10 +53,17 @@ int main(void)
 
     /* ---- long-run bounds: 10 sim-minutes of TRACK at dt = 50 ms ---- */
     uint8_t prev_gear = sim.gear;
+    float prev_rpm = 0.0f;
     float prev_fuel = 1e9f;
     uint32_t prev_lap_count = 0;
     uint32_t best_seen = 0;
     int best_records = 0;
+    bool saw_top_gear = false;
+    bool saw_downshift = false;
+    float max_speed_seen = 0.0f;
+    float min_speed_after_lap1 = 1e9f;
+    float rpm_at_100_min = 1e9f; /* rpm observed near 100 mph -- the */
+    float rpm_at_100_max = 0.0f; /* same-speed-different-gear spread */
 
     for (int i = 0; i < 12000; i++)
     {
@@ -86,7 +93,7 @@ int main(void)
         /* Phase-2 channels: TRACK-only bounds */
         expect(s.ch.throttle_pct >= 0.0f && s.ch.throttle_pct <= 100.0f,
                "throttle must stay in [0, 100] pct");
-        expect(s.ch.brake_pct >= 0.0f && s.ch.brake_pct <= 35.0f, "brake must stay in [0, 35] pct");
+        expect(s.ch.brake_pct >= 0.0f && s.ch.brake_pct <= 100.0f, "brake must stay in [0, 100] pct");
         expect(s.ch.lap_n >= 1u, "lap number must be at least 1");
         expect(s.ch.pos >= 1u && s.ch.pos <= 99u, "pos must stay in [1, 99]");
         if (dash_ch_valid(&s, DASH_CH_PRED))
@@ -112,15 +119,36 @@ int main(void)
                    "speed must match rpm * 26 / (ratio * 3.73 * 336) within 2 mph");
         }
 
-        /* shift behavior: gear only climbs, and lands at 5200..5450 rpm */
-        expect(sim.gear >= prev_gear, "gear must never decrease");
+        /* shift behavior: hysteretic box, one gear per tick, rpm moves the
+         * physical direction (down on upshift, up on downshift) */
         expect(sim.gear >= 1 && sim.gear <= 6, "gear must stay in 1..6");
+        expect((sim.gear >= prev_gear ? sim.gear - prev_gear : prev_gear - sim.gear) <= 1,
+               "gear must change at most one step per tick");
         if (sim.gear > prev_gear)
         {
-            expect(s.ch.rpm >= 5200.0f && s.ch.rpm <= 5450.0f,
-                   "rpm immediately after an upshift must be in [5200, 5450]");
+            expect(s.ch.rpm < prev_rpm, "an upshift must drop rpm at near-constant speed");
         }
+        if (sim.gear < prev_gear)
+        {
+            saw_downshift = true;
+            expect(s.ch.rpm > prev_rpm, "a downshift must raise rpm at near-constant speed");
+        }
+        if (sim.gear == 6) { saw_top_gear = true; }
         prev_gear = sim.gear;
+        prev_rpm = s.ch.rpm;
+
+        /* driving-cycle dynamics: collect the spread of speeds and the rpm
+         * range observed near 100 mph (must span gears, not a fixed map) */
+        if (s.ch.speed_mph > max_speed_seen) { max_speed_seen = s.ch.speed_mph; }
+        if (sim.lap_count >= 1u && s.ch.speed_mph < min_speed_after_lap1)
+        {
+            min_speed_after_lap1 = s.ch.speed_mph;
+        }
+        if (s.ch.speed_mph >= 95.0f && s.ch.speed_mph <= 105.0f)
+        {
+            if (s.ch.rpm < rpm_at_100_min) { rpm_at_100_min = s.ch.rpm; }
+            if (s.ch.rpm > rpm_at_100_max) { rpm_at_100_max = s.ch.rpm; }
+        }
 
         /* lap rollovers: best only ever improves */
         if (sim.lap_count > prev_lap_count)
@@ -141,7 +169,15 @@ int main(void)
     expect(dash_ch_valid(&s, DASH_CH_LAST), "last lap must be valid after a completed lap");
     expect(dash_ch_valid(&s, DASH_CH_BEST), "best lap must be valid after a completed lap");
     expect(s.ch.best_ms <= s.ch.last_ms, "best lap must be <= last lap");
-    expect(sim.gear == 6, "10 track minutes must reach top gear");
+
+    /* ---- driving-cycle dynamics over the 10 minutes ---- */
+    expect(saw_top_gear, "the straights must reach 6th gear");
+    expect(saw_downshift, "the corners must force downshifts");
+    expect(max_speed_seen >= 170.0f, "the straights must exceed 170 mph");
+    expect(max_speed_seen <= 205.0f, "top speed must stay under the 210 contract with margin");
+    expect(min_speed_after_lap1 <= 85.0f, "the corners must fall below 85 mph");
+    expect((rpm_at_100_max - rpm_at_100_min) >= 1200.0f,
+           "~100 mph must occur at rpm at least 1200 apart (different gears, not a fixed speed->rpm map)");
 
     /* ---- alarm reachability: an override must survive sim steps ---- */
     dash_ch_set(&s, DASH_CH_OILP, 25.0f);

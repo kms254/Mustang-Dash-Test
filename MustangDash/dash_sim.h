@@ -33,18 +33,26 @@
 #define SIM_MPH_CONST       336.0f
 static const float SIM_GEAR_RATIOS[6] = { 2.66f, 1.78f, 1.30f, 1.00f, 0.80f, 0.63f }; /* T56 */
 
-/* ---- powertrain tuning ---- */
-#define SIM_TICK_MS         60.0f    /* the mock's tick; per-tick rates scale by dt/60 */
-#define SIM_RPM_START       950.0f   /* rolling out of the pits */
-#define SIM_RPM_SHIFT_AT    7900.0f  /* upshift point, gears 1..5 */
-#define SIM_RPM_DROP_BASE   5200.0f  /* post-shift rpm = base + jitter(0..249) */
-#define SIM_RPM_DROP_JITTER 250u
-#define SIM_RPM_RAMP        125.0f   /* rpm gained per 60 ms tick, + jitter(0..80) */
-#define SIM_RPM_RAMP_JITTER 81u
-/* Top-gear clamp. The spec's 7900 redline in 6th would compute 260 MPH from
- * the T56 0.63 overdrive; the speed contract is [0, 210] MPH, so 6th holds
- * a sustained-straight 6200 rpm (~204 MPH) instead. */
-#define SIM_RPM_TOP_CLAMP   6200.0f
+/* ---- powertrain / driving-cycle tuning ----
+ * TRACK is a lap-synced driving cycle: the lap position selects a segment
+ * of the circuit profile below, speed chases that segment's target with
+ * power-limited acceleration and race braking, and the gearbox follows the
+ * wheel speed with hysteresis. RPM is always derived from speed THROUGH
+ * the current gear, so the same road speed appears at very different rpm
+ * depending on where on the lap (and in which gear) the car is -- no more
+ * pegged 6200 rpm / 204 mph cruise. */
+#define SIM_RPM_START         950.0f  /* rolling out of the pits */
+#define SIM_RPM_IDLE          850.0f  /* rpm floor */
+#define SIM_RPM_MAX           7600.0f /* brushes the 7600 shift point, under the 8000 redline */
+#define SIM_UPSHIFT_RPM       7400.0f /* pull the next gear above this */
+#define SIM_DOWNSHIFT_RPM     3300.0f /* consider a lower gear below this... */
+#define SIM_DOWNSHIFT_MAX_RPM 6900.0f /* ...if it lands the revs below this */
+#define SIM_ACCEL_BASE_MPHPS  18.0f   /* launch acceleration, mph per second */
+#define SIM_ACCEL_FADE        0.062f  /* aero/power fade per mph of speed */
+#define SIM_ACCEL_MIN_MPHPS   2.2f    /* top-end crawl toward vmax */
+#define SIM_BRAKE_MPHPS       30.0f   /* race braking, mph shed per second */
+#define SIM_SEG_JITTER_MPH    9u      /* per-visit target jitter: 0..8 - 4 mph */
+#define SIM_SEG_COUNT         10u
 
 /* ---- lap timing ---- */
 #define SIM_LAP_ROLLOVER_MS 62000u
@@ -97,6 +105,9 @@ typedef struct {
     uint32_t lap_count; /* completed laps */
     /* internal continuous state */
     float rpm;
+    float speed_mph;    /* driving-cycle integrator state */
+    uint8_t seg_idx;    /* current circuit segment (0xFF = force refresh) */
+    float seg_target;   /* jittered target speed for the current segment */
     float ect_f;
     float oilt_f;
     float fuel_gal;
@@ -117,6 +128,13 @@ static inline float dash_sim_speed_mph(float rpm, uint8_t gear)
            / (SIM_GEAR_RATIOS[gear - 1] * SIM_FINAL_DRIVE * SIM_MPH_CONST);
 }
 
+/* Inverse of dash_sim_speed_mph: engine rpm for a road speed in a gear. */
+static inline float dash_sim_rpm_from_speed(float mph, uint8_t gear)
+{
+    return mph * SIM_GEAR_RATIOS[gear - 1] * SIM_FINAL_DRIVE * SIM_MPH_CONST
+           / SIM_TIRE_DIA_IN;
+}
+
 /* Gear 1, warm-start temps at ambient-ish cold values, full-ish tank. */
 static inline void dash_sim_init(DashSimState *sim)
 {
@@ -126,6 +144,9 @@ static inline void dash_sim_init(DashSimState *sim)
     sim->lap_ms = 0u;
     sim->lap_count = 0u;
     sim->rpm = SIM_RPM_START;
+    sim->speed_mph = dash_sim_speed_mph(SIM_RPM_START, 1); /* ~7 mph, rolling out */
+    sim->seg_idx = 0xFFu; /* force a target refresh on the first step */
+    sim->seg_target = 0.0f;
     sim->ect_f = SIM_COLD_START_F;
     sim->oilt_f = SIM_COLD_START_F;
     sim->fuel_gal = SIM_FUEL_START_GAL;
@@ -141,7 +162,6 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
     }
 
     float dt_s = (float) dt_ms * 0.001f;
-    float ticks = (float) dt_ms / SIM_TICK_MS; /* mock ticks elapsed */
     sim->t_s += dt_s;
     float t = sim->t_s;
 
@@ -150,22 +170,14 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
     float delta_s = 0.0f;
     bool track = (s->mode == DASH_MODE_TRACK);
 
+    float track_throttle_pct = 0.0f;
+    float track_brake_pct = 0.0f;
+
     if (track)
     {
-        /* rpm climbs, banging up through the box; 6th holds the straight */
-        sim->rpm += (SIM_RPM_RAMP + (float) dash_sim_jitter(sim, SIM_RPM_RAMP_JITTER)) * ticks;
-        if (sim->rpm >= SIM_RPM_SHIFT_AT && sim->gear < 6)
-        {
-            sim->gear++;
-            sim->rpm = SIM_RPM_DROP_BASE + (float) dash_sim_jitter(sim, SIM_RPM_DROP_JITTER);
-        }
-        if (sim->gear == 6 && sim->rpm > SIM_RPM_TOP_CLAMP)
-        {
-            sim->rpm = SIM_RPM_TOP_CLAMP;
-        }
-        speed_mph = dash_sim_speed_mph(sim->rpm, sim->gear);
-
-        /* lap timer; first completed lap seeds best */
+        /* lap timer first -- the driving cycle below is keyed off lap
+         * position, so every lap drives the same circuit (deterministic
+         * braking points), with per-visit target jitter for variety */
         sim->lap_ms += dt_ms;
         if (sim->lap_ms > SIM_LAP_ROLLOVER_MS)
         {
@@ -177,6 +189,80 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
             sim->lap_ms = 0u;
             sim->lap_count++;
         }
+
+        /* the circuit: 10 lap-position segments (fraction-of-lap end,
+         * target mph) -- front straight, hairpin, chute, sweepers, back
+         * straight, esses, final complex onto the straight */
+        static const struct { float frac_end; float target_mph; } SIM_SEGS[SIM_SEG_COUNT] = {
+            { 0.19f, 196.0f }, /* front straight (long enough to pull 6th) */
+            { 0.27f,  64.0f }, /* T1 hairpin */
+            { 0.36f, 124.0f }, /* chute */
+            { 0.42f,  86.0f }, /* T3 */
+            { 0.56f, 178.0f }, /* back straight */
+            { 0.63f,  94.0f }, /* T5 */
+            { 0.72f, 140.0f }, /* esses */
+            { 0.79f,  70.0f }, /* T7 tight */
+            { 0.90f, 156.0f }, /* kink run */
+            { 1.01f, 112.0f }, /* final complex onto the straight */
+        };
+        const float lap_frac = (float) sim->lap_ms / (float) SIM_LAP_ROLLOVER_MS;
+        uint8_t si = 0u;
+        while ((si < (SIM_SEG_COUNT - 1u)) && (lap_frac > SIM_SEGS[si].frac_end))
+        {
+            si++;
+        }
+        if (si != sim->seg_idx)
+        {
+            sim->seg_idx = si;
+            sim->seg_target = SIM_SEGS[si].target_mph
+                              + (float) dash_sim_jitter(sim, SIM_SEG_JITTER_MPH) - 4.0f;
+        }
+
+        /* chase the segment target: power-limited accel, race braking */
+        float accel = SIM_ACCEL_BASE_MPHPS - SIM_ACCEL_FADE * sim->speed_mph;
+        if (accel < SIM_ACCEL_MIN_MPHPS)
+        {
+            accel = SIM_ACCEL_MIN_MPHPS;
+        }
+        if (sim->speed_mph < (sim->seg_target - 0.5f))
+        {
+            sim->speed_mph += accel * dt_s;
+            if (sim->speed_mph > sim->seg_target) { sim->speed_mph = sim->seg_target; }
+            track_throttle_pct = 62.0f + 38.0f * (accel / SIM_ACCEL_BASE_MPHPS);
+            track_brake_pct = 0.0f;
+        }
+        else if (sim->speed_mph > (sim->seg_target + 0.5f))
+        {
+            sim->speed_mph -= SIM_BRAKE_MPHPS * dt_s;
+            if (sim->speed_mph < sim->seg_target) { sim->speed_mph = sim->seg_target; }
+            track_throttle_pct = 0.0f;
+            track_brake_pct = 82.0f + 8.0f * sinf(t * 3.0f);
+        }
+        else /* holding a corner / terminal-velocity crawl */
+        {
+            track_throttle_pct = 24.0f + (sim->rpm / SIM_RPM_MAX) * 22.0f;
+            track_brake_pct = 0.0f;
+        }
+
+        /* hysteretic gearbox: upshift above SIM_UPSHIFT_RPM; downshift when
+         * revs sag AND the lower gear lands safely under the shift point.
+         * RPM always derives from wheel speed through the selected gear, so
+         * the same road speed reads very different rpm by lap position. */
+        const float rpm_now = dash_sim_rpm_from_speed(sim->speed_mph, sim->gear);
+        if ((rpm_now > SIM_UPSHIFT_RPM) && (sim->gear < 6u))
+        {
+            sim->gear++;
+        }
+        else if ((sim->gear > 1u) && (rpm_now < SIM_DOWNSHIFT_RPM)
+                 && (dash_sim_rpm_from_speed(sim->speed_mph, (uint8_t) (sim->gear - 1u))
+                     < SIM_DOWNSHIFT_MAX_RPM))
+        {
+            sim->gear--;
+        }
+        sim->rpm = dash_sim_rpm_from_speed(sim->speed_mph, sim->gear);
+        if (sim->rpm < SIM_RPM_IDLE) { sim->rpm = SIM_RPM_IDLE; }
+        if (sim->rpm > SIM_RPM_MAX) { sim->rpm = SIM_RPM_MAX; }
+        speed_mph = sim->speed_mph;
 
         /* lap delta: the mock's two-sine blend, range about +/-0.88 s */
         delta_s = 0.55f * sinf(t * 0.8f) + 0.25f * sinf(t * 0.27f) - 0.08f;
@@ -280,15 +366,11 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
             dash_ch_set(s, DASH_CH_POS, (float) pos);
         }
 
-        /* throttle/brake: anticorrelated 0-100%, following the same rpm
-         * ramp/shift cycle as the lap delta above. */
-        {
-            float accel_phase = 0.5f + 0.5f * sinf(t * 0.8f); /* 0..1 */
-            float throttle_pct = accel_phase * 100.0f;
-            float brake_pct = (1.0f - accel_phase) * 35.0f;
-            if (dash_ch_sim_owned(s, DASH_CH_THROTTLE)) { dash_ch_set(s, DASH_CH_THROTTLE, throttle_pct); }
-            if (dash_ch_sim_owned(s, DASH_CH_BRAKE))    { dash_ch_set(s, DASH_CH_BRAKE, brake_pct); }
-        }
+        /* throttle/brake straight from the driving cycle's chase state:
+         * full throttle down the straights, hard brake into the corners,
+         * part throttle holding a corner. */
+        if (dash_ch_sim_owned(s, DASH_CH_THROTTLE)) { dash_ch_set(s, DASH_CH_THROTTLE, track_throttle_pct); }
+        if (dash_ch_sim_owned(s, DASH_CH_BRAKE))    { dash_ch_set(s, DASH_CH_BRAKE, track_brake_pct); }
     }
 }
 
