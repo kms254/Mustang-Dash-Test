@@ -745,6 +745,16 @@ void handle_serial_line(const char *line)
                           (unsigned long)g_eve_retired[0],
                           (unsigned long)g_eve_retired[1],
                           (unsigned long)g_eve_retired[2]);
+            /* Live center-panel register probe (works even on a retired
+             * panel -- bypasses dash_select_panel's liveness gate). A
+             * post-reset BT817 reads REG_ID 0x7C (ROM) but REG_PCLK 0 and
+             * REG_PWM_DUTY 32 (25%): distinguishes "chip reset itself"
+             * from "chip wedged with config intact" after a death. */
+            (void)EVE_select_panel(&g_eve_panels[DASH_PANEL_CENTER]);
+            Serial.printf(" creg=id:0x%02X,pclk:%u,pwm:%u",
+                          EVE_memRead8(REG_ID),
+                          (unsigned)EVE_memRead8(REG_PCLK),
+                          (unsigned)EVE_memRead8(REG_PWM_DUTY));
             for (uint8_t ch = 0U; ch < DASH_CH_COUNT; ch++)
             {
                 if (dash_ch_valid(&g_dash, ch))
