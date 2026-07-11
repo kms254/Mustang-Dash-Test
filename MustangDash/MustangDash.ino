@@ -106,6 +106,7 @@ static uint16_t g_fps_frames = 0U;
 static uint32_t g_fps_window_ms = 0UL;
 static uint16_t g_dl[DASH_PANEL_COUNT][2];          /* boot-measured DL words per panel x {track, street} */
 static uint32_t g_eve_faults[DASH_PANEL_COUNT];     /* coprocessor faults auto-recovered by EVE_busy(), per panel */
+static uint32_t g_eve_retired[DASH_PANEL_COUNT];    /* frame-drain timeouts that retired the panel (bounded eve_frame_end) */
 
 /* ---- colours (0xRRGGBB, design tokens from assets/dash-design/README.md) ---- */
 static const uint32_t COLOR_BG        = 0x080B0FUL; /* flat panel fill (spec-sanctioned) */
@@ -383,22 +384,25 @@ void loop(void)
         dash_odo_mark_written(&g_odo);
     }
 
-    if (!g_panel_ok[DASH_PANEL_CENTER] && !g_panel_ok[DASH_PANEL_LEFT] && !g_panel_ok[DASH_PANEL_RIGHT])
-    {
-        return;
-    }
-
     /* Sequential per-panel render (KTD8): center first (mode or alarm
      * takeover), then both sides (mode content only -- R4). Dead panels are
      * skipped inside the helpers (R9). */
-    if (dash_select_panel(DASH_PANEL_CENTER))
+    const bool any_ok = g_panel_ok[DASH_PANEL_CENTER] || g_panel_ok[DASH_PANEL_LEFT]
+                     || g_panel_ok[DASH_PANEL_RIGHT];
+    if (any_ok)
     {
-        dash_frame(now);
+        if (dash_select_panel(DASH_PANEL_CENTER))
+        {
+            dash_frame(now);
+        }
+        dash_sides_frame(255U);
+        g_fps_frames++;
     }
-    dash_sides_frame(255U);
 
-    /* fps accounting for the status ack: frames completed per full second */
-    g_fps_frames++;
+    /* fps accounting for the status ack: frames completed per full second.
+     * The window keeps rolling even with every panel retired so fps decays
+     * to 0 instead of freezing at the last healthy second -- a frozen 60
+     * masked a retired cluster on the bench (review-of-review finding). */
     if ((now - g_fps_window_ms) >= 1000UL)
     {
         g_fps = g_fps_frames;
@@ -452,6 +456,7 @@ void eve_frame_end(void)
         if ((millis() - t0) > EVE_FRAME_DRAIN_TIMEOUT_MS)
         {
             g_panel_ok[g_active_panel] = false;
+            g_eve_retired[g_active_panel]++;
             break;
         }
     }
@@ -727,7 +732,7 @@ void handle_serial_line(const char *line)
              * dead-fronts -- plus the active alarm, sim state, and the
              * auto-recovered coprocessor fault count. One line, one ack. */
             const DashAlarm alarm = dash_alarm_classify(&g_dash);
-            Serial.printf("ok status mode=%s fps=%u alarm=%s sim=%s faults=%lu,%lu,%lu",
+            Serial.printf("ok status mode=%s fps=%u alarm=%s sim=%s faults=%lu,%lu,%lu retired=%lu,%lu,%lu",
                           (DASH_MODE_TRACK == g_dash.mode) ? "track" : "street",
                           (unsigned)g_fps,
                           (DASH_ALARM_OILP == alarm) ? "oilp" :
@@ -736,7 +741,10 @@ void handle_serial_line(const char *line)
                           g_dash.sim_frozen ? "off" : "on",
                           (unsigned long)g_eve_faults[0],
                           (unsigned long)g_eve_faults[1],
-                          (unsigned long)g_eve_faults[2]);
+                          (unsigned long)g_eve_faults[2],
+                          (unsigned long)g_eve_retired[0],
+                          (unsigned long)g_eve_retired[1],
+                          (unsigned long)g_eve_retired[2]);
             for (uint8_t ch = 0U; ch < DASH_CH_COUNT; ch++)
             {
                 if (dash_ch_valid(&g_dash, ch))
