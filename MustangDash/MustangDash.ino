@@ -24,8 +24,9 @@
  *      into RAM_G (dash_fonts.h) -- all with the backlight held dark
  *   4. plays the 2000 ms animated splash (assets/splash/README.md spec,
  *      timing in splash_timeline.h; theme picked in splash_config.h),
- *      rendering ASTC bitmaps directly from flash, lighting the backlight
- *      only after the first frame is on screen
+ *      staging the theme's ASTC bitmaps flash->RAM_G and rendering from
+ *      RAM_G (see splash_render.h for why), lighting the backlight only
+ *      after the first frame is on screen
  *   5. crossfades ~400 ms into the dash -- TRACK or STREET view fed by the
  *      built-in simulator (dash_sim.h) with serial overrides (dash_serial.h),
  *      alarm takeover on critical conditions, EEPROM-persisted odometer --
@@ -77,9 +78,10 @@ static volatile uint8_t g_theme = SPLASH_THEME;
 
 /* ---- dash state ---- */
 
-/* Fonts occupy RAM_G from address 0 (~273 KB decoded; dash_fonts.h footer
- * has the exact figure). The splash renders from QSPI flash, so fonts are
- * RAM_G's only standing tenant. */
+/* Fonts occupy RAM_G from address 0 (~285 KB decoded; dash_fonts.h footer
+ * has the exact figure). The splash stages the active theme's assets just
+ * above them at boot (~281 KB, center panel only; splash_render.h has the
+ * rationale) -- together ~566 KB of the 1 MB. */
 struct DashFontLoaded
 {
     uint32_t metrics_addr; /* 148-byte block, passed to CMD_SETFONT2 (same layout on every panel's RAM_G) */
@@ -87,6 +89,7 @@ struct DashFontLoaded
 };
 
 static DashFontLoaded g_fonts[DASH_FONT_COUNT];
+static uint32_t g_ramg_fonts_end = 0UL; /* first free RAM_G byte above the fonts (splash staging base) */
 static DashState g_dash;
 static DashSimState g_sim;
 static DashOdo g_odo;
@@ -342,6 +345,10 @@ void setup(void)
         if (splash_ok && dash_select_panel(DASH_PANEL_CENTER))
         {
             const ThemeDesc *theme = &THEMES[g_theme];
+            /* Stage the theme into RAM_G (command-path reads) so the splash
+             * renders from RAM_G, not flash streaming -- see the rationale
+             * in splash_render.h. A failed stage falls back per-asset. */
+            (void)splash_stage_theme_to_ramg(theme);
             run_splash(theme); /* 2000 ms animation, then the crossfade fades the sides in too (R8) */
         }
 
@@ -614,6 +621,7 @@ bool load_dash_fonts(uint8_t panel)
         addr = (gend_expected + 3UL) & ~3UL;
     }
 
+    g_ramg_fonts_end = addr; /* same layout on every panel; splash stages above this */
     Serial.printf("RAM_G panel %u: fonts %lu bytes (headroom %lu)\r\n", (unsigned)panel,
                   (unsigned long)addr, (unsigned long)(EVE_RAM_G_SIZE - addr));
     return all_ok;
