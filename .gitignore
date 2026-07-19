@@ -7,6 +7,9 @@
 # Pinned astcenc binary fetched by tools/get-astcenc.sh
 /tools/.astcenc/
 
+# EasyEDA Pro hourly autosaves (the .eprj2 project itself IS tracked)
+/EasyEDA/*_backup/
+
 # PlatformIO build output and per-machine IDE config.
 # .vscode/extensions.json IS tracked; the rest embed absolute paths.
 .pio/
