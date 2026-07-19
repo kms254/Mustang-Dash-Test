@@ -23,9 +23,22 @@ tags:
   - dash-spi-run-hz
   - fault-detection
   - white-screen
+last_refreshed: 2026-07-19
 ---
 
 # Post-init SPI run clock at 24 MHz overclocks the bus: solid white screen, silent coprocessor read corruption
+
+> **Scope note (2026-07-19):** the numeric conclusions here are **bench-loom
+> era** — the 24 MHz failure and the 8 MHz operating point describe the
+> jumper/FFC star harness, which the dash carrier PCB (buffered,
+> source-terminated, point-to-point SPI) has since superseded. On the PCB the
+> expected ceiling is 24–30 MHz, bounded by the BT817's 30 MHz rating — see
+> `docs/solutions/architecture-patterns/dash-carrier-pcb-buffered-spi-topology-30mhz-clock-contract.md`
+> for the new hardware→firmware contract and clock-walk procedure. **This doc
+> remains authoritative** for the failure signature triple, the `EVE_busy()`
+> fault-detection blind spot, the read-vs-write asymmetry, and the U9
+> read-integrity soak acceptance rule — the clock-walk on the new board uses
+> exactly that acceptance procedure.
 
 ## Problem
 
@@ -233,6 +246,10 @@ Banner excerpts, corrupt (24 MHz) vs. healthy (8 MHz):
 
 ## Related Issues
 
+- `docs/solutions/architecture-patterns/dash-carrier-pcb-buffered-spi-topology-30mhz-clock-contract.md`
+  — the successor for the *ceiling*: the carrier PCB's buffered topology,
+  read-timing budget, LPSPI delayed-sampling knob, and the clock-walk that
+  applies this doc's soak rule to walk the operating point up from 8 MHz.
 - `docs/solutions/integration-issues/eve-panel-bringup-no-usb-enumeration-diagnosis.md`
   — same bench discipline (single-variable isolation against a known-good
   control state) and the doc whose "REG_ID 0x7C: the SPI link is good" ladder

@@ -40,9 +40,15 @@ The left 5" side panel: engine vitals sourced from engine-side CAN (oil pressure
 The right 5" side panel: TIMING in TRACK mode (lap number, position, last/best/predicted times, throttle and brake bars) and ROAD in STREET mode (fuel gauge, trip, range, ambient, clock). Sourced from RaceCapture-side data once CAN lands.
 
 ### SPI Operating Point
-The bus clock the dash runs at after every panel has initialized — distinct from the slower init clock the display controller's datasheet mandates during bring-up, which is why chip identity can read healthy while the operating point is still unproven. The raise happens once, bus-wide, and the value is owned by bench evidence from the actual wiring, not the chip's rated ceiling.
+The bus clock the dash runs at after every panel has initialized — distinct from the slower init clock the display controller's datasheet mandates during bring-up, which is why chip identity can read healthy while the operating point is still unproven. The raise happens once, bus-wide, and the value is owned by bench evidence from the actual wiring, not the chip's rated ceiling. When the physical link changes — bench loom to Carrier Board — the prior operating point becomes historical evidence, and a Clock Walk re-owns the value on the new wiring.
 
 An operating point is accepted only by a read-integrity soak — repeated register reads with zero anomalies — never by frame rate alone: bus corruption can garble rendering and sag the frame rate while every automatic fault counter stays at zero, because the fault detectors check what the chip reports, not whether the read itself was clean.
+
+### Clock Walk
+The stepwise process of raising the SPI Operating Point: one clock step at a time, each step accepted or rejected solely by the read-integrity soak before the next is attempted. The walk's diagnosis rules depend on the link: reads failing while writes stay clean points at round-trip latency — answered by delaying when the return data is sampled — whereas writes failing too means genuine signal degradation and a retreat. Frame rate is never an acceptance signal at any step.
+
+### Carrier Board
+The purpose-built PCB that replaces the bench wiring loom as the dash's physical platform: it hosts the microcontroller, gives each panel its own buffered, terminated point-to-point SPI leg with a dedicated RiBUS connector, gates each panel's read-return line by that panel's own chip select, and carries the power regulation for both logic rails. Its existence splits the project's electrical history in two — measurements and operating points established on the loom describe the loom, not the system.
 
 ### Data Channel
 One live value the dash consumes (RPM, oil pressure, lap delta…), carried in a single shared structure with a per-channel validity flag. Producers fill channels — the built-in simulator today, CAN decoders later — and renderers only read them; the source is invisible to rendering. An invalid channel displays `--` and can never assert an alarm, which is what makes "no stale alarms" a structural guarantee rather than a convention.
