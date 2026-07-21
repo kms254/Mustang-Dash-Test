@@ -383,6 +383,14 @@ work.
 ### Deferred to Follow-Up Work
 - CAN message decode -> DashState (needs real ECU/PMU on the bench;
   protocols/DBCs pinned then).
+- **Teensy strip-out (AFTER U8 passes, not before):** once the STM32 board
+  is proven at parity, remove the Teensy path -- the `env:teensy41` build,
+  `ARDUINO_TEENSY41` gates in the .ino, Teensy-specific comments, the
+  Teensy pin story in `CLAUDE.md`'s hardware truths, and Teensy-era build
+  docs. Until then the dual-target build IS the working bench. Scope
+  guard: `docs/solutions/` history stays -- those learnings are records,
+  not live instructions; the strip targets live code, config, and
+  instruction files only.
 - `MustangDash.ino` uncommitted bench diagnostics: revert or fold before
   U4 branches from a clean tree.
 - Retire/archive the tracked EasyEDA Teensy-carrier project once the new
