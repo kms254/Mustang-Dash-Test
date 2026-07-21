@@ -64,6 +64,12 @@ KTD4.
 - **8 warning telltale LED outputs** — independent discrete indicators, a
   hardware mirror of the existing alarm logic. PWM-dimmable as a group;
   lamp-test capability so a dead LED cannot hide a safety warning.
+  **Driver (Kevin, 2026-07-21): SMD ULN2803A darlington array** — one
+  SOP-18 between the GPIO bank and the 5 mm LEDs, lamps fed from the 5 V
+  rail (sunlight-visible current off the MCU's budget; group PWM passes
+  through the array unchanged). JLC: UMW clone C845537 $0.21 / 222k stock
+  (extended) beats TI ULN2803ADWR C9683 $6.22 (preferred) even with the
+  feeder fee. Series resistors sized per LED color at U2.
 - **2-4 switch inputs**, debounced: trip/odometer reset (momentary) + spares.
 - **USB-C connector**: device mode only — VCP carrying the existing 115200
   serial protocol, plus STM32 ROM DFU for field reflash. Not the power
