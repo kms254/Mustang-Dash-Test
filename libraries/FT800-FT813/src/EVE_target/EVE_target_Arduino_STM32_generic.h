@@ -120,7 +120,14 @@ typedef struct EVE_panel
     uint8_t swizzle;    /* FT8xx output to LCD - pin order */
     uint8_t pclkpol;    /* LCD data is clocked in on this PCLK edge */
     uint8_t cspread;    /* helps with noise, when set to 1 fewer signals are changed simultaneously */
+    void *bus;          /* SPIClass* driving this panel; NULL = the default SPI object.
+                         * void* keeps the struct consumable from the C side
+                         * (EVE_commands.c); only C++ code dereferences it. */
 } EVE_panel_t;
+
+/* marks that this target's EVE_panel_t carries a per-panel SPI bus pointer,
+ * so bus-aware code (EVE_cpp_wrapper.cpp, sketch glue) can gate on it */
+#define EVE_PANEL_HAS_BUS
 
 extern const EVE_panel_t *EVE_active_panel; /* selected panel, NULL = compile-time configuration */
 

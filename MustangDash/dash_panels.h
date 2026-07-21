@@ -65,6 +65,13 @@ typedef struct {
     /* pixel-clock discriminant -- see comment above */
     uint8_t  pclk_div;   /* REG_PCLK divider form; 0 = unused */
     uint16_t pclk_freq;  /* REG_PCLK_FREQ form (REG_PCLK=1); 0 = unused */
+
+    /* which SPI peripheral drives this panel: an index into the target's
+     * bus table (STM32 migration plan U5). On the shared-bus Teensy wiring
+     * every index maps to the one hardware SPI; on the STM32 carrier each
+     * panel gets its own peripheral, so indices are 0/1/2 by role. Pure
+     * data here -- the .ino owns the index -> SPIClass* mapping. */
+    uint8_t  bus_index;
 } DashPanelDesc;
 
 /* Pin budget note: PD hops 17 -> 20/21 because Teensy 4.1 pins 18/19 are
@@ -95,6 +102,7 @@ static const DashPanelDesc DASH_PANELS[DASH_PANEL_COUNT] = {
         .cspread  = 0,
         .pclk_div = 0,
         .pclk_freq = 0x0D12, /* 51 MHz EXTSYNC form; REG_PCLK forced to 1 */
+        .bus_index = 0,
     },
     /* LEFT: RVT50HQBNWN00 800x480, EVE_config.h EVE_RVT50H block ("untested"
      * upstream -- Riverdi RVT50HQBNWN00 datasheet is the tiebreaker if bench
@@ -118,6 +126,7 @@ static const DashPanelDesc DASH_PANELS[DASH_PANEL_COUNT] = {
         .cspread  = 0,
         .pclk_div = 3,
         .pclk_freq = 0,
+        .bus_index = 1,
     },
     /* RIGHT: same panel model and timings as LEFT, distinct CS/PD only. */
     {
@@ -139,6 +148,7 @@ static const DashPanelDesc DASH_PANELS[DASH_PANEL_COUNT] = {
         .cspread  = 0,
         .pclk_div = 3,
         .pclk_freq = 0,
+        .bus_index = 2,
     },
 };
 

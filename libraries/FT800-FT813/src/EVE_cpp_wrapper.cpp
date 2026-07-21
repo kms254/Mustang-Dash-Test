@@ -49,6 +49,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //#include <stdio.h>
 #include <SPI.h>
 #include "EVE_cpp_wrapper.h"
+#include "EVE_target.h" /* multi-panel: EVE_active_panel + the per-panel bus pointer, when the target has one */
+
+#if defined (EVE_PANEL_HAS_BUS)
+/* route transfers through the selected panel's SPI peripheral; the default
+ * SPI object remains the fallback when no panel (or no bus) is selected */
+static SPIClass &eve_spi(void)
+{
+    return ((NULL != EVE_active_panel) && (NULL != EVE_active_panel->bus))
+               ? *((SPIClass *) EVE_active_panel->bus)
+               : SPI;
+}
+#else
+#define eve_spi() SPI
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -67,18 +81,18 @@ extern "C" {
 #else
     void wrapper_spi_transmit(uint8_t data)
     {
-        SPI.transfer(data);
+        eve_spi().transfer(data);
     }
 
 #if defined (XMC1100_XMC2GO) || defined (XMC4700_Relax_Kit)
     void wrapper_spi_transmit_32(uint32_t data)
     {
-        SPI.transfer((uint8_t *) &data, 4);
+        eve_spi().transfer((uint8_t *) &data, 4);
     }
 #else
     void wrapper_spi_transmit_32(uint32_t data)
     {
-        SPI.transfer(&data, 4);
+        eve_spi().transfer(&data, 4);
     }
 #endif
 
@@ -86,7 +100,7 @@ extern "C" {
 
     uint8_t wrapper_spi_receive(uint8_t data)
     {
-        return (SPI.transfer(data));
+        return (eve_spi().transfer(data));
     }
 
 #ifdef __cplusplus

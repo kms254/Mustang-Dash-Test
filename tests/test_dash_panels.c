@@ -162,6 +162,14 @@ int main(void)
     expect(center->role != left->role && left->role != right->role && center->role != right->role,
            "all three roles must be distinct");
 
+    /* ---- 4. SPI bus assignment (STM32 migration plan U5) ---- */
+    expect(center->bus_index == 0U, "center must ride bus 0");
+    expect(left->bus_index == 1U, "left must ride bus 1");
+    expect(right->bus_index == 2U, "right must ride bus 2");
+    expect(center->bus_index != left->bus_index && left->bus_index != right->bus_index
+           && center->bus_index != right->bus_index,
+           "bus indices must be distinct -- each panel gets a dedicated SPI peripheral on the STM32 carrier");
+
     if (failures == 0)
     {
         printf("OK: panel pins, timings, resolutions, and roles hold for "

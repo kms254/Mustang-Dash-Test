@@ -100,6 +100,16 @@ static DashOdo g_odo;
 
 /* ---- panel plumbing (three BT817s on one shared SPI bus, KTD1/KTD9) ---- */
 static EVE_panel_t g_eve_panels[DASH_PANEL_COUNT]; /* library form of DASH_PANELS, filled in setup() */
+
+#if defined(EVE_PANEL_HAS_BUS)
+/* STM32 carrier (migration plan U5): one dedicated SPI peripheral per panel,
+ * indexed by DashPanelDesc.bus_index. Pin sets are compile-valid LQFP-100
+ * defaults for the WeAct H743 mule; the carrier schematic (plan U2) owns the
+ * final assignment. Constructor order: MOSI, MISO, SCLK. */
+static SPIClass g_spi_left(PB15, PB14, PB13); /* SPI2 */
+static SPIClass g_spi_right(PE6, PE5, PE2);   /* SPI4 */
+static SPIClass *const DASH_SPI_BUSES[DASH_PANEL_COUNT] = { &SPI, &g_spi_left, &g_spi_right };
+#endif
 static bool g_panel_ok[DASH_PANEL_COUNT];          /* init succeeded; a dead panel stays dark, never blocks the others (R9) */
 static uint8_t g_active_panel = DASH_PANEL_CENTER; /* which panel the EVE library is currently routed at */
 static uint8_t g_dash_brightness = 0U;             /* ONE cluster brightness (R12); set to BL_STEADY at boot_complete */
@@ -249,6 +259,9 @@ void setup(void)
         e->swizzle = d->swizzle;
         e->pclkpol = d->pclkpol;
         e->cspread = d->cspread;
+#if defined(EVE_PANEL_HAS_BUS)
+        e->bus = DASH_SPI_BUSES[d->bus_index]; /* dedicated peripheral per panel */
+#endif
         pinMode(d->cs_pin, OUTPUT);
         digitalWrite(d->cs_pin, HIGH);
         pinMode(d->pd_pin, OUTPUT);
@@ -257,10 +270,19 @@ void setup(void)
 
     /* SPI mode 0, MSB first; the clock stays conservative through every
      * panel's init (BT817 needs <= 11 MHz until configured), then rises
-     * once, bus-wide, to the R11 operating point. */
+     * once to the operating point. */
+#if defined(EVE_PANEL_HAS_BUS)
+    for (uint8_t b = 0U; b < DASH_PANEL_COUNT; b++)
+    {
+        DASH_SPI_BUSES[b]->begin();
+        DASH_SPI_BUSES[b]->beginTransaction(SPISettings(8UL * 1000000UL, MSBFIRST, SPI_MODE0));
+    }
+    Serial.println(F("3x dedicated SPI up at 8 MHz, mode 0 (init)."));
+#else
     SPI.begin();
     SPI.beginTransaction(SPISettings(8UL * 1000000UL, MSBFIRST, SPI_MODE0));
     Serial.println(F("SPI up at 8 MHz, mode 0 (init)."));
+#endif
 
     /* Per-panel init (KTD9): select -> EVE_init with that panel's timings ->
      * REG_ID check -> backlight forced dark immediately (the library's init
@@ -280,9 +302,19 @@ void setup(void)
     }
     const bool any_panel_ok = g_panel_ok[0] || g_panel_ok[1] || g_panel_ok[2];
 
-    /* One bus-wide raise after every init is done (KTD8). */
+    /* One raise after every init is done (KTD8). Per-panel buses raise
+     * independently -- point-to-point links, so per-panel clocks are
+     * individually tunable on the STM32 carrier. */
+#if defined(EVE_PANEL_HAS_BUS)
+    for (uint8_t b = 0U; b < DASH_PANEL_COUNT; b++)
+    {
+        DASH_SPI_BUSES[b]->endTransaction();
+        DASH_SPI_BUSES[b]->beginTransaction(SPISettings(DASH_SPI_RUN_HZ, MSBFIRST, SPI_MODE0));
+    }
+#else
     SPI.endTransaction();
     SPI.beginTransaction(SPISettings(DASH_SPI_RUN_HZ, MSBFIRST, SPI_MODE0));
+#endif
     Serial.printf("SPI raised to %lu MHz (U9 read-integrity soak gates this operating point)\r\n",
                   (unsigned long)(DASH_SPI_RUN_HZ / 1000000UL));
 
