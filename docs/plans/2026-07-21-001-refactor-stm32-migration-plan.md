@@ -72,6 +72,15 @@ KTD4.
   ECU; Bus 2 = PMU/power distribution.
 - **Odometer persistence** surviving power cycles with the existing
   CRC-record semantics (backend resolved in KTD4).
+- **External QSPI NOR storage (Kevin, 2026-07-21): Winbond W25Q01JV-class
+  on the H755's QUADSPI.** Uses: CAN telemetry logging (M4 side; decoded
+  dual-bus runs ~16 KB/s, so 32 MB = ~30 min, 128 MB = 2+ h) and
+  optionally hosting the splash provisioning pack (frees ~660 KB of MCU
+  flash). The whole W25Qxx family shares one command set, so capacity is
+  pure economics decided at U1: JLC's 1 Gbit pricing is broker-tier
+  (C5137036 $54 / C2962013 $27.6) while W25Q256/512JV are cheap and
+  deep-stocked; the true W25Q01JV runs ~$6-8 at Digi-Key if the full
+  128 MB earns its keep. Size to the longest logging session wanted.
 
 ---
 
