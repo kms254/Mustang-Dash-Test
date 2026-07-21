@@ -419,10 +419,20 @@ work.
   - **Mule: NUCLEO-H755ZI-Q.** Note the -Q boards are SMPS-powered: the
     power-supply config in clock init differs from LDO boards, a classic
     hang-at-boot trap for generic configs.
-  - **Verify at U1/U2, do not assume:** JLC price/stock for H755ZIT6;
-    whether H743/H755 LQFP144 pinouts are close enough to share the
-    carrier footprint (would allow an H743 fallback fit); LDO-vs-SMPS
-    power design choice on the carrier.
+  - **Exact part pinned (Kevin, 2026-07-21): STM32H755ZIT6, LQFP-144 —
+    JLC C730212, $27.25, stock 43 at pin time.** Stock is shallow:
+    re-check immediately before the U3 order (the same discipline KTD1
+    already required for the H743).
+  - **Carrier power design: prefer LDO mode** (pins strapped per
+    datasheet, no SMPS inductor) — full 480 MHz available, firmware
+    init identical in shape to H743-class code, one less silent-hang
+    trap at bring-up. SMPS only if a U1 thermal calc demands it. The
+    NUCLEO-H755ZI-Q mule is SMPS-configured, so its board init needs
+    the SMPS supply-config line -- a known one-liner, not a porting
+    signal for the carrier.
+  - **Verify at U1/U2, do not assume:** whether H743/H753 LQFP144
+    pinouts are close enough to share the carrier footprint (would
+    allow a single-core fallback fit given the shallow H755 stock).
   - The single-core H743/H753 remains the documented fallback if dual-core
     costs prove out worse than expected — the M7-only-first strategy keeps
     that door open.
