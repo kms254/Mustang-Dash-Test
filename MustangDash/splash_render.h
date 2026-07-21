@@ -211,15 +211,15 @@ bool splash_flash_provision(void)
      * assets forever (review finding: torn provisioning). */
     for (uint32_t off = PROVISION_CHUNK; off < SPLASH_FLASH_PACK_SIZE; off += PROVISION_CHUNK)
     {
-        const uint32_t n = min(PROVISION_CHUNK, SPLASH_FLASH_PACK_SIZE - off);
+        const uint32_t n = min((uint32_t) PROVISION_CHUNK, (uint32_t) (SPLASH_FLASH_PACK_SIZE - off));
         EVE_memWrite_flash_buffer(SCRATCH_BUF, &splash_flash_pack[off], n);
         EVE_cmd_flashupdate(SPLASH_FLASH_BASE + off, SCRATCH_BUF, n);
         Serial.print('.');
     }
     EVE_memWrite_flash_buffer(SCRATCH_BUF, &splash_flash_pack[0],
-                              min(PROVISION_CHUNK, SPLASH_FLASH_PACK_SIZE));
+                              min((uint32_t) PROVISION_CHUNK, (uint32_t) SPLASH_FLASH_PACK_SIZE));
     EVE_cmd_flashupdate(SPLASH_FLASH_BASE, SCRATCH_BUF,
-                        min(PROVISION_CHUNK, SPLASH_FLASH_PACK_SIZE));
+                        min((uint32_t) PROVISION_CHUNK, (uint32_t) SPLASH_FLASH_PACK_SIZE));
     Serial.print('.');
     Serial.println();
 
@@ -385,7 +385,7 @@ void run_splash(const ThemeDesc *theme)
     for (;;)
     {
         const uint32_t now = millis() - t0;
-        const uint32_t t = min(now, SPLASH_DURATION_MS);
+        const uint32_t t = min(now, (uint32_t) SPLASH_DURATION_MS); /* cast: STM32 std::min needs matching types; Teensy macro unaffected */
 
         eve_frame_begin(0x000000UL);
         draw_splash_elements(theme, t, 255U);
@@ -411,7 +411,7 @@ void run_splash(const ThemeDesc *theme)
     for (;;)
     {
         const uint32_t fnow = millis() - f0;
-        const uint32_t ft = min(fnow, CROSSFADE_MS);
+        const uint32_t ft = min(fnow, (uint32_t) CROSSFADE_MS); /* cast: STM32 std::min needs matching types */
         const uint8_t in_a = (uint8_t)((ft * 255UL) / CROSSFADE_MS);
         const uint8_t out_a = (uint8_t)(255U - in_a);
 

@@ -51,7 +51,9 @@
 
 #include <Arduino.h>
 #include <SPI.h>
+#if defined(ARDUINO_TEENSY41)
 #include <avr/eeprom.h> /* Teensy 4.1 wear-leveled EEPROM emulation (4284 B) */
+#endif
 #include "EVE.h"
 #include "splash_config.h"
 #include "splash_timeline.h"
@@ -68,7 +70,9 @@
 /* Teensy 4 USB device state: non-zero once the USB host has configured us
  * (cores/teensy4/usb.c). Zero when running from a wall adapter / car power. */
 extern "C" {
+#if defined(ARDUINO_TEENSY41)
 extern volatile uint8_t usb_configuration;
+#endif
 }
 
 /* Volatile so the compiler cannot fold the table access down to the one
@@ -185,6 +189,7 @@ void setup(void)
      * stays 0 and the loop exits at its 500 ms timeout -- the car boot
      * cost is that bounded window, not the 2 s monitor wait. */
     uint32_t t_start = millis();
+#if defined(ARDUINO_TEENSY41)
     while ((0U == usb_configuration) && ((millis() - t_start) < 500U))
     {
         /* wait for USB enumeration, briefly */
@@ -196,6 +201,17 @@ void setup(void)
             /* host present: wait up to 2 s total for the monitor to open */
         }
     }
+#else
+    /* STM32 CDC exposes no cheap "enumerated but monitor closed" signal, so
+     * a single bounded wait covers both cases: host present and opening the
+     * monitor -> banner captured; car supply -> exits at 500 ms. Bench UX is
+     * slightly worse than the Teensy path (a slow-opening monitor can miss
+     * the banner); revisit in U6 if it bites. */
+    while (!Serial && ((millis() - t_start) < 500U))
+    {
+        /* wait briefly for a USB host */
+    }
+#endif
 
     Serial.println();
     Serial.println(F("=== MustangDash / Riverdi triple dash (BT817 x3) on Teensy 4.1 ==="));
@@ -656,6 +672,34 @@ void dash_register_fonts(uint16_t needed)
 
 /* ---- odometer EEPROM glue (KTD7): the pure record logic lives in
  * dash_odo.h; this is the only code that touches the EEPROM API ---- */
+/* Storage seam (unique names -- the .ino->cpp prototype hoisting in both
+ * build paths would lift any redefinition of the avr eeprom_* names above
+ * target guards and collide with <avr/eeprom.h> on Teensy). U6 replaces the
+ * STM32 branch with the FM24CL64B I2C FRAM backend. */
+#if defined(ARDUINO_TEENSY41)
+static void odo_storage_read(void *dst, uint32_t off, size_t n)
+{
+    eeprom_read_block(dst, (const void *)(uintptr_t)off, n);
+}
+static void odo_storage_write(const void *src, uint32_t off, size_t n)
+{
+    eeprom_write_block(src, (void *)(uintptr_t)off, n);
+}
+#else
+/* STM32 placeholder backend (U4 compile parity): a RAM shadow standing in
+ * for the FRAM backend. Volatile -- the odometer does NOT persist on STM32
+ * until U6 lands. Record layout and glue below are unchanged. */
+static uint8_t g_odo_shadow[DASH_ODO_SLOT_ADDR(1) + DASH_ODO_RECORD_SIZE];
+static void odo_storage_read(void *dst, uint32_t off, size_t n)
+{
+    memcpy(dst, &g_odo_shadow[off], n);
+}
+static void odo_storage_write(const void *src, uint32_t off, size_t n)
+{
+    memcpy(&g_odo_shadow[off], src, n);
+}
+#endif
+
 void odo_eeprom_load(void)
 {
     /* Two-slot ping-pong (review finding): a torn write -- power loss
@@ -664,8 +708,8 @@ void odo_eeprom_load(void)
      * tear costs 0.1 mi, never the lifetime count. */
     uint8_t rec0[DASH_ODO_RECORD_SIZE];
     uint8_t rec1[DASH_ODO_RECORD_SIZE];
-    eeprom_read_block(rec0, (const void *)DASH_ODO_SLOT_ADDR(0), DASH_ODO_RECORD_SIZE);
-    eeprom_read_block(rec1, (const void *)DASH_ODO_SLOT_ADDR(1), DASH_ODO_RECORD_SIZE);
+    odo_storage_read(rec0, DASH_ODO_SLOT_ADDR(0), DASH_ODO_RECORD_SIZE);
+    odo_storage_read(rec1, DASH_ODO_SLOT_ADDR(1), DASH_ODO_RECORD_SIZE);
     if (dash_odo_pick_load_slot(rec0, rec1, &g_odo) == 0xFFU)
     {
         dash_odo_init(&g_odo); /* blank or corrupt EEPROM: clean zero start */
@@ -677,7 +721,7 @@ void odo_eeprom_write(void)
     uint8_t rec[DASH_ODO_RECORD_SIZE];
     uint8_t slot;
     dash_odo_encode_next(&g_odo, rec, &slot); /* bumps seq, alternates slots */
-    eeprom_write_block(rec, (void *)DASH_ODO_SLOT_ADDR(slot), DASH_ODO_RECORD_SIZE);
+    odo_storage_write(rec, DASH_ODO_SLOT_ADDR(slot), DASH_ODO_RECORD_SIZE);
 }
 
 /* ---- serial pump (KTD6): accumulate a line, parse, apply, ack ---- */

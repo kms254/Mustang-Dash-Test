@@ -72,6 +72,7 @@ built with -O2, RAM = 5252 bytes, Flash = 27468 bytes
 #if defined (ARDUINO)
 
 #include <stdint.h>
+#include <stddef.h> /* NULL, used by the multi-panel pin resolvers below */
 #include <Arduino.h>
 #include "../EVE_cpp_wrapper.h"
 #include "stm32yyxx_ll_spi.h"
@@ -91,26 +92,70 @@ extern "C"
 #endif
 /* you may define these in your build-environment to use different settings */
 
+/* multi-panel support, mirrored from EVE_target_Arduino_Teensy4.h: drive
+ * more than one panel with individual CS / PD lines and individual display
+ * parameters. The struct layout must stay identical across targets -- the
+ * portable code in EVE_commands.c consumes it. */
+#define EVE_MULTI_PANEL
+
+#define EVE_PANEL_SLOTS 4U /* number of fault-state slots, one per panel */
+
+typedef struct EVE_panel
+{
+    uint8_t cs_pin;     /* chip-select pin for this panel */
+    uint8_t pdn_pin;    /* power-down / reset pin for this panel */
+    uint8_t slot;       /* fault-state slot, 0 to (EVE_PANEL_SLOTS - 1) */
+    uint8_t pclk;       /* pixel-clock divider, only used when pclk_freq is 0 */
+    uint16_t pclk_freq; /* value for REG_PCLK_FREQ, 0 = use the pclk divider instead */
+    uint16_t hsize;     /* active display width */
+    uint16_t vsize;     /* active display height */
+    uint16_t hcycle;    /* total number of clocks per line, incl front/back porch */
+    uint16_t hoffset;   /* start of active line */
+    uint16_t hsync0;    /* start of horizontal sync pulse */
+    uint16_t hsync1;    /* end of horizontal sync pulse */
+    uint16_t vcycle;    /* total number of lines per screen, including pre/post */
+    uint16_t voffset;   /* start of active screen */
+    uint16_t vsync0;    /* start of vertical sync pulse */
+    uint16_t vsync1;    /* end of vertical sync pulse */
+    uint8_t swizzle;    /* FT8xx output to LCD - pin order */
+    uint8_t pclkpol;    /* LCD data is clocked in on this PCLK edge */
+    uint8_t cspread;    /* helps with noise, when set to 1 fewer signals are changed simultaneously */
+} EVE_panel_t;
+
+extern const EVE_panel_t *EVE_active_panel; /* selected panel, NULL = compile-time configuration */
+
 #define DELAY_MS(ms) delay(ms)
+
+/* multi-panel support: resolve the pins of the selected panel, */
+/* fall back to the compile-time defaults when no panel is selected */
+static inline uint8_t EVE_cs_pin(void)
+{
+    return ((NULL == EVE_active_panel) ? ((uint8_t) EVE_CS) : EVE_active_panel->cs_pin);
+}
+
+static inline uint8_t EVE_pdn_pin(void)
+{
+    return ((NULL == EVE_active_panel) ? ((uint8_t) EVE_PDN) : EVE_active_panel->pdn_pin);
+}
 
 static inline void EVE_pdn_set(void)
 {
-    digitalWrite(EVE_PDN, LOW); /* go into power-down */
+    digitalWrite(EVE_pdn_pin(), LOW); /* go into power-down */
 }
 
 static inline void EVE_pdn_clear(void)
 {
-    digitalWrite(EVE_PDN, HIGH); /* power up */
+    digitalWrite(EVE_pdn_pin(), HIGH); /* power up */
 }
 
 static inline void EVE_cs_set(void)
 {
-    digitalWrite(EVE_CS, LOW); /* make EVE listen */
+    digitalWrite(EVE_cs_pin(), LOW); /* make EVE listen */
 }
 
 static inline void EVE_cs_clear(void)
 {
-    digitalWrite(EVE_CS, HIGH); /* tell EVE to stop listen */
+    digitalWrite(EVE_cs_pin(), HIGH); /* tell EVE to stop listen */
 }
 
 #define EVE_DMA /* no DMA for now, "just" buffer transfers */
