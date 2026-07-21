@@ -107,6 +107,17 @@ static DashOdo g_odo;
 static EVE_panel_t g_eve_panels[DASH_PANEL_COUNT]; /* library form of DASH_PANELS, filled in setup() */
 
 #if defined(EVE_PANEL_HAS_BUS)
+#if defined(DASH_BOARD_RIVERDI_F469)
+/* Riverdi STM32 Evaluation Board (STM32F469II): ONE RiBUS connector on SPI2
+ * -- center panel only; the sides are physically absent and retire at boot
+ * (R9), so all three descriptors share the one bus and the side CS/PD pins
+ * are harmless spares. Pin map from riverdi-eve host_layer/stm32f4:
+ * CS PB12, PD PH6, INT PH7 (unused -- we poll). */
+static SPIClass g_spi_center(PB15, PB14, PB13); /* SPI2: MOSI, MISO, SCLK */
+static SPIClass *const DASH_SPI_BUSES[DASH_PANEL_COUNT] = { &g_spi_center, &g_spi_center, &g_spi_center };
+static const uint8_t DASH_CS_PINS[DASH_PANEL_COUNT] = { PB12, PC6, PC7 }; /* sides: spare GPIOs */
+static const uint8_t DASH_PD_PINS[DASH_PANEL_COUNT] = { PH6, PC8, PC9 };
+#else
 /* STM32 carrier (migration plan U5): one dedicated SPI peripheral per panel,
  * indexed by DashPanelDesc.bus_index. Pin sets are compile-valid LQFP-100
  * defaults for the WeAct H743 mule; the carrier schematic (plan U2) owns the
@@ -126,6 +137,7 @@ static SPIClass *const DASH_SPI_BUSES[DASH_PANEL_COUNT] = { &g_spi_center, &g_sp
  * TODO(U2): the carrier schematic owns the final assignment. */
 static const uint8_t DASH_CS_PINS[DASH_PANEL_COUNT] = { PD8, PD9, PD10 };
 static const uint8_t DASH_PD_PINS[DASH_PANEL_COUNT] = { PD11, PD12, PD13 };
+#endif
 #endif
 static bool g_panel_ok[DASH_PANEL_COUNT];          /* init succeeded; a dead panel stays dark, never blocks the others (R9) */
 static uint8_t g_active_panel = DASH_PANEL_CENTER; /* which panel the EVE library is currently routed at */
