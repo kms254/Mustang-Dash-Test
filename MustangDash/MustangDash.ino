@@ -107,7 +107,19 @@ static DashOdo g_odo;
 static EVE_panel_t g_eve_panels[DASH_PANEL_COUNT]; /* library form of DASH_PANELS, filled in setup() */
 
 #if defined(EVE_PANEL_HAS_BUS)
-#if defined(DASH_BOARD_RIVERDI_F469)
+#if defined(DASH_BOARD_NUCLEO_F767)
+/* NUCLEO-F767ZI three-panel mule: three genuinely dedicated SPI peripherals
+ * on pins clear of the board's fixed functions -- Ethernet RMII steals
+ * SPI1's default MOSI (PA7) and SPI2's default SCK (PB13), hence the
+ * alternates. Panels attach via FFC breakouts; backlights on external 5V.
+ * Constructor order: MOSI, MISO, SCLK. */
+static SPIClass g_spi_center(PB5, PA6, PA5);  /* SPI1: MOSI on PB5 (PA7 is RMII) */
+static SPIClass g_spi_left(PB15, PC2, PB10);  /* SPI2: SCK on PB10, MISO on PC2 (PB13/PB14 taken) */
+static SPIClass g_spi_right(PE6, PE5, PE2);   /* SPI4 */
+static SPIClass *const DASH_SPI_BUSES[DASH_PANEL_COUNT] = { &g_spi_center, &g_spi_left, &g_spi_right };
+static const uint8_t DASH_CS_PINS[DASH_PANEL_COUNT] = { PF13, PE9, PE11 };
+static const uint8_t DASH_PD_PINS[DASH_PANEL_COUNT] = { PF14, PE13, PF15 };
+#elif defined(DASH_BOARD_RIVERDI_F469)
 /* Riverdi STM32 Evaluation Board (STM32F469II): ONE RiBUS connector on SPI2
  * -- center panel only; the sides are physically absent and retire at boot
  * (R9), so all three descriptors share the one bus and the side CS/PD pins
