@@ -402,6 +402,14 @@ work.
 
 ## Open Questions (execution-time)
 
+- **KTD1 alternative — STM32F767ZI instead of H743VIT6** (raised 2026-07-21
+  after the NUCLEO-F767ZI proved out as the three-panel mule). For: the
+  carrier MCU would be the exact mule silicon, so all firmware is
+  hardware-proven before fab; meets every requirement (M7, 2 MB, 6x SPI).
+  Against: bxCAN only — loses the CAN FD headroom KTD3's transceivers were
+  chosen for; older part; LQFP144 vs 100. Both target devices speak classic
+  CAN today, so this is a future-proofing call, not a functional one.
+  Decide at U1 with a live JLC price/stock comparison.
 - Crystal vs HSI for USB clocking — resolve in U2 (crystal is the safe
   default; confirm footprint).
 - Exact regulator parts (U1 owns, via JLC search with measured backlight
