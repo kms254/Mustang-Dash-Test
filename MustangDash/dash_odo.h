@@ -218,6 +218,15 @@ static inline void dash_odo_reseed(DashOdo *o, float miles)
     o->dirty_now = true;
 }
 
+/* Trip-reset button (STM32 migration plan U6): zero the trip, leave the
+ * lifetime odometer and sub-tenth carry untouched, demand an immediate
+ * write so a power cycle right after the press cannot resurrect the trip. */
+static inline void dash_odo_trip_reset(DashOdo *o)
+{
+    o->trip_tenths = 0U;
+    o->dirty_now = true;
+}
+
 /* Convenience readouts in display units. */
 static inline float dash_odo_miles(const DashOdo *o)
 {

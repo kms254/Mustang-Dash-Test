@@ -66,6 +66,10 @@
 #include "dash_odo.h"
 #include "dash_fonts.h"
 #include "dash_panels.h" /* per-panel pins + timings (host-tested); mapped to EVE_panel_t in setup() */
+#include "dash_telltales.h" /* 8-lamp warning mask (host-tested); pins + lamp test live below */
+#if !defined(ARDUINO_TEENSY41)
+#include <Wire.h> /* FM24CL64B I2C FRAM odometer backend (migration plan U6) */
+#endif
 
 /* Teensy 4 USB device state: non-zero once the USB host has configured us
  * (cores/teensy4/usb.c). Zero when running from a wall adapter / car power. */
@@ -113,6 +117,20 @@ static SPIClass *const DASH_SPI_BUSES[DASH_PANEL_COUNT] = { &SPI, &g_spi_left, &
 static bool g_panel_ok[DASH_PANEL_COUNT];          /* init succeeded; a dead panel stays dark, never blocks the others (R9) */
 static uint8_t g_active_panel = DASH_PANEL_CENTER; /* which panel the EVE library is currently routed at */
 static uint8_t g_dash_brightness = 0U;             /* ONE cluster brightness (R12); set to BL_STEADY at boot_complete */
+
+/* ---- telltales + switches (migration plan U6) ---- */
+/* Teensy pins follow the pin-budget note in dash_panels.h (telltales 2-9,
+ * buttons from 24); STM32 pins are WeAct-mule-valid placeholders until the
+ * carrier schematic (plan U2) fixes them. */
+#if defined(ARDUINO_TEENSY41)
+static const uint8_t DASH_LAMP_PINS[DASH_LAMP_COUNT] = { 2, 3, 4, 5, 6, 7, 8, 9 };
+static const uint8_t DASH_SWITCH_TRIP_PIN = 24U;
+#else
+static const uint8_t DASH_LAMP_PINS[DASH_LAMP_COUNT] = { PD0, PD1, PD2, PD3, PD4, PD5, PD6, PD7 };
+static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* WeAct user button K1 */
+#endif
+static uint32_t g_trip_btn_edge_ms = 0UL; /* debounce window start */
+static bool g_trip_btn_down = false;
 
 static char g_serial_line[DASH_SERIAL_MAX_LINE + 17]; /* headroom to detect too-long */
 static uint8_t g_serial_len = 0U;
@@ -334,6 +352,17 @@ void setup(void)
     dash_state_init(&g_dash);
     dash_sim_init(&g_sim);
     dash_odo_init(&g_odo);
+    /* telltales: pins out + full-mask bulb check; the lamps hold ALL through
+     * the splash (a visible ~2.4 s lamp test) until loop()'s first live
+     * update. Trip switch: input with pull-up, debounced in loop(). */
+    for (uint8_t l = 0U; l < DASH_LAMP_COUNT; l++)
+    {
+        pinMode(DASH_LAMP_PINS[l], OUTPUT);
+        digitalWrite(DASH_LAMP_PINS[l], HIGH);
+    }
+    pinMode(DASH_SWITCH_TRIP_PIN, INPUT_PULLUP);
+
+    odo_storage_init();
     odo_eeprom_load();
     Serial.printf("Odometer: %.1f mi (trip %.1f)\r\n",
                   (double)dash_odo_miles(&g_odo), (double)dash_trip_miles(&g_odo));
@@ -437,6 +466,34 @@ void loop(void)
     {
         odo_eeprom_write();
         dash_odo_mark_written(&g_odo);
+    }
+
+    /* telltales track the live state every frame (U6); the mask is pure
+     * logic (dash_telltales.h), only the pin writes live here */
+    {
+        const uint8_t lamp_mask = dash_telltale_mask(&g_dash);
+        for (uint8_t l = 0U; l < DASH_LAMP_COUNT; l++)
+        {
+            digitalWrite(DASH_LAMP_PINS[l], ((lamp_mask >> l) & 1U) ? HIGH : LOW);
+        }
+    }
+
+    /* trip-reset switch, debounced 30 ms; falling edge = press (pull-up).
+     * Reset demands an immediate write; the odometer cadence block above
+     * (or the next pass through it) lands it. */
+    {
+        const bool down = (LOW == digitalRead(DASH_SWITCH_TRIP_PIN));
+        if (down && !g_trip_btn_down && ((now - g_trip_btn_edge_ms) > 30UL))
+        {
+            dash_odo_trip_reset(&g_odo);
+            odo_eeprom_write();
+            dash_odo_mark_written(&g_odo);
+        }
+        if (down != g_trip_btn_down)
+        {
+            g_trip_btn_edge_ms = now;
+            g_trip_btn_down = down;
+        }
     }
 
     /* Sequential per-panel render (KTD8): center first (mode or alarm
@@ -718,17 +775,62 @@ static void odo_storage_write(const void *src, uint32_t off, size_t n)
     eeprom_write_block(src, (void *)(uintptr_t)off, n);
 }
 #else
-/* STM32 placeholder backend (U4 compile parity): a RAM shadow standing in
- * for the FRAM backend. Volatile -- the odometer does NOT persist on STM32
- * until U6 lands. Record layout and glue below are unchanged. */
+/* STM32 backend (U6): FM24CL64B I2C FRAM at 0x50, 16-bit addressing, no
+ * write-cycle delay (FRAM writes at bus speed -- no polling, no wear
+ * leveling). Probed once at boot; a missing chip (e.g. the bare WeAct
+ * mule) degrades to a RAM shadow: the dash runs, the odometer just does
+ * not persist, and the banner says so. */
+static const uint8_t ODO_FRAM_ADDR = 0x50U;
+static bool g_odo_fram_ok = false;
 static uint8_t g_odo_shadow[DASH_ODO_SLOT_ADDR(1) + DASH_ODO_RECORD_SIZE];
+
+static void odo_storage_init(void)
+{
+    Wire.begin();
+    Wire.beginTransmission(ODO_FRAM_ADDR);
+    g_odo_fram_ok = (0U == Wire.endTransmission());
+    Serial.printf("Odometer backend: %s\r\n",
+                  g_odo_fram_ok ? "FRAM (FM24CL64B)" : "RAM shadow -- NOT persistent (no FRAM found)");
+}
+
 static void odo_storage_read(void *dst, uint32_t off, size_t n)
 {
-    memcpy(dst, &g_odo_shadow[off], n);
+    if (!g_odo_fram_ok)
+    {
+        memcpy(dst, &g_odo_shadow[off], n);
+        return;
+    }
+    Wire.beginTransmission(ODO_FRAM_ADDR);
+    Wire.write((uint8_t)(off >> 8));
+    Wire.write((uint8_t)(off & 0xFFU));
+    Wire.endTransmission(false); /* repeated start */
+    Wire.requestFrom(ODO_FRAM_ADDR, (uint8_t)n);
+    uint8_t *p = (uint8_t *)dst;
+    for (size_t i = 0U; (i < n) && (Wire.available() > 0); i++)
+    {
+        p[i] = (uint8_t)Wire.read();
+    }
 }
+
 static void odo_storage_write(const void *src, uint32_t off, size_t n)
 {
-    memcpy(&g_odo_shadow[off], src, n);
+    if (!g_odo_fram_ok)
+    {
+        memcpy(&g_odo_shadow[off], src, n);
+        return;
+    }
+    Wire.beginTransmission(ODO_FRAM_ADDR);
+    Wire.write((uint8_t)(off >> 8));
+    Wire.write((uint8_t)(off & 0xFFU));
+    Wire.write((const uint8_t *)src, n);
+    Wire.endTransmission();
+}
+#endif
+
+#if defined(ARDUINO_TEENSY41)
+static void odo_storage_init(void)
+{
+    /* Teensy EEPROM needs no bring-up */
 }
 #endif
 
