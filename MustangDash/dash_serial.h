@@ -74,7 +74,7 @@ typedef enum {
 
 #define DASH_HELP_TEXT \
     "commands: set <ch> <v> | clear <ch> | mode track|street | " \
-    "alarm oilp|oilt|clt|off | odo set <miles> | sim on|off | status | help " \
+    "alarm oilp|oilt|clt|off | odo set <miles> | sim on|off | status | help | cantest " \
     "(ch: rpm speed ect oilt oilp volts fuel delta lap last best ambient " \
     "afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2)"
 

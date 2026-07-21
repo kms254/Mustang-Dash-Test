@@ -109,10 +109,13 @@ static bool dash_can_init_one(FDCAN_HandleTypeDef *h, FDCAN_GlobalTypeDef *inst)
  * CAN, mirroring the flash-probe discipline). */
 static void dash_can_init(void)
 {
-    g_can_ok = dash_can_init_one(&g_can1, FDCAN1)
-               && dash_can_init_one(&g_can2, FDCAN2);
-    Serial.printf("FDCAN init: %s (classic 500 kbps, ECU=FDCAN1 PMU=FDCAN2)\r\n",
-                  g_can_ok ? "ok" : "FAILED");
+    /* review fix: init both unconditionally and report per-bus -- a
+     * short-circuit && hid which bus failed and skipped the second init */
+    const bool ok1 = dash_can_init_one(&g_can1, FDCAN1);
+    const bool ok2 = dash_can_init_one(&g_can2, FDCAN2);
+    g_can_ok = ok1 && ok2;
+    Serial.printf("FDCAN init: ECU=%s PMU=%s (classic 500 kbps)\r\n",
+                  ok1 ? "ok" : "FAILED", ok2 ? "ok" : "FAILED");
 }
 
 /* `cantest`: send one frame on bus 1, expect it on bus 2 (buses jumpered
@@ -125,6 +128,16 @@ static bool dash_can_test(void)
         return false;
     }
 
+    /* review fix: drain any stale frames first, and stamp the payload with
+     * a per-invocation nonce -- a frame left queued by a prior silent-bus
+     * run (AutoRetransmission) must not satisfy a later test */
+    while (HAL_FDCAN_GetRxFifoFillLevel(&g_can2, FDCAN_RX_FIFO0) > 0U)
+    {
+        FDCAN_RxHeaderTypeDef drop;
+        uint8_t drop_data[8];
+        (void)HAL_FDCAN_GetRxMessage(&g_can2, FDCAN_RX_FIFO0, &drop, drop_data);
+    }
+
     FDCAN_TxHeaderTypeDef tx = {0};
     tx.Identifier = 0x123U;
     tx.IdType = FDCAN_STANDARD_ID;
@@ -134,7 +147,10 @@ static bool dash_can_test(void)
     tx.BitRateSwitch = FDCAN_BRS_OFF;
     tx.FDFormat = FDCAN_CLASSIC_CAN;
     tx.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
-    uint8_t payload[8] = { 'M', 'U', 'S', 'T', 'A', 'N', 'G', '!' };
+    const uint32_t nonce = millis();
+    uint8_t payload[8] = { 'M', 'D', 'S', 'H',
+                           (uint8_t)(nonce >> 24), (uint8_t)(nonce >> 16),
+                           (uint8_t)(nonce >> 8), (uint8_t)nonce };
 
     if (HAL_OK != HAL_FDCAN_AddMessageToTxFifoQ(&g_can1, &tx, payload))
     {

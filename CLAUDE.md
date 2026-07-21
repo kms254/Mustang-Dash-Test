@@ -27,7 +27,7 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   target header, any `MustangDash/*.h` pure header, or the platform files.
   Needs host `gcc`; Git Bash has none, so **on Windows run
   `wsl -- bash -lc "./tests/run-tests.sh"`** (or the VS Code task
-  "Tests: invariant suite"). All 11/11 pass.
+  "Tests: invariant suite"). All 13/13 pass.
 - Boot splash: a 2000 ms animated splash (spec vendored in `assets/splash/`)
   plays at power-up, then crossfades directly into the dash. Splash assets are
   **ASTC bitmaps stored in the panel's 64 MB QSPI flash**, staged flash->RAM_G

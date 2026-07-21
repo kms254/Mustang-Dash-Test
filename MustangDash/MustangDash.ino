@@ -111,9 +111,21 @@ static EVE_panel_t g_eve_panels[DASH_PANEL_COUNT]; /* library form of DASH_PANEL
  * indexed by DashPanelDesc.bus_index. Pin sets are compile-valid LQFP-100
  * defaults for the WeAct H743 mule; the carrier schematic (plan U2) owns the
  * final assignment. Constructor order: MOSI, MISO, SCLK. */
+static SPIClass g_spi_center(PA7, PA6, PA5); /* SPI1 -- review fix: the variant's
+    default `SPI` object IS SPI2 on PB13/14/15, i.e. the same bus as the left
+    panel; an explicit SPI1 instance keeps all three buses genuinely disjoint */
 static SPIClass g_spi_left(PB15, PB14, PB13); /* SPI2 */
 static SPIClass g_spi_right(PE6, PE5, PE2);   /* SPI4 */
-static SPIClass *const DASH_SPI_BUSES[DASH_PANEL_COUNT] = { &SPI, &g_spi_left, &g_spi_right };
+static SPIClass *const DASH_SPI_BUSES[DASH_PANEL_COUNT] = { &g_spi_center, &g_spi_left, &g_spi_right };
+
+/* Review fix: dash_panels.h's CS/PD values are Teensy digital numbers; on the
+ * STM32 variant those same numbers land on USB DP, the telltale port, and the
+ * uSD pins. The descriptor table stays host-pure (canonical Teensy data); the
+ * STM32 build remaps the roles here, clear of USB (PA11/12), lamps (PD0-7),
+ * FDCAN (PB5/6/8/9), I2C2 (PB10/11), K1 (PC13), and the SPI pins above.
+ * TODO(U2): the carrier schematic owns the final assignment. */
+static const uint8_t DASH_CS_PINS[DASH_PANEL_COUNT] = { PD8, PD9, PD10 };
+static const uint8_t DASH_PD_PINS[DASH_PANEL_COUNT] = { PD11, PD12, PD13 };
 #endif
 static bool g_panel_ok[DASH_PANEL_COUNT];          /* init succeeded; a dead panel stays dark, never blocks the others (R9) */
 static uint8_t g_active_panel = DASH_PANEL_CENTER; /* which panel the EVE library is currently routed at */
@@ -130,8 +142,9 @@ static const uint8_t DASH_SWITCH_TRIP_PIN = 24U;
 static const uint8_t DASH_LAMP_PINS[DASH_LAMP_COUNT] = { PD0, PD1, PD2, PD3, PD4, PD5, PD6, PD7 };
 static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* WeAct user button K1 */
 #endif
-static uint32_t g_trip_btn_edge_ms = 0UL; /* debounce window start */
-static bool g_trip_btn_down = false;
+static uint32_t g_trip_btn_edge_ms = 0UL; /* last raw edge time (debounce) */
+static bool g_trip_btn_down = false;      /* last raw sample */
+static bool g_trip_btn_fired = false;     /* one reset per stable press */
 
 static char g_serial_line[DASH_SERIAL_MAX_LINE + 17]; /* headroom to detect too-long */
 static uint8_t g_serial_len = 0U;
@@ -193,6 +206,7 @@ bool load_dash_fonts(uint8_t panel);
 uint16_t dash_font(uint8_t idx);
 void dash_register_fonts(uint16_t needed);
 uint16_t measure_side_dl(uint8_t panel, DashMode mode);
+static void odo_storage_init(void); /* review fix: offline no-ctags build needs the explicit prototype */
 void odo_eeprom_load(void);
 void odo_eeprom_write(void);
 void pump_serial(void);
@@ -245,12 +259,6 @@ void setup(void)
     Serial.println();
     Serial.println(F("=== MustangDash / Riverdi triple dash (BT817 x3) on Teensy 4.1 ==="));
     static const char *const kPanelNames[DASH_PANEL_COUNT] = { "CENTER", "LEFT", "RIGHT" };
-    for (uint8_t p = 0U; p < DASH_PANEL_COUNT; p++)
-    {
-        Serial.printf("Panel %s: CS=%u PD=%u %ux%u\r\n", kPanelNames[p],
-                      (unsigned)DASH_PANELS[p].cs_pin, (unsigned)DASH_PANELS[p].pd_pin,
-                      (unsigned)DASH_PANELS[p].width, (unsigned)DASH_PANELS[p].height);
-    }
     Serial.printf("Splash theme: %u (0=blue 1=red 2=checkered)\r\n", (unsigned)g_theme);
 
     /* Map the host-tested descriptor table into the library's panel form and
@@ -280,11 +288,18 @@ void setup(void)
         e->cspread = d->cspread;
 #if defined(EVE_PANEL_HAS_BUS)
         e->bus = DASH_SPI_BUSES[d->bus_index]; /* dedicated peripheral per panel */
+        /* review fix: remap CS/PD off the raw Teensy numbers (see the pin
+         * tables above); the descriptor stays canonical, the target adapts */
+        e->cs_pin = DASH_CS_PINS[p];
+        e->pdn_pin = DASH_PD_PINS[p];
 #endif
-        pinMode(d->cs_pin, OUTPUT);
-        digitalWrite(d->cs_pin, HIGH);
-        pinMode(d->pd_pin, OUTPUT);
-        digitalWrite(d->pd_pin, LOW);
+        pinMode(e->cs_pin, OUTPUT);
+        digitalWrite(e->cs_pin, HIGH);
+        pinMode(e->pdn_pin, OUTPUT);
+        digitalWrite(e->pdn_pin, LOW);
+        Serial.printf("Panel %s: CS=%u PD=%u %ux%u\r\n", kPanelNames[p],
+                      (unsigned)e->cs_pin, (unsigned)e->pdn_pin,
+                      (unsigned)d->width, (unsigned)d->height);
     }
 
     /* SPI mode 0, MSB first; the clock stays conservative through every
@@ -480,21 +495,30 @@ void loop(void)
         }
     }
 
-    /* trip-reset switch, debounced 30 ms; falling edge = press (pull-up).
-     * Reset demands an immediate write; the odometer cadence block above
-     * (or the next pass through it) lands it. */
+    /* trip-reset switch (pull-up, LOW = pressed). Review fix: fire only
+     * after the pin has been stably LOW for >= 30 ms -- a single EMI glitch
+     * on a car harness must not zero the trip. One reset per press; the
+     * latch clears after a stable release. The write lands here, inline. */
     {
         const bool down = (LOW == digitalRead(DASH_SWITCH_TRIP_PIN));
-        if (down && !g_trip_btn_down && ((now - g_trip_btn_edge_ms) > 30UL))
-        {
-            dash_odo_trip_reset(&g_odo);
-            odo_eeprom_write();
-            dash_odo_mark_written(&g_odo);
-        }
         if (down != g_trip_btn_down)
         {
-            g_trip_btn_edge_ms = now;
+            g_trip_btn_edge_ms = now; /* raw edge: restart the stability window */
             g_trip_btn_down = down;
+        }
+        else if ((now - g_trip_btn_edge_ms) > 30UL)
+        {
+            if (down && !g_trip_btn_fired)
+            {
+                g_trip_btn_fired = true;
+                dash_odo_trip_reset(&g_odo);
+                odo_eeprom_write();
+                dash_odo_mark_written(&g_odo);
+            }
+            else if (!down)
+            {
+                g_trip_btn_fired = false;
+            }
         }
     }
 
@@ -768,6 +792,11 @@ void dash_register_fonts(uint16_t needed)
  * target guards and collide with <avr/eeprom.h> on Teensy). U6 replaces the
  * STM32 branch with the FM24CL64B I2C FRAM backend. */
 #if defined(ARDUINO_TEENSY41)
+static void odo_storage_init(void)
+{
+    /* Teensy EEPROM needs no bring-up (review fix: consolidated here from a
+     * separate trailing #if block so both backends read as one unit) */
+}
 static void odo_storage_read(void *dst, uint32_t off, size_t n)
 {
     eeprom_read_block(dst, (const void *)(uintptr_t)off, n);
@@ -797,6 +826,8 @@ static void odo_storage_init(void)
 
 static void odo_storage_read(void *dst, uint32_t off, size_t n)
 {
+    memset(dst, 0, n); /* review fix: a short I2C read must yield a clean
+                        * CRC-fail record, never uninitialized stack tails */
     if (!g_odo_fram_ok)
     {
         memcpy(dst, &g_odo_shadow[off], n);
@@ -805,8 +836,20 @@ static void odo_storage_read(void *dst, uint32_t off, size_t n)
     Wire.beginTransmission(ODO_FRAM_ADDR);
     Wire.write((uint8_t)(off >> 8));
     Wire.write((uint8_t)(off & 0xFFU));
-    Wire.endTransmission(false); /* repeated start */
-    Wire.requestFrom(ODO_FRAM_ADDR, (uint8_t)n);
+    const bool addr_ok = (0U == Wire.endTransmission(false)); /* repeated start */
+    const size_t got = addr_ok ? (size_t)Wire.requestFrom(ODO_FRAM_ADDR, (uint8_t)n) : 0U;
+    if (got != n)
+    {
+        /* review fix: a transient read fault must NOT zero-start and then
+         * clobber the surviving FRAM records on the next cadence write.
+         * Latch the shadow backend: this drive runs unpersisted, the good
+         * records stay untouched for the next boot's fresh probe. */
+        g_odo_fram_ok = false;
+        Serial.printf("Odometer FRAM read fault (got %u/%u) -> RAM shadow for this run\r\n",
+                      (unsigned)got, (unsigned)n);
+        memcpy(dst, &g_odo_shadow[off], n);
+        return;
+    }
     uint8_t *p = (uint8_t *)dst;
     for (size_t i = 0U; (i < n) && (Wire.available() > 0); i++)
     {
@@ -825,14 +868,10 @@ static void odo_storage_write(const void *src, uint32_t off, size_t n)
     Wire.write((uint8_t)(off >> 8));
     Wire.write((uint8_t)(off & 0xFFU));
     Wire.write((const uint8_t *)src, n);
-    Wire.endTransmission();
-}
-#endif
-
-#if defined(ARDUINO_TEENSY41)
-static void odo_storage_init(void)
-{
-    /* Teensy EEPROM needs no bring-up */
+    if (0U != Wire.endTransmission()) /* review fix: a lost write must not be silent */
+    {
+        g_odo_fram_ok = false; /* degrade to shadow; reboot re-probes fresh */
+    }
 }
 #endif
 
@@ -883,8 +922,9 @@ void handle_serial_line(const char *line)
 {
     /* `cantest` (U7): one-shot loopback proof, bus 1 -> bus 2 with the two
      * buses wire-jumpered. Ahead of the parser like a diagnostic, because
-     * it is one: not part of the channel protocol. */
-    if (0 == strcmp(line, "cantest"))
+     * it is one: not part of the channel protocol. Case-insensitive to
+     * honor the protocol's documented contract (review fix). */
+    if (dash_serial_ieq_(line, "cantest"))
     {
         Serial.println(dash_can_test() ? F("ok cantest") : F("err cantest failed (init/jumper/termination/timeout)"));
         return;

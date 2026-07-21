@@ -94,8 +94,10 @@ extern "C"
 
 /* multi-panel support, mirrored from EVE_target_Arduino_Teensy4.h: drive
  * more than one panel with individual CS / PD lines and individual display
- * parameters. The struct layout must stay identical across targets -- the
- * portable code in EVE_commands.c consumes it. */
+ * parameters. The FIELD NAMES the portable code in EVE_commands.c consumes
+ * must match the Teensy4 target's struct; this variant additionally appends
+ * a `bus` pointer (absent on Teensy, whose panels share one bus) that only
+ * target-side C++ code touches -- the portable C code never reads it. */
 #define EVE_MULTI_PANEL
 
 #define EVE_PANEL_SLOTS 4U /* number of fault-state slots, one per panel */
