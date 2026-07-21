@@ -402,14 +402,30 @@ work.
 
 ## Open Questions (execution-time)
 
-- **KTD1 alternative — STM32F767ZI instead of H743VIT6** (raised 2026-07-21
-  after the NUCLEO-F767ZI proved out as the three-panel mule). For: the
-  carrier MCU would be the exact mule silicon, so all firmware is
-  hardware-proven before fab; meets every requirement (M7, 2 MB, 6x SPI).
-  Against: bxCAN only — loses the CAN FD headroom KTD3's transceivers were
-  chosen for; older part; LQFP144 vs 100. Both target devices speak classic
-  CAN today, so this is a future-proofing call, not a functional one.
-  Decide at U1 with a live JLC price/stock comparison.
+- **KTD1 RETARGET DECISION (Kevin, 2026-07-21): the carrier targets the
+  dual-core STM32H755 — Cortex-M7 owns display/EVE, Cortex-M4 owns both
+  CAN networks (ECU + PMU buses, dual FDCAN as already contracted).**
+  This supersedes the H743VIT6 selection and the F767 alternative
+  considered earlier the same day. Consequences accepted with the decision:
+  - **KTD2 breaks.** STM32duino does not support dual-core H7; the M4 CAN
+    core is a bare CubeHAL project by necessity and the M7 side likely
+    follows. The Arduino glue path validated across the four PlatformIO
+    envs does NOT carry to the H755 target. The pure headers (dash logic,
+    odometer, telltales, serial protocol) are portable C and survive.
+  - **Adoption strategy: M7-only first.** Boot with the M4 parked (option
+    bytes), making the H755 behave like an H743 — single-core firmware
+    lands first, dual-core (shared-SRAM + HSEM inter-core CAN handoff)
+    comes as a later increment, never a big-bang.
+  - **Mule: NUCLEO-H755ZI-Q.** Note the -Q boards are SMPS-powered: the
+    power-supply config in clock init differs from LDO boards, a classic
+    hang-at-boot trap for generic configs.
+  - **Verify at U1/U2, do not assume:** JLC price/stock for H755ZIT6;
+    whether H743/H755 LQFP144 pinouts are close enough to share the
+    carrier footprint (would allow an H743 fallback fit); LDO-vs-SMPS
+    power design choice on the carrier.
+  - The single-core H743/H753 remains the documented fallback if dual-core
+    costs prove out worse than expected — the M7-only-first strategy keeps
+    that door open.
 - Crystal vs HSI for USB clocking — resolve in U2 (crystal is the safe
   default; confirm footprint).
 - Exact regulator parts (U1 owns, via JLC search with measured backlight
