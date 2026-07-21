@@ -30,8 +30,12 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   "Tests: invariant suite"). All 11/11 pass.
 - Boot splash: a 2000 ms animated splash (spec vendored in `assets/splash/`)
   plays at power-up, then crossfades directly into the dash. Splash assets are
-  **ASTC bitmaps in the panel's 64 MB QSPI flash**, rendered direct from flash
-  (zero RAM_G): `tools/make_splash_flash.py` (astcenc pinned by
+  **ASTC bitmaps stored in the panel's 64 MB QSPI flash**, staged flash->RAM_G
+  once at boot and rendered from RAM_G (flash-source kept as a degraded
+  fallback) — rendering direct from flash hits a per-frame bandwidth ceiling
+  above ~40 KB per asset, see
+  `docs/solutions/architecture-patterns/bt817-flash-render-streaming-bandwidth-ceiling.md`:
+  `tools/make_splash_flash.py` (astcenc pinned by
   `tools/get-astcenc.sh`, WSL) emits `splash_flash.h`; the firmware provisions
   the panel flash once at boot when the pack CRC differs — sector 0 (the
   vendor flashfast blob) is never written. Theme stays build-time via

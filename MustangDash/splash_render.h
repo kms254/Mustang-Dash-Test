@@ -22,14 +22,22 @@
  * (splash_stage_theme_to_ramg) and every draw sources RAM_G.
  *
  * Why not render direct from flash (the original design): bench forensics
- * 2026-07-10 -- a center module whose flash *render-streaming* path was
- * damaged (long ASTC 4x4 bursts garbled) while the command path
- * (CMD_FLASHREAD/UPDATE, CRC) stayed fully healthy. Staging uses only the
- * command path, and ASTC renders from RAM_G flawlessly, so the splash is
- * immune to that damage class -- on any panel. Cost: one theme (<= 281 KB)
- * resident above the fonts (~285 KB), ~566 KB of the center's 1 MB RAM_G,
- * with the flash-source path kept as an automatic fallback if staging
- * cannot run. */
+ * 2026-07-10 -- long ASTC bursts garbled while the command path
+ * (CMD_FLASHREAD/UPDATE, CRC) stayed fully healthy. Originally read as
+ * damage to one module; 2026-07-21 established it is a per-frame bandwidth
+ * ceiling every module has. The graphics engine cannot fetch a large asset
+ * from flash within the frame budget, so scanlines drop -- content is
+ * correct, the delivery rate is not. It persists with REG_FLASH_STATUS == 3
+ * (full speed); CMD_FLASHFAST does not help. Bridgetek documents the limit
+ * and puts the comfortable size at "a few tens of KBytes"; measured
+ * threshold here is 40-56 KB per asset. See
+ * docs/solutions/architecture-patterns/bt817-flash-render-streaming-bandwidth-ceiling.md
+ *
+ * Staging uses only the command path, and ASTC renders from RAM_G
+ * flawlessly. Cost: one theme (<= 281 KB) resident above the fonts
+ * (~285 KB), ~566 KB of the center's 1 MB RAM_G, with the flash-source path
+ * kept as an automatic fallback if staging cannot run -- degraded, since
+ * that path is the one subject to the ceiling. */
 
 struct ThemeDesc
 {
