@@ -48,6 +48,17 @@
 #define DASH_OILP_RED_PSI    29.0f  /* red below (no amber) */
 #define DASH_VOLTS_RED_V     12.0f  /* red below (no amber) */
 #define DASH_FUEL_AMBER_GAL   2.5f  /* amber below (amber only) */
+#define DASH_FUELP_RED_PSI   43.0f  /* red below (no amber) */
+#define DASH_IAT_AMBER_F    131.0f  /* amber above (amber only) */
+#define DASH_AFR_AMBER        13.8f /* amber above -- lean under load (amber only) */
+
+/* ---- derivation constants (README ~L103) ---- */
+#define DASH_RANGE_MPG        16.0f  /* range estimate = gal * 16 mi/gal (street) */
+/* laps-remaining = usable fuel / per-lap burn (track). The design doc states
+ * the formula but not a figure; this pins a plausible per-lap consumption
+ * for a road-course lap and is independent of dash_sim.h's demo-scaled
+ * (deliberately slow) fuel depletion rate. */
+#define DASH_LAP_BURN_GAL      0.4f
 
 #define DASH_DEG_TO_RAD (3.14159265358979323846f / 180.0f)
 
@@ -64,13 +75,20 @@ typedef enum {
     DASH_ALARM_CLT,
 } DashAlarm;
 
+/* Clamp v into [lo, hi]. */
+static inline float dash_clampf(float v, float lo, float hi)
+{
+    if (v < lo) { return lo; }
+    if (v > hi) { return hi; }
+    return v;
+}
+
 /* Speedo needle fraction 0..1 with the mock's knee mapping: linear to
  * 0.8235 at 140 mph, then a shallower 0.0588-per-20-mph segment to 200. */
 static inline float dash_speed_frac(float mph)
 {
     float f;
-    if (mph < 0.0f) { mph = 0.0f; }
-    if (mph > (float)DASH_SPEED_MAX) { mph = (float)DASH_SPEED_MAX; }
+    mph = dash_clampf(mph, 0.0f, (float)DASH_SPEED_MAX);
     if (mph <= (float)DASH_SPEED_KNEE)
     {
         f = (mph / (float)DASH_SPEED_KNEE) * 0.8235f;
@@ -79,9 +97,7 @@ static inline float dash_speed_frac(float mph)
     {
         f = 0.8235f + ((mph - (float)DASH_SPEED_KNEE) / 20.0f) * 0.0588f;
     }
-    if (f < 0.0f) { f = 0.0f; }
-    if (f > 1.0f) { f = 1.0f; }
-    return f;
+    return dash_clampf(f, 0.0f, 1.0f);
 }
 
 /* Needle angle in radians: 210 deg at frac 0, sweeping 240 deg clockwise
@@ -169,6 +185,21 @@ static inline DashColorState dash_fuel_state(float gal)
     return (gal < DASH_FUEL_AMBER_GAL) ? DASH_COLOR_AMBER : DASH_COLOR_NORMAL;
 }
 
+static inline DashColorState dash_fuelp_state(float psi)
+{
+    return (psi < DASH_FUELP_RED_PSI) ? DASH_COLOR_RED : DASH_COLOR_NORMAL;
+}
+
+static inline DashColorState dash_iat_state(float f)
+{
+    return (f > DASH_IAT_AMBER_F) ? DASH_COLOR_AMBER : DASH_COLOR_NORMAL;
+}
+
+static inline DashColorState dash_afr_state(float afr)
+{
+    return (afr > DASH_AFR_AMBER) ? DASH_COLOR_AMBER : DASH_COLOR_NORMAL;
+}
+
 /* Oil telltale: low pressure or overheated oil -- but an invalid channel
  * can never assert it (R11). Delegates to the per-channel classifiers so
  * each threshold has exactly one definition. */
@@ -210,6 +241,28 @@ static inline float dash_delta_fill(float delta_s)
     return delta_s;
 }
 
+/* "--" when invalid, else the value at 0 or 1 decimals (house rounding).
+ * The one numeric dead-front formatter for every plain cell readout on any
+ * screen; deliberate exceptions keep their own snprintf (zero-padded LAP,
+ * "P"-prefixed POS, floored LAPS, h:mm TIME). Rounding is half-away-from-
+ * zero on both signs: the old (int)(v + 0.5f) idiom truncated negatives
+ * toward zero (-10.6 -> "-10"), and AMB/IAT range below 0 F. */
+static inline void dash_fmt_value(char *buf, size_t n, float v, uint8_t decimals, bool ok)
+{
+    if (!ok)
+    {
+        snprintf(buf, n, "--");
+    }
+    else if (0U != decimals)
+    {
+        snprintf(buf, n, "%.1f", (double)v);
+    }
+    else
+    {
+        snprintf(buf, n, "%d", (int)((v >= 0.0f) ? (v + 0.5f) : (v - 0.5f)));
+    }
+}
+
 /* "m:ss.mmm" (minutes unpadded), or "--:--.---" when the time is invalid. */
 static inline void dash_fmt_lap(uint32_t ms, bool valid, char out[16])
 {
@@ -243,6 +296,36 @@ static inline uint32_t dash_odo_step(float mph, uint32_t dt_ms, uint32_t *remain
     tenths = *remainder_ums / DASH_ODO_UMS_PER_TENTH;
     *remainder_ums -= tenths * DASH_ODO_UMS_PER_TENTH;
     return tenths;
+}
+
+/* ---- fuel derivations (README ~L103, KTD5) ----
+ * Both return false ("not computable") and leave *out at 0 when the fuel
+ * channel is invalid -- the dead-front convention (R7): callers must check
+ * the return value before rendering, same discipline as dash_fmt_lap's
+ * explicit `valid` parameter. */
+
+/* range estimate = gal * 16 mi/gal (street). */
+static inline bool dash_range_mi(float fuel_gal, bool fuel_valid, float *out_mi)
+{
+    if (!fuel_valid)
+    {
+        *out_mi = 0.0f;
+        return false;
+    }
+    *out_mi = fuel_gal * DASH_RANGE_MPG;
+    return true;
+}
+
+/* laps-remaining = usable fuel / per-lap burn (track). */
+static inline bool dash_laps_remaining(float fuel_gal, bool fuel_valid, float *out_laps)
+{
+    if (!fuel_valid)
+    {
+        *out_laps = 0.0f;
+        return false;
+    }
+    *out_laps = fuel_gal / DASH_LAP_BURN_GAL;
+    return true;
 }
 
 #endif /* DASH_MATH_H */

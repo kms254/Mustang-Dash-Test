@@ -115,6 +115,16 @@ int main(void)
     expect(dash_oil_temp_state(235.1f) == DASH_COLOR_AMBER, "oil temp 235.1 must be amber");
     expect(dash_oil_temp_state(248.1f) == DASH_COLOR_RED, "oil temp 248.1 must be red");
 
+    /* ---- Phase-2 thresholds (KTD5): fuel pressure red, IAT/AFR amber ---- */
+    expect(dash_fuelp_state(42.9f) == DASH_COLOR_RED, "fuel pressure 42.9 must be red");
+    expect(dash_fuelp_state(43.0f) == DASH_COLOR_NORMAL, "fuel pressure 43.0 must be normal (<43 rule)");
+    expect(dash_fuelp_state(43.1f) == DASH_COLOR_NORMAL, "fuel pressure 43.1 must be normal");
+    expect(dash_iat_state(131.0f) == DASH_COLOR_NORMAL, "IAT 131.0 must be normal");
+    expect(dash_iat_state(131.1f) == DASH_COLOR_AMBER, "IAT 131.1 must be amber");
+    expect(dash_iat_state(132.0f) == DASH_COLOR_AMBER, "IAT 132.0 must be amber");
+    expect(dash_afr_state(13.8f) == DASH_COLOR_NORMAL, "AFR 13.8 must be normal (>13.8 rule)");
+    expect(dash_afr_state(13.9f) == DASH_COLOR_AMBER, "AFR 13.9 must be amber");
+
     /* ---- oil telltale: invalid channels never trigger (R11) ---- */
     expect(dash_telltale_oil(25.0f, true, 200.0f, true), "valid low oil pressure must trip telltale");
     expect(!dash_telltale_oil(25.0f, false, 200.0f, true), "invalid oil pressure must not trip telltale");
@@ -175,6 +185,33 @@ int main(void)
         expect(strcmp(buf, "--:--.---") == 0, "invalid lap must format --:--.---");
     }
 
+    /* ---- shared value formatter (dash_fmt_value) ---- */
+    {
+        char buf[16];
+        dash_fmt_value(buf, sizeof(buf), 42.7f, 0U, false);
+        expect(strcmp(buf, "--") == 0, "invalid value must format --");
+        dash_fmt_value(buf, sizeof(buf), 42.44f, 1U, true);
+        expect(strcmp(buf, "42.4") == 0, "decimals=1 must format one decimal");
+        dash_fmt_value(buf, sizeof(buf), 42.5f, 0U, true);
+        expect(strcmp(buf, "43") == 0, "decimals=0 must round half up (42.5 -> 43)");
+        dash_fmt_value(buf, sizeof(buf), 42.4f, 0U, true);
+        expect(strcmp(buf, "42") == 0, "decimals=0 must round down (42.4 -> 42)");
+        dash_fmt_value(buf, sizeof(buf), -10.6f, 0U, true);
+        expect(strcmp(buf, "-11") == 0,
+               "negative must round half away from zero (-10.6 -> -11)");
+        dash_fmt_value(buf, sizeof(buf), -0.4f, 0U, true);
+        expect(strcmp(buf, "0") == 0, "-0.4 must round to 0");
+        dash_fmt_value(buf, sizeof(buf), -40.0f, 0U, true);
+        expect(strcmp(buf, "-40") == 0, "AMB floor -40 must format -40");
+    }
+
+    /* ---- shared clamp (dash_clampf) ---- */
+    {
+        expect(dash_clampf(-0.5f, 0.0f, 1.0f) == 0.0f, "clamp below lo must return lo");
+        expect(dash_clampf(1.5f, 0.0f, 1.0f) == 1.0f, "clamp above hi must return hi");
+        expect(dash_clampf(0.25f, 0.0f, 1.0f) == 0.25f, "clamp inside range must pass through");
+    }
+
     /* ---- odometer tenths integration: exact, drift-free carry ---- */
     {
         uint32_t rem_big = 0U;
@@ -195,6 +232,30 @@ int main(void)
         expect(rem_zero == 0U, "0 mph must leave the remainder untouched");
     }
 
+    /* ---- fuel derivations (README ~L103, KTD5): range = gal*16, laps at
+     * the design's per-lap burn; both signal "not computable" via a bool
+     * return + zeroed out-param when fuel is invalid ---- */
+    {
+        float out = -1.0f;
+
+        expect(dash_range_mi(5.0f, true, &out) == true, "range_mi must compute when fuel valid");
+        expect(nearf(out, 80.0f, 1e-4f), "range_mi(5 gal) must be exactly 5*16 = 80 mi");
+        expect(dash_range_mi(0.0f, true, &out) == true, "range_mi must compute at 0 gal");
+        expect(nearf(out, 0.0f, 1e-6f), "range_mi(0 gal) must be 0 mi");
+        out = -1.0f;
+        expect(dash_range_mi(5.0f, false, &out) == false, "range_mi must be not-computable when fuel invalid");
+        expect(out == 0.0f, "range_mi must zero the out-param when not computable");
+
+        out = -1.0f;
+        expect(dash_laps_remaining(DASH_LAP_BURN_GAL * 3.0f, true, &out) == true,
+               "laps_remaining must compute when fuel valid");
+        expect(nearf(out, 3.0f, 1e-4f), "laps_remaining must be fuel / DASH_LAP_BURN_GAL");
+        out = -1.0f;
+        expect(dash_laps_remaining(12.0f, false, &out) == false,
+               "laps_remaining must be not-computable when fuel invalid");
+        expect(out == 0.0f, "laps_remaining must zero the out-param when not computable");
+    }
+
     /* ---- layout scale macros: 620x400 mock -> 1024x600 panel ---- */
     expect(DASH_LX(620) == 1024, "LX(620) must be 1024 (full width)");
     expect(DASH_LY(400) == 600, "LY(400) must be 600 (full height)");
@@ -202,6 +263,20 @@ int main(void)
     expect(DASH_LR(88) == 132, "LR(88) must be 132 (radius scales by 1.5)");
     expect(DASH_LX(310) == 512, "LX(310) must be 512 (mock center -> panel center)");
     expect(DASH_W == 1024 && DASH_H == 600, "panel size must be 1024x600");
+
+    /* ---- 5" side-panel layout scale macros: 420x320 mock -> 800x480 panel,
+     * same round-half-up convention as the center macros above ---- */
+    expect(DASH5_LX(420) == 800, "DASH5_LX(420) must be 800 (full width)");
+    expect(DASH5_LY(320) == 480, "DASH5_LY(320) must be 480 (full height)");
+    expect(DASH5_LX(0) == 0, "DASH5_LX(0) must be 0");
+    expect(DASH5_LY(0) == 0, "DASH5_LY(0) must be 0");
+    /* half-pixel rounding: 3*1.5 = 4.5 -> round-half-up gives 5, same
+     * convention DASH_LY(3) uses ((3*600+200)/400 = 5)) */
+    expect(DASH5_LY(3) == 5, "DASH5_LY(3) must round 4.5 up to 5 (half-pixel, center convention)");
+    /* 1*1.5 = 1.5 -> round-half-up gives 2 */
+    expect(DASH5_LR(1) == 2, "DASH5_LR(1) must round 1.5 up to 2 (half-pixel, center convention)");
+    expect(DASH5_LR(118) == 177, "DASH5_LR(118) must be 177 (radius scales by 1.5)");
+    expect(DASH5_W == 800 && DASH5_H == 480, "5\" panel size must be 800x480");
 
     if (failures == 0)
     {

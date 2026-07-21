@@ -166,6 +166,7 @@ EVE_cmd_animstartram_burst()
 #define EVE_IS_BUSY 12U
 #define EVE_FIFO_HALF_EMPTY 13U
 #define EVE_FAULT_RECOVERED 14U
+#define EVE_FAIL_PANEL_TIMEOUT 15U
 
 #define EVE_FLASH_STATUS_INIT 0U
 #define EVE_FLASH_STATUS_DETACHED 1U
@@ -282,6 +283,10 @@ void EVE_cmd_videostart(void);
 #if EVE_GEN > 2
 uint8_t EVE_init_flash(void);
 #endif /* EVE_GEN > 2 */
+
+#if defined (EVE_MULTI_PANEL)
+uint8_t EVE_select_panel(const EVE_panel_t * const p_panel);
+#endif /* EVE_MULTI_PANEL */
 
 void EVE_write_display_parameters(void);
 uint8_t EVE_init(void);

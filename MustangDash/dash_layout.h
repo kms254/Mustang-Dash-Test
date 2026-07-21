@@ -15,6 +15,16 @@
  *
  * All three are plain integer macros (round-half-up) so they are usable in
  * constant expressions / static initializers -- no lroundf at runtime.
+ *
+ * The two 5" side screens are a separate mock canvas: 420x320, scaled to
+ * their own native 800x480 panel (assets/dash-design/README.md's "Screen
+ * Resolutions & Canvas" section: "the HTML mock draws ... the 5" at
+ * 420x320 -- scale all dimensions in this document by ... x1.90 (5" width)
+ * to native"). Same three-macro shape, same round-half-up convention:
+ *   DASH5_LX(v) - x positions/extents on a 5" panel (x800/420, rounded)
+ *   DASH5_LY(v) - y positions/extents on a 5" panel (x1.5,     rounded)
+ *   DASH5_LR(v) - radii/diameters/strokes on a 5" panel: Y factor (1.5)
+ *                 ONLY, same rationale as DASH_LR.
  */
 
 #ifndef DASH_LAYOUT_H
@@ -30,6 +40,15 @@
 #define DASH_LX(v) ((int16_t)(((v) * 1024 + 310) / 620))
 #define DASH_LY(v) ((int16_t)(((v) * 600 + 200) / 400))
 #define DASH_LR(v) ((int16_t)(((v) * 3 + 1) / 2))
+
+/* 5" side-panel size */
+#define DASH5_W 800
+#define DASH5_H 480
+
+/* mock canvas 420x320 -> 5" panel 800x480, integer rounding */
+#define DASH5_LX(v) ((int16_t)(((v) * 800 + 210) / 420))
+#define DASH5_LY(v) ((int16_t)(((v) * 480 + 160) / 320))
+#define DASH5_LR(v) ((int16_t)(((v) * 3 + 1) / 2))
 
 /* Shared gauge geometry as fractions of the arc radius (design spec uses
  * viewBox radius 88): multiply by a gauge's scaled radius to place ticks,

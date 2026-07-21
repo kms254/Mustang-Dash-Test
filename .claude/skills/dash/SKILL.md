@@ -24,10 +24,10 @@ case-insensitive):
 | `alarm off` | Release forced alarm channels back to the simulator |
 | `odo set <miles>` | Reseed the persisted odometer |
 | `sim on` / `sim off` | Resume pure simulation / freeze all values |
-| `status` | One-line report (mode, fps, key values, odometer) |
+| `status` | One-line report (mode, fps, all channels, odometer; per-panel fields are comma triples center,left,right — `faults=0,0,0`, `retired=0,0,0`, `dl=t/s,t/s,t/s`, `eve=ok,ok,--`). `retired` counts frame-drain timeouts that killed a panel at runtime (it shows `eve=--` after); fps reads 0 when nothing renders — it never freezes at a stale value. |
 | `help` | List commands |
 
-Channels: `rpm speed ect oilt oilp volts fuel delta lap last best ambient`.
+Channels: `rpm speed ect oilt oilp volts fuel delta lap last best ambient afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2`.
 
 ## Steps
 

@@ -16,10 +16,28 @@
 
 /* ---- asset plumbing ---- */
 
-/* Splash assets are ASTC bitmaps resident in the panel's 64 MB QSPI flash
- * (address table + provisioning pack in splash_flash.h) and are rendered
- * directly from flash. RAM_G is untouched by the splash -- the dash fonts
- * below are its only tenant. */
+/* Splash assets are ASTC bitmaps STORED in the panel's 64 MB QSPI flash
+ * (address table + provisioning pack in splash_flash.h) but RENDERED from
+ * RAM_G: the active theme's assets are staged flash->RAM_G once at boot
+ * (splash_stage_theme_to_ramg) and every draw sources RAM_G.
+ *
+ * Why not render direct from flash (the original design): bench forensics
+ * 2026-07-10 -- long ASTC bursts garbled while the command path
+ * (CMD_FLASHREAD/UPDATE, CRC) stayed fully healthy. Originally read as
+ * damage to one module; 2026-07-21 established it is a per-frame bandwidth
+ * ceiling every module has. The graphics engine cannot fetch a large asset
+ * from flash within the frame budget, so scanlines drop -- content is
+ * correct, the delivery rate is not. It persists with REG_FLASH_STATUS == 3
+ * (full speed); CMD_FLASHFAST does not help. Bridgetek documents the limit
+ * and puts the comfortable size at "a few tens of KBytes"; measured
+ * threshold here is 40-56 KB per asset. See
+ * docs/solutions/architecture-patterns/bt817-flash-render-streaming-bandwidth-ceiling.md
+ *
+ * Staging uses only the command path, and ASTC renders from RAM_G
+ * flawlessly. Cost: one theme (<= 281 KB) resident above the fonts
+ * (~285 KB), ~566 KB of the center's 1 MB RAM_G, with the flash-source path
+ * kept as an automatic fallback if staging cannot run -- degraded, since
+ * that path is the one subject to the ceiling. */
 
 struct ThemeDesc
 {
@@ -64,6 +82,88 @@ static const uint32_t SCRATCH_BUF = 0xF7000UL;
 static const uint32_t PROVISION_CHUNK = 0x8000UL; /* 32 KB, multiple of 4096 */
 
 static const uint32_t CROSSFADE_MS = 400UL;
+
+/* ---- RAM_G staging of the active theme (see header comment) ---- */
+
+/* Per-asset RAM_G address once staged; 0 = not staged (draws fall back to
+ * the direct flash source). Indexed like SPLASH_FLASH_ASSETS. */
+static uint32_t g_splash_ramg[SPLASH_FA_COUNT];
+
+/* Stage the active theme's assets (plus the theme-independent emblem and
+ * wordmark) from flash into RAM_G above the fonts, spot-checking the first
+ * 16 bytes of each against the embedded pack so a bad read can never
+ * silently feed the renderer. Returns false -- and leaves the affected
+ * asset on the flash-source fallback -- only when a read verifiably lied
+ * or RAM_G would overflow. */
+bool splash_stage_theme_to_ramg(const ThemeDesc *theme)
+{
+    const SplashFlashAsset *set[7];
+    uint8_t n = 0U;
+    set[n++] = SPLASH_FA(SPLASH_FA_EMBLEM);
+    set[n++] = SPLASH_FA(SPLASH_FA_WORDMARK);
+    set[n++] = theme->bg;
+    set[n++] = theme->side;
+    set[n++] = theme->line;
+    set[n++] = theme->year;
+    if (theme->has_strip)
+    {
+        set[n++] = theme->strip;
+    }
+
+    uint32_t addr = (g_ramg_fonts_end + 63UL) & ~63UL;
+    bool all_ok = true;
+
+    for (uint8_t i = 0U; i < n; i++)
+    {
+        const SplashFlashAsset *a = set[i];
+        const uint32_t len = (a->size + 3UL) & ~3UL; /* FLASHREAD wants mult-of-4 */
+        if ((addr + len) > (uint32_t)EVE_RAM_G_SIZE)
+        {
+            Serial.printf("Splash staging OVERFLOW at %s -> flash fallback\r\n", a->name);
+            all_ok = false;
+            break;
+        }
+        EVE_cmd_flashread(addr, a->addr, len);
+        EVE_execute_cmd();
+
+        /* spot-check 16 bytes against the embedded pack (command-path
+         * reads are trusted only after they prove it) */
+        bool match = true;
+        const uint32_t pack_off = a->addr - SPLASH_FLASH_BASE;
+        for (uint32_t w = 0U; w < 16U; w += 4U)
+        {
+            uint32_t pack_word;
+            memcpy(&pack_word, &splash_flash_pack[pack_off + w], 4UL);
+            if (EVE_memRead32(addr + w) != pack_word)
+            {
+                match = false;
+                break;
+            }
+        }
+        if (!match)
+        {
+            Serial.printf("Splash staging MISCOMPARE at %s -> flash fallback\r\n", a->name);
+            all_ok = false;
+            continue; /* leave this asset unstaged; try the rest */
+        }
+
+        g_splash_ramg[(uint8_t)(a - SPLASH_FLASH_ASSETS)] = addr;
+        addr = (addr + len + 63UL) & ~63UL;
+    }
+
+    Serial.printf("Splash theme staged to RAM_G: %u assets, top %lu (headroom %lu)\r\n",
+                  (unsigned)n, (unsigned long)addr,
+                  (unsigned long)((uint32_t)EVE_RAM_G_SIZE - addr));
+    return all_ok;
+}
+
+/* Bitmap source for a splash asset: its staged RAM_G copy when present,
+ * else the direct flash source (bit 23 + 32-byte block address). */
+static uint32_t splash_bitmap_source(const SplashFlashAsset *a)
+{
+    const uint32_t staged = g_splash_ramg[(uint8_t)(a - SPLASH_FLASH_ASSETS)];
+    return (0UL != staged) ? staged : (0x800000UL | (a->addr / 32UL));
+}
 
 /* Read the 64-byte pack header from flash and compare it against the
  * embedded pack's identity. CMD_FLASHREAD wants src 64-byte aligned, dest
@@ -144,7 +244,7 @@ bool splash_flash_provision(void)
  * is exact for 1:1 draws. */
 void draw_flash_asset(const SplashFlashAsset *a, int16_t x, int16_t y)
 {
-    EVE_cmd_setbitmap(0x800000UL | (a->addr / 32UL), (uint16_t)a->fmt, a->w, a->h);
+    EVE_cmd_setbitmap(splash_bitmap_source(a), (uint16_t)a->fmt, a->w, a->h);
     EVE_cmd_dl(DL_BEGIN | EVE_BITMAPS);
     EVE_cmd_dl(VERTEX2F((int16_t)(x * 16), (int16_t)(y * 16)));
     EVE_cmd_dl(DL_END);
@@ -173,7 +273,7 @@ void draw_splash_emblem(const SplashFlashAsset *emblem, float scale, uint8_t alp
     const long half_bmp_y = (long)(emblem->h / 2) * 65536L;
 
     EVE_cmd_dl(COLOR_A(alpha));
-    EVE_cmd_setbitmap(0x800000UL | (emblem->addr / 32UL), (uint16_t)emblem->fmt,
+    EVE_cmd_setbitmap(splash_bitmap_source(emblem), (uint16_t)emblem->fmt,
                       emblem->w, emblem->h);
     /* re-emit SIZE: SETBITMAP defaults to NEAREST and the bitmap's own
      * dimensions; the scaled emblem needs BILINEAR in a 220 px window */
@@ -319,6 +419,11 @@ void run_splash(const ThemeDesc *theme)
         draw_splash_elements(theme, SPLASH_DURATION_MS, out_a);
         draw_dash_content(millis(), in_a);
         eve_frame_end();
+
+        /* the sides fade in from black on this same alpha ramp, driven by
+         * the one shared crossfade (R8/KTD9) -- never their own timers;
+         * dash_sides_frame() reselects the center before returning */
+        dash_sides_frame(in_a);
 
         if (ft >= CROSSFADE_MS) { break; }
     }

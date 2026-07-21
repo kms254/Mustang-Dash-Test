@@ -1,13 +1,16 @@
 /*
- * MustangDash - Riverdi 7" EVE4 panel on a Teensy 4.1
+ * MustangDash - Riverdi triple-panel EVE4 dash on a Teensy 4.1
  *
- * Display : Riverdi SM-RVT70HSBNWN00 (7.0" 1024x600 IPS, BT817 / EVE4, no touch)
+ * Displays: center SM-RVT70HSBNWN00 (7.0" 1024x600) + left/right
+ *           SM-RVT50HQBNWN00 (5.0" 800x480), all BT817 / EVE4, no touch
  * MCU     : Teensy 4.1 (IMXRT1062)
- * Bus     : hardware SPI0  (SCLK=13, MISO=12, MOSI=11)
- * Control : CS = 14, PD/RST = 17   (INT not connected -> polling only)
+ * Bus     : hardware SPI0 shared by all three (SCLK=13, MISO=12, MOSI=11)
+ * Control : per-panel CS/PD from dash_panels.h -- center 14/17, left 15/20,
+ *           right 16/21 (INT not connected -> polling only)
  *
- * Library : RudolphRiedel/FT800-FT813 (EmbeddedVideoEngine, v5.x)
- *           profile EVE_RVT70H, pins set in EVE_target_Arduino_Teensy4.h
+ * Library : RudolphRiedel/FT800-FT813 (EmbeddedVideoEngine, v5.x) with the
+ *           vendored multi-panel patch (EVE_select_panel); center profile
+ *           EVE_RVT70H compiled, side timings carried at runtime
  *
  * What it does:
  *   1. waits for the serial monitor only when a USB host is present
@@ -21,8 +24,9 @@
  *      into RAM_G (dash_fonts.h) -- all with the backlight held dark
  *   4. plays the 2000 ms animated splash (assets/splash/README.md spec,
  *      timing in splash_timeline.h; theme picked in splash_config.h),
- *      rendering ASTC bitmaps directly from flash, lighting the backlight
- *      only after the first frame is on screen
+ *      staging the theme's ASTC bitmaps flash->RAM_G and rendering from
+ *      RAM_G (see splash_render.h for why), lighting the backlight only
+ *      after the first frame is on screen
  *   5. crossfades ~400 ms into the dash -- TRACK or STREET view fed by the
  *      built-in simulator (dash_sim.h) with serial overrides (dash_serial.h),
  *      alarm takeover on critical conditions, EEPROM-persisted odometer --
@@ -32,11 +36,13 @@
  * firmware emits nothing except one `ok ...` / `err ...` ack per received
  * command line (see dash_serial.h for the protocol; /dash skill wraps it).
  *
- * Rendering lives in two sibling headers (pure code motion, one translation
- * unit): dash_render.h (TRACK/STREET/alarm + gauge helpers) and
- * splash_render.h (flash provisioning + splash animation + crossfade).
- * This file keeps setup/loop and the glue: EVE frame plumbing, backlight,
- * fonts, serial pump, odometer EEPROM, and the shared state both headers use.
+ * Rendering lives in sibling single-TU headers: dash_draw.h (shared
+ * primitives), dash_render.h (center TRACK/STREET/alarm), engine_render.h
+ * (left 5" ENGINE screen), timing_render.h (right 5" TIMING/ROAD screen),
+ * and splash_render.h (flash provisioning + splash + crossfade).
+ * This file keeps setup/loop and the glue: panel selection, EVE frame
+ * plumbing, cluster brightness, fonts, serial pump, odometer EEPROM, and
+ * the shared state every header reads.
  *
  * Note: this project also builds offline with a minimal arduino-cli Teensy
  * platform that does not run the arduino .ino prototype generator, so every
@@ -57,6 +63,7 @@
 #include "dash_serial.h"
 #include "dash_odo.h"
 #include "dash_fonts.h"
+#include "dash_panels.h" /* per-panel pins + timings (host-tested); mapped to EVE_panel_t in setup() */
 
 /* Teensy 4 USB device state: non-zero once the USB host has configured us
  * (cores/teensy4/usb.c). Zero when running from a wall adapter / car power. */
@@ -71,19 +78,27 @@ static volatile uint8_t g_theme = SPLASH_THEME;
 
 /* ---- dash state ---- */
 
-/* Fonts occupy RAM_G from address 0 (~273 KB decoded; dash_fonts.h footer
- * has the exact figure). The splash renders from QSPI flash, so fonts are
- * RAM_G's only standing tenant. */
+/* Fonts occupy RAM_G from address 0 (~285 KB decoded; dash_fonts.h footer
+ * has the exact figure). The splash stages the active theme's assets just
+ * above them at boot (~281 KB, center panel only; splash_render.h has the
+ * rationale) -- together ~566 KB of the 1 MB. */
 struct DashFontLoaded
 {
-    uint32_t metrics_addr; /* 148-byte block, passed to CMD_SETFONT2 */
-    bool ok;               /* false -> renderers fall back to ROM font 31 */
+    uint32_t metrics_addr; /* 148-byte block, passed to CMD_SETFONT2 (same layout on every panel's RAM_G) */
+    uint8_t ok_mask;       /* bit per panel; a clear bit -> ROM font 31 fallback on that panel only */
 };
 
 static DashFontLoaded g_fonts[DASH_FONT_COUNT];
+static uint32_t g_ramg_fonts_end = 0UL; /* first free RAM_G byte above the fonts (splash staging base) */
 static DashState g_dash;
 static DashSimState g_sim;
 static DashOdo g_odo;
+
+/* ---- panel plumbing (three BT817s on one shared SPI bus, KTD1/KTD9) ---- */
+static EVE_panel_t g_eve_panels[DASH_PANEL_COUNT]; /* library form of DASH_PANELS, filled in setup() */
+static bool g_panel_ok[DASH_PANEL_COUNT];          /* init succeeded; a dead panel stays dark, never blocks the others (R9) */
+static uint8_t g_active_panel = DASH_PANEL_CENTER; /* which panel the EVE library is currently routed at */
+static uint8_t g_dash_brightness = 0U;             /* ONE cluster brightness (R12); set to BL_STEADY at boot_complete */
 
 static char g_serial_line[DASH_SERIAL_MAX_LINE + 17]; /* headroom to detect too-long */
 static uint8_t g_serial_len = 0U;
@@ -92,9 +107,9 @@ static uint32_t g_loop_last_ms = 0UL;
 static uint16_t g_fps = 0U;         /* frames completed in the last full second */
 static uint16_t g_fps_frames = 0U;
 static uint32_t g_fps_window_ms = 0UL;
-static uint16_t g_dl_track = 0U;    /* boot-measured DL usage per mode (bytes/4) */
-static uint16_t g_dl_street = 0U;
-static uint32_t g_eve_faults = 0UL; /* coprocessor faults auto-recovered by EVE_busy() */
+static uint16_t g_dl[DASH_PANEL_COUNT][2];          /* boot-measured DL words per panel x {track, street} */
+static uint32_t g_eve_faults[DASH_PANEL_COUNT];     /* coprocessor faults auto-recovered by EVE_busy(), per panel */
+static uint32_t g_eve_retired[DASH_PANEL_COUNT];    /* frame-drain timeouts that retired the panel (bounded eve_frame_end) */
 
 /* ---- colours (0xRRGGBB, design tokens from assets/dash-design/README.md) ---- */
 static const uint32_t COLOR_BG        = 0x080B0FUL; /* flat panel fill (spec-sanctioned) */
@@ -123,24 +138,40 @@ static const uint32_t COLOR_NODATA    = 0x2A323BUL; /* telltale "no data" state 
 /* steady backlight duty: 128 = 100% (the EVE PWM scale tops out at 128) */
 static const uint8_t BL_STEADY = 128U;
 
-static bool eve_ready = false; /* set true only if EVE_init() reported E_OK */
+/* Post-init SPI operating point (R11/KTD8). All three EVE_init()s run at the
+ * conservative 8 MHz; the bus then rises to this once. 24 MHz was the first
+ * candidate (panels rated 30 MHz post-config) but FAILED read integrity on
+ * the actual bench (2026-07-10): flash init returned 0x01, all 9 font
+ * inflates failed GETPTR verification, and corrupted REG_CMDB_SPACE reads
+ * dragged fps to 25 with faults=0 -- writes mostly survived, reads did not.
+ * 8 MHz is the verified operating point until the U9 soak walks it up --
+ * fps alone never accepts an operating point. */
+static const uint32_t DASH_SPI_RUN_HZ = 8000000UL;
 
 /* ---- forward declarations (explicit prototypes, see note above) ---- */
 void set_backlight(uint8_t duty);
 void eve_frame_begin(uint32_t clear_rgb);
 void eve_frame_end(void);
-bool load_dash_fonts(void);
+bool dash_select_panel(uint8_t idx);
+void dash_set_brightness(uint8_t duty);
+void dash_sides_frame(uint8_t alpha);
+void draw_side_content(uint8_t panel, DashMode mode, uint8_t alpha);
+bool load_dash_fonts(uint8_t panel);
 uint16_t dash_font(uint8_t idx);
-void dash_register_fonts(void);
+void dash_register_fonts(uint16_t needed);
+uint16_t measure_side_dl(uint8_t panel, DashMode mode);
 void odo_eeprom_load(void);
 void odo_eeprom_write(void);
 void pump_serial(void);
 void handle_serial_line(const char *line);
 
-/* Renderers (pure code motion out of this file): dash first, then splash --
- * run_splash() calls draw_dash_content() during the crossfade. Both read the
- * shared state and glue prototypes above. */
+/* Renderers (single-TU headers): shared primitives first, then the center,
+ * the two sides, and the splash last -- run_splash() calls draw_dash_content()
+ * and dash_sides_frame() during the crossfade. All read the state above. */
+#include "dash_draw.h"
 #include "dash_render.h"
+#include "engine_render.h"
+#include "timing_render.h"
 #include "splash_render.h"
 
 void setup(void)
@@ -167,43 +198,89 @@ void setup(void)
     }
 
     Serial.println();
-    Serial.println(F("=== MustangDash / Riverdi RVT70H (BT817) on Teensy 4.1 ==="));
-    Serial.printf("Pins: EVE_CS=%d  EVE_PDN=%d  (SCLK=13 MISO=12 MOSI=11)\r\n",
-                  (int)EVE_CS, (int)EVE_PDN);
-    Serial.printf("Panel: %lu x %lu, EVE_GEN=%d\r\n",
-                  (unsigned long)EVE_HSIZE, (unsigned long)EVE_VSIZE, (int)EVE_GEN);
+    Serial.println(F("=== MustangDash / Riverdi triple dash (BT817 x3) on Teensy 4.1 ==="));
+    static const char *const kPanelNames[DASH_PANEL_COUNT] = { "CENTER", "LEFT", "RIGHT" };
+    for (uint8_t p = 0U; p < DASH_PANEL_COUNT; p++)
+    {
+        Serial.printf("Panel %s: CS=%u PD=%u %ux%u\r\n", kPanelNames[p],
+                      (unsigned)DASH_PANELS[p].cs_pin, (unsigned)DASH_PANELS[p].pd_pin,
+                      (unsigned)DASH_PANELS[p].width, (unsigned)DASH_PANELS[p].height);
+    }
     Serial.printf("Splash theme: %u (0=blue 1=red 2=checkered)\r\n", (unsigned)g_theme);
 
-    /* drive the control pins from the MCU */
-    pinMode(EVE_CS, OUTPUT);
-    digitalWrite(EVE_CS, HIGH); /* CS idle high */
-    pinMode(EVE_PDN, OUTPUT);
-    digitalWrite(EVE_PDN, LOW); /* hold in power-down until EVE_init() sequences it */
+    /* Map the host-tested descriptor table into the library's panel form and
+     * drive every panel's control pins from the MCU (CS idle high, PD held
+     * low until that panel's EVE_init() sequences it). */
+    for (uint8_t p = 0U; p < DASH_PANEL_COUNT; p++)
+    {
+        const DashPanelDesc *d = &DASH_PANELS[p];
+        EVE_panel_t *e = &g_eve_panels[p];
+        e->cs_pin = d->cs_pin;
+        e->pdn_pin = d->pd_pin;
+        e->slot = p;
+        e->pclk = d->pclk_div;
+        e->pclk_freq = d->pclk_freq;
+        e->hsize = d->width;
+        e->vsize = d->height;
+        e->hcycle = d->hcycle;
+        e->hoffset = d->hoffset;
+        e->hsync0 = d->hsync0;
+        e->hsync1 = d->hsync1;
+        e->vcycle = d->vcycle;
+        e->voffset = d->voffset;
+        e->vsync0 = d->vsync0;
+        e->vsync1 = d->vsync1;
+        e->swizzle = d->swizzle;
+        e->pclkpol = d->pclkpol;
+        e->cspread = d->cspread;
+        pinMode(d->cs_pin, OUTPUT);
+        digitalWrite(d->cs_pin, HIGH);
+        pinMode(d->pd_pin, OUTPUT);
+        digitalWrite(d->pd_pin, LOW);
+    }
 
-    /* SPI mode 0, MSB first; keep the clock conservative for init (BT817 needs
-     * <= 11 MHz until the chip is configured). 8 MHz is safe and stays fast
-     * enough for these small per-frame display lists, so we leave it here. */
+    /* SPI mode 0, MSB first; the clock stays conservative through every
+     * panel's init (BT817 needs <= 11 MHz until configured), then rises
+     * once, bus-wide, to the R11 operating point. */
     SPI.begin();
     SPI.beginTransaction(SPISettings(8UL * 1000000UL, MSBFIRST, SPI_MODE0));
-    Serial.println(F("SPI up at 8 MHz, mode 0."));
+    Serial.println(F("SPI up at 8 MHz, mode 0 (init)."));
 
-    Serial.print(F("Running EVE_init()... "));
-    uint8_t ret = EVE_init(); /* powers up, configures the RVT70H timings, enables PCLK */
-    Serial.printf("returned 0x%02X (E_OK = 0x%02X)\r\n", ret, (uint8_t)E_OK);
+    /* Per-panel init (KTD9): select -> EVE_init with that panel's timings ->
+     * REG_ID check -> backlight forced dark immediately (the library's init
+     * leaves 25% duty; the dark-boot contract holds until boot_complete).
+     * A dead panel eats the library's bounded REG_ID timeout and is then
+     * simply skipped everywhere (R9). */
+    for (uint8_t p = 0U; p < DASH_PANEL_COUNT; p++)
+    {
+        (void)EVE_select_panel(&g_eve_panels[p]); /* pre-init: routes pins + timings only */
+        g_active_panel = p;
+        const uint8_t ret = EVE_init();
+        const uint8_t reg_id = EVE_memRead8(REG_ID);
+        set_backlight(0U);
+        g_panel_ok[p] = (E_OK == ret);
+        Serial.printf("Panel %s: EVE_init 0x%02X (E_OK=0x00), REG_ID 0x%02X (want 0x7C)\r\n",
+                      kPanelNames[p], ret, reg_id);
+    }
+    const bool any_panel_ok = g_panel_ok[0] || g_panel_ok[1] || g_panel_ok[2];
 
-    /* Read the chip id register. A healthy BT81x reports 0x7C. This is the
-     * quickest way to confirm the SPI link from the serial monitor. */
-    uint8_t reg_id = EVE_memRead8(REG_ID);
-    Serial.printf("REG_ID = 0x%02X (expected 0x7C)\r\n", reg_id);
+    /* One bus-wide raise after every init is done (KTD8). */
+    SPI.endTransaction();
+    SPI.beginTransaction(SPISettings(DASH_SPI_RUN_HZ, MSBFIRST, SPI_MODE0));
+    Serial.printf("SPI raised to %lu MHz (U9 read-integrity soak gates this operating point)\r\n",
+                  (unsigned long)(DASH_SPI_RUN_HZ / 1000000UL));
 
-    /* Probe the panel's onboard QSPI flash (dash plan KTD11): attach and
-     * switch to fast mode. REG_FLASH_SIZE reports the detected capacity in
-     * megabytes. A failure here is logged, never fatal -- the dash must
-     * not depend on flash. */
-    uint8_t flash_ret = EVE_init_flash();
-    uint32_t flash_mb = EVE_memRead32(REG_FLASH_SIZE);
-    Serial.printf("EVE_init_flash() returned 0x%02X (E_OK=0x00), REG_FLASH_SIZE = %lu MB\r\n",
-                  flash_ret, (unsigned long)flash_mb);
+    /* Probe the CENTER panel's onboard QSPI flash: attach and switch to fast
+     * mode. Center-only -- the sides carry no flash assets this round. A
+     * failure is logged, never fatal: the dash must not depend on flash. */
+    uint8_t flash_ret = E_NOT_OK;
+    if (dash_select_panel(DASH_PANEL_CENTER))
+    {
+        flash_ret = EVE_init_flash();
+        const uint32_t flash_mb = EVE_memRead32(REG_FLASH_SIZE);
+        Serial.printf("EVE_init_flash() returned 0x%02X (E_OK=0x00), REG_FLASH_SIZE = %lu MB\r\n",
+                      flash_ret, (unsigned long)flash_mb);
+    }
 
     /* Odometer loads regardless of panel state -- it is Teensy-local. */
     dash_state_init(&g_dash);
@@ -213,21 +290,15 @@ void setup(void)
     Serial.printf("Odometer: %.1f mi (trip %.1f)\r\n",
                   (double)dash_odo_miles(&g_odo), (double)dash_trip_miles(&g_odo));
 
-    if (E_OK == ret)
+    if (any_panel_ok)
     {
-        eve_ready = true;
-
-        /* Backlight stays dark through flash provisioning + font upload so
-         * power-up never flashes a lit blank panel; run_splash() lights it
-         * once the first splash frame is on screen. */
-        set_backlight(0U);
-
-        /* Splash needs its ASTC assets in the panel's QSPI flash; verify
-         * (and provision on first boot / asset change). Skipped -- along
-         * with the splash itself -- if the flash probe above failed: the
-         * dash must never depend on flash. */
+        /* Splash needs its ASTC assets in the CENTER panel's QSPI flash;
+         * verify (and provision on first boot / asset change). Skipped --
+         * along with the splash itself -- if the center or its flash probe
+         * failed: the dash must never depend on flash. */
         bool splash_ok = false;
-        if (E_OK == flash_ret)
+        if (g_panel_ok[DASH_PANEL_CENTER] && (E_OK == flash_ret)
+            && dash_select_panel(DASH_PANEL_CENTER))
         {
             splash_ok = splash_flash_provision();
         }
@@ -236,10 +307,16 @@ void setup(void)
             Serial.println(F("QSPI flash unavailable -> skipping splash (assets live in flash)."));
         }
 
-        /* Dash fonts into RAM_G before the splash starts (KTD3): the upload
-         * replaces the old splash-PNG decode in the boot budget, so
-         * time-to-splash stays roughly what it was. */
-        load_dash_fonts();
+        /* Dash fonts into every healthy panel's own RAM_G before the splash
+         * starts (KTD3/KTD6): each BT817 is independent silicon, so the
+         * upload runs once per panel. */
+        for (uint8_t p = 0U; p < DASH_PANEL_COUNT; p++)
+        {
+            if (dash_select_panel(p))
+            {
+                (void)load_dash_fonts(p);
+            }
+        }
 
         /* Seed the first visible dash frame: everything starts invalid,
          * then one sim step fills plausible values -- an uninitialized
@@ -247,26 +324,43 @@ void setup(void)
         g_loop_last_ms = millis();
         dash_sim_step(&g_sim, &g_dash, 50U);
 
-        /* One-time DL-usage diagnostic per mode (KTD8): built un-swapped
-         * while the panel still shows nothing, printed into the banner --
-         * after boot the only serial output is command acks. */
-        g_dl_track = measure_mode_dl(DASH_MODE_TRACK);
-        g_dl_street = measure_mode_dl(DASH_MODE_STREET);
-        Serial.printf("DL usage: track %u/2048 words, street %u/2048\r\n",
-                      (unsigned)g_dl_track, (unsigned)g_dl_street);
+        /* One-time DL-usage diagnostic per panel and mode (KTD8): built
+         * un-swapped while the panels still show nothing, printed into the
+         * banner -- after boot the only serial output is command acks. */
+        if (dash_select_panel(DASH_PANEL_CENTER))
+        {
+            g_dl[DASH_PANEL_CENTER][0] = measure_mode_dl(DASH_MODE_TRACK);
+            g_dl[DASH_PANEL_CENTER][1] = measure_mode_dl(DASH_MODE_STREET);
+        }
+        g_dl[DASH_PANEL_LEFT][0] = measure_side_dl(DASH_PANEL_LEFT, DASH_MODE_TRACK);
+        g_dl[DASH_PANEL_LEFT][1] = measure_side_dl(DASH_PANEL_LEFT, DASH_MODE_STREET);
+        g_dl[DASH_PANEL_RIGHT][0] = measure_side_dl(DASH_PANEL_RIGHT, DASH_MODE_TRACK);
+        g_dl[DASH_PANEL_RIGHT][1] = measure_side_dl(DASH_PANEL_RIGHT, DASH_MODE_STREET);
+        Serial.printf("DL usage (track/street of 2048): center %u/%u, left %u/%u, right %u/%u\r\n",
+                      (unsigned)g_dl[0][0], (unsigned)g_dl[0][1],
+                      (unsigned)g_dl[1][0], (unsigned)g_dl[1][1],
+                      (unsigned)g_dl[2][0], (unsigned)g_dl[2][1]);
 
-        if (splash_ok)
+        Serial.printf("Boot: %lu ms to splash start\r\n", (unsigned long)(millis() - t_start));
+        if (splash_ok && dash_select_panel(DASH_PANEL_CENTER))
         {
             const ThemeDesc *theme = &THEMES[g_theme];
-            run_splash(theme); /* 2000 ms animation + 400 ms crossfade into the dash */
+            /* Stage the theme into RAM_G (command-path reads) so the splash
+             * renders from RAM_G, not flash streaming -- see the rationale
+             * in splash_render.h. A failed stage falls back per-asset. */
+            (void)splash_stage_theme_to_ramg(theme);
+            run_splash(theme); /* 2000 ms animation, then the crossfade fades the sides in too (R8) */
         }
 
-        set_backlight(BL_STEADY); /* no-op after the splash; lights the panel if it was skipped */
-        Serial.println(F("EVE init OK: dash live. Serial is command-only from here (try 'help')."));
+        /* boot_complete (KTD9): from here the unified cluster brightness is
+         * the only brightness path -- one value, every healthy panel. */
+        dash_set_brightness(BL_STEADY);
+        Serial.printf("Boot: dash live at %lu ms. Serial is command-only from here (try 'help').\r\n",
+                      (unsigned long)(millis() - t_start));
     }
     else
     {
-        Serial.println(F("EVE_init() did NOT return E_OK - dash rendering disabled."));
+        Serial.println(F("No panel initialized - dash rendering disabled."));
         Serial.println(F("Serial commands still ack ('status' reports the failure). Check wiring / power / SPI."));
     }
 
@@ -277,8 +371,8 @@ void setup(void)
 void loop(void)
 {
     /* The live pipeline (KTD8): serial -> sim -> odometer -> alarm -> frame.
-     * Runs even when the panel is dead (eve_ready false) so the bench
-     * control surface survives -- only the render step is gated. */
+     * Runs even when every panel is dead so the bench control surface
+     * survives -- only the render step is gated. */
     pump_serial();
 
     const uint32_t now = millis();
@@ -297,15 +391,25 @@ void loop(void)
         dash_odo_mark_written(&g_odo);
     }
 
-    if (!eve_ready)
+    /* Sequential per-panel render (KTD8): center first (mode or alarm
+     * takeover), then both sides (mode content only -- R4). Dead panels are
+     * skipped inside the helpers (R9). */
+    const bool any_ok = g_panel_ok[DASH_PANEL_CENTER] || g_panel_ok[DASH_PANEL_LEFT]
+                     || g_panel_ok[DASH_PANEL_RIGHT];
+    if (any_ok)
     {
-        return;
+        if (dash_select_panel(DASH_PANEL_CENTER))
+        {
+            dash_frame(now);
+        }
+        dash_sides_frame(255U);
+        g_fps_frames++;
     }
 
-    dash_frame(now);
-
-    /* fps accounting for the status ack: frames completed per full second */
-    g_fps_frames++;
+    /* fps accounting for the status ack: frames completed per full second.
+     * The window keeps rolling even with every panel retired so fps decays
+     * to 0 instead of freezing at the last healthy second -- a frozen 60
+     * masked a retired cluster on the bench (review-of-review finding). */
     if ((now - g_fps_window_ms) >= 1000UL)
     {
         g_fps = g_fps_frames;
@@ -331,11 +435,20 @@ void eve_frame_begin(uint32_t clear_rgb)
 /* Close the display list, swap it in, and wait for the co-processor.
  * EVE_busy() detects and auto-recovers coprocessor faults but the recovery
  * is silent inside EVE_execute_cmd(); spinning here instead lets us count
- * recoveries so `status` can surface faults=N (review finding). */
+ * recoveries so `status` can surface faults=N (review finding).
+ *
+ * The wait is BOUNDED (review finding, R9): a panel that dies after boot
+ * (FFC loose at speed, wedged chip) never reads REG_CMDB_SPACE == 0xffc
+ * again, and an unbounded spin here would freeze all three panels plus
+ * the serial pump and odometer writes. A healthy frame drains in < 17 ms;
+ * on timeout the panel is retired (g_panel_ok false -> dark, skipped by
+ * dash_select_panel) and `status` shows it as eve=-- for diagnosis. */
+static const uint32_t EVE_FRAME_DRAIN_TIMEOUT_MS = 250UL;
 void eve_frame_end(void)
 {
     EVE_cmd_dl(DL_DISPLAY);
     EVE_cmd_dl(CMD_SWAP);
+    const uint32_t t0 = millis();
     for (;;)
     {
         const uint8_t st = EVE_busy();
@@ -345,17 +458,127 @@ void eve_frame_end(void)
         }
         if (EVE_FAULT_RECOVERED == st)
         {
-            g_eve_faults++;
+            g_eve_faults[g_active_panel]++;
+        }
+        if ((millis() - t0) > EVE_FRAME_DRAIN_TIMEOUT_MS)
+        {
+            g_panel_ok[g_active_panel] = false;
+            g_eve_retired[g_active_panel]++;
+            break;
         }
     }
 }
 
-/* Inflate every dash font into RAM_G from address 0 and patch each metric
- * block's glyph pointer (KTD1). Success is verified with CMD_GETPTR: the
- * coprocessor reports the inflate end address, which must equal the packed
- * glyph size exactly. One retry per instance; a failed instance falls back
- * to ROM font 31 at render time (a degraded dash beats a black panel). */
-bool load_dash_fonts(void)
+/* Route the EVE library at a panel. Refuses for dead or unknown panels so
+ * every caller inherits the R9 skip-a-dark-panel behavior for free. */
+bool dash_select_panel(uint8_t idx)
+{
+    if ((idx >= DASH_PANEL_COUNT) || !g_panel_ok[idx])
+    {
+        return false;
+    }
+    if (E_OK != EVE_select_panel(&g_eve_panels[idx]))
+    {
+        return false;
+    }
+    g_active_panel = idx;
+    return true;
+}
+
+/* ONE cluster brightness (R12): the only steady-state brightness path.
+ * Writes the same duty to every healthy panel in a single call; there is
+ * no per-panel brightness anywhere above this line. */
+void dash_set_brightness(uint8_t duty)
+{
+    g_dash_brightness = duty;
+    for (uint8_t p = 0U; p < DASH_PANEL_COUNT; p++)
+    {
+        if (dash_select_panel(p))
+        {
+            set_backlight(duty);
+        }
+    }
+    (void)dash_select_panel(DASH_PANEL_CENTER);
+}
+
+/* Render both side screens for this frame -- mode content only, the alarm
+ * takeover is center-only (R4). The first call lights the side backlights
+ * so the R8 fade-in is visible (KTD9's boot carve-out); dead panels are
+ * skipped (R9). Leaves the center selected for the caller. */
+void dash_sides_frame(uint8_t alpha)
+{
+    static bool sides_lit = false;
+    if (!sides_lit)
+    {
+        for (uint8_t p = DASH_PANEL_LEFT; p <= DASH_PANEL_RIGHT; p++)
+        {
+            if (dash_select_panel(p))
+            {
+                set_backlight((0U == g_dash_brightness) ? BL_STEADY : g_dash_brightness);
+            }
+        }
+        sides_lit = true;
+    }
+
+    for (uint8_t p = DASH_PANEL_LEFT; p <= DASH_PANEL_RIGHT; p++)
+    {
+        if (dash_select_panel(p))
+        {
+            eve_frame_begin(COLOR_BG);
+            draw_side_content(p, g_dash.mode, alpha);
+            eve_frame_end();
+        }
+    }
+    (void)dash_select_panel(DASH_PANEL_CENTER);
+}
+
+/* One side composition: that screen's fonts registered, then its mode
+ * content -- the single LEFT->engine / RIGHT->timing dispatch, shared by
+ * the frame loop and the boot DL diagnostic (draw_dash_content's shape).
+ * The caller has already selected the panel. */
+void draw_side_content(uint8_t panel, DashMode mode, uint8_t alpha)
+{
+    if (DASH_PANEL_LEFT == panel)
+    {
+        dash_register_fonts(ENG_FONTS);
+        if (DASH_MODE_STREET == mode) { engine_street_screen(alpha); } else { engine_track_screen(alpha); }
+    }
+    else
+    {
+        dash_register_fonts(TIMING_FONTS);
+        if (DASH_MODE_STREET == mode) { timing_street_screen(alpha); } else { timing_track_screen(alpha); }
+    }
+}
+
+/* Build one un-swapped side frame and read back its display-list usage
+ * (REG_CMD_DL, bytes -> words). Boot diagnostic only, mirrors
+ * measure_mode_dl() for the center. */
+uint16_t measure_side_dl(uint8_t panel, DashMode mode)
+{
+    if (!dash_select_panel(panel))
+    {
+        return 0U;
+    }
+    const DashMode saved = g_dash.mode;
+    g_dash.mode = mode;
+    EVE_cmd_dl(CMD_DLSTART);
+    EVE_cmd_dl(DL_CLEAR_COLOR_RGB | COLOR_BG);
+    EVE_cmd_dl(DL_CLEAR | CLR_COL | CLR_STN | CLR_TAG);
+    draw_side_content(panel, mode, 255U);
+    EVE_execute_cmd();
+    const uint32_t dl_bytes = EVE_memRead32(REG_CMD_DL);
+    g_dash.mode = saved;
+    (void)dash_select_panel(DASH_PANEL_CENTER);
+    return (uint16_t)(dl_bytes / 4UL);
+}
+
+/* Inflate every dash font into the SELECTED panel's RAM_G from address 0
+ * and patch each metric block's glyph pointer (KTD1/KTD6). The layout is
+ * identical on every panel (each BT817 has its own RAM_G), so metrics_addr
+ * is shared; success is tracked per panel in ok_mask. One retry per
+ * instance; a failed instance falls back to ROM font 31 at render time on
+ * that panel only (a degraded screen beats a black one). */
+bool load_dash_fonts(uint8_t panel)
 {
     uint32_t addr = 0UL;
     bool all_ok = true;
@@ -384,37 +607,45 @@ bool load_dash_fonts(void)
             block[146] = (uint8_t)((gaddr >> 16) & 0xFFU);
             block[147] = (uint8_t)((gaddr >> 24) & 0xFFU);
             EVE_memWrite_flash_buffer(maddr, block, 148UL);
+            g_fonts[i].ok_mask |= (uint8_t)(1U << panel);
         }
         else
         {
-            Serial.printf("Font %u inflate FAILED twice -> ROM font 31 fallback\r\n", (unsigned)i);
+            Serial.printf("Font %u inflate FAILED twice on panel %u -> ROM font 31 there\r\n",
+                          (unsigned)i, (unsigned)panel);
+            g_fonts[i].ok_mask &= (uint8_t)~(1U << panel);
             all_ok = false;
         }
 
         g_fonts[i].metrics_addr = maddr;
-        g_fonts[i].ok = ok;
         addr = (gend_expected + 3UL) & ~3UL;
     }
 
-    Serial.printf("RAM_G: fonts %lu bytes (headroom %lu)\r\n",
+    g_ramg_fonts_end = addr; /* same layout on every panel; splash stages above this */
+    Serial.printf("RAM_G panel %u: fonts %lu bytes (headroom %lu)\r\n", (unsigned)panel,
                   (unsigned long)addr, (unsigned long)(EVE_RAM_G_SIZE - addr));
     return all_ok;
 }
 
 /* Render-time font selector: the instance's bitmap handle, or ROM font 31
- * when that instance failed to load. */
+ * when that instance failed to load on the currently selected panel. */
 uint16_t dash_font(uint8_t idx)
 {
-    return g_fonts[idx].ok ? (uint16_t)DASH_FONTS[idx].handle : 31U;
+    const bool ok = (0U != ((g_fonts[idx].ok_mask >> g_active_panel) & 1U));
+    return ok ? (uint16_t)DASH_FONTS[idx].handle : 31U;
 }
 
-/* CMD_SETFONT2 emits display-list commands, so every frame that uses the
- * custom fonts re-registers them at its top (~5 words per instance). */
-void dash_register_fonts(void)
+/* CMD_SETFONT2 emits display-list commands, so every frame re-registers
+ * its fonts at its top (~5 words per instance), per panel -- each panel's
+ * DL carries its own registrations. `needed` is the calling screen's
+ * font-index bitmask (CENTER_FONTS / ENG_FONTS / TIMING_FONTS): instances
+ * a screen never references stay out of its display list entirely. */
+void dash_register_fonts(uint16_t needed)
 {
     for (uint8_t i = 0U; i < DASH_FONT_COUNT; i++)
     {
-        if (g_fonts[i].ok)
+        if ((0U != ((needed >> i) & 1U))
+            && (0U != ((g_fonts[i].ok_mask >> g_active_panel) & 1U)))
         {
             EVE_cmd_setfont2((uint32_t)DASH_FONTS[i].handle,
                              g_fonts[i].metrics_addr,
@@ -509,14 +740,29 @@ void handle_serial_line(const char *line)
              * dead-fronts -- plus the active alarm, sim state, and the
              * auto-recovered coprocessor fault count. One line, one ack. */
             const DashAlarm alarm = dash_alarm_classify(&g_dash);
-            Serial.printf("ok status mode=%s fps=%u alarm=%s sim=%s faults=%lu",
+            Serial.printf("ok status mode=%s fps=%u alarm=%s sim=%s faults=%lu,%lu,%lu retired=%lu,%lu,%lu",
                           (DASH_MODE_TRACK == g_dash.mode) ? "track" : "street",
                           (unsigned)g_fps,
                           (DASH_ALARM_OILP == alarm) ? "oilp" :
                           (DASH_ALARM_OILT == alarm) ? "oilt" :
                           (DASH_ALARM_CLT == alarm) ? "clt" : "none",
                           g_dash.sim_frozen ? "off" : "on",
-                          (unsigned long)g_eve_faults);
+                          (unsigned long)g_eve_faults[0],
+                          (unsigned long)g_eve_faults[1],
+                          (unsigned long)g_eve_faults[2],
+                          (unsigned long)g_eve_retired[0],
+                          (unsigned long)g_eve_retired[1],
+                          (unsigned long)g_eve_retired[2]);
+            /* Live center-panel register probe (works even on a retired
+             * panel -- bypasses dash_select_panel's liveness gate). A
+             * post-reset BT817 reads REG_ID 0x7C (ROM) but REG_PCLK 0 and
+             * REG_PWM_DUTY 32 (25%): distinguishes "chip reset itself"
+             * from "chip wedged with config intact" after a death. */
+            (void)EVE_select_panel(&g_eve_panels[DASH_PANEL_CENTER]);
+            Serial.printf(" creg=id:0x%02X,pclk:%u,pwm:%u",
+                          EVE_memRead8(REG_ID),
+                          (unsigned)EVE_memRead8(REG_PCLK),
+                          (unsigned)EVE_memRead8(REG_PWM_DUTY));
             for (uint8_t ch = 0U; ch < DASH_CH_COUNT; ch++)
             {
                 if (dash_ch_valid(&g_dash, ch))
@@ -528,10 +774,14 @@ void handle_serial_line(const char *line)
                     Serial.printf(" %s=--", dash_ch_name(ch));
                 }
             }
-            Serial.printf(" odo=%.1f trip=%.1f dl=%u/%u eve=%s\r\n",
+            Serial.printf(" odo=%.1f trip=%.1f dl=%u/%u,%u/%u,%u/%u eve=%s,%s,%s\r\n",
                           (double)dash_odo_miles(&g_odo), (double)dash_trip_miles(&g_odo),
-                          (unsigned)g_dl_track, (unsigned)g_dl_street,
-                          eve_ready ? "ok" : "INIT-FAILED");
+                          (unsigned)g_dl[0][0], (unsigned)g_dl[0][1],
+                          (unsigned)g_dl[1][0], (unsigned)g_dl[1][1],
+                          (unsigned)g_dl[2][0], (unsigned)g_dl[2][1],
+                          g_panel_ok[0] ? "ok" : "--",
+                          g_panel_ok[1] ? "ok" : "--",
+                          g_panel_ok[2] ? "ok" : "--");
             break;
         }
         case DASH_CMD_HELP:

@@ -30,8 +30,12 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   "Tests: invariant suite"). All 11/11 pass.
 - Boot splash: a 2000 ms animated splash (spec vendored in `assets/splash/`)
   plays at power-up, then crossfades directly into the dash. Splash assets are
-  **ASTC bitmaps in the panel's 64 MB QSPI flash**, rendered direct from flash
-  (zero RAM_G): `tools/make_splash_flash.py` (astcenc pinned by
+  **ASTC bitmaps stored in the panel's 64 MB QSPI flash**, staged flash->RAM_G
+  once at boot and rendered from RAM_G (flash-source kept as a degraded
+  fallback) — rendering direct from flash hits a per-frame bandwidth ceiling
+  above ~40 KB per asset, see
+  `docs/solutions/architecture-patterns/bt817-flash-render-streaming-bandwidth-ceiling.md`:
+  `tools/make_splash_flash.py` (astcenc pinned by
   `tools/get-astcenc.sh`, WSL) emits `splash_flash.h`; the firmware provisions
   the panel flash once at boot when the pack CRC differs — sector 0 (the
   vendor flashfast blob) is never written. Theme stays build-time via
@@ -47,9 +51,15 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
 
 ## Hardware truths (don't re-derive)
 
-- Pins: SCLK=13, MISO=12, MOSI=11, **CS=14**, **PD/RST=17**. INT not wired → poll.
+- Bus pins: SCLK=13, MISO=12, MOSI=11, shared by all three panels. Per-panel
+  CS / PD-RST: **center 14/17, left 15/20, right 16/21** (`dash_panels.h`).
+  INT not wired → poll.
 - Panel logic on 3.3 V, backlight on external 5 V, shared ground.
-- SPI: mode 0, MSB-first, **≤ 11 MHz during EVE_init()** (we use 8 MHz and stay there).
+- SPI: mode 0, MSB-first, **≤ 11 MHz during every panel's EVE_init()** (we init
+  at 8 MHz), then one bus-wide "raise" to `DASH_SPI_RUN_HZ` — **8 MHz, bench-
+  verified**. 24 MHz failed read AND write integrity on this wiring
+  (2026-07-10: white screen, flash init 0x01, all font inflates failed,
+  fps 25 with faults=0). Walk it up only via U9's read-integrity soak.
 
 ## Library gotchas (verified against the headers)
 

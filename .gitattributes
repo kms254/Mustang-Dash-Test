@@ -8,3 +8,7 @@
 
 # The ctags shim is installed into the arduino-cli platform and exec'd there.
 tools/teensy-avr-platform/ctags-shim.sh text eol=lf
+
+# EasyEDA Pro project files are binary containers -- never CRLF-convert or diff.
+*.eprj2 binary
+*.epro2 binary

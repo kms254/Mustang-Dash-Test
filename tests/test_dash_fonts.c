@@ -19,7 +19,7 @@
 #define PROGMEM /* host build: no flash attribute */
 #include "dash_fonts.h"
 
-_Static_assert(DASH_FONT_COUNT == 8, "the dash uses exactly 8 font instances");
+_Static_assert(DASH_FONT_COUNT == 9, "the dash uses exactly 9 font instances");
 
 /* compile-time format rules, per instance (regeneration-proof: everything
  * comes from the header's own defines; only the rules are hardcoded) */
@@ -48,13 +48,14 @@ CHECK_FONT(SMALL, small);
 CHECK_FONT(TITLE, title);
 CHECK_FONT(LABEL, label);
 CHECK_FONT(TINY, tiny);
+CHECK_FONT(LAP, lap);
 
 /* glyph sets per instance, mirroring tools/make_dash_fonts.py: the ASCII
  * cell codes stored (the degree-sign artwork lives in F_VAL's '*' cell and
  * the middle-dot artwork in F_LABEL/F_TINY's ';' cell, per the plan) */
 #define LABEL_SET " \"/0123456789;ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 static const char *const FONT_NAMES[DASH_FONT_COUNT] = {
-    "F_HERO", "F_BIG", "F_MID", "F_VAL", "F_SMALL", "F_TITLE", "F_LABEL", "F_TINY",
+    "F_HERO", "F_BIG", "F_MID", "F_VAL", "F_SMALL", "F_TITLE", "F_LABEL", "F_TINY", "F_LAP",
 };
 static const char *const FONT_SETS[DASH_FONT_COUNT] = {
     "0123456789-",
@@ -65,6 +66,7 @@ static const char *const FONT_SETS[DASH_FONT_COUNT] = {
     " ABCDEFGHIJKLMNOPQRSTUVWXYZ",
     LABEL_SET,
     LABEL_SET,
+    "0123456789:.-P",
 };
 
 /* expected per-instance values, taken from the header's defines so the test
@@ -74,32 +76,38 @@ static const uint32_t EXP_GLYPH_BYTES[DASH_FONT_COUNT] = {
     DASH_FONT_MID_GLYPH_BYTES,   DASH_FONT_VAL_GLYPH_BYTES,
     DASH_FONT_SMALL_GLYPH_BYTES, DASH_FONT_TITLE_GLYPH_BYTES,
     DASH_FONT_LABEL_GLYPH_BYTES, DASH_FONT_TINY_GLYPH_BYTES,
+    DASH_FONT_LAP_GLYPH_BYTES,
 };
 static const uint32_t EXP_ZBYTES[DASH_FONT_COUNT] = {
     DASH_FONT_HERO_ZBYTES,  DASH_FONT_BIG_ZBYTES,  DASH_FONT_MID_ZBYTES,
     DASH_FONT_VAL_ZBYTES,   DASH_FONT_SMALL_ZBYTES, DASH_FONT_TITLE_ZBYTES,
     DASH_FONT_LABEL_ZBYTES, DASH_FONT_TINY_ZBYTES,
+    DASH_FONT_LAP_ZBYTES,
 };
 static const uint16_t EXP_CELL_W[DASH_FONT_COUNT] = {
     DASH_FONT_HERO_CELL_W,  DASH_FONT_BIG_CELL_W,   DASH_FONT_MID_CELL_W,
     DASH_FONT_VAL_CELL_W,   DASH_FONT_SMALL_CELL_W, DASH_FONT_TITLE_CELL_W,
     DASH_FONT_LABEL_CELL_W, DASH_FONT_TINY_CELL_W,
+    DASH_FONT_LAP_CELL_W,
 };
 static const uint16_t EXP_CELL_H[DASH_FONT_COUNT] = {
     DASH_FONT_HERO_CELL_H,  DASH_FONT_BIG_CELL_H,   DASH_FONT_MID_CELL_H,
     DASH_FONT_VAL_CELL_H,   DASH_FONT_SMALL_CELL_H, DASH_FONT_TITLE_CELL_H,
     DASH_FONT_LABEL_CELL_H, DASH_FONT_TINY_CELL_H,
+    DASH_FONT_LAP_CELL_H,
 };
 static const uint8_t EXP_HANDLE[DASH_FONT_COUNT] = {
     DASH_FONT_HERO_HANDLE,  DASH_FONT_BIG_HANDLE,   DASH_FONT_MID_HANDLE,
     DASH_FONT_VAL_HANDLE,   DASH_FONT_SMALL_HANDLE, DASH_FONT_TITLE_HANDLE,
     DASH_FONT_LABEL_HANDLE, DASH_FONT_TINY_HANDLE,
+    DASH_FONT_LAP_HANDLE,
 };
 static const uint8_t EXP_FIRSTCHAR[DASH_FONT_COUNT] = {
     DASH_FONT_HERO_FIRSTCHAR,  DASH_FONT_BIG_FIRSTCHAR,
     DASH_FONT_MID_FIRSTCHAR,   DASH_FONT_VAL_FIRSTCHAR,
     DASH_FONT_SMALL_FIRSTCHAR, DASH_FONT_TITLE_FIRSTCHAR,
     DASH_FONT_LABEL_FIRSTCHAR, DASH_FONT_TINY_FIRSTCHAR,
+    DASH_FONT_LAP_FIRSTCHAR,
 };
 
 static int failures = 0;
