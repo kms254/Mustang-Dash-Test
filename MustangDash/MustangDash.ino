@@ -67,6 +67,7 @@
 #include "dash_fonts.h"
 #include "dash_panels.h" /* per-panel pins + timings (host-tested); mapped to EVE_panel_t in setup() */
 #include "dash_telltales.h" /* 8-lamp warning mask (host-tested); pins + lamp test live below */
+#include "dash_can.h" /* FDCAN bring-up to loopback (U7); Teensy compiles stubs */
 #if !defined(ARDUINO_TEENSY41)
 #include <Wire.h> /* FM24CL64B I2C FRAM odometer backend (migration plan U6) */
 #endif
@@ -364,6 +365,7 @@ void setup(void)
 
     odo_storage_init();
     odo_eeprom_load();
+    dash_can_init(); /* logged, never fatal -- the dash must not depend on CAN (U7) */
     Serial.printf("Odometer: %.1f mi (trip %.1f)\r\n",
                   (double)dash_odo_miles(&g_odo), (double)dash_trip_miles(&g_odo));
 
@@ -879,6 +881,15 @@ void pump_serial(void)
 
 void handle_serial_line(const char *line)
 {
+    /* `cantest` (U7): one-shot loopback proof, bus 1 -> bus 2 with the two
+     * buses wire-jumpered. Ahead of the parser like a diagnostic, because
+     * it is one: not part of the channel protocol. */
+    if (0 == strcmp(line, "cantest"))
+    {
+        Serial.println(dash_can_test() ? F("ok cantest") : F("err cantest failed (init/jumper/termination/timeout)"));
+        return;
+    }
+
     DashCommand cmd;
     const DashSerialErr err = dash_parse_line(line, &cmd);
 
