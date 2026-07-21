@@ -427,6 +427,17 @@ work.
     follows. The Arduino glue path validated across the four PlatformIO
     envs does NOT carry to the H755 target. The pure headers (dash logic,
     odometer, telltales, serial protocol) are portable C and survive.
+  - **PlatformIO remains the build driver (verified 2026-07-21):**
+    `framework = stm32cube` instead of `arduino`; PIO ships
+    `nucleo_h745zi_q` (the H755's crypto-less twin die), and a custom
+    board JSON can name the H755 exactly (the riverdi_f469 pattern).
+    Dual core = two envs (CM7 + CM4 images). Crucially the EVE library
+    ships a NATIVE HAL H7 target -- EVE_target_STM32H7.h, selected by
+    plain `#if defined(STM32H7)`, no Arduino -- so the display driver
+    carries to bare-metal for free. Known patch: the per-panel bus
+    routing added today lives in the Arduino wrapper; the HAL target
+    needs its equivalent (per-panel SPI_HandleTypeDef resolver, same
+    pattern as eve_spi()).
   - **Adoption strategy: M7-only first.** Boot with the M4 parked (option
     bytes), making the H755 behave like an H743 — single-core firmware
     lands first, dual-core (shared-SRAM + HSEM inter-core CAN handoff)
