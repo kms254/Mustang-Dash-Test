@@ -153,9 +153,10 @@ RAM1:  variables:~17000, code:~67700
 RAM2:  variables:12416
 ```
 
-The dash-era `data` is the embedded splash pack (~996 KB of ASTC assets,
-all three themes, backgrounds at 6x6 since 2026-07-21) plus the zlib font
-glyphs (F767 image ~1.13 MB of 2 MB);
+The dash-era `data` is the embedded splash pack (~1.66 MB of ASTC assets,
+all three themes; blue/red backgrounds at 4x4, checkered at 6x6) plus the
+zlib font glyphs (F767 image ~1.81 MB of 2 MB, 86.4% -- gating the pack on
+SPLASH_THEME at build time would reclaim ~888 KB if flash gets tight);
 the older ~206 KB embedded-PNG figures describe a deleted architecture and are
 kept only as history. Do not expect the sandbox's numbers to match — different
 toolchain, different libc. The two *workstation* paths agreeing byte-for-byte

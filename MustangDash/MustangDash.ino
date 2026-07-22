@@ -401,8 +401,8 @@ void setup(void)
     SPI.endTransaction();
     SPI.beginTransaction(SPISettings(DASH_SPI_RUN_HZ, MSBFIRST, SPI_MODE0));
 #endif
-    Serial.printf("SPI raised to %lu MHz (U9 read-integrity soak gates this operating point)\r\n",
-                  (unsigned long)(DASH_SPI_RUN_HZ / 1000000UL));
+    Serial.printf("SPI raised to %.2f MHz requested (prescaler rounds down; read-integrity soak gates the attained operating point)\r\n",
+                  (double)DASH_SPI_RUN_HZ / 1000000.0);
 
     /* Odometer loads regardless of panel state -- it is Teensy-local. */
     dash_state_init(&g_dash);
@@ -928,7 +928,14 @@ static void odo_storage_write(const void *src, uint32_t off, size_t n)
     Wire.write((const uint8_t *)src, n);
     if (0U != Wire.endTransmission()) /* review fix: a lost write must not be silent */
     {
+        /* PR#6 review: the record being persisted must still land -- copy
+         * it into the RAM shadow (the backend all future calls now use)
+         * and log, mirroring the read-fault diagnostic. Without this, one
+         * transient I2C fault silently dropped the current record (e.g.
+         * the trip-reset's immediate anti-resurrection write). */
         g_odo_fram_ok = false; /* degrade to shadow; reboot re-probes fresh */
+        memcpy(&g_odo_shadow[off], src, n);
+        Serial.println(F("Odometer FRAM write fault -> RAM shadow for this run"));
     }
 }
 #endif
@@ -965,6 +972,17 @@ void pump_serial(void)
         const char c = (char)Serial.read();
         if ('\n' == c)
         {
+            /* PR#6 review: trim trailing CR/blanks so CRLF terminals reach
+             * the pre-parser commands (cantest) whose raw whole-line
+             * compare has no tokenizer to strip them -- every parser-side
+             * command already tolerated the \r, only these didn't. */
+            while ((g_serial_len > 0U) &&
+                   (('\r' == g_serial_line[g_serial_len - 1U]) ||
+                    (' ' == g_serial_line[g_serial_len - 1U]) ||
+                    ('\t' == g_serial_line[g_serial_len - 1U])))
+            {
+                g_serial_len--;
+            }
             g_serial_line[g_serial_len] = '\0';
             handle_serial_line(g_serial_line);
             g_serial_len = 0U;

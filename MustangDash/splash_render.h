@@ -31,15 +31,16 @@
  * dependency on flash init without saving any MCU flash -- the pack ships
  * embedded either way. Boot never touches the panel's flash now.
  *
- * Cost: fonts (~285 KB) and the staged theme (largest ~421 KB, checkered,
- * after the 2026-07-21 6x6 background re-encode for gradient quality) are
- * RAM_G co-tenants through the crossfade -- peak ~706 KB of the center's
- * 1 MiB. An asset that fails its staging spot-check is skipped for the
- * session; there is no flash fallback. */
+ * Cost: fonts (~285 KB) and the staged theme are RAM_G co-tenants through
+ * the crossfade. Blue/red carry 4x4 backgrounds (theme ~741 KB, peak
+ * ~1,026 KB of the center's 1 MiB -- ~22 KB headroom, and blue is the
+ * shipping default); checkered stays 6x6 (peak ~706 KB). An asset that
+ * fails its staging spot-check is skipped for the session; there is no
+ * flash fallback. */
 
 struct ThemeDesc
 {
-    const SplashFlashAsset *bg;    /* 1024x600 ASTC 8x8, drawn native 1:1 */
+    const SplashFlashAsset *bg;    /* 1024x600 ASTC (4x4 blue/red, 6x6 checkered), drawn native 1:1 */
     const SplashFlashAsset *side;  /* chrome bars or checker blocks, drawn left+right */
     const SplashFlashAsset *line;  /* accent line, revealed from center */
     const SplashFlashAsset *year;  /* "1965" */
@@ -172,7 +173,7 @@ void draw_flash_asset(const SplashFlashAsset *a, int16_t x, int16_t y)
     EVE_cmd_dl(DL_END);
 }
 
-/* Full-screen background: native 1024x600 ASTC 8x8 from its staged RAM_G
+/* Full-screen background: native 1024x600 ASTC from its staged RAM_G
  * copy, drawn 1:1 at the origin -- no scale transform needed anymore. */
 void draw_splash_background(const SplashFlashAsset *bg, uint8_t alpha)
 {
