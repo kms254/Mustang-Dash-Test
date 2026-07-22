@@ -162,6 +162,15 @@ static uint8_t g_dash_brightness = 0U;             /* ONE cluster brightness (R1
 #if defined(ARDUINO_TEENSY41)
 static const uint8_t DASH_LAMP_PINS[DASH_LAMP_COUNT] = { 2, 3, 4, 5, 6, 7, 8, 9 };
 static const uint8_t DASH_SWITCH_TRIP_PIN = 24U;
+#elif defined(DASH_BOARD_NUCLEO_F767)
+/* TEMPORARY bench visibility (2026-07-21): lamps 0-2 drive the Nucleo's
+ * onboard LEDs -- LD1 green PB0, LD2 blue PB7, LD3 red PB14 -- so the board
+ * visibly participates (boot lamp-test lights all three, then live alarm
+ * states) before real telltale hardware exists. Revert to plain GPIOs when
+ * external lamps arrive. Remaining lamps on free PD pins (clear of the VCP
+ * on PD8/9 and every SPI leg); trip switch = the blue USER button B1. */
+static const uint8_t DASH_LAMP_PINS[DASH_LAMP_COUNT] = { PB0, PB7, PB14, PD0, PD1, PD2, PD3, PD4 };
+static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* Nucleo USER button B1 */
 #else
 static const uint8_t DASH_LAMP_PINS[DASH_LAMP_COUNT] = { PD0, PD1, PD2, PD3, PD4, PD5, PD6, PD7 };
 static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* WeAct user button K1 */
