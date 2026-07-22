@@ -74,7 +74,10 @@ struct EngineMiniGauge
 static const struct EngineMiniGauge ENG_GAUGES[4] = {
     { "OIL P ; PSI", DASH_CH_OILP,    0.0f, 100.0f, 0U, dash_oil_press_state },
     { "ECT ; F",     DASH_CH_ECT,   100.0f, 260.0f, 0U, dash_ect_state },
-    { "OIL T ; F",   DASH_CH_OILT,  100.0f, 300.0f, 0U, dash_oil_temp_state },
+    /* 320 top, not 300: the oil-temp thresholds moved to track figures
+     * (270 amber / 290 red) and a 300 F dial put the whole red zone in the
+     * last 3% of the arc, where a needle cannot show it. */
+    { "OIL T ; F",   DASH_CH_OILT,  100.0f, 320.0f, 0U, dash_oil_temp_state },
     { "VOLTS",       DASH_CH_VOLTS,   8.0f,  16.0f, 1U, dash_volts_state },
 };
 

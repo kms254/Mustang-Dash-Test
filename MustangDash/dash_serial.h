@@ -76,9 +76,14 @@ typedef enum {
 #define DASH_SERIAL_ALARM_OILT 2U
 #define DASH_SERIAL_ALARM_CLT  3U
 
-/* forced values for the alarm shortcuts (alarm-worthy by design) */
+/* Forced values for the alarm shortcuts (alarm-worthy by design). Each must
+ * sit clear of its threshold in dash_math.h, and 260 F stopped doing so when
+ * the oil-temp pair moved to track figures (270 amber / 290 red) -- an
+ * `alarm oilt` that acks `ok` and raises nothing is the failure mode, so
+ * tests/test_dash_serial.c now runs each shortcut through
+ * dash_alarm_classify() rather than trusting the constants to stay aligned. */
 #define DASH_ALARM_OILP_PSI 20.0f
-#define DASH_ALARM_OILT_F   260.0f
+#define DASH_ALARM_OILT_F   300.0f
 #define DASH_ALARM_CLT_F    230.0f
 
 #define DASH_HELP_TEXT \

@@ -1024,6 +1024,7 @@ int main(void)
         uint8_t gears_seen = 0u;
         uint8_t ladder_max = 0u;
         int amber_ticks = 0;
+        int red_ticks = 0;
         float gear_secs[7] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
         bool lap_ch_stayed_invalid = true;
 
@@ -1042,6 +1043,7 @@ int main(void)
             uint8_t leds = dash_shift_led_count(ws.ch.rpm);
             if (leds > ladder_max) { ladder_max = leds; }
             if (dash_rpm_color(ws.ch.rpm) == DASH_COLOR_AMBER) { amber_ticks++; }
+            if (dash_rpm_color(ws.ch.rpm) == DASH_COLOR_RED) { red_ticks++; }
 
             /* rpm must remain the gearbox's own answer, not a second ramp */
             expect(fabsf(ws.ch.speed_mph - expected_mph(ws.ch.rpm, wm.gear)) <= 2.0f
@@ -1075,18 +1077,32 @@ int main(void)
         expect(rpm_max >= (float) DASH_AMBER_RPM,
                "the sweep must take the tach into its amber zone");
         expect(amber_ticks > 20, "the amber zone must be held long enough to read");
-        /* The tach's RED zone and the 15th shift LED both need rpm strictly
-         * above DASH_SHIFT_RPM, and the simulator clamps at SIM_RPM_MAX and
-         * upshifts at SIM_UPSHIFT_RPM -- both at or below it. That is a
-         * pre-existing property of the drivetrain model (a real shift happens
-         * BEFORE the shift light goes red), not something the fixture can or
-         * should override by driving rpm on a path of its own. Pinned here so
-         * raising the rev limit is forced to revisit this claim. */
+
+        /* The tach's RED zone needs rpm strictly above DASH_SHIFT_RPM and the
+         * 15th shift LED needs DASH_REDLINE_RPM, neither of which the DRIVING
+         * model can produce: it upshifts at SIM_UPSHIFT_RPM and limits at
+         * SIM_RPM_MAX, both at or below the shift point, because a real shift
+         * happens BEFORE the shift light goes red. That is correct for TRACK
+         * and it is still pinned here -- but it left two of the four things
+         * R12 says this fixture exists to exercise (redline, the shift-light
+         * ladder) unreachable in every mode.
+         *
+         * SWEEP is therefore exempt from the DRIVING upshift point and holds
+         * each gear to its own limiter, SIM_SWEEP_RPM_MAX. It is the same
+         * class of exception as skipping the corner table and lookahead
+         * braking (KTD7): a display exerciser, not a driving sim. The
+         * exemption is to the SHIFT POINT only -- rpm still comes from road
+         * speed through the same gearbox, checked step by step above. */
         expect(SIM_RPM_MAX <= (float) DASH_SHIFT_RPM,
-               "the sim's rev limit is at or below the shift point, so the tach's "
-               "red zone is unreachable in EVERY mode -- not a sweep-only gap");
-        expect(ladder_max >= 13u,
-               "the shift ladder must climb to what the rev limit permits (13 of 15)");
+               "the DRIVING rev limit must stay at or below the shift point -- "
+               "which is exactly why SWEEP needs a limiter of its own");
+        expect(SIM_SWEEP_RPM_MAX >= (float) DASH_REDLINE_RPM,
+               "the sweep's limiter must reach the redline the 15th LED asks for");
+        expect(rpm_max >= (float) DASH_REDLINE_RPM,
+               "the sweep must take the tach all the way to the redline");
+        expect(red_ticks > 20, "the red zone must be held long enough to read");
+        expect(ladder_max == (uint8_t) DASH_SHIFT_LED_COUNT,
+               "the sweep must light the whole 15-LED shift ladder");
 
         /* lap timing has no meaning here (dead-front convention) */
         expect(lap_ch_stayed_invalid,
@@ -1228,6 +1244,7 @@ int main(void)
 
         float ect_at[26], oilt_at[26];
         for (int k = 0; k < 26; k++) { ect_at[k] = 0.0f; oilt_at[k] = 0.0f; }
+        float oilt_peak = 0.0f; /* the hottest oil ever seen, reset included */
         int minute = 0;
         uint32_t reset_at_ms = 0u;      /* session_ms the instant before the reset */
         float dist_before_reset = -1.0f;
@@ -1251,6 +1268,8 @@ int main(void)
             if (em.lap_count == 1u && out_lap_ms_s1 == 0u) { out_lap_ms_s1 = em.last_ms; }
 
             dash_sim_step(&em, &es, 50u);
+
+            if (em.oilt_f > oilt_peak) { oilt_peak = em.oilt_f; }
 
             if (em.session_ms < sess_before) /* the session just rolled over */
             {
@@ -1325,13 +1344,53 @@ int main(void)
          * exists to prevent. */
         expect((oilt_at[15] - oilt_at[10]) > 10.0f,
                "oil at minute 15 must be measurably hotter than at minute 10");
-        expect(oilt_at[5] < ect_at[5] - 30.0f,
+        /* 25 F, down from 30: raising the oil target to a track figure steepens
+         * the early climb (same 600 s tau, a much bigger gap to close), so oil
+         * is ~28 F behind coolant at minute 5 where it used to be ~49. The
+         * CLAIM is unchanged and still has real margin -- oil lags coolant
+         * early -- only the size of the lag moved, and it moved because the
+         * calibration is more realistic, not because the model went soft. */
+        expect(oilt_at[5] < ect_at[5] - 25.0f,
                "early in the session oil must lag well behind coolant");
         expect(oilt_at[20] > ect_at[20],
                "by the end of the session oil must run hotter than coolant");
-        /* and it must not cook itself into a permanent amber gauge */
+        /* The number the gauge actually lands on. A 500+ whp car on a road
+         * course runs 250-280 F oil, and the target is calibrated so a
+         * 20-minute session arrives at the bottom of that band rather than at
+         * a figure chosen to dodge the warning thresholds -- the thresholds
+         * moved to 270/290 to meet it (owner decision, follow-up to U8). */
+        expect(oilt_at[20] > 245.0f && oilt_at[20] < 265.0f,
+               "a 20-minute session must end with the oil around 255 F, "
+               "which is what this car actually runs on track");
+
+        /* ...and it must still not cook itself into a permanent amber gauge.
+         * Measured over the WHOLE run, not just the minute-20 sample: the
+         * session's true peak is at the rollover, which lands up to one in-lap
+         * PAST the 20-minute mark. */
         expect(oilt_at[20] < DASH_OILT_AMBER_F,
                "a normal session must not end with the oil gauge stuck in amber");
+        expect(dash_oil_temp_state(oilt_peak) == DASH_COLOR_NORMAL,
+               "the hottest oil a normal session ever reaches must stay out of "
+               "amber -- a permanently amber gauge is a broken calibration");
+
+        /* STREET is the other half of the calibration and it is NOT a scaled
+         * copy of TRACK's: STREET cruises indefinitely, so its target is an
+         * asymptote the gauge actually arrives at, while TRACK's is one the
+         * session always ends before reaching. A street car does not run
+         * 255 F oil, so the settled figure is checked directly. */
+        {
+            DashState cs;
+            DashSimState cm;
+            dash_state_init(&cs);
+            dash_sim_init(&cm);
+            cs.mode = DASH_MODE_STREET;
+            for (int i = 0; i < 60000; i++) { dash_sim_step(&cm, &cs, 50u); }
+            expect(cm.oilt_f > SIM_ECT_OPERATING_F && cm.oilt_f < 230.0f,
+                   "a settled street cruise must run the oil just above coolant, "
+                   "nowhere near a track session's 255 F");
+            expect(dash_oil_temp_state(cm.oilt_f) == DASH_COLOR_NORMAL,
+                   "a street cruise must never colour the oil gauge");
+        }
 
         /* the out-lap rule is per SESSION, not per boot: best_ms is cleared, so
          * the new session's ~7 mph rollout cannot become the benchmark */

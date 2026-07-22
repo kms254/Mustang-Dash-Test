@@ -112,8 +112,15 @@ int main(void)
     expect(dash_volts_state(11.9f) == DASH_COLOR_RED, "11.9 V must be red");
     expect(dash_fuel_state(2.5f) == DASH_COLOR_NORMAL, "2.5 gal must be normal");
     expect(dash_fuel_state(2.4f) == DASH_COLOR_AMBER, "2.4 gal must be amber");
-    expect(dash_oil_temp_state(235.1f) == DASH_COLOR_AMBER, "oil temp 235.1 must be amber");
-    expect(dash_oil_temp_state(248.1f) == DASH_COLOR_RED, "oil temp 248.1 must be red");
+    /* Oil temp thresholds are TRACK thresholds, not street ones: a 500+ whp
+     * car on a road course runs 250-280 F, so 255 (what dash_sim.h's session
+     * lands on) must read normal, amber starts at 270 and red at 290. */
+    expect(dash_oil_temp_state(255.0f) == DASH_COLOR_NORMAL,
+           "oil temp 255 -- a normal track session -- must NOT be amber");
+    expect(dash_oil_temp_state(270.0f) == DASH_COLOR_NORMAL, "oil temp 270.0 must be normal");
+    expect(dash_oil_temp_state(270.1f) == DASH_COLOR_AMBER, "oil temp 270.1 must be amber");
+    expect(dash_oil_temp_state(290.0f) == DASH_COLOR_AMBER, "oil temp 290.0 must be amber");
+    expect(dash_oil_temp_state(290.1f) == DASH_COLOR_RED, "oil temp 290.1 must be red");
 
     /* ---- Phase-2 thresholds (KTD5): fuel pressure red, IAT/AFR amber ---- */
     expect(dash_fuelp_state(42.9f) == DASH_COLOR_RED, "fuel pressure 42.9 must be red");
@@ -128,8 +135,12 @@ int main(void)
     /* ---- oil telltale: invalid channels never trigger (R11) ---- */
     expect(dash_telltale_oil(25.0f, true, 200.0f, true), "valid low oil pressure must trip telltale");
     expect(!dash_telltale_oil(25.0f, false, 200.0f, true), "invalid oil pressure must not trip telltale");
-    expect(dash_telltale_oil(60.0f, true, 260.0f, true), "valid hot oil must trip telltale");
-    expect(!dash_telltale_oil(25.0f, false, 260.0f, false), "all-invalid must never trip telltale");
+    expect(dash_telltale_oil(60.0f, true, DASH_OILT_RED_F + 1.0f, true),
+           "valid hot oil must trip telltale");
+    expect(!dash_telltale_oil(60.0f, true, 255.0f, true),
+           "a normal track session's 255 F oil must NOT trip the telltale");
+    expect(!dash_telltale_oil(25.0f, false, DASH_OILT_RED_F + 1.0f, false),
+           "all-invalid must never trip telltale");
 
     /* ---- alarm classification: valid-gated, oilp > oilt > clt priority ---- */
     {
@@ -155,9 +166,29 @@ int main(void)
                "healthy oil pressure + hot coolant must classify CLT");
 
         dash_state_init(&s);
-        dash_ch_set(&s, DASH_CH_OILT, 260.0f); /* oilp never set -> invalid */
+        dash_ch_set(&s, DASH_CH_OILT, DASH_OILT_RED_F + 1.0f); /* oilp never set -> invalid */
         expect(dash_alarm_classify(&s) == DASH_ALARM_OILT,
                "hot oil with oil pressure invalid must classify OILT");
+
+        /* The oil-temp thresholds moved up to track figures (270/290), which
+         * makes it possible to raise them until the alarm is unreachable in
+         * practice. Both ends are pinned: a genuinely cooked engine still
+         * takes the screen, and a normal session's 255 F never does. */
+        dash_state_init(&s);
+        dash_ch_set(&s, DASH_CH_OILT, 255.0f);
+        expect(dash_alarm_classify(&s) == DASH_ALARM_NONE,
+               "a normal track session's oil temp must never raise an alarm");
+        dash_ch_set(&s, DASH_CH_OILT, DASH_OILT_RED_F + 10.0f);
+        expect(dash_alarm_classify(&s) == DASH_ALARM_OILT,
+               "genuinely overheated oil must still take the screen");
+
+        /* the oil-PRESSURE alarm's engine-running gate is independent of the
+         * oil-TEMPERATURE thresholds: hot oil must not need rpm to alarm */
+        dash_state_init(&s);
+        dash_ch_set(&s, DASH_CH_OILT, DASH_OILT_RED_F + 1.0f);
+        expect(!dash_ch_valid(&s, DASH_CH_RPM), "rpm must be invalid for this case");
+        expect(dash_alarm_classify(&s) == DASH_ALARM_OILT,
+               "the OILT alarm must not inherit the OILP engine-running gate");
 
         dash_state_init(&s);
         s.ch.oil_press_psi = 25.0f; /* value present but valid bit NOT set */

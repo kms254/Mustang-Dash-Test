@@ -43,8 +43,17 @@
 /* ---- warning thresholds (README spec, display units) ---- */
 #define DASH_ECT_AMBER_F    210.0f  /* amber above */
 #define DASH_ECT_RED_F      217.0f  /* red above */
-#define DASH_OILT_AMBER_F   235.0f  /* amber above */
-#define DASH_OILT_RED_F     248.0f  /* red above */
+/* Oil temperature is judged on TRACK figures, not street ones. A 500+ whp NA
+ * V8 on a road course lives at 250-280 F, which the old 235/248 pair called
+ * amber and then alarm-worthy -- it would have left the gauge permanently
+ * amber and fired the full-screen takeover every session. 270/290 is where
+ * this car is genuinely in trouble. dash_sim.h's session lands at ~255 F, so
+ * a normal session sits clear of amber with room to spare (owner decision,
+ * follow-up to U8); the pair is consumed by dash_oil_temp_state, the OILT
+ * telltale lamp, dash_alarm_classify's takeover, and the alarm banner's
+ * threshold readout. */
+#define DASH_OILT_AMBER_F   270.0f  /* amber above */
+#define DASH_OILT_RED_F     290.0f  /* red above */
 #define DASH_OILP_RED_PSI    29.0f  /* red below (no amber) */
 #define DASH_VOLTS_RED_V     12.0f  /* red below (no amber) */
 #define DASH_FUEL_AMBER_GAL   2.5f  /* amber below (amber only) */

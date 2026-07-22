@@ -120,7 +120,9 @@ static inline float dash_sim_brake_g(float driver_skill)
  * across the whole speed range visits every boundary by construction. What it
  * does share is the gearbox: rpm comes from road speed through the same
  * hysteretic box the lap uses, so the sweep exercises the real drivetrain math
- * rather than a parallel one.
+ * rather than a parallel one -- with the single exemption of the shift point,
+ * which the fixture raises to the limiter so the tach can reach its red zone
+ * and the shift ladder can fill (see SIM_SWEEP_RPM_MAX).
  *
  * SWEEP is TRACK-side only. STREET's cruise is its own model and is unchanged
  * (R11); selecting SWEEP while in STREET does nothing until the mode returns to
@@ -143,6 +145,28 @@ typedef enum {
  * crawling through 1st tries the operator's patience. */
 #define SIM_SWEEP_RATE_MPHPS 4.0f
 #define SIM_SWEEP_PERIOD_S  (2.0f * SIM_SWEEP_MAX_MPH / SIM_SWEEP_RATE_MPHPS)
+
+/* SWEEP's own rev limiter, and the one place the fixture departs from the
+ * drivetrain model rather than merely bypassing the circuit.
+ *
+ * R12 says the fixture exists to exercise the top of the speedo, all six
+ * gears, the REDLINE, and the SHIFT-LIGHT LADDER. The last two were
+ * unreachable: the box upshifts at SIM_UPSHIFT_RPM (7400) and the driving
+ * limiter clamps at SIM_RPM_MAX (7600), so published rpm peaked at 7399 --
+ * below the 7600 the tach needs to go red and well below the 8000 the 15th
+ * LED needs. That is CORRECT for driving (a real shift happens before the
+ * shift light goes red) and TRACK keeps it untouched. In SWEEP the gear is
+ * instead held to the limiter, which is the same class of exception as
+ * skipping the corner table and lookahead braking (KTD7): this is a display
+ * exerciser, not a driving sim. The exemption is to the SHIFT POINT only --
+ * rpm still comes from road speed through the same gearbox.
+ *
+ * ...with one gear excepted, and it is derived rather than named. A gear
+ * whose limiter lies PAST the top of the ramp can never reach it, so holding
+ * it means never leaving it: 5th redlines at 203 mph against a 200 mph dial,
+ * so holding 5th would delete 6th-gear coverage -- the other thing R12 asks
+ * for. Those gears keep the normal upshift point. See dash_sim_gearbox(). */
+#define SIM_SWEEP_RPM_MAX   SIM_REDLINE_RPM /* 8000: the 15th LED's own figure */
 
 /* ---- lap geometry: High Plains Raceway, 2.55 mi (plan R1) ---- */
 #define SIM_TRACK_LAP_FT    13464.0f
@@ -286,10 +310,26 @@ static const SimSeg SIM_SEGS[SIM_SEG_COUNT] = {
 #define SIM_ECT_OPERATING_F 195.0f   /* the thermostat's regulated plateau */
 /* Oil's target is LOAD-dependent rather than a constant, so a hard session runs
  * hotter than a cruise: a TRACK base well above coolant, a STREET base only
- * just above it, plus a nudge with sustained rpm. Held under DASH_OILT_AMBER_F
- * (235) on purpose -- a session that ends in a permanent amber oil gauge is a
- * broken calibration, not a realistic one. */
-#define SIM_OILT_TRACK_F    222.0f
+ * just above it, plus a nudge with sustained rpm.
+ *
+ * The two bases are NOT the same kind of number, and that is the whole reason
+ * they are so far apart. STREET cruises indefinitely, so its base is an
+ * ASYMPTOTE the gauge actually arrives at (~208 F settled -- a street car does
+ * not run track oil temperatures). TRACK's is an asymptote the session never
+ * reaches: on a 600 s tau a 20-minute session covers 86% of the gap from a
+ * cold 75 F, so a 276 F target lands the gauge at ~255 F when the checkered
+ * flag drops. That is what this car actually shows on a road course, and the
+ * asymptote is physically honest too -- oil with no cooler really would keep
+ * climbing past 275; the session ending is what stops it.
+ *
+ * U8 originally held the target under DASH_OILT_AMBER_F outright, which capped
+ * the gauge around 208 F -- a street figure on a track dash -- because amber
+ * then sat at 235. The thresholds moved to track figures instead (270 amber /
+ * 290 red, owner decision), so the constraint still holds and now holds at a
+ * realistic number: a session that ends in a permanent amber oil gauge is a
+ * broken calibration, and tests/test_dash_sim.c pins BOTH ends of that -- the
+ * ~255 F landing AND that the run's hottest sample stays out of amber. */
+#define SIM_OILT_TRACK_F    276.0f
 #define SIM_OILT_STREET_F   205.0f
 #define SIM_OILT_LOAD_F      12.0f   /* added at redline, scaled by rpm fraction */
 /* oilp = base + rpm/8000*40 + 2*sin: base 25 keeps normal running (any
@@ -442,6 +482,17 @@ static inline float dash_sim_rpm_from_speed(float mph, uint8_t gear)
            / SIM_TIRE_DIA_IN;
 }
 
+/* Can the SWEEP fixture hold this gear all the way to the limiter? Only if
+ * the limiter falls inside the ramp: a gear that redlines past the top of the
+ * dial would be held forever, taking the gears above it off screen. 5th
+ * redlines at 203 mph against a 200 mph ramp and so is excluded; 1st-4th all
+ * reach 8000 well inside it. Derived from the ratios rather than authored, so
+ * a gearbox or tyre change cannot leave a stale gear number behind. */
+static inline bool dash_sim_sweep_holds_to_limiter(uint8_t gear)
+{
+    return dash_sim_speed_mph(SIM_SWEEP_RPM_MAX, gear) <= SIM_SWEEP_MAX_MPH;
+}
+
 /* Hysteretic gearbox: upshift above SIM_UPSHIFT_RPM; downshift when revs sag
  * AND the lower gear lands safely under the shift point. RPM always derives
  * from wheel speed through the selected gear, so the same road speed reads very
@@ -449,11 +500,29 @@ static inline float dash_sim_rpm_from_speed(float mph, uint8_t gear)
  *
  * Factored out for U7: the sweep fixture drives its own speed but runs it
  * through THIS box rather than a parallel path, which is what makes the fixture
- * evidence about the real drivetrain math instead of about itself. */
-static inline void dash_sim_gearbox(DashSimState *sim)
+ * evidence about the real drivetrain math instead of about itself.
+ *
+ * `sweep` is that fixture's ONLY concession (see SIM_SWEEP_RPM_MAX): the gear
+ * is held to the limiter instead of the drivability shift point, so the tach
+ * sweeps through its red zone to the redline and the shift ladder lights all
+ * fifteen. Everything else -- the ratios, the derivation of rpm from road
+ * speed, the downshift hysteresis -- is shared verbatim, and with sweep=false
+ * this is arithmetically the function it replaced.
+ *
+ * The upshift is taken off the PREVIOUS step's published rpm rather than this
+ * step's raw figure, which is what makes the redline observable at all: the
+ * car sits ON the limiter for at least one step, so 8000 is a value the tach
+ * actually displays instead of a boundary it steps over. (Deciding on the raw
+ * figure is what leaves the driving model peaking at 7399 -- it shifts on the
+ * step that would first have shown the number.) */
+static inline void dash_sim_gearbox(DashSimState *sim, bool sweep)
 {
+    const bool on_limiter = sweep && dash_sim_sweep_holds_to_limiter(sim->gear);
+    const float rev_limit = on_limiter ? SIM_SWEEP_RPM_MAX : SIM_RPM_MAX;
     const float rpm_now = dash_sim_rpm_from_speed(sim->speed_mph, sim->gear);
-    if ((rpm_now > SIM_UPSHIFT_RPM) && (sim->gear < 6u))
+    const bool upshift = on_limiter ? (sim->rpm >= rev_limit)
+                                    : (rpm_now > SIM_UPSHIFT_RPM);
+    if (upshift && (sim->gear < 6u))
     {
         sim->gear++;
     }
@@ -465,7 +534,7 @@ static inline void dash_sim_gearbox(DashSimState *sim)
     }
     sim->rpm = dash_sim_rpm_from_speed(sim->speed_mph, sim->gear);
     if (sim->rpm < SIM_RPM_IDLE) { sim->rpm = SIM_RPM_IDLE; }
-    if (sim->rpm > SIM_RPM_MAX) { sim->rpm = SIM_RPM_MAX; }
+    if (sim->rpm > rev_limit) { sim->rpm = rev_limit; }
 }
 
 /* Every channel the lap simulation owns, put back to invalid.
@@ -924,7 +993,7 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
         track_throttle_pct = braking ? 0.0f : 100.0f;
         track_brake_pct = braking ? (82.0f + 8.0f * sinf(t * 3.0f)) : 0.0f;
 
-        dash_sim_gearbox(sim);
+        dash_sim_gearbox(sim, false); /* TRACK drives: the shift point is the shift point */
         speed_mph = sim->speed_mph;
 
         /* U5/R8: lap delta against the best lap actually driven. The reference
@@ -965,7 +1034,7 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
         if (v < 0.0f) { v = 0.0f; }
         sim->sweep_t_s += dt_s;
         sim->speed_mph = v;
-        dash_sim_gearbox(sim);
+        dash_sim_gearbox(sim, true); /* hold each gear to the limiter (SIM_SWEEP_RPM_MAX) */
         speed_mph = sim->speed_mph;
     }
     else

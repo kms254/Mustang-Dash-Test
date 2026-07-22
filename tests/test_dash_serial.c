@@ -14,6 +14,9 @@
 #include <string.h>
 
 #include "dash_serial.h"
+/* the `alarm` shortcuts exist to FORCE an alarm, so the values they write are
+ * checked against the classifier that decides whether one fires */
+#include "dash_math.h"
 
 /* protocol constants that must never drift */
 _Static_assert(DASH_SERIAL_MAX_LINE == 63, "max line must be 63 chars + NUL");
@@ -325,6 +328,38 @@ int main(void)
             expect(memcmp(&before, &s, sizeof s) == 0,
                    "CIRCUIT must not touch DashState -- it is not a mode switch");
         }
+    }
+
+    /* ---- the `alarm <x>` shortcuts must actually RAISE that alarm ----
+     * The forced values are plain constants sitting next to the thresholds
+     * they are supposed to breach, so moving a threshold (the oil-temp pair
+     * went to 270/290) can quietly turn `alarm oilt` into a command that
+     * acks `ok` and does nothing. Each shortcut is therefore checked through
+     * dash_alarm_classify() rather than by inspecting the value it wrote. */
+    {
+        DashState s;
+        char reply[64];
+
+        dash_state_init(&s);
+        dash_ch_set(&s, DASH_CH_RPM, 3000.0f); /* engine running: the OILP gate */
+        expect(parse("alarm oilp", &c) == DASH_ERR_NONE, "alarm oilp parses");
+        expect(dash_apply_command(&s, &c, reply, sizeof reply), "alarm oilp applies");
+        expect(dash_alarm_classify(&s) == DASH_ALARM_OILP,
+               "`alarm oilp` must actually raise the OILP alarm");
+
+        dash_state_init(&s);
+        expect(parse("alarm oilt", &c) == DASH_ERR_NONE, "alarm oilt parses");
+        expect(dash_apply_command(&s, &c, reply, sizeof reply), "alarm oilt applies");
+        expect(DASH_ALARM_OILT_F > DASH_OILT_RED_F,
+               "the forced oil temp must sit above the red threshold it targets");
+        expect(dash_alarm_classify(&s) == DASH_ALARM_OILT,
+               "`alarm oilt` must actually raise the OILT alarm");
+
+        dash_state_init(&s);
+        expect(parse("alarm clt", &c) == DASH_ERR_NONE, "alarm clt parses");
+        expect(dash_apply_command(&s, &c, reply, sizeof reply), "alarm clt applies");
+        expect(dash_alarm_classify(&s) == DASH_ALARM_CLT,
+               "`alarm clt` must actually raise the CLT alarm");
     }
 
     /* ---- ALARM off with the sim frozen must not latch the takeover:
