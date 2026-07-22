@@ -75,6 +75,22 @@ int main(void)
     expect(c.kind == DASH_CMD_MODE && c.mode == DASH_MODE_TRACK,
            "mode track must select DASH_MODE_TRACK");
 
+    /* U7: the sweep-fixture selector. Shaped exactly like `mode` -- a named
+     * verb, two named arguments, one ack -- so the /dash skill's mental model
+     * does not acquire a special case. */
+    expect(parse("circuit sweep", &c) == DASH_ERR_NONE, "circuit sweep must parse");
+    expect(c.kind == DASH_CMD_CIRCUIT && c.circuit_sweep,
+           "circuit sweep must select the sweep fixture");
+    expect(parse("circuit hpr", &c) == DASH_ERR_NONE, "circuit hpr must parse");
+    expect(c.kind == DASH_CMD_CIRCUIT && !c.circuit_sweep,
+           "circuit hpr must select the High Plains Raceway lap");
+    expect(parse("CIRCUIT SWEEP", &c) == DASH_ERR_NONE && c.circuit_sweep,
+           "circuit must be case-insensitive like the rest of the protocol");
+    expect(parse("circuit", &c) == DASH_ERR_MISSING_VALUE,
+           "bare circuit must be MISSING_VALUE");
+    expect(parse("circuit monaco", &c) == DASH_ERR_BAD_VALUE,
+           "circuit with an unknown argument must be BAD_VALUE");
+
     expect(parse("alarm oilt", &c) == DASH_ERR_NONE, "alarm oilt must parse");
     expect(c.kind == DASH_CMD_ALARM && c.alarm == 2, "alarm oilt must be alarm code 2");
     expect(parse("alarm oilp", &c) == DASH_ERR_NONE && c.alarm == 1,
@@ -296,6 +312,19 @@ int main(void)
         expect(parse("help", &c) == DASH_ERR_NONE, "apply: help parses");
         expect(!dash_apply_command(&s, &c, reply, sizeof reply),
                "apply must NOT handle HELP");
+
+        /* CIRCUIT is the caller's too: the circuit lives in DashSimState, and
+         * dash_serial.h sits below the simulator. It must also leave DashState
+         * completely alone -- in particular it is NOT a mode switch. */
+        {
+            DashState before;
+            expect(parse("circuit sweep", &c) == DASH_ERR_NONE, "apply: circuit sweep parses");
+            before = s;
+            expect(!dash_apply_command(&s, &c, reply, sizeof reply),
+                   "apply must NOT handle CIRCUIT (the simulator owns it)");
+            expect(memcmp(&before, &s, sizeof s) == 0,
+                   "CIRCUIT must not touch DashState -- it is not a mode switch");
+        }
     }
 
     /* ---- ALARM off with the sim frozen must not latch the takeover:
@@ -405,6 +434,7 @@ int main(void)
                strstr(DASH_HELP_TEXT, "odo") != NULL &&
                strstr(DASH_HELP_TEXT, "sim") != NULL &&
                strstr(DASH_HELP_TEXT, "status") != NULL &&
+               strstr(DASH_HELP_TEXT, "circuit") != NULL &&
                strstr(DASH_HELP_TEXT, "flashwipe") != NULL,
            "DASH_HELP_TEXT must list every command verb");
     expect(strstr(DASH_HELP_TEXT, "afr_l") != NULL &&

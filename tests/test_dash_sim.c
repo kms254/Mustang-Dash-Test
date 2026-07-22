@@ -17,6 +17,10 @@
 
 #include "dash_data.h"
 #include "dash_sim.h"
+/* U7: the sweep fixture exists to cover the RENDERER's full range, so it is
+ * checked against the renderer's own thresholds (speedo top, shift ladder, tach
+ * zones) rather than against numbers this test re-authors. */
+#include "dash_math.h"
 
 /* the drivetrain table must be the six T56 forward gears */
 _Static_assert(sizeof(SIM_GEAR_RATIOS) / sizeof(SIM_GEAR_RATIOS[0]) == 6,
@@ -976,6 +980,223 @@ int main(void)
         expect(st.ch.afr_l >= 11.0f && st.ch.afr_l <= 14.0f, "street afr_l must stay in [11, 14]");
     }
     expect(st.ch.fuel_gal >= 11.99f, "street fuel burn must be ~40x slower than track");
+
+    /* ---- U7: the range-sweep fixture (R12, S4) ----
+     * A real HPR lap tops out around 170 mph in 5th, so it cannot reach the top
+     * of a 200 mph speedo or ask for 6th at all. The fixture is what preserves
+     * that coverage, and it inherits U3's retired "must reach 6th gear"
+     * assertion outright. */
+    {
+        DashState ws;
+        DashSimState wm;
+
+        /* the fixture must sweep the dial the RENDERER actually draws */
+        expect(SIM_SWEEP_MAX_MPH == (float) DASH_SPEED_MAX,
+               "the sweep's top speed must be the speedo's own DASH_SPEED_MAX");
+
+        dash_state_init(&ws);
+        dash_sim_init(&wm);
+        expect(wm.circuit == SIM_CIRCUIT_HPR, "the default circuit must be the HPR lap");
+
+        /* HPR is never left without an explicit command: 10 minutes of running
+         * must not wander into the fixture on its own */
+        for (int i = 0; i < 12000; i++)
+        {
+            dash_sim_step(&wm, &ws, 50u);
+            if (wm.circuit != SIM_CIRCUIT_HPR) { break; }
+        }
+        expect(wm.circuit == SIM_CIRCUIT_HPR,
+               "nothing but the serial selector may enter the sweep fixture");
+
+        /* one full cycle of the fixture, instrumented */
+        dash_state_init(&ws);
+        dash_sim_init(&wm);
+        dash_sim_set_circuit(&wm, SIM_CIRCUIT_SWEEP);
+
+        float v_min = 1e9f, v_max = 0.0f;
+        float rpm_min = 1e9f, rpm_max = 0.0f;
+        uint8_t gears_seen = 0u;
+        uint8_t ladder_max = 0u;
+        int amber_ticks = 0;
+        float gear_secs[7] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+        bool lap_ch_stayed_invalid = true;
+
+        const int cycle_steps = (int) (SIM_SWEEP_PERIOD_S / 0.05f); /* 100 s at 50 ms */
+        for (int i = 0; i < cycle_steps; i++)
+        {
+            dash_sim_step(&wm, &ws, 50u);
+
+            if (ws.ch.speed_mph < v_min) { v_min = ws.ch.speed_mph; }
+            if (ws.ch.speed_mph > v_max) { v_max = ws.ch.speed_mph; }
+            if (ws.ch.rpm < rpm_min) { rpm_min = ws.ch.rpm; }
+            if (ws.ch.rpm > rpm_max) { rpm_max = ws.ch.rpm; }
+            gears_seen = (uint8_t) (gears_seen | (uint8_t) (1u << (wm.gear - 1u)));
+            gear_secs[wm.gear] += 0.05f;
+
+            uint8_t leds = dash_shift_led_count(ws.ch.rpm);
+            if (leds > ladder_max) { ladder_max = leds; }
+            if (dash_rpm_color(ws.ch.rpm) == DASH_COLOR_AMBER) { amber_ticks++; }
+
+            /* rpm must remain the gearbox's own answer, not a second ramp */
+            expect(fabsf(ws.ch.speed_mph - expected_mph(ws.ch.rpm, wm.gear)) <= 2.0f
+                       || ws.ch.rpm <= SIM_RPM_IDLE + 0.01f,
+                   "sweep rpm must come from speed through the real gearbox");
+
+            if (dash_ch_valid(&ws, DASH_CH_LAP) || dash_ch_valid(&ws, DASH_CH_LAST)
+                || dash_ch_valid(&ws, DASH_CH_BEST) || dash_ch_valid(&ws, DASH_CH_DELTA)
+                || dash_ch_valid(&ws, DASH_CH_PRED))
+            {
+                lap_ch_stayed_invalid = false;
+            }
+        }
+
+        /* the whole dial, both ends */
+        expect(v_min <= 0.01f, "the sweep must reach a standstill at the bottom of the dial");
+        expect(v_max >= SIM_SWEEP_MAX_MPH - 0.5f,
+               "the sweep must reach the top of the 200 mph speedo");
+
+        /* INHERITED from U3, which retired it when HPR could no longer satisfy
+         * it: the fixture exists precisely so this assertion still has a home. */
+        expect(gears_seen == 0x3Fu, "the sweep must visit all six gears");
+        for (uint8_t g = 1u; g <= 6u; g++)
+        {
+            expect(gear_secs[g] >= 2.0f,
+                   "every gear must be on screen long enough for a human to see it");
+        }
+
+        /* the tach's own range, measured with the renderer's thresholds */
+        expect(rpm_min <= SIM_RPM_IDLE + 0.01f, "the sweep must drop the tach to idle");
+        expect(rpm_max >= (float) DASH_AMBER_RPM,
+               "the sweep must take the tach into its amber zone");
+        expect(amber_ticks > 20, "the amber zone must be held long enough to read");
+        /* The tach's RED zone and the 15th shift LED both need rpm strictly
+         * above DASH_SHIFT_RPM, and the simulator clamps at SIM_RPM_MAX and
+         * upshifts at SIM_UPSHIFT_RPM -- both at or below it. That is a
+         * pre-existing property of the drivetrain model (a real shift happens
+         * BEFORE the shift light goes red), not something the fixture can or
+         * should override by driving rpm on a path of its own. Pinned here so
+         * raising the rev limit is forced to revisit this claim. */
+        expect(SIM_RPM_MAX <= (float) DASH_SHIFT_RPM,
+               "the sim's rev limit is at or below the shift point, so the tach's "
+               "red zone is unreachable in EVERY mode -- not a sweep-only gap");
+        expect(ladder_max >= 13u,
+               "the shift ladder must climb to what the rev limit permits (13 of 15)");
+
+        /* lap timing has no meaning here (dead-front convention) */
+        expect(lap_ch_stayed_invalid,
+               "LAP/LAST/BEST/DELTA/PRED must stay invalid throughout the sweep");
+        expect(!dash_ch_valid(&ws, DASH_CH_LAPN), "LAPN must stay invalid in the sweep");
+        expect(!dash_ch_valid(&ws, DASH_CH_POS), "POS must stay invalid in the sweep");
+        expect(wm.lap_count == 0u, "the sweep must never complete a lap");
+        expect(wm.lap_ms == 0u, "the sweep must never run the lap clock");
+        expect(wm.lap_dist_ft == 0.0f, "the sweep must never advance lap position");
+
+        /* engine sensors keep running -- the fixture is not a freeze */
+        expect(dash_ch_valid(&ws, DASH_CH_RPM) && dash_ch_valid(&ws, DASH_CH_SPEED),
+               "the sweep must still publish rpm and speed");
+        expect(dash_ch_valid(&ws, DASH_CH_AFR_L) && dash_ch_valid(&ws, DASH_CH_TIME),
+               "the sweep must still publish the always-on engine channels");
+
+        /* switching back resumes the lap simulation with no stale lap in flight */
+        dash_sim_set_circuit(&wm, SIM_CIRCUIT_HPR);
+        expect(wm.lap_dist_ft == 0.0f && wm.lap_ms == 0u,
+               "returning to HPR must start a clean lap, not resume a half-driven one");
+        uint32_t laps_before = wm.lap_count;
+        for (int i = 0; i < 4000; i++) { dash_sim_step(&wm, &ws, 50u); }
+        expect(wm.lap_count > laps_before, "HPR must complete laps again after the sweep");
+        expect(dash_ch_valid(&ws, DASH_CH_LAP), "LAP must be published again under HPR");
+        expect(wm.lap_dist_ft >= 0.0f && wm.lap_dist_ft < SIM_TRACK_LAP_FT,
+               "lap position must be back inside the circuit after the sweep");
+
+        /* determinism, and step-size independence of the ramp itself */
+        {
+            DashState wa, wb;
+            DashSimState pa, pb;
+            dash_state_init(&wa);
+            dash_state_init(&wb);
+            dash_sim_init(&pa);
+            dash_sim_init(&pb);
+            dash_sim_set_circuit(&pa, SIM_CIRCUIT_SWEEP);
+            dash_sim_set_circuit(&pb, SIM_CIRCUIT_SWEEP);
+            for (int i = 0; i < 1500; i++)
+            {
+                dash_sim_step(&pa, &wa, 50u);
+                dash_sim_step(&pb, &wb, 50u);
+            }
+            expect(wa.ch.speed_mph == wb.ch.speed_mph, "determinism in SWEEP: speed");
+            expect(wa.ch.rpm == wb.ch.rpm, "determinism in SWEEP: rpm");
+            expect(pa.gear == pb.gear, "determinism in SWEEP: gear");
+            expect(pa.sweep_t_s == pb.sweep_t_s, "determinism in SWEEP: ramp phase");
+        }
+        {
+            DashState w10, w50;
+            DashSimState p10, p50;
+            dash_state_init(&w10);
+            dash_state_init(&w50);
+            dash_sim_init(&p10);
+            dash_sim_init(&p50);
+            dash_sim_set_circuit(&p10, SIM_CIRCUIT_SWEEP);
+            dash_sim_set_circuit(&p50, SIM_CIRCUIT_SWEEP);
+            for (int i = 0; i < 3000; i++) { dash_sim_step(&p10, &w10, 10u); } /* 30 s */
+            for (int i = 0; i < 600; i++) { dash_sim_step(&p50, &w50, 50u); }  /* 30 s */
+            expect(fabsf(w10.ch.speed_mph - w50.ch.speed_mph) < 1.0f,
+                   "10 ms and 50 ms steps must ramp the sweep to the same speed");
+            expect(p10.gear == p50.gear, "both step sizes must land in the same gear");
+        }
+    }
+
+    /* ---- U7: leaving the lap simulation must DEAD-FRONT the lap channels ----
+     * The STREET block above boots straight into STREET, so those channels were
+     * never valid in the first place and it cannot see this. Switching modes
+     * after laps have run can: nothing re-publishes LAP/LAST/BEST/DELTA in
+     * STREET, so without an explicit invalidate they keep their last TRACK
+     * values and the STREET screen shows a stale best-lap time forever. U11's
+     * USER-button short press makes that one button press away. */
+    {
+        DashState sw;
+        DashSimState swm;
+        dash_state_init(&sw);
+        dash_sim_init(&swm);
+        while (swm.lap_count < 2u) { dash_sim_step(&swm, &sw, 50u); }
+        expect(dash_ch_valid(&sw, DASH_CH_LAP), "TRACK must publish LAP before the switch");
+        expect(dash_ch_valid(&sw, DASH_CH_BEST), "TRACK must publish BEST before the switch");
+
+        sw.mode = DASH_MODE_STREET;
+        dash_sim_step(&swm, &sw, 50u);
+        expect(!dash_ch_valid(&sw, DASH_CH_LAP),
+               "TRACK -> STREET must dead-front LAP, not strand its last value");
+        expect(!dash_ch_valid(&sw, DASH_CH_LAST),
+               "TRACK -> STREET must dead-front LAST");
+        expect(!dash_ch_valid(&sw, DASH_CH_BEST),
+               "TRACK -> STREET must dead-front BEST");
+        expect(!dash_ch_valid(&sw, DASH_CH_DELTA),
+               "TRACK -> STREET must dead-front DELTA");
+        expect(!dash_ch_valid(&sw, DASH_CH_PRED),
+               "TRACK -> STREET must dead-front PRED");
+        expect(!dash_ch_valid(&sw, DASH_CH_LAPN),
+               "TRACK -> STREET must dead-front LAPN");
+        expect(!dash_ch_valid(&sw, DASH_CH_POS),
+               "TRACK -> STREET must dead-front POS");
+        expect(!dash_ch_valid(&sw, DASH_CH_THROTTLE),
+               "TRACK -> STREET must dead-front THROTTLE");
+        expect(!dash_ch_valid(&sw, DASH_CH_BRAKE),
+               "TRACK -> STREET must dead-front BRAKE");
+
+        /* ...and an operator's forced lap value is still the operator's: the
+         * dead-fronting goes through dash_ch_invalidate's ownership guard. */
+        dash_ch_set(&sw, DASH_CH_BEST, 90000.0f);
+        sw.overridden |= DASH_CH_BIT(DASH_CH_BEST);
+        dash_sim_step(&swm, &sw, 50u);
+        expect(dash_ch_valid(&sw, DASH_CH_BEST) && sw.ch.best_ms == 90000u,
+               "an overridden BEST must survive the STREET dead-fronting");
+
+        /* switching back resumes lap publishing */
+        sw.overridden = 0u;
+        sw.mode = DASH_MODE_TRACK;
+        dash_sim_step(&swm, &sw, 50u);
+        expect(dash_ch_valid(&sw, DASH_CH_LAP),
+               "STREET -> TRACK must publish LAP again");
+    }
 
     if (failures == 0)
     {

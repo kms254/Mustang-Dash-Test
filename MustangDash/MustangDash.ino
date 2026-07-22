@@ -1041,6 +1041,15 @@ void handle_serial_line(const char *line)
     /* ODO_SET / STATUS / HELP are the caller's (ours) to handle */
     switch (cmd.kind)
     {
+        case DASH_CMD_CIRCUIT:
+            /* The circuit lives in DashSimState, which dash_serial.h sits
+             * below and cannot reach -- same reason ODO_SET lands here. One
+             * ack and nothing else: the protocol's contract is that ok/err
+             * are the only output after boot. */
+            dash_sim_set_circuit(&g_sim,
+                                 cmd.circuit_sweep ? SIM_CIRCUIT_SWEEP : SIM_CIRCUIT_HPR);
+            Serial.printf("ok circuit %s\r\n", cmd.circuit_sweep ? "sweep" : "hpr");
+            break;
         case DASH_CMD_ODO_SET:
             dash_odo_reseed(&g_odo, cmd.value);
             odo_eeprom_write();

@@ -108,6 +108,42 @@ static inline float dash_sim_brake_g(float driver_skill)
     return SIM_BRAKE_G * (0.5f * (1.0f + driver_skill));
 }
 
+/* ---- circuit selection (plan U7, R12, KTD7) ----
+ * TRACK normally drives the HPR lap below. SWEEP is a bench FIXTURE, not a
+ * second circuit: it exists because a real lap cannot reach the top of a
+ * 200 mph speedo or ask for 6th gear, so replacing the old fictional cycle
+ * outright would have silently deleted that coverage.
+ *
+ * It deliberately does NOT reuse the corner table or lookahead braking. A
+ * designed ramp is a better fixture than an emergent one -- an invented second
+ * circuit would only cover wherever that circuit happened to go, whereas a ramp
+ * across the whole speed range visits every boundary by construction. What it
+ * does share is the gearbox: rpm comes from road speed through the same
+ * hysteretic box the lap uses, so the sweep exercises the real drivetrain math
+ * rather than a parallel one.
+ *
+ * SWEEP is TRACK-side only. STREET's cruise is its own model and is unchanged
+ * (R11); selecting SWEEP while in STREET does nothing until the mode returns to
+ * TRACK. Lap timing is meaningless here, so LAP/LAST/BEST/DELTA/PRED (and the
+ * rest of the lap-owned channels) are dead-fronted throughout. */
+typedef enum {
+    SIM_CIRCUIT_HPR = 0,   /* the default: a real lap of High Plains Raceway */
+    SIM_CIRCUIT_SWEEP = 1, /* opt-in range fixture, `circuit sweep` */
+} SimCircuit;
+
+/* SIM_-local copy of dash_math.h's DASH_SPEED_MAX -- dash_sim.h does not
+ * include dash_math.h. tests/test_dash_sim.c pins the two together, because a
+ * sweep that stops short of the dial's top would quietly stop being a sweep. */
+#define SIM_SWEEP_MAX_MPH   200.0f
+/* Ramp rate, a bench-ergonomics number rather than a physical one: the whole
+ * point is that a human can WATCH each range boundary go by. 4 mph/s puts a
+ * full 0 -> 200 -> 0 cycle at 100 s, which is the binding constraint at the top
+ * of the dial -- 6th gear only spans ~188-200 mph, so it is on screen for ~3 s
+ * each way. Faster and top gear is a flicker; much slower and the 15 s spent
+ * crawling through 1st tries the operator's patience. */
+#define SIM_SWEEP_RATE_MPHPS 4.0f
+#define SIM_SWEEP_PERIOD_S  (2.0f * SIM_SWEEP_MAX_MPH / SIM_SWEEP_RATE_MPHPS)
+
 /* ---- lap geometry: High Plains Raceway, 2.55 mi (plan R1) ---- */
 #define SIM_TRACK_LAP_FT    13464.0f
 
@@ -255,6 +291,8 @@ typedef struct {
     float speed_mph;    /* driving-cycle integrator state */
     float lap_dist_ft;  /* lap position: integrated road speed, not a clock (U1) */
     float driver_skill; /* SIM_DRIVER_SKILL, held in state so it is retunable (U4) */
+    SimCircuit circuit; /* HPR lap or the SWEEP range fixture (U7) */
+    float sweep_t_s;    /* SWEEP ramp phase; accrues only while sweeping */
     uint8_t seg_idx;    /* current circuit segment */
     float seg_jitter_mph[SIM_SEG_COUNT]; /* per-lap corner-limit offsets */
     float ect_f;
@@ -321,6 +359,57 @@ static inline float dash_sim_rpm_from_speed(float mph, uint8_t gear)
 {
     return mph * SIM_GEAR_RATIOS[gear - 1] * SIM_FINAL_DRIVE * SIM_MPH_CONST
            / SIM_TIRE_DIA_IN;
+}
+
+/* Hysteretic gearbox: upshift above SIM_UPSHIFT_RPM; downshift when revs sag
+ * AND the lower gear lands safely under the shift point. RPM always derives
+ * from wheel speed through the selected gear, so the same road speed reads very
+ * different rpm depending on which gear the box happens to be holding.
+ *
+ * Factored out for U7: the sweep fixture drives its own speed but runs it
+ * through THIS box rather than a parallel path, which is what makes the fixture
+ * evidence about the real drivetrain math instead of about itself. */
+static inline void dash_sim_gearbox(DashSimState *sim)
+{
+    const float rpm_now = dash_sim_rpm_from_speed(sim->speed_mph, sim->gear);
+    if ((rpm_now > SIM_UPSHIFT_RPM) && (sim->gear < 6u))
+    {
+        sim->gear++;
+    }
+    else if ((sim->gear > 1u) && (rpm_now < SIM_DOWNSHIFT_RPM)
+             && (dash_sim_rpm_from_speed(sim->speed_mph, (uint8_t) (sim->gear - 1u))
+                 < SIM_DOWNSHIFT_MAX_RPM))
+    {
+        sim->gear--;
+    }
+    sim->rpm = dash_sim_rpm_from_speed(sim->speed_mph, sim->gear);
+    if (sim->rpm < SIM_RPM_IDLE) { sim->rpm = SIM_RPM_IDLE; }
+    if (sim->rpm > SIM_RPM_MAX) { sim->rpm = SIM_RPM_MAX; }
+}
+
+/* Every channel the lap simulation owns, put back to invalid.
+ *
+ * dash_ch_set only ever RAISES the valid bit, so a channel published in TRACK
+ * stays valid for as long as the dash runs unless something takes it back --
+ * and nothing re-publishes LAP/LAST/BEST/DELTA off the lap path, so they simply
+ * freeze at their last TRACK values. On the STREET screen that reads as a live
+ * best-lap time from a session that ended minutes ago. It is reachable with one
+ * press of the USER button (U11), so it is dead-fronted on EVERY non-lap path:
+ * STREET, and the SWEEP fixture where lap timing has no meaning at all.
+ *
+ * dash_ch_invalidate carries the ownership guard, so a `set best ...` the
+ * operator forced is left exactly where they put it. */
+static inline void dash_sim_dead_front_lap(DashState *s)
+{
+    dash_ch_invalidate(s, DASH_CH_LAP);
+    dash_ch_invalidate(s, DASH_CH_LAST);
+    dash_ch_invalidate(s, DASH_CH_BEST);
+    dash_ch_invalidate(s, DASH_CH_DELTA);
+    dash_ch_invalidate(s, DASH_CH_PRED);
+    dash_ch_invalidate(s, DASH_CH_LAPN);
+    dash_ch_invalidate(s, DASH_CH_POS);
+    dash_ch_invalidate(s, DASH_CH_THROTTLE);
+    dash_ch_invalidate(s, DASH_CH_BRAKE);
 }
 
 /* This corner's limit: the authored speed pulled down to what the driver will
@@ -403,6 +492,30 @@ static inline void dash_sim_set_skill(DashSimState *sim, float skill)
     sim->driver_skill = skill;
 }
 
+/* Select the circuit (U7). Always restarts it, even when re-selecting the one
+ * already running -- `circuit sweep` twice is a bench operator asking to see
+ * the sweep from the bottom of the dial again, which is the only thing it could
+ * reasonably mean.
+ *
+ * The lap in progress is abandoned rather than resumed: the car leaves the lap
+ * simulation at some arbitrary point on track and comes back at some arbitrary
+ * speed, so continuing to time that lap would commit a fabricated lap time to
+ * LAST -- and possibly to BEST, where it would poison DELTA's reference for the
+ * rest of the session. Completed laps (lap_count, last_ms, best_ms, the
+ * reference trace) are history and are deliberately kept.
+ *
+ * The LCG is NOT touched, so a sweep detour does not rewind the jitter stream
+ * into a bit-identical replay of the laps already driven. */
+static inline void dash_sim_set_circuit(DashSimState *sim, SimCircuit circuit)
+{
+    sim->circuit = circuit;
+    sim->sweep_t_s = 0.0f;   /* the sweep always starts at the bottom of the dial */
+    sim->lap_dist_ft = 0.0f; /* back to start/finish: no half-driven lap to resume */
+    sim->lap_ms = 0u;
+    sim->trace_next = 0u;
+    dash_sim_trace_stamp(sim, 0u); /* the new lap starts at t=0 by definition */
+}
+
 /* Gear 1, warm-start temps at ambient-ish cold values, full-ish tank.
  * The ~7 mph rollout is deliberate: it makes lap 1 the session out-lap, which
  * is why lap 1 is excluded from best_ms below (U1). */
@@ -417,6 +530,8 @@ static inline void dash_sim_init(DashSimState *sim)
     sim->speed_mph = dash_sim_speed_mph(SIM_RPM_START, 1); /* ~7 mph, rolling out */
     sim->lap_dist_ft = 0.0f;
     sim->driver_skill = SIM_DRIVER_SKILL; /* must precede the first jitter draw */
+    sim->circuit = SIM_CIRCUIT_HPR; /* HPR is the default; SWEEP is opt-in (R12) */
+    sim->sweep_t_s = 0.0f;
     sim->seg_idx = 0u;
     dash_sim_reseed_jitter(sim);
     sim->ect_f = SIM_COLD_START_F;
@@ -449,11 +564,14 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
     float delta_s = 0.0f;
     bool delta_valid = false; /* U5: no reference lap yet -> DELTA dead-fronts */
     bool track = (s->mode == DASH_MODE_TRACK);
+    /* Three driving paths, not two (U7): the HPR lap, the SWEEP range fixture,
+     * and STREET's cruise. Only the first has laps to time. */
+    bool lap_active = track && (sim->circuit == SIM_CIRCUIT_HPR);
 
     float track_throttle_pct = 0.0f;
     float track_brake_pct = 0.0f;
 
-    if (track)
+    if (lap_active)
     {
         /* lap TIMER (no longer the lap position -- see below) */
         sim->lap_ms += dt_ms;
@@ -610,24 +728,7 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
         track_throttle_pct = braking ? 0.0f : 100.0f;
         track_brake_pct = braking ? (82.0f + 8.0f * sinf(t * 3.0f)) : 0.0f;
 
-        /* hysteretic gearbox: upshift above SIM_UPSHIFT_RPM; downshift when
-         * revs sag AND the lower gear lands safely under the shift point.
-         * RPM always derives from wheel speed through the selected gear, so
-         * the same road speed reads very different rpm by lap position. */
-        const float rpm_now = dash_sim_rpm_from_speed(sim->speed_mph, sim->gear);
-        if ((rpm_now > SIM_UPSHIFT_RPM) && (sim->gear < 6u))
-        {
-            sim->gear++;
-        }
-        else if ((sim->gear > 1u) && (rpm_now < SIM_DOWNSHIFT_RPM)
-                 && (dash_sim_rpm_from_speed(sim->speed_mph, (uint8_t) (sim->gear - 1u))
-                     < SIM_DOWNSHIFT_MAX_RPM))
-        {
-            sim->gear--;
-        }
-        sim->rpm = dash_sim_rpm_from_speed(sim->speed_mph, sim->gear);
-        if (sim->rpm < SIM_RPM_IDLE) { sim->rpm = SIM_RPM_IDLE; }
-        if (sim->rpm > SIM_RPM_MAX) { sim->rpm = SIM_RPM_MAX; }
+        dash_sim_gearbox(sim);
         speed_mph = sim->speed_mph;
 
         /* U5/R8: lap delta against the best lap actually driven. The reference
@@ -649,6 +750,27 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
             delta_s = ((float) sim->lap_ms * 0.001f) - (t0 + (t1 - t0) * frac);
             delta_valid = true;
         }
+    }
+    else if (track)
+    {
+        /* SWEEP (U7, R12/S4): a deterministic triangle across the whole
+         * speedo, 0 -> SIM_SWEEP_MAX_MPH -> 0, with rpm falling out of the same
+         * gearbox the lap uses. No corner table, no lookahead braking, no
+         * physics -- the acceleration model is exactly what a coverage fixture
+         * must NOT depend on, since what the car can do is the thing that
+         * limits where a real lap goes.
+         *
+         * The phase is read BEFORE the accumulator advances, so the fixture's
+         * first published step is a true 0 mph -- the bottom of the dial is a
+         * range boundary too, and it should be swept rather than skipped. */
+        const float phase = fmodf(sim->sweep_t_s, SIM_SWEEP_PERIOD_S);
+        float v = phase * SIM_SWEEP_RATE_MPHPS;
+        if (v > SIM_SWEEP_MAX_MPH) { v = 2.0f * SIM_SWEEP_MAX_MPH - v; } /* the way back down */
+        if (v < 0.0f) { v = 0.0f; }
+        sim->sweep_t_s += dt_s;
+        sim->speed_mph = v;
+        dash_sim_gearbox(sim);
+        speed_mph = sim->speed_mph;
     }
     else
     {
@@ -721,7 +843,7 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
     if (dash_ch_sim_owned(s, DASH_CH_FAN2))   { dash_ch_set(s, DASH_CH_FAN2, fan2_a); }
     if (dash_ch_sim_owned(s, DASH_CH_TIME))   { dash_ch_set(s, DASH_CH_TIME, time_min); }
 
-    if (track)
+    if (lap_active)
     {
         if (delta_valid)
         {
@@ -767,6 +889,13 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
          * part throttle holding a corner. */
         if (dash_ch_sim_owned(s, DASH_CH_THROTTLE)) { dash_ch_set(s, DASH_CH_THROTTLE, track_throttle_pct); }
         if (dash_ch_sim_owned(s, DASH_CH_BRAKE))    { dash_ch_set(s, DASH_CH_BRAKE, track_brake_pct); }
+    }
+    else
+    {
+        /* Off the lap path -- STREET, or the SWEEP fixture. Nothing here
+         * re-publishes these, so they must be actively taken back to `--`
+         * rather than left holding the last lap TRACK ever ran. */
+        dash_sim_dead_front_lap(s);
     }
 }
 
