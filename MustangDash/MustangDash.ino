@@ -173,9 +173,20 @@ static const uint8_t DASH_SWITCH_TRIP_PIN = 24U;
  * on PD8/9 and every SPI leg); trip switch = the blue USER button B1. */
 static const uint8_t DASH_LAMP_PINS[DASH_LAMP_COUNT] = { PB0, PB7, PB14, PD0, PD1, PD2, PD3, PD4 };
 static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* Nucleo USER button B1 */
+/* B1 is ACTIVE-HIGH (pressed connects PC13 to VDD; the board carries its
+ * own pull-down) -- plain INPUT, and never the internal pull-up, which
+ * would fight the external pull-down to an indeterminate idle level
+ * (review finding). */
+#define DASH_SWITCH_TRIP_PINMODE INPUT
+#define DASH_SWITCH_TRIP_PRESSED HIGH
 #else
 static const uint8_t DASH_LAMP_PINS[DASH_LAMP_COUNT] = { PD0, PD1, PD2, PD3, PD4, PD5, PD6, PD7 };
 static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* WeAct user button K1 */
+#endif
+/* default trip-switch electrical contract: active-LOW on internal pull-up */
+#if !defined(DASH_SWITCH_TRIP_PINMODE)
+#define DASH_SWITCH_TRIP_PINMODE INPUT_PULLUP
+#define DASH_SWITCH_TRIP_PRESSED LOW
 #endif
 static uint32_t g_trip_btn_edge_ms = 0UL; /* last raw edge time (debounce) */
 static bool g_trip_btn_down = false;      /* last raw sample */
@@ -399,7 +410,7 @@ void setup(void)
         pinMode(DASH_LAMP_PINS[l], OUTPUT);
         digitalWrite(DASH_LAMP_PINS[l], HIGH);
     }
-    pinMode(DASH_SWITCH_TRIP_PIN, INPUT_PULLUP);
+    pinMode(DASH_SWITCH_TRIP_PIN, DASH_SWITCH_TRIP_PINMODE);
 
     odo_storage_init();
     odo_eeprom_load();
@@ -541,7 +552,7 @@ void loop(void)
      * on a car harness must not zero the trip. One reset per press; the
      * latch clears after a stable release. The write lands here, inline. */
     {
-        const bool down = (LOW == digitalRead(DASH_SWITCH_TRIP_PIN));
+        const bool down = (DASH_SWITCH_TRIP_PRESSED == digitalRead(DASH_SWITCH_TRIP_PIN));
         if (down != g_trip_btn_down)
         {
             g_trip_btn_edge_ms = now; /* raw edge: restart the stability window */
