@@ -18,6 +18,9 @@ The compile-time selection that binds the driver library to one specific panel: 
 ### Display List
 The bounded sequence of drawing commands EVE executes to render a frame. The microcontroller builds a new list, then swaps it in atomically; the previous list keeps rendering until the swap, so partial updates are never visible. A list is size-limited, so complex scenes are composed by appending previously built fragments rather than growing a single list without bound.
 
+### Bitmap Handle
+One of the EVE chip's small set of per-frame bitmap state slots — each holds one bitmap's source, layout, size, and format, and drawing reads whatever the currently selected handle carries. Fonts claim handles for the whole frame once registered, so anything that configures "the current handle" must first select a scratch handle no font uses and restore the default afterwards — otherwise it silently retargets a font, and that font's glyphs render as garbage while every health signal stays clean.
+
 ### RAM_G
 EVE's fixed-size on-chip graphics memory — the home of any bitmap the chip decodes or the firmware uploads at runtime, and the fastest asset storage the renderer has. Its capacity is a hard budget that shapes asset decisions: storage formats, downscaling with render-time upscaling, and which assets are resident at once. One caveat: the on-chip PNG decoder borrows the top of RAM_G as scratch during image loads, so anything packed near the top must leave it headroom. Rendering straight from the panel's own flash once served as an escape valve for small assets, but its per-frame ceiling (see Flash Render Streaming) meant large assets needed RAM_G staging anyway, and the flash path has been retired.
 
