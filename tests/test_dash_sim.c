@@ -953,36 +953,39 @@ int main(void)
         }
     }
 
-    /* ---- mask width: channel 24 (the last channel) and DASH_CH_ALL ---- */
+    /* ---- mask width: channel 25 (the last channel) and DASH_CH_ALL ---- */
     {
         DashState m;
         dash_state_init(&m);
-        expect(DASH_CH_COUNT == 25, "must have exactly 25 channels");
-        expect(DASH_CH_FAN2 == 24, "FAN2 must be channel id 24 (the last channel)");
+        expect(DASH_CH_COUNT == 26, "must have exactly 26 channels");
+        expect(DASH_CH_SESSION == 25, "SESSION must be channel id 25 (the last channel)");
+        /* The DASH_CH_BIT macro is a uint32_t shift, so the enum has room for
+         * six more ids and no more. Kept well clear on purpose. */
+        expect(DASH_CH_COUNT <= 30, "leave headroom under the 32-channel mask limit");
 
-        dash_ch_set(&m, DASH_CH_FAN2, 5.0f);
-        m.overridden |= DASH_CH_BIT(DASH_CH_FAN2);
-        expect(dash_ch_valid(&m, DASH_CH_FAN2), "channel 24's bit must set correctly in the valid mask");
-        expect((m.overridden & DASH_CH_BIT(DASH_CH_FAN2)) != 0,
-               "channel 24's bit must set correctly in the overridden mask");
-        m.cleared |= DASH_CH_BIT(DASH_CH_FAN2);
-        expect((m.cleared & DASH_CH_BIT(DASH_CH_FAN2)) != 0,
-               "channel 24's bit must set correctly in the cleared mask");
+        dash_ch_set(&m, DASH_CH_SESSION, 5.0f);
+        m.overridden |= DASH_CH_BIT(DASH_CH_SESSION);
+        expect(dash_ch_valid(&m, DASH_CH_SESSION), "channel 25's bit must set correctly in the valid mask");
+        expect((m.overridden & DASH_CH_BIT(DASH_CH_SESSION)) != 0,
+               "channel 25's bit must set correctly in the overridden mask");
+        m.cleared |= DASH_CH_BIT(DASH_CH_SESSION);
+        expect((m.cleared & DASH_CH_BIT(DASH_CH_SESSION)) != 0,
+               "channel 25's bit must set correctly in the cleared mask");
 
-        m.valid &= (uint32_t) ~DASH_CH_BIT(DASH_CH_FAN2);
-        m.overridden &= (uint32_t) ~DASH_CH_BIT(DASH_CH_FAN2);
-        m.cleared &= (uint32_t) ~DASH_CH_BIT(DASH_CH_FAN2);
-        expect(!dash_ch_valid(&m, DASH_CH_FAN2), "channel 24's bit must clear correctly in the valid mask");
-        expect((m.overridden & DASH_CH_BIT(DASH_CH_FAN2)) == 0,
-               "channel 24's bit must clear correctly in the overridden mask");
-        expect((m.cleared & DASH_CH_BIT(DASH_CH_FAN2)) == 0,
-               "channel 24's bit must clear correctly in the cleared mask");
+        m.valid &= (uint32_t) ~DASH_CH_BIT(DASH_CH_SESSION);
+        m.overridden &= (uint32_t) ~DASH_CH_BIT(DASH_CH_SESSION);
+        m.cleared &= (uint32_t) ~DASH_CH_BIT(DASH_CH_SESSION);
+        expect(!dash_ch_valid(&m, DASH_CH_SESSION), "channel 25's bit must clear correctly in the valid mask");
+        expect((m.overridden & DASH_CH_BIT(DASH_CH_SESSION)) == 0,
+               "channel 25's bit must clear correctly in the overridden mask");
+        expect((m.cleared & DASH_CH_BIT(DASH_CH_SESSION)) == 0,
+               "channel 25's bit must clear correctly in the cleared mask");
 
-        /* DASH_CH_ALL must round-trip every id 0..24 and nothing beyond */
+        /* DASH_CH_ALL must round-trip every id 0..25 and nothing beyond */
         for (uint8_t ch = 0; ch < DASH_CH_COUNT; ch++)
         {
             expect((DASH_CH_ALL & DASH_CH_BIT(ch)) != 0,
-                   "DASH_CH_ALL must cover every channel id 0..24");
+                   "DASH_CH_ALL must cover every channel id 0..25");
         }
         expect((DASH_CH_ALL & ~(uint32_t) ((1U << DASH_CH_COUNT) - 1U)) == 0,
                "DASH_CH_ALL must not set bits beyond DASH_CH_COUNT");
@@ -1009,6 +1012,7 @@ int main(void)
         expect(!dash_ch_valid(&st, DASH_CH_PRED), "street mode must never validate PRED");
         expect(!dash_ch_valid(&st, DASH_CH_THROTTLE), "street mode must never validate THROTTLE");
         expect(!dash_ch_valid(&st, DASH_CH_BRAKE), "street mode must never validate BRAKE");
+        expect(!dash_ch_valid(&st, DASH_CH_SESSION), "street mode must never validate SESSION");
         expect(dash_ch_valid(&st, DASH_CH_AFR_L), "street mode must still validate AFR_L (engine sensor)");
         expect(dash_ch_valid(&st, DASH_CH_TIME), "street mode must still validate TIME");
         expect(st.ch.afr_l >= 11.0f && st.ch.afr_l <= 14.0f, "street afr_l must stay in [11, 14]");
@@ -1143,6 +1147,8 @@ int main(void)
                "LAP/LAST/BEST/DELTA/PRED must stay invalid throughout the sweep");
         expect(!dash_ch_valid(&ws, DASH_CH_LAPN), "LAPN must stay invalid in the sweep");
         expect(!dash_ch_valid(&ws, DASH_CH_POS), "POS must stay invalid in the sweep");
+        expect(!dash_ch_valid(&ws, DASH_CH_SESSION),
+               "SESSION must stay invalid in the sweep -- the session clock does not run");
         expect(wm.lap_count == 0u, "the sweep must never complete a lap");
         expect(wm.lap_ms == 0u, "the sweep must never run the lap clock");
         expect(wm.lap_dist_ft == 0.0f, "the sweep must never advance lap position");
@@ -1237,6 +1243,8 @@ int main(void)
                "TRACK -> STREET must dead-front THROTTLE");
         expect(!dash_ch_valid(&sw, DASH_CH_BRAKE),
                "TRACK -> STREET must dead-front BRAKE");
+        expect(!dash_ch_valid(&sw, DASH_CH_SESSION),
+               "TRACK -> STREET must dead-front SESSION: there is no session in STREET");
 
         /* ...and an operator's forced lap value is still the operator's: the
          * dead-fronting goes through dash_ch_invalidate's ownership guard. */
@@ -1805,6 +1813,107 @@ int main(void)
         while (rm.lap_count < 2u) { dash_sim_step(&rm, &rs, 50u); }
         expect(dash_ch_valid(&rs, DASH_CH_BEST),
                "BEST must return once the new session has a flying lap");
+    }
+
+    /* ---- SESSION: the count-up session clock, published as a channel ----
+     * The sim already ran session_ms to drive the 20-minute rollover; this
+     * publishes it. Count-UP is the researched convention (no surveyed
+     * platform ships a race countdown), and the only reset is the existing
+     * rollover -- there is deliberately no manual/gesture reset until a real
+     * session start arrives over CAN. */
+    {
+        DashState ss;
+        DashSimState sm;
+        dash_state_init(&ss);
+        dash_sim_init(&sm);
+
+        dash_sim_step(&sm, &ss, 50u);
+        expect(dash_ch_valid(&ss, DASH_CH_SESSION),
+               "SESSION must publish from the very first TRACK step");
+        expect(ss.ch.session_ms == 50u, "SESSION must publish the elapsed session time in ms");
+
+        /* it counts UP, monotonically, and only ever falls at a rollover */
+        uint32_t prev_sess = ss.ch.session_ms;
+        int rollovers = 0;
+        uint32_t peak_sess = 0u;
+        for (int i = 0; i < 30000; i++) /* 25 sim-minutes: past one full session */
+        {
+            dash_sim_step(&sm, &ss, 50u);
+            expect(ss.ch.session_ms == sm.session_ms,
+                   "SESSION must publish the simulator's own session clock, not a copy that drifts");
+            if (ss.ch.session_ms < prev_sess)
+            {
+                rollovers++;
+                expect(prev_sess >= SIM_SESSION_MS,
+                       "the session clock may only restart at the 20-minute rollover");
+            }
+            else
+            {
+                expect(ss.ch.session_ms >= prev_sess,
+                       "the session clock must count UP, never down");
+            }
+            if (ss.ch.session_ms > peak_sess) { peak_sess = ss.ch.session_ms; }
+            prev_sess = ss.ch.session_ms;
+        }
+        expect(rollovers >= 1, "25 sim-minutes must cross at least one session rollover");
+        /* U8: the flag drops at 20:00 but the session ends at the in-lap, so
+         * the clock legitimately runs past 20:00 -- and never past the bounded
+         * pending-end escape hatch. */
+        expect(peak_sess > SIM_SESSION_MS,
+               "the session must keep counting through the in-lap after the flag");
+        expect(peak_sess < SIM_SESSION_MS + SIM_SESSION_PENDING_MAX_MS,
+               "the session clock must stay inside the bounded pending-end window");
+
+        /* an operator's forced value is still theirs (the ownership guard) */
+        dash_ch_set(&ss, DASH_CH_SESSION, 123456.0f);
+        ss.overridden |= DASH_CH_BIT(DASH_CH_SESSION);
+        dash_sim_step(&sm, &ss, 50u);
+        expect(ss.ch.session_ms == 123456u, "an overridden SESSION must survive a sim step");
+    }
+
+    /* ---- the taint of the lap that just ENDED must survive the crossing ----
+     * sim->lap_tainted is cleared at the lap boundary, right after the best_ms
+     * commit decision reads it, so by the time anything downstream renders a
+     * frame the flag is already false. The lap-crossing delta flash needs to
+     * know whether the lap it is about to compare was purely model-driven, so
+     * the crossing stamps a sticky copy that survives until the NEXT crossing. */
+    {
+        DashState ts;
+        DashSimState tm;
+        dash_state_init(&ts);
+        dash_sim_init(&tm);
+
+        expect(!tm.last_lap_tainted, "no lap has ended yet, so the sticky taint must start clear");
+
+        while (tm.lap_count < 2u) { dash_sim_step(&tm, &ts, 50u); }
+        expect(!tm.last_lap_tainted,
+               "laps the model drove itself must leave the sticky taint clear");
+
+        /* force SPEED: this lap's distance is the operator's number, not the
+         * model's, so its time is not evidence about the car (U6) */
+        dash_ch_set(&ts, DASH_CH_SPEED, 200.0f);
+        ts.overridden |= DASH_CH_BIT(DASH_CH_SPEED);
+        uint32_t lc = tm.lap_count;
+        while (tm.lap_count == lc) { dash_sim_step(&tm, &ts, 50u); }
+        expect(tm.last_lap_tainted,
+               "a lap driven at a forced speed must stamp the sticky taint at its crossing");
+        expect(!tm.lap_tainted,
+               "the in-progress flag must still clear at the crossing, as it always did");
+
+        /* release the override: the NEXT lap is clean again, and the sticky
+         * flag must follow it rather than latching for the rest of the run */
+        ts.overridden = 0u;
+        lc = tm.lap_count;
+        while (tm.lap_count == lc) { dash_sim_step(&tm, &ts, 50u); }
+        expect(!tm.last_lap_tainted,
+               "the sticky taint must clear on the first clean lap after the override");
+
+        /* a circuit switch taints the lap it starts, and that must be sticky too */
+        dash_sim_set_circuit(&tm, SIM_CIRCUIT_HPR);
+        lc = tm.lap_count;
+        while (tm.lap_count == lc) { dash_sim_step(&tm, &ts, 50u); }
+        expect(tm.last_lap_tainted,
+               "a lap begun by a circuit switch must stamp the sticky taint too");
     }
 
     /* ---- a lap driven under a forced SPEED must not become BEST ----

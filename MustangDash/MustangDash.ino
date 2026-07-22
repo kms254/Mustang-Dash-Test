@@ -105,6 +105,11 @@ static uint32_t g_ramg_fonts_end = 0UL; /* first free RAM_G byte above the fonts
 static DashState g_dash;
 static DashSimState g_sim;
 static DashOdo g_odo;
+/* Lap-crossing delta override for the TRACK LAP TIME readout. The state
+ * machine is pure (dash_math.h) and host-tested; all that lives here is the
+ * once-per-frame tick that feeds it the published channels plus the
+ * simulator's sticky per-lap taint. */
+static DashLapFlash g_lap_flash;
 
 /* ---- panel plumbing (three BT817s on one shared SPI bus, KTD1/KTD9) ---- */
 static EVE_panel_t g_eve_panels[DASH_PANEL_COUNT]; /* library form of DASH_PANELS, filled in setup() */
@@ -409,6 +414,7 @@ void setup(void)
     /* Odometer loads regardless of panel state -- it is Teensy-local. */
     dash_state_init(&g_dash);
     dash_sim_init(&g_sim);
+    dash_lap_flash_reset(&g_lap_flash);
     dash_odo_init(&g_odo);
     /* telltales: pins out + full-mask bulb check; the lamps hold ALL through
      * the splash (a visible ~2.4 s lamp test) until loop()'s first live
@@ -510,6 +516,13 @@ void loop(void)
     g_loop_last_ms = now;
 
     dash_sim_step(&g_sim, &g_dash, dt); /* honors sim_frozen + overrides */
+
+    /* Straight after the sim step, so a lap that closed on THIS step is seen
+     * on the frame that renders it. g_sim.last_lap_tainted is the taint of the
+     * lap now sitting in LAST -- lap_tainted itself has already been cleared
+     * for the new lap by the time we get here, which is the whole reason the
+     * sticky copy exists. */
+    dash_lap_flash_update(&g_lap_flash, &g_dash, now, g_sim.last_lap_tainted);
 
     if (dash_ch_valid(&g_dash, DASH_CH_SPEED))
     {

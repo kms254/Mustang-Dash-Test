@@ -216,6 +216,155 @@ int main(void)
         expect(strcmp(buf, "--:--.---") == 0, "invalid lap must format --:--.---");
     }
 
+    /* ---- session clock formatting: MM:SS, never decimal minutes ---- */
+    {
+        char buf[12];
+        dash_fmt_mmss(0U, true, buf);
+        expect(strcmp(buf, "00:00") == 0, "session 0 ms must format 00:00");
+        dash_fmt_mmss(59999U, true, buf);
+        expect(strcmp(buf, "00:59") == 0, "session 59999 ms must truncate to 00:59");
+        dash_fmt_mmss(60000U, true, buf);
+        expect(strcmp(buf, "01:00") == 0, "session 60000 ms must format 01:00");
+        dash_fmt_mmss(1200000U, true, buf);
+        expect(strcmp(buf, "20:00") == 0, "the 20-minute session mark must format 20:00");
+        /* the session runs PAST 20:00 until the in-lap finishes (U8) */
+        dash_fmt_mmss(1342500U, true, buf);
+        expect(strcmp(buf, "22:22") == 0, "a session past the flag must keep counting up");
+        dash_fmt_mmss(60000U, false, buf);
+        expect(strcmp(buf, "--:--") == 0, "invalid session must format --:--");
+    }
+
+    /* ---- lap-crossing delta flash (MoTeC override pattern) ----
+     * The state machine is driven purely off published channels plus the
+     * simulator's sticky taint flag, so every rule below is testable without
+     * a display: out-lap suppression, vs-PREVIOUS (not vs-best) reference,
+     * the new-best treatment, the 4 s hold, and the taint gate. */
+    {
+        DashState s;
+        DashLapFlash f;
+        char buf[16];
+
+        /* helper-free: drive the channels by hand so the test states the
+         * contract rather than re-deriving it from dash_sim.h */
+        dash_state_init(&s);
+        dash_lap_flash_reset(&f);
+
+        /* boot: lap 1 in progress, nothing completed */
+        dash_ch_set(&s, DASH_CH_LAPN, 1.0f);
+        dash_lap_flash_update(&f, &s, 1000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "no lap has completed, so nothing may override the lap clock");
+
+        /* lap 1 completes (the out-lap): suppressed */
+        dash_ch_set(&s, DASH_CH_LAPN, 2.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 140000.0f);
+        dash_lap_flash_update(&f, &s, 2000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "the out-lap must never flash: there is no earlier lap to compare it to");
+
+        /* lap 2 completes: the first flying lap, but lap 2 vs the out-lap is
+         * the fake ~18 s improvement U1 excludes everywhere else */
+        dash_ch_set(&s, DASH_CH_LAPN, 3.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 122000.0f);
+        dash_ch_set(&s, DASH_CH_BEST, 122000.0f);
+        dash_lap_flash_update(&f, &s, 3000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "lap 2 vs the out-lap must be suppressed, not shown as an 18 s gain");
+
+        /* lap 3 completes, quicker than lap 2 AND a new best */
+        dash_ch_set(&s, DASH_CH_LAPN, 4.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 121580.0f);
+        dash_ch_set(&s, DASH_CH_BEST, 121580.0f);
+        dash_lap_flash_update(&f, &s, 100000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_BEST,
+               "a new best must get the dedicated best treatment, not the plain green");
+        dash_lap_flash_text(&f, buf);
+        expect(strcmp(buf, "-0.42") == 0,
+               "the flash must read the signed 2-decimal delta vs the PREVIOUS lap");
+
+        /* the hold is 4 s: still up just before, gone at the boundary */
+        dash_lap_flash_update(&f, &s, 100000U + DASH_LAP_FLASH_MS - 1U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_BEST,
+               "the override must still be up 1 ms before the hold expires");
+        dash_lap_flash_update(&f, &s, 100000U + DASH_LAP_FLASH_MS, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "the override must revert to the running lap clock after the hold");
+        expect(DASH_LAP_FLASH_MS <= 7000U,
+               "the hold must stay under AiM's ~7 s point, past which it hides the next lap");
+
+        /* lap 4 completes, slower than lap 3 -- red, and NOT a best */
+        dash_ch_set(&s, DASH_CH_LAPN, 5.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 122730.0f);
+        dash_lap_flash_update(&f, &s, 200000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_SLOWER,
+               "a slower lap must flash slower, even though BEST did not move");
+        dash_lap_flash_text(&f, buf);
+        expect(strcmp(buf, "+1.15") == 0, "a slower lap must read a signed positive delta");
+
+        /* lap 5 quicker than lap 4 but still off the best: plain green, and
+         * this is the case that proves the reference is PREVIOUS, not best */
+        dash_ch_set(&s, DASH_CH_LAPN, 6.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 122000.0f);
+        dash_lap_flash_update(&f, &s, 300000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_QUICKER,
+               "quicker than the previous lap but off the best must flash plain quicker");
+        dash_lap_flash_text(&f, buf);
+        expect(strcmp(buf, "-0.73") == 0,
+               "the delta must be against the previous lap, not against best");
+
+        /* a TAINTED lap must not flash at all... */
+        dash_ch_set(&s, DASH_CH_LAPN, 7.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 46000.0f);
+        dash_lap_flash_update(&f, &s, 400000U, true);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "a lap driven at a forced speed must never flash a fabricated gain");
+
+        /* ...and the lap AFTER it must not either: the reference is that same
+         * fabricated time, so it would flash an equally fabricated loss */
+        dash_ch_set(&s, DASH_CH_LAPN, 8.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 122100.0f);
+        dash_lap_flash_update(&f, &s, 500000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "the lap after a tainted one must not flash against the tainted time");
+
+        /* the lap after THAT is honest again */
+        dash_ch_set(&s, DASH_CH_LAPN, 9.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 122400.0f);
+        dash_lap_flash_update(&f, &s, 600000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_SLOWER,
+               "the flash must recover on the first clean pair after a tainted lap");
+
+        /* the 20-minute session rollover restarts the lap book: LAPN goes
+         * backwards and no comparison may cross the boundary */
+        dash_ch_set(&s, DASH_CH_LAPN, 1.0f);
+        dash_ch_invalidate(&s, DASH_CH_LAST);
+        dash_ch_invalidate(&s, DASH_CH_BEST);
+        dash_lap_flash_update(&f, &s, 700000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "a session rollover must clear the override");
+        dash_ch_set(&s, DASH_CH_LAPN, 2.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 141000.0f);
+        dash_lap_flash_update(&f, &s, 701000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "the new session's out-lap must be suppressed like the first one");
+
+        /* STREET / SWEEP: LAPN is dead-fronted, so there is no lap to flash --
+         * and an override already up must drop the moment the mode changes,
+         * not linger for the rest of its hold on a screen with no laps. */
+        dash_ch_set(&s, DASH_CH_LAPN, 3.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 122000.0f);
+        dash_lap_flash_update(&f, &s, 702000U, false);
+        dash_ch_set(&s, DASH_CH_LAPN, 4.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 122500.0f);
+        dash_lap_flash_update(&f, &s, 703000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_SLOWER,
+               "lap 3 of a NEW session must flash, on the new session's own lap count");
+        dash_ch_invalidate(&s, DASH_CH_LAPN);
+        dash_lap_flash_update(&f, &s, 703100U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "leaving the lap path must drop the override immediately");
+    }
+
     /* ---- shared value formatter (dash_fmt_value) ---- */
     {
         char buf[16];

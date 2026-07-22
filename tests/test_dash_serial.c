@@ -20,7 +20,7 @@
 
 /* protocol constants that must never drift */
 _Static_assert(DASH_SERIAL_MAX_LINE == 63, "max line must be 63 chars + NUL");
-_Static_assert(DASH_CH_COUNT == 25, "serial protocol names exactly 25 channels");
+_Static_assert(DASH_CH_COUNT == 26, "serial protocol names exactly 26 channels");
 _Static_assert(DASH_CMD_NONE == 0, "DASH_CMD_NONE must be the zero value");
 _Static_assert(DASH_ERR_NONE == 0, "DASH_ERR_NONE must be the zero value");
 /* protocol alarm codes stay numerically identical to dash_math.h's DashAlarm
@@ -121,7 +121,7 @@ int main(void)
     expect(parse("help", &c) == DASH_ERR_NONE && c.kind == DASH_CMD_HELP,
            "help must be DASH_CMD_HELP");
 
-    /* ---- every channel name maps to its id (25 names, incl. last) ---- */
+    /* ---- every channel name maps to its id (26 names, incl. last) ---- */
     {
         static const struct { const char *name; uint8_t ch; } map[] = {
             { "rpm", DASH_CH_RPM },       { "speed", DASH_CH_SPEED },

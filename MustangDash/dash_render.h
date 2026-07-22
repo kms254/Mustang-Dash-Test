@@ -179,10 +179,50 @@ void draw_track_mode(uint32_t now_ms, uint8_t alpha)
 
     const int16_t col_x = DASH_LX(428);
     const int16_t col_x1 = DASH_LX(582);
+
+    /* SESSION sits ABOVE lap time on purpose: the session is the outer context
+     * and the lap lives inside it, so reading the column top-down reads the
+     * hierarchy. DF_VAL rather than LAP TIME's DF_MID -- the space is only
+     * ~35 mock px tall, and lap time must stay the dominant number here.
+     * (DF_SMALL would be smaller still but has no ':' glyph.) */
+    dash_color(COLOR_LABEL, alpha);
+    EVE_cmd_text(col_x, DASH_LY(104), dash_font(DF_LABEL), 0U, "SESSION");
+    dash_color(COLOR_VALUE_DIM, alpha);
+    dash_fmt_mmss(g_dash.ch.session_ms, dash_ch_valid(&g_dash, DASH_CH_SESSION), buf);
+    EVE_cmd_text(col_x, DASH_LY(120), dash_font(DF_VAL), 0U, buf);
+
+    /* LAP TIME. The LABEL is fixed; only the VALUE is overridden at a lap
+     * crossing (MoTeC's pattern -- see dash_math.h's lap-flash block). All of
+     * the decision-making happened in dash_lap_flash_update; this picks a
+     * color and draws whichever string is current. */
     dash_color(COLOR_LABEL, alpha);
     EVE_cmd_text(col_x, DASH_LY(140), dash_font(DF_LABEL), 0U, "LAP TIME");
-    dash_color(COLOR_VALUE, alpha);
-    dash_fmt_lap(g_dash.ch.lap_ms, dash_ch_valid(&g_dash, DASH_CH_LAP), buf);
+
+    const DashLapFlashKind lfk = dash_lap_flash_kind(&g_lap_flash);
+    if (DASH_LAPFLASH_NONE != lfk)
+    {
+        /* A new best alternates purple <-> white rather than blinking on and
+         * off: the number stays readable in every phase, and the alternation
+         * is what makes it read as an EVENT instead of just another delta.
+         * COLOR_BEST is the dash's existing best-lap purple, which is the
+         * timing convention the driver already knows from the side screen. */
+        uint32_t lfc;
+        if (DASH_LAPFLASH_BEST == lfk)
+        {
+            lfc = dash_lap_flash_blink(&g_lap_flash, now_ms) ? COLOR_BEST : COLOR_VALUE;
+        }
+        else
+        {
+            lfc = (DASH_LAPFLASH_QUICKER == lfk) ? COLOR_GREEN : COLOR_RED_TEXT;
+        }
+        dash_color(lfc, alpha);
+        dash_lap_flash_text(&g_lap_flash, buf);
+    }
+    else
+    {
+        dash_color(COLOR_VALUE, alpha);
+        dash_fmt_lap(g_dash.ch.lap_ms, dash_ch_valid(&g_dash, DASH_CH_LAP), buf);
+    }
     EVE_cmd_text(col_x, DASH_LY(158), dash_font(DF_MID), 0U, buf);
 
     const bool delta_ok = dash_ch_valid(&g_dash, DASH_CH_DELTA);

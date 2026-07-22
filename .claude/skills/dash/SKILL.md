@@ -30,7 +30,7 @@ case-insensitive):
 | `help` | List commands |
 | `flashwipe really` | **Destructive, minutes-long:** full-chip erase of the center panel's retired QSPI flash. The one two-line command: it first prints a `flashwipe: erasing…` warning, then blocks SILENTLY for minutes (dash frozen, no output) before the final `ok flashwipe` / `err flashwipe …` ack — extend the read timeout to at least 5 minutes and NEVER power-cycle while waiting. Bare `flashwipe` or any other argument errs without erasing. |
 
-Channels: `rpm speed ect oilt oilp volts fuel delta lap last best ambient afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2`.
+Channels: `rpm speed ect oilt oilp volts fuel delta lap last best ambient afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2 session`.
 
 ## Steps
 

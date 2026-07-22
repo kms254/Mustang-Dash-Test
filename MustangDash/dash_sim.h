@@ -439,6 +439,14 @@ typedef struct {
      * dash_sim_set_circuit) and it is cleared at each lap boundary, AFTER the
      * commit decision that reads it. */
     bool lap_tainted;
+    /* The taint of the lap that just ENDED, stamped at the crossing from
+     * lap_tainted before that flag is cleared for the new lap. It exists
+     * because lap_tainted describes the lap IN PROGRESS and is already false
+     * by the time anything downstream renders a frame -- so a consumer that
+     * needs to know whether the lap now sitting in LAST was purely
+     * model-driven (dash_math.h's lap-crossing delta override) has nothing to
+     * read. Sticky until the next crossing replaces it. */
+    bool last_lap_tainted;
 } DashSimState;
 
 /* Which distance bucket a lap position falls in. Clamped at BOTH ends: the
@@ -571,6 +579,10 @@ static inline void dash_sim_dead_front_lap(DashState *s)
     dash_ch_invalidate(s, DASH_CH_POS);
     dash_ch_invalidate(s, DASH_CH_THROTTLE);
     dash_ch_invalidate(s, DASH_CH_BRAKE);
+    /* SESSION too: STREET and the SWEEP fixture have no session, and the
+     * clock does not run on either path, so leaving it valid would show a
+     * frozen session time from whenever TRACK last ran. */
+    dash_ch_invalidate(s, DASH_CH_SESSION);
 }
 
 /* This corner's limit: the authored speed pulled down to what the driver will
@@ -749,6 +761,7 @@ static inline void dash_sim_session_reset(DashSimState *sim)
     dash_sim_trace_stamp(sim, 0u); /* the new lap starts at t=0 by definition */
     sim->ref_valid = false;        /* DELTA dead-fronts again until a flying lap */
     sim->lap_tainted = false;      /* the new session opens on a clean out-lap */
+    sim->last_lap_tainted = false; /* ...and no lap of it has ended yet */
 
     /* draws from the surviving LCG, so the new session's corners differ */
     dash_sim_reseed_jitter(sim);
@@ -788,6 +801,7 @@ static inline void dash_sim_init(DashSimState *sim)
     sim->trace_next = 0u;
     sim->ref_valid = false; /* no lap driven yet: DELTA stays dead-fronted */
     sim->lap_tainted = false;
+    sim->last_lap_tainted = false;
 }
 
 static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms)
@@ -901,7 +915,9 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
             }
             /* cleared AFTER the commit decision above reads it: the taint
              * belongs to the lap that just ended, and the next lap is clean
-             * until something taints it in turn */
+             * until something taints it in turn -- but the lap it belongs to
+             * is exactly the one now in LAST, so stamp a sticky copy first */
+            sim->last_lap_tainted = sim->lap_tainted;
             sim->lap_tainted = false;
             sim->lap_ms = 0u;
             sim->trace_next = 0u;
@@ -1206,6 +1222,22 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
         {
             dash_ch_invalidate(s, DASH_CH_DELTA); /* `--`, not a fabricated 0.00 */
         }
+        /* U8: the session clock, published so the driver can see the outer
+         * context the lap time lives inside. It is honest about WHAT it
+         * counts -- the firmware's session, i.e. time since boot or since the
+         * last 20-minute rollover -- and not the driver's stint, which the
+         * firmware has no way to know. There is deliberately NO manual reset:
+         * no button gesture, no serial command. A real session start will
+         * arrive over CAN from a RaceCapture logger, and wiring a local reset
+         * before that signal exists would produce a timer claiming a meaning
+         * it cannot have. Do not add one without the CAN context.
+         *
+         * The only reset is dash_sim_session_reset's 20-minute rollover. */
+        if (dash_ch_sim_owned(s, DASH_CH_SESSION))
+        {
+            dash_ch_set(s, DASH_CH_SESSION, (float) sim->session_ms);
+        }
+
         if (dash_ch_sim_owned(s, DASH_CH_LAP))   { dash_ch_set(s, DASH_CH_LAP, (float) sim->lap_ms); }
         if (sim->lap_count > 0u) /* before the first lap, LAST/BEST stay --:--.--- */
         {

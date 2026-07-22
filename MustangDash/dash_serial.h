@@ -22,7 +22,8 @@
  *   help                    caller replies DASH_HELP_TEXT
  *
  * Channels: rpm speed ect oilt oilp volts fuel delta lap last best ambient
- * afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2.
+ * afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2
+ * session.
  */
 
 #ifndef DASH_SERIAL_H
@@ -92,7 +93,7 @@ typedef enum {
     "alarm oilp|oilt|clt|off | odo set <miles> | sim on|off | status | help | cantest | " \
     "flashwipe really " \
     "(ch: rpm speed ect oilt oilp volts fuel delta lap last best ambient " \
-    "afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2)"
+    "afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2 session)"
 
 typedef struct {
     DashCmdKind kind;
@@ -154,6 +155,7 @@ static inline const char *dash_ch_name(uint8_t ch)
         case DASH_CH_PUMP: return "pump";
         case DASH_CH_FAN1: return "fan1";
         case DASH_CH_FAN2: return "fan2";
+        case DASH_CH_SESSION: return "session";
         default: return "?";
     }
 }
@@ -196,6 +198,9 @@ static inline void dash_ch_range_(uint8_t ch, float *lo, float *hi)
         case DASH_CH_PUMP: /* fall through: PMU outputs share a range */
         case DASH_CH_FAN1:
         case DASH_CH_FAN2: *lo = 0.0f; *hi = 30.0f; break;
+        /* ms, and generously ranged: a forced session time is a bench probe of
+         * the MM:SS readout, not a claim about a real session. */
+        case DASH_CH_SESSION: *lo = 0.0f; *hi = 3600000.0f; break;
         default: *lo = 0.0f; *hi = 0.0f; break;
     }
 }
