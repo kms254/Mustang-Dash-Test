@@ -500,12 +500,6 @@ void draw_alarm_takeover(DashAlarm alarm, uint32_t now_ms, uint8_t alpha)
     EVE_cmd_text(cx, DASH_LY(330), dash_font(DF_LABEL), EVE_OPT_CENTER, limit);
 }
 
-/* STREET base layer: staged RAM_G bitmap published by splash staging
- * (splash_render.h fills these after boot; 0 = unstaged, plain COLOR_BG).
- * Trial 2026-07-21: premium carbon backdrop under the STREET dash. */
-static uint32_t g_street_bg_src = 0UL;
-static uint16_t g_street_bg_fmt = 0U;
-
 /* One dash composition: fonts registered, then alarm-or-mode content. The
  * alarm classifier reads valid channels only, so a missing sensor can never
  * assert (or hold) a takeover (R10/R11). */
@@ -520,23 +514,12 @@ void draw_dash_content(uint32_t now_ms, uint8_t alpha)
     }
     else if (DASH_MODE_STREET == g_dash.mode)
     {
-        if (0UL != g_street_bg_src)
-        {
-            /* CMD_SETBITMAP configures the CURRENTLY SELECTED handle, and
-             * dash_register_fonts just parked the selection on the last
-             * font handle -- configuring it here re-pointed that font at
-             * the carbon bitmap and scrambled every glyph drawn with it
-             * (bench photo, 2026-07-21). Use a scratch handle well above
-             * the font set, and restore handle 0 afterwards. */
-            EVE_cmd_dl(COLOR_A(alpha));
-            EVE_cmd_dl(BITMAP_HANDLE(15UL));
-            EVE_cmd_setbitmap(g_street_bg_src, g_street_bg_fmt,
-                              (uint16_t)EVE_HSIZE, (uint16_t)EVE_VSIZE);
-            EVE_cmd_dl(DL_BEGIN | EVE_BITMAPS);
-            EVE_cmd_dl(VERTEX2F(0, 0));
-            EVE_cmd_dl(DL_END);
-            EVE_cmd_dl(BITMAP_HANDLE(0UL));
-        }
+        /* NOTE for any future full-screen bitmap here: CMD_SETBITMAP
+         * configures the CURRENTLY SELECTED handle, and register_fonts
+         * parks the selection on the last font handle -- draw on a scratch
+         * handle (e.g. 15) and restore 0, or every glyph on that font
+         * renders as scrambled blocks (bench-found 2026-07-21; the carbon
+         * base-layer trial hit this before being retired to flat black). */
         draw_street_mode(now_ms, alpha);
     }
     else
