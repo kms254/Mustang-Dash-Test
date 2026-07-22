@@ -28,34 +28,97 @@
 
 /* ---- vehicle constants (do NOT include dash_math.h; SIM_-local) ---- */
 /* MPH = rpm * tire_dia_in / (gear_ratio * final_drive * 336) */
-#define SIM_TIRE_DIA_IN     26.0f
+#define SIM_TIRE_DIA_IN     25.44f /* 315/30R18 on all four corners (plan R5) */
 #define SIM_FINAL_DRIVE     3.73f
 #define SIM_MPH_CONST       336.0f
 static const float SIM_GEAR_RATIOS[6] = { 2.66f, 1.78f, 1.30f, 1.00f, 0.80f, 0.63f }; /* T56 */
 
+/* ---- chassis / acceleration model (plan U2, R4/R5) ----
+ * Acceleration is not authored, it is computed: traction-limited off the
+ * corners, power-limited up top, opposed by drag --
+ *   a = min(traction_g * g, whp * 550 / (mass * v)) - 0.5 * rho * CdA * v^2 / mass
+ * All of these are tuning inputs rather than measurements. SIM_POWER_WHP is
+ * the dyno figure measured in Denver, so no altitude derate is applied on
+ * top of it (plan KTD5) -- the ~15% NA loss is already in the number. */
+#define SIM_MASS_SLUG     90.1f    /* 2900 lb with driver / 32.174 */
+#define SIM_POWER_WHP     511.0f   /* dyno-measured in Denver (KTD5) */
+#define SIM_TRACTION_G    1.05f    /* rear-driven on 315 R-comps */
+#define SIM_BRAKE_G       1.25f    /* square 315s, four-wheel braking */
+#define SIM_LATERAL_G     1.30f    /* informs the authored corner limits below */
+#define SIM_CDA           9.5f     /* ft^2: Cd ~0.45 x ~21 ft^2; a 1965 body is not slippery */
+#define SIM_AIR_RHO       0.00174f /* slug/ft^3 at ~5000 ft density altitude */
+#define SIM_G_FPS2        32.174f
+#define SIM_FPS_PER_MPH   1.46667f
+#define SIM_HP_FT_LB_S    550.0f   /* 1 hp = 550 ft-lb/s */
+#define SIM_V_FLOOR_FPS   1.0f     /* divide guard for the power term at rest */
+
 /* ---- powertrain / driving-cycle tuning ----
- * TRACK is a lap-synced driving cycle: the lap position selects a segment
- * of the circuit profile below, speed chases that segment's target with
- * power-limited acceleration and race braking, and the gearbox follows the
- * wheel speed with hysteresis. RPM is always derived from speed THROUGH
- * the current gear, so the same road speed appears at very different rpm
- * depending on where on the lap (and in which gear) the car is -- no more
- * pegged 6200 rpm / 204 mph cruise. */
+ * TRACK drives a real lap of High Plains Raceway: lap POSITION is integrated
+ * road speed (not a clock), the position selects a segment of the circuit
+ * table below, and the car accelerates freely until lookahead braking for the
+ * next corner's entry limit engages. The gearbox follows wheel speed with
+ * hysteresis, and RPM is always derived from speed THROUGH the current gear,
+ * so the same road speed appears at very different rpm depending on where on
+ * the lap (and in which gear) the car is. Gear selection is emergent (R6):
+ * nothing asks for a particular gear, and this circuit happens to want 5th on
+ * the front straight. */
 #define SIM_RPM_START         950.0f  /* rolling out of the pits */
 #define SIM_RPM_IDLE          850.0f  /* rpm floor */
 #define SIM_RPM_MAX           7600.0f /* brushes the 7600 shift point, under the 8000 redline */
 #define SIM_UPSHIFT_RPM       7400.0f /* pull the next gear above this */
 #define SIM_DOWNSHIFT_RPM     3300.0f /* consider a lower gear below this... */
 #define SIM_DOWNSHIFT_MAX_RPM 6900.0f /* ...if it lands the revs below this */
-#define SIM_ACCEL_BASE_MPHPS  18.0f   /* launch acceleration, mph per second */
-#define SIM_ACCEL_FADE        0.062f  /* aero/power fade per mph of speed */
-#define SIM_ACCEL_MIN_MPHPS   2.2f    /* top-end crawl toward vmax */
-#define SIM_BRAKE_MPHPS       30.0f   /* race braking, mph shed per second */
-#define SIM_SEG_JITTER_MPH    9u      /* per-visit target jitter: 0..8 - 4 mph */
-#define SIM_SEG_COUNT         10u
+#define SIM_SEG_JITTER_MPH    9u      /* per-lap corner-limit jitter: 0..8 - 4 mph */
+#define SIM_SEG_COUNT         16u
 
-/* ---- lap timing ---- */
-#define SIM_LAP_ROLLOVER_MS 62000u
+/* ---- lap geometry: High Plains Raceway, 2.55 mi (plan R1) ---- */
+#define SIM_TRACK_LAP_FT    13464.0f
+
+/* The circuit (plan U3). Distance-keyed, clockwise, start/finish at Turn 3's
+ * exit so the lap opens with the full front straight -- which is why the
+ * SEGMENT index is offset from the TURN number: segment 1 is T4 and T1 does
+ * not appear until segment 13. Read the Segment column top to bottom and the
+ * driving order is the PCA/Speed Secrets course guide's lap exactly.
+ *
+ * len_ft is apportioned, not surveyed (plan KTD3): only the lap total and the
+ * 2838 ft front straight are published figures, so segment 0 must not flex --
+ * the 2 ft reconciliation remainder lives in segment 15 (T3, 424 -> 426).
+ * limit_mph is hand-authored from each corner's documented character (KTD2).
+ *
+ * A limit constrains its segment's ENTRY BOUNDARY ONLY. Inside a segment the
+ * car accelerates freely until lookahead braking for the NEXT entry limit
+ * engages; holding the limit across the whole segment would have the car
+ * crawling at 65 mph for all 700 ft of T4.
+ *
+ * is_corner_limit separates real constraints from annotations. Segment 0 (the
+ * straight) and segment 9 (T12 "Ladder to Heaven", a flat-out uphill kink)
+ * carry a speed for reference only: they are never braked for, and U4's
+ * driver-skill scaling must skip them. */
+typedef struct {
+    float len_ft;         /* segment length */
+    float end_ft;         /* cumulative distance at this segment's end */
+    float limit_mph;      /* speed at this segment's ENTRY boundary */
+    bool is_corner_limit; /* false = annotation only, never enforced */
+} SimSeg;
+
+static const SimSeg SIM_SEGS[SIM_SEG_COUNT] = {
+    { 2838.0f,  2838.0f,   0.0f, false }, /* front straight T3->T4: longest straight, official figure */
+    {  700.0f,  3538.0f,  65.0f, true  }, /* T4  Biker's Berm -- primary braking zone */
+    {  600.0f,  4138.0f,  75.0f, true  }, /* T5  Niagara -- blind left, apex past middle */
+    {  700.0f,  4838.0f,  55.0f, true  }, /* T6  Danny's Lesson -- decreasing radius, very late apex */
+    { 1100.0f,  5938.0f, 105.0f, true  }, /* T7  High Plains Drifter -- fast right sweeper */
+    {  800.0f,  6738.0f,  70.0f, true  }, /* T8  -- uphill braking zone */
+    { 1000.0f,  7738.0f,  85.0f, true  }, /* T9A/9B To Hell on a Bobsled -- linked downhill pair */
+    {  700.0f,  8438.0f,  80.0f, true  }, /* T10 -- compression at the bottom of the hill */
+    {  800.0f,  9238.0f,  70.0f, true  }, /* T11 -- blind, extremely late apex, uphill */
+    {  900.0f, 10138.0f, 125.0f, false }, /* T12 Ladder to Heaven -- flat-out uphill kink, NOT a limit */
+    {  600.0f, 10738.0f,  60.0f, true  }, /* T13 Prairie Corkscrew entry -- brake at the 2 marker */
+    {  500.0f, 11238.0f,  65.0f, true  }, /* T14 -- right, 3/4 through the curb */
+    {  500.0f, 11738.0f,  70.0f, true  }, /* T15 -- left, tracks out far right */
+    {  800.0f, 12538.0f,  40.0f, true  }, /* T1  -- tightest on track: 80 ft radius, 160 deg, off-camber */
+    {  500.0f, 13038.0f,  50.0f, true  }, /* T2  -- very late apex */
+    {  426.0f, 13464.0f,  75.0f, true  }, /* T3  -- double apex, leads onto the straight (+2 ft remainder) */
+};
 
 /* ---- temperatures / pressures / electrics ---- */
 #define SIM_COLD_START_F    75.0f    /* ambient-ish warm-start value */
@@ -106,8 +169,9 @@ typedef struct {
     /* internal continuous state */
     float rpm;
     float speed_mph;    /* driving-cycle integrator state */
-    uint8_t seg_idx;    /* current circuit segment (0xFF = force refresh) */
-    float seg_target;   /* jittered target speed for the current segment */
+    float lap_dist_ft;  /* lap position: integrated road speed, not a clock (U1) */
+    uint8_t seg_idx;    /* current circuit segment */
+    float seg_jitter_mph[SIM_SEG_COUNT]; /* per-lap corner-limit offsets */
     float ect_f;
     float oilt_f;
     float fuel_gal;
@@ -135,7 +199,23 @@ static inline float dash_sim_rpm_from_speed(float mph, uint8_t gear)
            / SIM_TIRE_DIA_IN;
 }
 
-/* Gear 1, warm-start temps at ambient-ish cold values, full-ish tank. */
+/* Redraw every corner's limit jitter. Once per lap rather than per visit, so
+ * lookahead braking sees one stable target all the way down to the boundary
+ * (a target that moved under the braking curve would chatter the throttle).
+ * Non-corner segments keep 0 -- their speeds are annotations, not limits. */
+static inline void dash_sim_reseed_jitter(DashSimState *sim)
+{
+    for (uint8_t i = 0u; i < SIM_SEG_COUNT; i++)
+    {
+        sim->seg_jitter_mph[i] = SIM_SEGS[i].is_corner_limit
+                                 ? ((float) dash_sim_jitter(sim, SIM_SEG_JITTER_MPH) - 4.0f)
+                                 : 0.0f;
+    }
+}
+
+/* Gear 1, warm-start temps at ambient-ish cold values, full-ish tank.
+ * The ~7 mph rollout is deliberate: it makes lap 1 the session out-lap, which
+ * is why lap 1 is excluded from best_ms below (U1). */
 static inline void dash_sim_init(DashSimState *sim)
 {
     sim->gear = 1;
@@ -145,8 +225,9 @@ static inline void dash_sim_init(DashSimState *sim)
     sim->lap_count = 0u;
     sim->rpm = SIM_RPM_START;
     sim->speed_mph = dash_sim_speed_mph(SIM_RPM_START, 1); /* ~7 mph, rolling out */
-    sim->seg_idx = 0xFFu; /* force a target refresh on the first step */
-    sim->seg_target = 0.0f;
+    sim->lap_dist_ft = 0.0f;
+    sim->seg_idx = 0u;
+    dash_sim_reseed_jitter(sim);
     sim->ect_f = SIM_COLD_START_F;
     sim->oilt_f = SIM_COLD_START_F;
     sim->fuel_gal = SIM_FUEL_START_GAL;
@@ -175,74 +256,101 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
 
     if (track)
     {
-        /* lap timer first -- the driving cycle below is keyed off lap
-         * position, so every lap drives the same circuit (deterministic
-         * braking points), with per-visit target jitter for variety */
+        /* lap TIMER (no longer the lap position -- see below) */
         sim->lap_ms += dt_ms;
-        if (sim->lap_ms > SIM_LAP_ROLLOVER_MS)
+
+        /* U1: lap position is integrated road speed. A lap closes when the
+         * car crosses SIM_TRACK_LAP_FT, so lap time is an OUTPUT. Nothing but
+         * lap_dist_ft and lap_ms reset, so laps 2+ cross start/finish carrying
+         * their speed -- and with S/F at T3's exit that is a corner-exit speed
+         * feeding the front straight, i.e. flying laps by construction. */
+        sim->lap_dist_ft += sim->speed_mph * SIM_FPS_PER_MPH * dt_s;
+        if (sim->lap_dist_ft >= SIM_TRACK_LAP_FT)
         {
+            sim->lap_dist_ft -= SIM_TRACK_LAP_FT;
             sim->last_ms = sim->lap_ms;
-            if (sim->lap_count == 0u || sim->last_ms < sim->best_ms)
+            /* lap 1 is the out-lap: it rolls out of the pits at ~7 mph, so it
+             * is several seconds slow and must never set the benchmark. It
+             * still populates LAST and still displays -- it is a real lap, just
+             * not a representative one. lap_count here is laps completed
+             * BEFORE this one, so 1 is the first flying lap to finish. */
+            if ((sim->lap_count == 1u)
+                || ((sim->lap_count > 1u) && (sim->last_ms < sim->best_ms)))
             {
                 sim->best_ms = sim->last_ms;
             }
             sim->lap_ms = 0u;
             sim->lap_count++;
+            dash_sim_reseed_jitter(sim);
         }
 
-        /* the circuit: 10 lap-position segments (fraction-of-lap end,
-         * target mph) -- front straight, hairpin, chute, sweepers, back
-         * straight, esses, final complex onto the straight */
-        static const struct { float frac_end; float target_mph; } SIM_SEGS[SIM_SEG_COUNT] = {
-            { 0.19f, 196.0f }, /* front straight (long enough to pull 6th) */
-            { 0.27f,  64.0f }, /* T1 hairpin */
-            { 0.36f, 124.0f }, /* chute */
-            { 0.42f,  86.0f }, /* T3 */
-            { 0.56f, 178.0f }, /* back straight */
-            { 0.63f,  94.0f }, /* T5 */
-            { 0.72f, 140.0f }, /* esses */
-            { 0.79f,  70.0f }, /* T7 tight */
-            { 0.90f, 156.0f }, /* kink run */
-            { 1.01f, 112.0f }, /* final complex onto the straight */
-        };
-        const float lap_frac = (float) sim->lap_ms / (float) SIM_LAP_ROLLOVER_MS;
+        /* locate the current segment by distance (U3) */
         uint8_t si = 0u;
-        while ((si < (SIM_SEG_COUNT - 1u)) && (lap_frac > SIM_SEGS[si].frac_end))
+        while ((si < (SIM_SEG_COUNT - 1u)) && (sim->lap_dist_ft >= SIM_SEGS[si].end_ft))
         {
             si++;
         }
-        if (si != sim->seg_idx)
+        sim->seg_idx = si;
+
+        /* U3 lookahead braking (KTD4). Rather than braking AT a corner, walk
+         * the rest of the lap and ask what speed each upcoming corner entry
+         * still permits right now:
+         *     v_allow = sqrt(v_limit^2 + 2 * a_brake * distance_to_it)
+         * The lowest such figure is the cap. Riding the cap down IS the
+         * braking zone, and it lands the car exactly on the limit at the
+         * boundary -- which is what makes the braking points, and therefore
+         * the tach sawtooth, come out in the right place. */
+        const float a_brake = SIM_BRAKE_G * SIM_G_FPS2;
+        float v_fps = sim->speed_mph * SIM_FPS_PER_MPH;
+        float cap_fps = 1.0e6f; /* no corner in range -> no cap */
+        /* measured from where the car will be at the END of this step, not
+         * where it is now: capping against the current position lets it
+         * arrive a step's worth of braking (~2 mph) above the limit. This
+         * converges to the same continuous solution at any dt. */
+        float d_ahead = SIM_SEGS[si].end_ft - sim->lap_dist_ft - v_fps * dt_s;
+        if (d_ahead < 0.0f) { d_ahead = 0.0f; }
+        for (uint8_t k = 1u; k <= SIM_SEG_COUNT; k++)
         {
-            sim->seg_idx = si;
-            sim->seg_target = SIM_SEGS[si].target_mph
-                              + (float) dash_sim_jitter(sim, SIM_SEG_JITTER_MPH) - 4.0f;
+            const uint8_t j = (uint8_t) ((si + k) % SIM_SEG_COUNT);
+            if (SIM_SEGS[j].is_corner_limit) /* annotations are never braked for */
+            {
+                const float vt = (SIM_SEGS[j].limit_mph + sim->seg_jitter_mph[j])
+                                 * SIM_FPS_PER_MPH;
+                const float allow = sqrtf(vt * vt + 2.0f * a_brake * d_ahead);
+                if (allow < cap_fps) { cap_fps = allow; }
+            }
+            d_ahead += SIM_SEGS[j].len_ft;
         }
 
-        /* chase the segment target: power-limited accel, race braking */
-        float accel = SIM_ACCEL_BASE_MPHPS - SIM_ACCEL_FADE * sim->speed_mph;
-        if (accel < SIM_ACCEL_MIN_MPHPS)
+        bool braking = false;
+        if (v_fps > cap_fps)
         {
-            accel = SIM_ACCEL_MIN_MPHPS;
+            v_fps -= a_brake * dt_s;
+            if (v_fps < cap_fps) { v_fps = cap_fps; }
+            braking = true;
         }
-        if (sim->speed_mph < (sim->seg_target - 0.5f))
+        else
         {
-            sim->speed_mph += accel * dt_s;
-            if (sim->speed_mph > sim->seg_target) { sim->speed_mph = sim->seg_target; }
-            track_throttle_pct = 62.0f + 38.0f * (accel / SIM_ACCEL_BASE_MPHPS);
-            track_brake_pct = 0.0f;
+            /* U2: traction-limited off the corners, power-limited up top,
+             * both opposed by drag. v_guard keeps the power term finite at
+             * the standing-start rollout (v_fps is never actually 0 given
+             * dash_sim_init's seed, but the divide is guarded anyway). */
+            const float v_guard = (v_fps < SIM_V_FLOOR_FPS) ? SIM_V_FLOOR_FPS : v_fps;
+            const float a_traction = SIM_TRACTION_G * SIM_G_FPS2;
+            const float a_power = (SIM_POWER_WHP * SIM_HP_FT_LB_S)
+                                  / (SIM_MASS_SLUG * v_guard);
+            const float a_drag = 0.5f * SIM_AIR_RHO * SIM_CDA * v_guard * v_guard
+                                 / SIM_MASS_SLUG;
+            const float a_net = ((a_power < a_traction) ? a_power : a_traction) - a_drag;
+            v_fps += a_net * dt_s;
+            if (v_fps > cap_fps) { v_fps = cap_fps; braking = true; }
         }
-        else if (sim->speed_mph > (sim->seg_target + 0.5f))
-        {
-            sim->speed_mph -= SIM_BRAKE_MPHPS * dt_s;
-            if (sim->speed_mph < sim->seg_target) { sim->speed_mph = sim->seg_target; }
-            track_throttle_pct = 0.0f;
-            track_brake_pct = 82.0f + 8.0f * sinf(t * 3.0f);
-        }
-        else /* holding a corner / terminal-velocity crawl */
-        {
-            track_throttle_pct = 24.0f + (sim->rpm / SIM_RPM_MAX) * 22.0f;
-            track_brake_pct = 0.0f;
-        }
+        if (v_fps < 0.0f) { v_fps = 0.0f; }
+        sim->speed_mph = v_fps / SIM_FPS_PER_MPH;
+
+        /* the model has exactly two states: on the brakes, or on the throttle */
+        track_throttle_pct = braking ? 0.0f : 100.0f;
+        track_brake_pct = braking ? (82.0f + 8.0f * sinf(t * 3.0f)) : 0.0f;
 
         /* hysteretic gearbox: upshift above SIM_UPSHIFT_RPM; downshift when
          * revs sag AND the lower gear lands safely under the shift point.
@@ -345,7 +453,13 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
         if (sim->lap_count > 0u) /* before the first lap, LAST/BEST stay --:--.--- */
         {
             if (dash_ch_sim_owned(s, DASH_CH_LAST)) { dash_ch_set(s, DASH_CH_LAST, (float) sim->last_ms); }
-            if (dash_ch_sim_owned(s, DASH_CH_BEST)) { dash_ch_set(s, DASH_CH_BEST, (float) sim->best_ms); }
+            /* BEST needs a flying lap: after the out-lap alone there is no
+             * representative time, so it stays dead-fronted rather than
+             * publishing the out-lap or a fabricated zero (U1). */
+            if ((sim->lap_count > 1u) && dash_ch_sim_owned(s, DASH_CH_BEST))
+            {
+                dash_ch_set(s, DASH_CH_BEST, (float) sim->best_ms);
+            }
 
             /* predicted lap: near the last lap, +/-200 ms deterministic jitter */
             {
