@@ -503,7 +503,34 @@ void loop(void)
      * logic (dash_telltales.h), only the pin writes live here */
     {
         const uint8_t lamp_mask = dash_telltale_mask(&g_dash);
-        for (uint8_t l = 0U; l < DASH_LAMP_COUNT; l++)
+        uint8_t first_live = 0U;
+#if defined(DASH_BOARD_NUCLEO_F767)
+        /* TEMPORARY bench boot show (2026-07-21): the three onboard LEDs
+         * hold all-on (continuing setup()'s lamp test through the splash),
+         * then roll one-at-a-time green->blue->red every 750 ms until 10 s
+         * after boot, then join live telltale duty. Remove together with
+         * the onboard-LED pin mapping when real telltale hardware lands. */
+        if (now < 10000UL)
+        {
+            first_live = 3U;
+            if (now < 2500UL)
+            {
+                for (uint8_t l = 0U; l < 3U; l++)
+                {
+                    digitalWrite(DASH_LAMP_PINS[l], HIGH);
+                }
+            }
+            else
+            {
+                const uint8_t step = (uint8_t)(((now - 2500UL) / 750UL) % 3U);
+                for (uint8_t l = 0U; l < 3U; l++)
+                {
+                    digitalWrite(DASH_LAMP_PINS[l], (l == step) ? HIGH : LOW);
+                }
+            }
+        }
+#endif
+        for (uint8_t l = first_live; l < DASH_LAMP_COUNT; l++)
         {
             digitalWrite(DASH_LAMP_PINS[l], ((lamp_mask >> l) & 1U) ? HIGH : LOW);
         }
