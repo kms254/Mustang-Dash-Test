@@ -404,7 +404,8 @@ int main(void)
                strstr(DASH_HELP_TEXT, "alarm") != NULL &&
                strstr(DASH_HELP_TEXT, "odo") != NULL &&
                strstr(DASH_HELP_TEXT, "sim") != NULL &&
-               strstr(DASH_HELP_TEXT, "status") != NULL,
+               strstr(DASH_HELP_TEXT, "status") != NULL &&
+               strstr(DASH_HELP_TEXT, "flashwipe") != NULL,
            "DASH_HELP_TEXT must list every command verb");
     expect(strstr(DASH_HELP_TEXT, "afr_l") != NULL &&
                strstr(DASH_HELP_TEXT, "afr_r") != NULL &&

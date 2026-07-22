@@ -18,15 +18,15 @@
  *      500 ms enumeration window before display init, not the 2 s wait
  *   2. brings the EVE chip out of power-down, runs EVE_init(), reads REG_ID
  *      (a healthy BT817 returns 0x7C) and reports both on Serial
- *   3. checks the splash ASTC assets in the panel's QSPI flash against the
- *      embedded pack (splash_flash.h) and provisions them once on mismatch
- *      (CMD_FLASHUPDATE, sector 0 never touched); inflates the dash fonts
- *      into RAM_G (dash_fonts.h) -- all with the backlight held dark
+ *   3. inflates the dash fonts into RAM_G (dash_fonts.h) -- all with the
+ *      backlight held dark; the panel's QSPI flash is never touched
+ *      (2026-07-21 MCU-direct rewrite)
  *   4. plays the 2000 ms animated splash (assets/splash/README.md spec,
  *      timing in splash_timeline.h; theme picked in splash_config.h),
- *      staging the theme's ASTC bitmaps flash->RAM_G and rendering from
- *      RAM_G (see splash_render.h for why), lighting the backlight only
- *      after the first frame is on screen
+ *      staging the theme's ASTC bitmaps from the firmware-embedded pack
+ *      (splash_flash.h) MCU flash -> RAM_G with per-asset readback
+ *      spot-checks, rendering from RAM_G (see splash_render.h for why),
+ *      lighting the backlight only after the first frame is on screen
  *   5. crossfades ~400 ms into the dash -- TRACK or STREET view fed by the
  *      built-in simulator (dash_sim.h) with serial overrides (dash_serial.h),
  *      alarm takeover on critical conditions, EEPROM-persisted odometer --
@@ -35,11 +35,13 @@
  * Serial is 115200 8N1. Boot prints a diagnostic banner; after boot the
  * firmware emits nothing except one `ok ...` / `err ...` ack per received
  * command line (see dash_serial.h for the protocol; /dash skill wraps it).
+ * One documented exception: `flashwipe really` prints a pre-erase warning
+ * line before its ack, because the erase then blocks silently for minutes.
  *
  * Rendering lives in sibling single-TU headers: dash_draw.h (shared
  * primitives), dash_render.h (center TRACK/STREET/alarm), engine_render.h
  * (left 5" ENGINE screen), timing_render.h (right 5" TIMING/ROAD screen),
- * and splash_render.h (flash provisioning + splash + crossfade).
+ * and splash_render.h (RAM_G staging + splash + crossfade).
  * This file keeps setup/loop and the glue: panel selection, EVE frame
  * plumbing, cluster brightness, fonts, serial pump, odometer EEPROM, and
  * the shared state every header reads.
@@ -984,11 +986,24 @@ void handle_serial_line(const char *line)
             if (g_panel_ok[DASH_PANEL_CENTER] && dash_select_panel(DASH_PANEL_CENTER))
             {
                 Serial.println(F("flashwipe: erasing (minutes of silence -- do NOT power-cycle)"));
+                /* Clear the fault latch first so the ack attributes any fault
+                 * to THIS erase; EVE_busy() auto-recovers coprocessor faults
+                 * silently (resets the chip, clears the ring -- the erase
+                 * would abort), so an unconditional ok would be a false pass
+                 * on the one irreversible command (review finding). */
+                (void)EVE_get_and_reset_fault_state();
                 EVE_cmd_flashattach();
                 EVE_execute_cmd();
                 EVE_cmd_flasherase();
                 EVE_execute_cmd();
-                Serial.println(F("ok flashwipe"));
+                if (EVE_FAULT_RECOVERED == EVE_get_and_reset_fault_state())
+                {
+                    Serial.println(F("err flashwipe coprocessor fault during erase (flash state unknown)"));
+                }
+                else
+                {
+                    Serial.println(F("ok flashwipe"));
+                }
             }
             else
             {

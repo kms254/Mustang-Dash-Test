@@ -1,6 +1,6 @@
 /*
  * splash_render.h - the boot splash, whole: theme/asset descriptors, the
- * one-time QSPI flash provisioning of the ASTC pack, the splash element
+ * MCU-flash -> RAM_G staging of the embedded ASTC pack, the splash element
  * renderers, and the 2000 ms animation + crossfade sequence. Pure code
  * motion out of MustangDash.ino.
  *
@@ -171,8 +171,8 @@ void draw_flash_asset(const SplashFlashAsset *a, int16_t x, int16_t y)
     EVE_cmd_dl(DL_END);
 }
 
-/* Full-screen background: native 1024x600 ASTC 8x8 straight from flash,
- * drawn 1:1 at the origin -- no scale transform needed anymore. */
+/* Full-screen background: native 1024x600 ASTC 8x8 from its staged RAM_G
+ * copy, drawn 1:1 at the origin -- no scale transform needed anymore. */
 void draw_splash_background(const SplashFlashAsset *bg, uint8_t alpha)
 {
     EVE_cmd_dl(COLOR_A(alpha));
@@ -193,8 +193,14 @@ void draw_splash_emblem(const SplashFlashAsset *emblem, float scale, uint8_t alp
     const long half_bmp_x = (long)(emblem->w / 2) * 65536L;       /* 100 in 16.16 */
     const long half_bmp_y = (long)(emblem->h / 2) * 65536L;
 
+    const uint32_t src = splash_bitmap_source(emblem);
+    if (0UL == src)
+    {
+        return; /* failed staging: skip, same contract as draw_flash_asset --
+                 * address 0 is the FONT data, never a drawable emblem */
+    }
     EVE_cmd_dl(COLOR_A(alpha));
-    EVE_cmd_setbitmap(splash_bitmap_source(emblem), (uint16_t)emblem->fmt,
+    EVE_cmd_setbitmap(src, (uint16_t)emblem->fmt,
                       emblem->w, emblem->h);
     /* re-emit SIZE: SETBITMAP defaults to NEAREST and the bitmap's own
      * dimensions; the scaled emblem needs BILINEAR in a 220 px window */
@@ -326,8 +332,8 @@ void run_splash(const ThemeDesc *theme)
                   (unsigned long)frames, (unsigned long)SPLASH_DURATION_MS);
 
     /* crossfade: splash final frame out, live dash in (R17 -- direct
-     * crossfade; splash draws from flash, dash text from RAM_G fonts, so
-     * both are resident with no memory contention) */
+     * crossfade; splash assets and dash fonts are RAM_G co-tenants, both
+     * staged before the splash began, so both stay drawable throughout) */
     const uint32_t f0 = millis();
     for (;;)
     {

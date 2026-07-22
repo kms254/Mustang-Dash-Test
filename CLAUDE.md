@@ -45,7 +45,8 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   fonts (`tools/make_dash_fonts.py` → `dash_fonts.h`, ~273 KB — RAM_G's only
   tenant). Data flows simulator → `DashState` channels (validity bitmask) →
   renderers; the serial protocol (115200; `ok`/`err` acks are the ONLY output
-  after boot) overrides any channel — the `/dash` skill wraps it. Odometer
+  after boot, with one documented exception: `flashwipe really` prints a
+  pre-erase warning line) overrides any channel — the `/dash` skill wraps it. Odometer
   persists in Teensy EEPROM (CRC8 record). Alarm takeover preempts both
   modes; the oil-pressure alarm is gated on rpm ≥ 500 (engine running).
 
