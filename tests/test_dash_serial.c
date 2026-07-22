@@ -14,10 +14,13 @@
 #include <string.h>
 
 #include "dash_serial.h"
+/* the `alarm` shortcuts exist to FORCE an alarm, so the values they write are
+ * checked against the classifier that decides whether one fires */
+#include "dash_math.h"
 
 /* protocol constants that must never drift */
 _Static_assert(DASH_SERIAL_MAX_LINE == 63, "max line must be 63 chars + NUL");
-_Static_assert(DASH_CH_COUNT == 25, "serial protocol names exactly 25 channels");
+_Static_assert(DASH_CH_COUNT == 26, "serial protocol names exactly 26 channels");
 _Static_assert(DASH_CMD_NONE == 0, "DASH_CMD_NONE must be the zero value");
 _Static_assert(DASH_ERR_NONE == 0, "DASH_ERR_NONE must be the zero value");
 /* protocol alarm codes stay numerically identical to dash_math.h's DashAlarm
@@ -75,6 +78,22 @@ int main(void)
     expect(c.kind == DASH_CMD_MODE && c.mode == DASH_MODE_TRACK,
            "mode track must select DASH_MODE_TRACK");
 
+    /* U7: the sweep-fixture selector. Shaped exactly like `mode` -- a named
+     * verb, two named arguments, one ack -- so the /dash skill's mental model
+     * does not acquire a special case. */
+    expect(parse("circuit sweep", &c) == DASH_ERR_NONE, "circuit sweep must parse");
+    expect(c.kind == DASH_CMD_CIRCUIT && c.circuit_sweep,
+           "circuit sweep must select the sweep fixture");
+    expect(parse("circuit hpr", &c) == DASH_ERR_NONE, "circuit hpr must parse");
+    expect(c.kind == DASH_CMD_CIRCUIT && !c.circuit_sweep,
+           "circuit hpr must select the High Plains Raceway lap");
+    expect(parse("CIRCUIT SWEEP", &c) == DASH_ERR_NONE && c.circuit_sweep,
+           "circuit must be case-insensitive like the rest of the protocol");
+    expect(parse("circuit", &c) == DASH_ERR_MISSING_VALUE,
+           "bare circuit must be MISSING_VALUE");
+    expect(parse("circuit monaco", &c) == DASH_ERR_BAD_VALUE,
+           "circuit with an unknown argument must be BAD_VALUE");
+
     expect(parse("alarm oilt", &c) == DASH_ERR_NONE, "alarm oilt must parse");
     expect(c.kind == DASH_CMD_ALARM && c.alarm == 2, "alarm oilt must be alarm code 2");
     expect(parse("alarm oilp", &c) == DASH_ERR_NONE && c.alarm == 1,
@@ -102,7 +121,7 @@ int main(void)
     expect(parse("help", &c) == DASH_ERR_NONE && c.kind == DASH_CMD_HELP,
            "help must be DASH_CMD_HELP");
 
-    /* ---- every channel name maps to its id (25 names, incl. last) ---- */
+    /* ---- every channel name maps to its id (26 names, incl. last) ---- */
     {
         static const struct { const char *name; uint8_t ch; } map[] = {
             { "rpm", DASH_CH_RPM },       { "speed", DASH_CH_SPEED },
@@ -296,6 +315,51 @@ int main(void)
         expect(parse("help", &c) == DASH_ERR_NONE, "apply: help parses");
         expect(!dash_apply_command(&s, &c, reply, sizeof reply),
                "apply must NOT handle HELP");
+
+        /* CIRCUIT is the caller's too: the circuit lives in DashSimState, and
+         * dash_serial.h sits below the simulator. It must also leave DashState
+         * completely alone -- in particular it is NOT a mode switch. */
+        {
+            DashState before;
+            expect(parse("circuit sweep", &c) == DASH_ERR_NONE, "apply: circuit sweep parses");
+            before = s;
+            expect(!dash_apply_command(&s, &c, reply, sizeof reply),
+                   "apply must NOT handle CIRCUIT (the simulator owns it)");
+            expect(memcmp(&before, &s, sizeof s) == 0,
+                   "CIRCUIT must not touch DashState -- it is not a mode switch");
+        }
+    }
+
+    /* ---- the `alarm <x>` shortcuts must actually RAISE that alarm ----
+     * The forced values are plain constants sitting next to the thresholds
+     * they are supposed to breach, so moving a threshold (the oil-temp pair
+     * went to 270/290) can quietly turn `alarm oilt` into a command that
+     * acks `ok` and does nothing. Each shortcut is therefore checked through
+     * dash_alarm_classify() rather than by inspecting the value it wrote. */
+    {
+        DashState s;
+        char reply[64];
+
+        dash_state_init(&s);
+        dash_ch_set(&s, DASH_CH_RPM, 3000.0f); /* engine running: the OILP gate */
+        expect(parse("alarm oilp", &c) == DASH_ERR_NONE, "alarm oilp parses");
+        expect(dash_apply_command(&s, &c, reply, sizeof reply), "alarm oilp applies");
+        expect(dash_alarm_classify(&s) == DASH_ALARM_OILP,
+               "`alarm oilp` must actually raise the OILP alarm");
+
+        dash_state_init(&s);
+        expect(parse("alarm oilt", &c) == DASH_ERR_NONE, "alarm oilt parses");
+        expect(dash_apply_command(&s, &c, reply, sizeof reply), "alarm oilt applies");
+        expect(DASH_ALARM_OILT_F > DASH_OILT_RED_F,
+               "the forced oil temp must sit above the red threshold it targets");
+        expect(dash_alarm_classify(&s) == DASH_ALARM_OILT,
+               "`alarm oilt` must actually raise the OILT alarm");
+
+        dash_state_init(&s);
+        expect(parse("alarm clt", &c) == DASH_ERR_NONE, "alarm clt parses");
+        expect(dash_apply_command(&s, &c, reply, sizeof reply), "alarm clt applies");
+        expect(dash_alarm_classify(&s) == DASH_ALARM_CLT,
+               "`alarm clt` must actually raise the CLT alarm");
     }
 
     /* ---- ALARM off with the sim frozen must not latch the takeover:
@@ -405,6 +469,7 @@ int main(void)
                strstr(DASH_HELP_TEXT, "odo") != NULL &&
                strstr(DASH_HELP_TEXT, "sim") != NULL &&
                strstr(DASH_HELP_TEXT, "status") != NULL &&
+               strstr(DASH_HELP_TEXT, "circuit") != NULL &&
                strstr(DASH_HELP_TEXT, "flashwipe") != NULL,
            "DASH_HELP_TEXT must list every command verb");
     expect(strstr(DASH_HELP_TEXT, "afr_l") != NULL &&

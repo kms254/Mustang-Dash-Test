@@ -22,12 +22,13 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   buttons. Parallel path to `compile.sh`, not a replacement — see BUILD.md.
 - Tests: `./tests/run-tests.sh` — host-side invariant tests pinning the display
   profile, wiring pins, backlight wave, splash timeline, dash math/sim/serial/
-  odometer logic, font-format invariants, the splash flash-pack layout, and
-  the ctags-shim contract. Run them after touching `EVE_config.h`, the Teensy4
-  target header, any `MustangDash/*.h` pure header, or the platform files.
+  odometer logic, font-format invariants, the splash flash-pack layout, the
+  trip/mode button gestures, and the ctags-shim contract. Run them after
+  touching `EVE_config.h`, the Teensy4 target header, any `MustangDash/*.h`
+  pure header, or the platform files.
   Needs host `gcc`; Git Bash has none, so **on Windows run
   `wsl -- bash -lc "./tests/run-tests.sh"`** (or the VS Code task
-  "Tests: invariant suite"). All 13/13 pass.
+  "Tests: invariant suite"). All 14/14 pass.
 - Boot splash: a 2000 ms animated splash (spec vendored in `assets/splash/`)
   plays at power-up, then crossfades directly into the dash. Splash assets are
   **ASTC bitmaps embedded in the firmware image** (`tools/make_splash_flash.py`,
@@ -42,13 +43,60 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   `SPLASH_THEME` in `MustangDash/splash_config.h`.
 - Dash: TRACK/STREET screens per the vendored design handoff
   (`assets/dash-design/`), all-procedural at ~60 fps with custom EVE bitmap
-  fonts (`tools/make_dash_fonts.py` → `dash_fonts.h`, ~273 KB — RAM_G's only
+  fonts (`tools/make_dash_fonts.py` → `dash_fonts.h`, ~324 KB — RAM_G's only
   tenant). Data flows simulator → `DashState` channels (validity bitmask) →
   renderers; the serial protocol (115200; `ok`/`err` acks are the ONLY output
   after boot, with one documented exception: `flashwipe really` prints a
   pre-erase warning line) overrides any channel — the `/dash` skill wraps it. Odometer
   persists in Teensy EEPROM (CRC8 record). Alarm takeover preempts both
   modes; the oil-pressure alarm is gated on rpm ≥ 500 (engine running).
+- TRACK simulation (2026-07-22): a **physically-modelled lap of High Plains
+  Raceway**, not a driving cycle. Lap position integrates road speed over a
+  16-segment distance-keyed table; acceleration is traction/power/drag from the
+  real spec (511 whp measured in Denver, 2900 lb, 315/30R18 square, T56 Magnum,
+  3.73); corners carry an arc derived from their limit speed and lateral grip,
+  with per-corner turn angles. **Lap time is an output, not an input** — 2:01.6
+  at `SIM_DRIVER_SKILL` 0.86, front straight ~170 mph, peak 5th gear. Two
+  non-obvious traps, both found the hard way: corner arc radius must come from
+  the *authored* limit, not the skill-scaled one (otherwise a slower driver gets
+  a shorter corner and skill loses its leverage), and segments flagged
+  `is_corner_limit == false` (the front straight, T12) must be exempt from both
+  skill scaling and lookahead braking. Runs 20-minute **sessions** that end on
+  the first lap completion past the mark — never mid-lap. Coolant and oil use
+  separate time constants (120 s / 600 s) so oil is still climbing at minute 15;
+  fuel burns ~0.59 gal/lap and deliberately does *not* reset with the session,
+  so tank and thermal cycles run on different periods. `circuit hpr|sweep`
+  selects a range-sweep fixture that exercises the full speedo dial, all six
+  gears, and the tach's red zone — none of which a real HPR lap reaches.
+  Plan: `docs/plans/2026-07-22-001-feat-hpr-lap-simulation-plan.md`.
+- USER button (`PC13` on the Nucleo, pin 24 on Teensy): **short press toggles
+  TRACK/STREET, hold ≥1 s resets the trip.** Gesture logic is a pure header
+  (`dash_button.h`), host-tested. The 30 ms debounce is load-bearing — a single
+  EMI glitch on a car harness must not zero the trip. In the real car the mode
+  switch will come from a **CAN message**; the button is a bench stand-in, and
+  serial, button, and CAN all converge on one `s->mode` assignment.
+- CAN upstream is an **Autosport Labs RaceCapture** (broadcasts CAN, runs Lua,
+  configured from the phone app). Two things are meant to ride it, neither built
+  yet (`dash_can.h` is still FDCAN-loopback-only, so nothing receives):
+  **session length**, set in the paddock — this is the *only* thing blocking a
+  countdown session timer, since HPDE sessions vary (20/25/30 min) and the dash
+  has no input device left (both button gestures are taken); and **real lap
+  timing**, which RaceCapture does natively via GPS. `LAP`/`LAST`/`BEST`/`DELTA`
+  are simulated today only because there is no other source — with RaceCapture
+  on the bus they become measured, and the simulator becomes bench-only.
+  Unconfirmed: whether one value can be changed *trackside* from the phone
+  (live control vs. a config push). Check the real unit before designing on it.
+- **The simulator drives `DashState` directly — it does NOT emit fake CAN.**
+  `dash_sim_step()` calls `dash_ch_set()`; renderers read the struct. That is
+  the documented seam (`dash_data.h`: "Producers — `dash_sim.h` now, CAN
+  decoders later — fill `DashState.ch`"), so sim and CAN decoders are peers,
+  and adding CAN is not a refactor. **The catch:** the sim therefore gives the
+  decode path zero exercise, so a 20-minute clean bench run proves nothing
+  about it — the seam we will actually ship on is the one thing untested.
+  Do NOT fix this by routing the sim through CAN in the render loop (encode +
+  decode every frame at 60 fps, no runtime benefit). Fix it with a **host
+  test**: take sim output, encode to CAN frames, run it back through the real
+  decoder, assert the resulting `DashState` matches. Cheap, once frames exist.
 
 ## Hardware truths (don't re-derive)
 

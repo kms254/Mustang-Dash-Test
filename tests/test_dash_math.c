@@ -112,8 +112,15 @@ int main(void)
     expect(dash_volts_state(11.9f) == DASH_COLOR_RED, "11.9 V must be red");
     expect(dash_fuel_state(2.5f) == DASH_COLOR_NORMAL, "2.5 gal must be normal");
     expect(dash_fuel_state(2.4f) == DASH_COLOR_AMBER, "2.4 gal must be amber");
-    expect(dash_oil_temp_state(235.1f) == DASH_COLOR_AMBER, "oil temp 235.1 must be amber");
-    expect(dash_oil_temp_state(248.1f) == DASH_COLOR_RED, "oil temp 248.1 must be red");
+    /* Oil temp thresholds are TRACK thresholds, not street ones: a 500+ whp
+     * car on a road course runs 250-280 F, so 255 (what dash_sim.h's session
+     * lands on) must read normal, amber starts at 270 and red at 290. */
+    expect(dash_oil_temp_state(255.0f) == DASH_COLOR_NORMAL,
+           "oil temp 255 -- a normal track session -- must NOT be amber");
+    expect(dash_oil_temp_state(270.0f) == DASH_COLOR_NORMAL, "oil temp 270.0 must be normal");
+    expect(dash_oil_temp_state(270.1f) == DASH_COLOR_AMBER, "oil temp 270.1 must be amber");
+    expect(dash_oil_temp_state(290.0f) == DASH_COLOR_AMBER, "oil temp 290.0 must be amber");
+    expect(dash_oil_temp_state(290.1f) == DASH_COLOR_RED, "oil temp 290.1 must be red");
 
     /* ---- Phase-2 thresholds (KTD5): fuel pressure red, IAT/AFR amber ---- */
     expect(dash_fuelp_state(42.9f) == DASH_COLOR_RED, "fuel pressure 42.9 must be red");
@@ -128,8 +135,12 @@ int main(void)
     /* ---- oil telltale: invalid channels never trigger (R11) ---- */
     expect(dash_telltale_oil(25.0f, true, 200.0f, true), "valid low oil pressure must trip telltale");
     expect(!dash_telltale_oil(25.0f, false, 200.0f, true), "invalid oil pressure must not trip telltale");
-    expect(dash_telltale_oil(60.0f, true, 260.0f, true), "valid hot oil must trip telltale");
-    expect(!dash_telltale_oil(25.0f, false, 260.0f, false), "all-invalid must never trip telltale");
+    expect(dash_telltale_oil(60.0f, true, DASH_OILT_RED_F + 1.0f, true),
+           "valid hot oil must trip telltale");
+    expect(!dash_telltale_oil(60.0f, true, 255.0f, true),
+           "a normal track session's 255 F oil must NOT trip the telltale");
+    expect(!dash_telltale_oil(25.0f, false, DASH_OILT_RED_F + 1.0f, false),
+           "all-invalid must never trip telltale");
 
     /* ---- alarm classification: valid-gated, oilp > oilt > clt priority ---- */
     {
@@ -155,9 +166,29 @@ int main(void)
                "healthy oil pressure + hot coolant must classify CLT");
 
         dash_state_init(&s);
-        dash_ch_set(&s, DASH_CH_OILT, 260.0f); /* oilp never set -> invalid */
+        dash_ch_set(&s, DASH_CH_OILT, DASH_OILT_RED_F + 1.0f); /* oilp never set -> invalid */
         expect(dash_alarm_classify(&s) == DASH_ALARM_OILT,
                "hot oil with oil pressure invalid must classify OILT");
+
+        /* The oil-temp thresholds moved up to track figures (270/290), which
+         * makes it possible to raise them until the alarm is unreachable in
+         * practice. Both ends are pinned: a genuinely cooked engine still
+         * takes the screen, and a normal session's 255 F never does. */
+        dash_state_init(&s);
+        dash_ch_set(&s, DASH_CH_OILT, 255.0f);
+        expect(dash_alarm_classify(&s) == DASH_ALARM_NONE,
+               "a normal track session's oil temp must never raise an alarm");
+        dash_ch_set(&s, DASH_CH_OILT, DASH_OILT_RED_F + 10.0f);
+        expect(dash_alarm_classify(&s) == DASH_ALARM_OILT,
+               "genuinely overheated oil must still take the screen");
+
+        /* the oil-PRESSURE alarm's engine-running gate is independent of the
+         * oil-TEMPERATURE thresholds: hot oil must not need rpm to alarm */
+        dash_state_init(&s);
+        dash_ch_set(&s, DASH_CH_OILT, DASH_OILT_RED_F + 1.0f);
+        expect(!dash_ch_valid(&s, DASH_CH_RPM), "rpm must be invalid for this case");
+        expect(dash_alarm_classify(&s) == DASH_ALARM_OILT,
+               "the OILT alarm must not inherit the OILP engine-running gate");
 
         dash_state_init(&s);
         s.ch.oil_press_psi = 25.0f; /* value present but valid bit NOT set */
@@ -183,6 +214,173 @@ int main(void)
         expect(strcmp(buf, "1:02.000") == 0, "lap 62000 ms must format 1:02.000");
         dash_fmt_lap(62000U, false, buf);
         expect(strcmp(buf, "--:--.---") == 0, "invalid lap must format --:--.---");
+    }
+
+    /* ---- session clock formatting: MM:SS, never decimal minutes ---- */
+    {
+        char buf[12];
+        dash_fmt_mmss(0U, true, buf);
+        expect(strcmp(buf, "00:00") == 0, "session 0 ms must format 00:00");
+        dash_fmt_mmss(59999U, true, buf);
+        expect(strcmp(buf, "00:59") == 0, "session 59999 ms must truncate to 00:59");
+        dash_fmt_mmss(60000U, true, buf);
+        expect(strcmp(buf, "01:00") == 0, "session 60000 ms must format 01:00");
+        dash_fmt_mmss(1200000U, true, buf);
+        expect(strcmp(buf, "20:00") == 0, "the 20-minute session mark must format 20:00");
+        /* the session runs PAST 20:00 until the in-lap finishes (U8) */
+        dash_fmt_mmss(1342500U, true, buf);
+        expect(strcmp(buf, "22:22") == 0, "a session past the flag must keep counting up");
+        dash_fmt_mmss(60000U, false, buf);
+        expect(strcmp(buf, "--:--") == 0, "invalid session must format --:--");
+    }
+
+    /* ---- lap-crossing delta flash (MoTeC override pattern) ----
+     * The state machine is driven purely off published channels plus the
+     * simulator's sticky taint flag, so every rule below is testable without
+     * a display: out-lap suppression, vs-PREVIOUS (not vs-best) reference,
+     * the new-best treatment, the 4 s hold, and the taint gate. */
+    {
+        DashState s;
+        DashLapFlash f;
+        char buf[16];
+
+        /* helper-free: drive the channels by hand so the test states the
+         * contract rather than re-deriving it from dash_sim.h */
+        dash_state_init(&s);
+        dash_lap_flash_reset(&f);
+
+        /* boot: lap 1 in progress, nothing completed */
+        dash_ch_set(&s, DASH_CH_LAPN, 1.0f);
+        dash_lap_flash_update(&f, &s, 1000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "no lap has completed, so nothing may override the lap clock");
+
+        /* lap 1 completes (the out-lap): suppressed */
+        dash_ch_set(&s, DASH_CH_LAPN, 2.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 140000.0f);
+        dash_lap_flash_update(&f, &s, 2000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "the out-lap must never flash: there is no earlier lap to compare it to");
+
+        /* lap 2 completes: the first flying lap, but lap 2 vs the out-lap is
+         * the fake ~18 s improvement U1 excludes everywhere else */
+        dash_ch_set(&s, DASH_CH_LAPN, 3.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 122000.0f);
+        dash_ch_set(&s, DASH_CH_BEST, 122000.0f);
+        dash_lap_flash_update(&f, &s, 3000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "lap 2 vs the out-lap must be suppressed, not shown as an 18 s gain");
+
+        /* lap 3 completes, quicker than lap 2 AND a new best */
+        dash_ch_set(&s, DASH_CH_LAPN, 4.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 121580.0f);
+        dash_ch_set(&s, DASH_CH_BEST, 121580.0f);
+        dash_lap_flash_update(&f, &s, 100000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_BEST,
+               "a new best must get the dedicated best treatment, not the plain green");
+        /* a new best ALTERNATES the word with the number on the blink phase,
+         * so the driver gets the event and the delta inside one hold. Both
+         * phases are pinned: BEST! is only renderable because DF_MID carries
+         * A-Z (tools/make_dash_fonts.py), and the number must still appear. */
+        dash_lap_flash_text(&f, f.start_ms, buf);
+        expect(strcmp(buf, "BEST!") == 0,
+               "a new best must show BEST! on the highlight phase");
+        dash_lap_flash_text(&f, f.start_ms + DASH_LAP_FLASH_BLINK_HALF_MS, buf);
+        expect(strcmp(buf, "-0.42") == 0,
+               "the flash must read the signed 2-decimal delta vs the PREVIOUS lap");
+
+        /* the hold is 4 s: still up just before, gone at the boundary */
+        dash_lap_flash_update(&f, &s, 100000U + DASH_LAP_FLASH_MS - 1U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_BEST,
+               "the override must still be up 1 ms before the hold expires");
+        dash_lap_flash_update(&f, &s, 100000U + DASH_LAP_FLASH_MS, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "the override must revert to the running lap clock after the hold");
+        expect(DASH_LAP_FLASH_MS <= 7000U,
+               "the hold must stay under AiM's ~7 s point, past which it hides the next lap");
+
+        /* lap 4 completes, slower than lap 3 -- red, and NOT a best */
+        dash_ch_set(&s, DASH_CH_LAPN, 5.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 122730.0f);
+        dash_lap_flash_update(&f, &s, 200000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_SLOWER,
+               "a slower lap must flash slower, even though BEST did not move");
+        dash_lap_flash_text(&f, f.start_ms, buf);
+        expect(strcmp(buf, "+1.15") == 0, "a slower lap must read a signed positive delta");
+
+        /* lap 5 quicker than lap 4 but still off the best: plain green, and
+         * this is the case that proves the reference is PREVIOUS, not best */
+        dash_ch_set(&s, DASH_CH_LAPN, 6.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 122000.0f);
+        dash_lap_flash_update(&f, &s, 300000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_QUICKER,
+               "quicker than the previous lap but off the best must flash plain quicker");
+        dash_lap_flash_text(&f, f.start_ms, buf);
+        expect(strcmp(buf, "-0.73") == 0,
+               "the delta must be against the previous lap, not against best");
+
+        /* a dead-equal lap must be neither win nor loss. Without the dead-zone
+         * this rendered "+0.00" in RED -- the sign manufacturing a distinction
+         * the number does not support. Observed twice in one 50-minute run. */
+        dash_ch_set(&s, DASH_CH_LAPN, 7.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 122000.0f); /* identical to the lap before */
+        dash_lap_flash_update(&f, &s, 350000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_EVEN,
+               "a lap matching the previous one must flash EVEN, not SLOWER");
+        expect(DASH_LAP_FLASH_DEADZONE_S < 0.01f * 10.0f,
+               "the dead-zone must stay under the flash's own 2-decimal resolution");
+
+        /* a TAINTED lap must not flash at all... */
+        dash_ch_set(&s, DASH_CH_LAPN, 8.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 46000.0f);
+        dash_lap_flash_update(&f, &s, 400000U, true);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "a lap driven at a forced speed must never flash a fabricated gain");
+
+        /* ...and the lap AFTER it must not either: the reference is that same
+         * fabricated time, so it would flash an equally fabricated loss */
+        dash_ch_set(&s, DASH_CH_LAPN, 9.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 122100.0f);
+        dash_lap_flash_update(&f, &s, 500000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "the lap after a tainted one must not flash against the tainted time");
+
+        /* the lap after THAT is honest again */
+        dash_ch_set(&s, DASH_CH_LAPN, 10.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 122400.0f);
+        dash_lap_flash_update(&f, &s, 600000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_SLOWER,
+               "the flash must recover on the first clean pair after a tainted lap");
+
+        /* the 20-minute session rollover restarts the lap book: LAPN goes
+         * backwards and no comparison may cross the boundary */
+        dash_ch_set(&s, DASH_CH_LAPN, 1.0f);
+        dash_ch_invalidate(&s, DASH_CH_LAST);
+        dash_ch_invalidate(&s, DASH_CH_BEST);
+        dash_lap_flash_update(&f, &s, 700000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "a session rollover must clear the override");
+        dash_ch_set(&s, DASH_CH_LAPN, 2.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 141000.0f);
+        dash_lap_flash_update(&f, &s, 701000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "the new session's out-lap must be suppressed like the first one");
+
+        /* STREET / SWEEP: LAPN is dead-fronted, so there is no lap to flash --
+         * and an override already up must drop the moment the mode changes,
+         * not linger for the rest of its hold on a screen with no laps. */
+        dash_ch_set(&s, DASH_CH_LAPN, 3.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 122000.0f);
+        dash_lap_flash_update(&f, &s, 702000U, false);
+        dash_ch_set(&s, DASH_CH_LAPN, 4.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 122500.0f);
+        dash_lap_flash_update(&f, &s, 703000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_SLOWER,
+               "lap 3 of a NEW session must flash, on the new session's own lap count");
+        dash_ch_invalidate(&s, DASH_CH_LAPN);
+        dash_lap_flash_update(&f, &s, 703100U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
+               "leaving the lap path must drop the override immediately");
     }
 
     /* ---- shared value formatter (dash_fmt_value) ---- */

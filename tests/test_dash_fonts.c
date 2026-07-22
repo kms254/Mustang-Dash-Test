@@ -60,7 +60,10 @@ static const char *const FONT_NAMES[DASH_FONT_COUNT] = {
 static const char *const FONT_SETS[DASH_FONT_COUNT] = {
     "0123456789-",
     "0123456789:.-",
-    "0123456789:.-+",
+    /* F_MID carries A-Z so the lap-flash can render words (BEST!) in the big
+     * number font -- see tools/make_dash_fonts.py. The cost is the contiguous
+     * span '!'(33)..'Z'(90), not the glyph count. */
+    "0123456789:.-+!ABCDEFGHIJKLMNOPQRSTUVWXYZ",
     "0123456789:.-+*",
     "0123456789.",
     " ABCDEFGHIJKLMNOPQRSTUVWXYZ",

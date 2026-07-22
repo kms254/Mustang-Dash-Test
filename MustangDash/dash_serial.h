@@ -12,6 +12,9 @@
  *   set <channel> <value>   override a channel (sticky against the sim)
  *   clear <channel>         mark a channel invalid (sticky)
  *   mode track|street
+ *   circuit hpr|sweep       TRACK's driving model: the real lap, or the
+ *                           full-range bench sweep (caller applies -- the
+ *                           simulator, not DashState, owns the circuit)
  *   alarm oilp|oilt|clt|off force an alarm condition / release all three
  *   odo set <miles>         caller applies (odometer module owns the value)
  *   sim on|off
@@ -19,7 +22,8 @@
  *   help                    caller replies DASH_HELP_TEXT
  *
  * Channels: rpm speed ect oilt oilp volts fuel delta lap last best ambient
- * afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2.
+ * afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2
+ * session.
  */
 
 #ifndef DASH_SERIAL_H
@@ -41,6 +45,9 @@ typedef enum {
     DASH_CMD_SET,
     DASH_CMD_CLEAR,
     DASH_CMD_MODE,
+    DASH_CMD_CIRCUIT, /* selects the simulator's driving model (plan U7, R12);
+                       * caller-applied, since the circuit lives in
+                       * DashSimState rather than DashState */
     DASH_CMD_ALARM,
     DASH_CMD_ODO_SET,
     DASH_CMD_SIM,
@@ -70,17 +77,23 @@ typedef enum {
 #define DASH_SERIAL_ALARM_OILT 2U
 #define DASH_SERIAL_ALARM_CLT  3U
 
-/* forced values for the alarm shortcuts (alarm-worthy by design) */
+/* Forced values for the alarm shortcuts (alarm-worthy by design). Each must
+ * sit clear of its threshold in dash_math.h, and 260 F stopped doing so when
+ * the oil-temp pair moved to track figures (270 amber / 290 red) -- an
+ * `alarm oilt` that acks `ok` and raises nothing is the failure mode, so
+ * tests/test_dash_serial.c now runs each shortcut through
+ * dash_alarm_classify() rather than trusting the constants to stay aligned. */
 #define DASH_ALARM_OILP_PSI 20.0f
-#define DASH_ALARM_OILT_F   260.0f
+#define DASH_ALARM_OILT_F   300.0f
 #define DASH_ALARM_CLT_F    230.0f
 
 #define DASH_HELP_TEXT \
     "commands: set <ch> <v> | clear <ch> | mode track|street | " \
+    "circuit hpr|sweep | " \
     "alarm oilp|oilt|clt|off | odo set <miles> | sim on|off | status | help | cantest | " \
     "flashwipe really " \
     "(ch: rpm speed ect oilt oilp volts fuel delta lap last best ambient " \
-    "afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2)"
+    "afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2 session)"
 
 typedef struct {
     DashCmdKind kind;
@@ -89,6 +102,10 @@ typedef struct {
     DashMode mode;   /* MODE */
     uint8_t alarm;   /* ALARM: DASH_SERIAL_ALARM_OFF/OILP/OILT/CLT */
     bool sim_on;     /* SIM */
+    bool circuit_sweep; /* CIRCUIT: true = sweep fixture, false = HPR lap.
+                         * A plain bool like sim_on, not dash_sim.h's
+                         * SimCircuit -- dash_serial.h sits below the
+                         * simulator and must not reach up into it. */
 } DashCommand;
 
 /* ---- internals ---- */
@@ -138,6 +155,7 @@ static inline const char *dash_ch_name(uint8_t ch)
         case DASH_CH_PUMP: return "pump";
         case DASH_CH_FAN1: return "fan1";
         case DASH_CH_FAN2: return "fan2";
+        case DASH_CH_SESSION: return "session";
         default: return "?";
     }
 }
@@ -180,6 +198,9 @@ static inline void dash_ch_range_(uint8_t ch, float *lo, float *hi)
         case DASH_CH_PUMP: /* fall through: PMU outputs share a range */
         case DASH_CH_FAN1:
         case DASH_CH_FAN2: *lo = 0.0f; *hi = 30.0f; break;
+        /* ms, and generously ranged: a forced session time is a bench probe of
+         * the MM:SS readout, not a claim about a real session. */
+        case DASH_CH_SESSION: *lo = 0.0f; *hi = 3600000.0f; break;
         default: *lo = 0.0f; *hi = 0.0f; break;
     }
 }
@@ -225,6 +246,7 @@ static inline DashSerialErr dash_parse_line(const char *line, DashCommand *out)
     out->mode = DASH_MODE_TRACK;
     out->alarm = DASH_SERIAL_ALARM_OFF;
     out->sim_on = false;
+    out->circuit_sweep = false;
 
     if (line == NULL) { return DASH_ERR_EMPTY; }
     if (strlen(line) > DASH_SERIAL_MAX_LINE) { return DASH_ERR_TOO_LONG; }
@@ -263,6 +285,19 @@ static inline DashSerialErr dash_parse_line(const char *line, DashCommand *out)
         else if (dash_serial_ieq_(tok[1], "street")) { out->mode = DASH_MODE_STREET; }
         else { return DASH_ERR_BAD_VALUE; }
         out->kind = DASH_CMD_MODE;
+        return DASH_ERR_NONE;
+    }
+
+    /* `circuit` deliberately mirrors `mode`: a named verb with two named
+     * arguments, one ack, no other output. It is a sibling of `mode` rather
+     * than of `sim on|off` -- both name WHICH of two behaviors is running,
+     * where `sim` only says whether the simulator is running at all. */
+    if (dash_serial_ieq_(tok[0], "circuit")) {
+        if (ntok < 2) { return DASH_ERR_MISSING_VALUE; }
+        if (dash_serial_ieq_(tok[1], "hpr")) { out->circuit_sweep = false; }
+        else if (dash_serial_ieq_(tok[1], "sweep")) { out->circuit_sweep = true; }
+        else { return DASH_ERR_BAD_VALUE; }
+        out->kind = DASH_CMD_CIRCUIT;
         return DASH_ERR_NONE;
     }
 
@@ -416,8 +451,9 @@ static inline bool dash_apply_command(DashState *s, const DashCommand *cmd,
             }
             return true;
 
-        default: /* NONE, ODO_SET, STATUS, HELP, FLASHWIPE: the caller
-                  * composes/executes these (FLASHWIPE is EVE-bound) */
+        default: /* NONE, CIRCUIT, ODO_SET, STATUS, HELP, FLASHWIPE: the caller
+                  * composes/executes these (CIRCUIT writes DashSimState, which
+                  * this layer cannot see; FLASHWIPE is EVE-bound) */
             return false;
     }
 }

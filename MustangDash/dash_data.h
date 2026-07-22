@@ -51,6 +51,12 @@ enum {
     DASH_CH_PUMP,     /* PMU output: fuel pump, amps (0 = off) */
     DASH_CH_FAN1,     /* PMU output: fan 1, amps (0 = off) */
     DASH_CH_FAN2,     /* PMU output: fan 2, amps (0 = off) */
+    /* Session elapsed time, ms, TRACK-only. Counts UP: no surveyed racing
+     * platform (Bosch DDU, MoTeC C127, AiM) ships a race COUNTDOWN -- Bosch's
+     * only countdown is a pit-lane minimum-time timer -- and MoTeC's own
+     * documentation describes a count-up timer as how a driver knows how much
+     * time is left. See dash_sim.h's session cycle for its only reset. */
+    DASH_CH_SESSION,
     DASH_CH_COUNT
 };
 
@@ -92,6 +98,7 @@ typedef struct {
     float pump_a;
     float fan1_a;
     float fan2_a;
+    uint32_t session_ms;
 } DashChannels;
 
 typedef struct {
@@ -142,9 +149,30 @@ static inline void dash_ch_set(DashState *s, uint8_t ch, float v)
         case DASH_CH_PUMP: s->ch.pump_a = v; break;
         case DASH_CH_FAN1: s->ch.fan1_a = v; break;
         case DASH_CH_FAN2: s->ch.fan2_a = v; break;
+        case DASH_CH_SESSION: s->ch.session_ms = (uint32_t) v; break;
         default: return;
     }
     s->valid |= DASH_CH_BIT(ch);
+}
+
+/* Put a channel BACK to invalid, so it renders `--` / dead-front again.
+ *
+ * dash_ch_set is one-way -- it only ever raises the valid bit -- so once the
+ * simulator published a channel nothing it could do would take it back. It
+ * needs to: DELTA has no meaning before a reference lap exists, and publishing
+ * a fabricated zero instead of dead-fronting would be a lie the renderer has
+ * no way to spot (U5).
+ *
+ * Guarded by the SAME ownership rule as writing (dash_ch_sim_owned), because
+ * dead-fronting a channel is a write in every sense that matters:
+ *  - overridden: the operator's forced value stays valid and untouched;
+ *  - cleared:    already invalid, and the sticky cleared bit is left alone.
+ * The value itself is never disturbed -- only the valid bit moves. */
+static inline void dash_ch_invalidate(DashState *s, uint8_t ch)
+{
+    if (ch >= DASH_CH_COUNT) { return; }
+    if (!dash_ch_sim_owned(s, ch)) { return; }
+    s->valid = (uint32_t) (s->valid & ~DASH_CH_BIT(ch));
 }
 
 static inline float dash_ch_get(const DashState *s, uint8_t ch)
@@ -175,6 +203,7 @@ static inline float dash_ch_get(const DashState *s, uint8_t ch)
         case DASH_CH_PUMP: return s->ch.pump_a;
         case DASH_CH_FAN1: return s->ch.fan1_a;
         case DASH_CH_FAN2: return s->ch.fan2_a;
+        case DASH_CH_SESSION: return (float) s->ch.session_ms;
         default: return 0.0f;
     }
 }

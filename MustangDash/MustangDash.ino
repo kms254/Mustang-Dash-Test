@@ -66,6 +66,7 @@
 #include "dash_sim.h"
 #include "dash_serial.h"
 #include "dash_odo.h"
+#include "dash_button.h" /* trip/mode button gesture state machine (host-tested); pin + polarity live below */
 #include "dash_fonts.h"
 #include "dash_panels.h" /* per-panel pins + timings (host-tested); mapped to EVE_panel_t in setup() */
 #include "dash_telltales.h" /* 8-lamp warning mask (host-tested); pins + lamp test live below */
@@ -104,6 +105,11 @@ static uint32_t g_ramg_fonts_end = 0UL; /* first free RAM_G byte above the fonts
 static DashState g_dash;
 static DashSimState g_sim;
 static DashOdo g_odo;
+/* Lap-crossing delta override for the TRACK LAP TIME readout. The state
+ * machine is pure (dash_math.h) and host-tested; all that lives here is the
+ * once-per-frame tick that feeds it the published channels plus the
+ * simulator's sticky per-lap taint. */
+static DashLapFlash g_lap_flash;
 
 /* ---- panel plumbing (three BT817s on one shared SPI bus, KTD1/KTD9) ---- */
 static EVE_panel_t g_eve_panels[DASH_PANEL_COUNT]; /* library form of DASH_PANELS, filled in setup() */
@@ -188,9 +194,10 @@ static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* WeAct user button K1 */
 #define DASH_SWITCH_TRIP_PINMODE INPUT_PULLUP
 #define DASH_SWITCH_TRIP_PRESSED LOW
 #endif
-static uint32_t g_trip_btn_edge_ms = 0UL; /* last raw edge time (debounce) */
-static bool g_trip_btn_down = false;      /* last raw sample */
-static bool g_trip_btn_fired = false;     /* one reset per stable press */
+/* Gesture state for that one button (U11). Short press toggles TRACK/STREET,
+ * long press resets the trip; the debounce + one-fire-per-press latch live in
+ * dash_button.h, which is host-tested and polarity-agnostic. */
+static DashButton g_trip_btn;
 
 static char g_serial_line[DASH_SERIAL_MAX_LINE + 17]; /* headroom to detect too-long */
 static uint8_t g_serial_len = 0U;
@@ -407,16 +414,20 @@ void setup(void)
     /* Odometer loads regardless of panel state -- it is Teensy-local. */
     dash_state_init(&g_dash);
     dash_sim_init(&g_sim);
+    dash_lap_flash_reset(&g_lap_flash);
     dash_odo_init(&g_odo);
     /* telltales: pins out + full-mask bulb check; the lamps hold ALL through
      * the splash (a visible ~2.4 s lamp test) until loop()'s first live
-     * update. Trip switch: input with pull-up, debounced in loop(). */
+     * update. Trip/mode switch: board-specific pin mode (pull-up on most
+     * boards, plain INPUT on the Nucleo's active-HIGH B1), debounced and
+     * gesture-decoded in loop() via dash_button.h. */
     for (uint8_t l = 0U; l < DASH_LAMP_COUNT; l++)
     {
         pinMode(DASH_LAMP_PINS[l], OUTPUT);
         digitalWrite(DASH_LAMP_PINS[l], HIGH);
     }
     pinMode(DASH_SWITCH_TRIP_PIN, DASH_SWITCH_TRIP_PINMODE);
+    dash_button_init(&g_trip_btn);
 
     odo_storage_init();
     odo_eeprom_load();
@@ -506,6 +517,13 @@ void loop(void)
 
     dash_sim_step(&g_sim, &g_dash, dt); /* honors sim_frozen + overrides */
 
+    /* Straight after the sim step, so a lap that closed on THIS step is seen
+     * on the frame that renders it. g_sim.last_lap_tainted is the taint of the
+     * lap now sitting in LAST -- lap_tainted itself has already been cleared
+     * for the new lap by the time we get here, which is the whole reason the
+     * sticky copy exists. */
+    dash_lap_flash_update(&g_lap_flash, &g_dash, now, g_sim.last_lap_tainted);
+
     if (dash_ch_valid(&g_dash, DASH_CH_SPEED))
     {
         dash_odo_advance(&g_odo, g_dash.ch.speed_mph, dt);
@@ -553,30 +571,33 @@ void loop(void)
         }
     }
 
-    /* trip-reset switch (pull-up, LOW = pressed). Review fix: fire only
-     * after the pin has been stably LOW for >= 30 ms -- a single EMI glitch
-     * on a car harness must not zero the trip. One reset per press; the
-     * latch clears after a stable release. The write lands here, inline. */
+    /* Trip/mode button (U11). One button, two gestures -- short press (< 1 s,
+     * on release) swaps TRACK/STREET, long press (held >= 1 s) resets the
+     * trip. The debounce that a review finding put here is intact and now
+     * lives in dash_button.h: nothing fires until the raw level has been
+     * stable for > 30 ms, so a single EMI glitch on a car harness cannot
+     * zero the trip, and exactly one event fires per press. The polarity
+     * comparison stays here, where the board-specific macros are; the state
+     * machine only ever sees a normalized bool. */
     {
         const bool down = (DASH_SWITCH_TRIP_PRESSED == digitalRead(DASH_SWITCH_TRIP_PIN));
-        if (down != g_trip_btn_down)
+        switch (dash_button_step(&g_trip_btn, down, now))
         {
-            g_trip_btn_edge_ms = now; /* raw edge: restart the stability window */
-            g_trip_btn_down = down;
-        }
-        else if ((now - g_trip_btn_edge_ms) > 30UL)
-        {
-            if (down && !g_trip_btn_fired)
-            {
-                g_trip_btn_fired = true;
+            case DASH_BTN_EVENT_SHORT:
+                /* Same single assignment the serial `mode track|street`
+                 * command makes (dash_serial.h DASH_CMD_MODE) -- mode is a
+                 * plain DashState field, nothing else keys off the change. */
+                g_dash.mode = (DASH_MODE_TRACK == g_dash.mode) ? DASH_MODE_STREET
+                                                               : DASH_MODE_TRACK;
+                break;
+            case DASH_BTN_EVENT_LONG:
                 dash_odo_trip_reset(&g_odo);
                 odo_eeprom_write();
                 dash_odo_mark_written(&g_odo);
-            }
-            else if (!down)
-            {
-                g_trip_btn_fired = false;
-            }
+                break;
+            case DASH_BTN_EVENT_NONE:
+            default:
+                break;
         }
     }
 
@@ -1033,6 +1054,15 @@ void handle_serial_line(const char *line)
     /* ODO_SET / STATUS / HELP are the caller's (ours) to handle */
     switch (cmd.kind)
     {
+        case DASH_CMD_CIRCUIT:
+            /* The circuit lives in DashSimState, which dash_serial.h sits
+             * below and cannot reach -- same reason ODO_SET lands here. One
+             * ack and nothing else: the protocol's contract is that ok/err
+             * are the only output after boot. */
+            dash_sim_set_circuit(&g_sim,
+                                 cmd.circuit_sweep ? SIM_CIRCUIT_SWEEP : SIM_CIRCUIT_HPR);
+            Serial.printf("ok circuit %s\r\n", cmd.circuit_sweep ? "sweep" : "hpr");
+            break;
         case DASH_CMD_ODO_SET:
             dash_odo_reseed(&g_odo, cmd.value);
             odo_eeprom_write();

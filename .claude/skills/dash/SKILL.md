@@ -21,6 +21,7 @@ case-insensitive):
 | `set <channel> <value>` | Force a channel; sticky until cleared |
 | `clear <channel>` | Mark a channel invalid (renders `--` / dead-front) |
 | `mode track` / `mode street` | Switch the dash view instantly |
+| `circuit hpr` / `circuit sweep` | TRACK's driving model: the real High Plains Raceway lap (default), or the range-sweep bench fixture — a 100 s ramp of speed 0 → 200 → 0 that walks all six gears and the tach's amber zone. Lap channels dead-front while sweeping, and the lap in progress is abandoned on either switch. TRACK-only: it has no effect until the mode is TRACK. |
 | `alarm oilp\|oilt\|clt` | Force the matching alarm condition |
 | `alarm off` | Release forced alarm channels back to the simulator |
 | `odo set <miles>` | Reseed the persisted odometer |
@@ -29,14 +30,14 @@ case-insensitive):
 | `help` | List commands |
 | `flashwipe really` | **Destructive, minutes-long:** full-chip erase of the center panel's retired QSPI flash. The one two-line command: it first prints a `flashwipe: erasing…` warning, then blocks SILENTLY for minutes (dash frozen, no output) before the final `ok flashwipe` / `err flashwipe …` ack — extend the read timeout to at least 5 minutes and NEVER power-cycle while waiting. Bare `flashwipe` or any other argument errs without erasing. |
 
-Channels: `rpm speed ect oilt oilp volts fuel delta lap last best ambient afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2`.
+Channels: `rpm speed ect oilt oilp volts fuel delta lap last best ambient afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2 session`.
 
 ## Steps
 
 1. **Translate the skill arguments to a protocol line.**
    - Hyphenated shorthand: `set-rpm 3500` → `set rpm 3500` (any `set-<channel> <value>`).
-   - Everything else passes through verbatim: `mode street`, `alarm oilp`,
-     `odo set 24318`, `sim on`, `clear ect`, `status`, `help`.
+   - Everything else passes through verbatim: `mode street`, `circuit sweep`,
+     `alarm oilp`, `odo set 24318`, `sim on`, `clear ect`, `status`, `help`.
    - No arguments → send `status`.
 
 2. **Send the line and read the ack.**
