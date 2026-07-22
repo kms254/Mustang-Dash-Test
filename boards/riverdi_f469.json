@@ -1,0 +1,36 @@
+{
+  "build": {
+    "core": "stm32",
+    "cpu": "cortex-m4",
+    "extra_flags": "-DSTM32F4 -DSTM32F469xx -DSTM32F4xx -DARDUINO_GENERIC_F469IITX",
+    "f_cpu": "180000000L",
+    "mcu": "stm32f469iit6",
+    "product_line": "STM32F469xx",
+    "variant": "F469II_RIVERDI"
+  },
+  "debug": {
+    "jlink_device": "STM32F469II",
+    "openocd_target": "stm32f4x",
+    "svd_path": "STM32F469x.svd"
+  },
+  "frameworks": [
+    "arduino",
+    "cmsis",
+    "stm32cube"
+  ],
+  "name": "Riverdi STM32 Evaluation Board (STM32F469IIT6)",
+  "upload": {
+    "maximum_ram_size": 327680,
+    "maximum_size": 2097152,
+    "protocol": "stlink",
+    "protocols": [
+      "blackmagic",
+      "dfu",
+      "jlink",
+      "serial",
+      "stlink"
+    ]
+  },
+  "url": "https://riverdi.com/product/stm32-evaluation-board",
+  "vendor": "Riverdi"
+}

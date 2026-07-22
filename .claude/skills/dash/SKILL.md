@@ -8,7 +8,8 @@ description: Send a bench command to the running dash over serial. Use when the 
 Send one line of the dash's serial protocol to the connected Teensy 4.1 and
 report the firmware's `ok …` / `err …` acknowledgement. The firmware prints
 nothing over serial after boot except these acks, so the reply you read is
-always the answer to the command you sent.
+always the answer to the command you sent (single documented exception:
+`flashwipe really` prints a warning line before its ack — see its row).
 
 ## Protocol
 
@@ -26,6 +27,7 @@ case-insensitive):
 | `sim on` / `sim off` | Resume pure simulation / freeze all values |
 | `status` | One-line report (mode, fps, all channels, odometer; per-panel fields are comma triples center,left,right — `faults=0,0,0`, `retired=0,0,0`, `dl=t/s,t/s,t/s`, `eve=ok,ok,--`). `retired` counts frame-drain timeouts that killed a panel at runtime (it shows `eve=--` after); fps reads 0 when nothing renders — it never freezes at a stale value. |
 | `help` | List commands |
+| `flashwipe really` | **Destructive, minutes-long:** full-chip erase of the center panel's retired QSPI flash. The one two-line command: it first prints a `flashwipe: erasing…` warning, then blocks SILENTLY for minutes (dash frozen, no output) before the final `ok flashwipe` / `err flashwipe …` ack — extend the read timeout to at least 5 minutes and NEVER power-cycle while waiting. Bare `flashwipe` or any other argument errs without erasing. |
 
 Channels: `rpm speed ect oilt oilp volts fuel delta lap last best ambient afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2`.
 

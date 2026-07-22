@@ -27,25 +27,26 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   target header, any `MustangDash/*.h` pure header, or the platform files.
   Needs host `gcc`; Git Bash has none, so **on Windows run
   `wsl -- bash -lc "./tests/run-tests.sh"`** (or the VS Code task
-  "Tests: invariant suite"). All 11/11 pass.
+  "Tests: invariant suite"). All 13/13 pass.
 - Boot splash: a 2000 ms animated splash (spec vendored in `assets/splash/`)
   plays at power-up, then crossfades directly into the dash. Splash assets are
-  **ASTC bitmaps stored in the panel's 64 MB QSPI flash**, staged flash->RAM_G
-  once at boot and rendered from RAM_G (flash-source kept as a degraded
-  fallback) — rendering direct from flash hits a per-frame bandwidth ceiling
-  above ~40 KB per asset, see
-  `docs/solutions/architecture-patterns/bt817-flash-render-streaming-bandwidth-ceiling.md`:
-  `tools/make_splash_flash.py` (astcenc pinned by
-  `tools/get-astcenc.sh`, WSL) emits `splash_flash.h`; the firmware provisions
-  the panel flash once at boot when the pack CRC differs — sector 0 (the
-  vendor flashfast blob) is never written. Theme stays build-time via
+  **ASTC bitmaps embedded in the firmware image** (`tools/make_splash_flash.py`,
+  astcenc pinned by `tools/get-astcenc.sh`, WSL, emits `splash_flash.h`) and
+  staged MCU flash -> RAM_G at boot with a 16-byte readback spot-check per
+  asset; a failed check skips that asset for the session — no fallback. The
+  panel's QSPI flash is NOT used by boot: the provision-then-stage path was
+  deleted 2026-07-21 (direct-from-flash render hits a per-frame bandwidth
+  ceiling above ~40 KB per asset, see
+  `docs/solutions/architecture-patterns/bt817-flash-render-streaming-bandwidth-ceiling.md`,
+  and the pack ships embedded either way). Theme stays build-time via
   `SPLASH_THEME` in `MustangDash/splash_config.h`.
 - Dash: TRACK/STREET screens per the vendored design handoff
   (`assets/dash-design/`), all-procedural at ~60 fps with custom EVE bitmap
   fonts (`tools/make_dash_fonts.py` → `dash_fonts.h`, ~273 KB — RAM_G's only
   tenant). Data flows simulator → `DashState` channels (validity bitmask) →
   renderers; the serial protocol (115200; `ok`/`err` acks are the ONLY output
-  after boot) overrides any channel — the `/dash` skill wraps it. Odometer
+  after boot, with one documented exception: `flashwipe really` prints a
+  pre-erase warning line) overrides any channel — the `/dash` skill wraps it. Odometer
   persists in Teensy EEPROM (CRC8 record). Alarm takeover preempts both
   modes; the oil-pressure alarm is gated on rpm ≥ 500 (engine running).
 
@@ -152,8 +153,10 @@ RAM1:  variables:~17000, code:~67700
 RAM2:  variables:12416
 ```
 
-The dash-era `data` (~675 KB) is the embedded panel-flash provisioning pack
-(~644 KB of ASTC splash assets, all three themes) plus the zlib font glyphs;
+The dash-era `data` is the embedded splash pack (~1.66 MB of ASTC assets,
+all three themes; blue/red backgrounds at 4x4, checkered at 6x6) plus the
+zlib font glyphs (F767 image ~1.81 MB of 2 MB, 86.4% -- gating the pack on
+SPLASH_THEME at build time would reclaim ~888 KB if flash gets tight);
 the older ~206 KB embedded-PNG figures describe a deleted architecture and are
 kept only as history. Do not expect the sandbox's numbers to match — different
 toolchain, different libc. The two *workstation* paths agreeing byte-for-byte
@@ -168,6 +171,34 @@ rendering at 8 MHz SPI, backlight under `REG_PWM_DUTY` control. Dash-era bench
 facts (2026-07-09): 64 MB QSPI flash detected on the panel, one-time splash
 provisioning + CRC no-op reboot path verified, 60 fps sustained, serial AE walk
 acked, odometer persistence across power cycles verified.
+**F767 first light (2026-07-21): NUCLEO-F767ZI + center 7" CONFIRMED.**
+MCU-direct splash (embedded pack -> RAM_G) played on glass, crossfade, 60 fps
+sim dash, REG_ID 0x7C, faults=0, pwm=128 -- all on the single ST-LINK USB
+cable (power Plan A held at full backlight duty; bench buck not needed).
+F767 SPI clocks are prescaler-quantized (APB2=108 MHz, powers of two:
+6.75/13.5/27/54 -- requests round DOWN). Clock walk result (2026-07-21, on
+long low-quality jumpers): 6.75 MHz clean; **13.5 MHz ACCEPTED** (3-min
+STREET soak, fps=60 every sample, faults=0, REG_ID stable x15, splash
+staging clean, eyes-on in both modes); **27 MHz HARD-WEDGED the firmware**
+-- serial fully dead, loop stuck in the unbounded EVE_execute_cmd busy-poll
+on corrupted reads; recovered by ST-LINK reflash, no power-cycle needed.
+13.5 MHz is the F767 operating point; re-walk on carrier copper. Wiring per
+docs/hardware/nucleo-f767-center-panel-wiring.md (breakout BL pads bridged
+17-18 and 19-20, single tails to CN8-9/CN8-11). Serial mode switch, forced
+alarm (green LED + takeover, both modes), and alarm-off all verified live.
+Panel-flash state (2026-07-21): the center panel's QSPI flash holds an
+obsolete EVE Screen Editor image — a 2026-07-20 ESE session loaded generated
+map/bin files to address 0, so sector 0 is ESE-provenance, not factory.
+Firmware no longer reads or writes panel flash. A guarded `flashwipe` serial
+command exists for the full-chip erase, but as of 2026-07-21 the center
+panel's flash NO LONGER ATTACHES (EVE_init_flash -> 0x06 DETACHED, warm and
+cold boots alike, post-ESE-session) — the erase cannot run, and equally the
+stale image cannot be read by anything, which retires the hygiene concern.
+Diagnosis needs the eval board (does ESE direct-USB still detect the chip?);
+only matters if panel flash is ever wanted again (the carrier uses external
+NOR instead). flashwipe's ack is diagnostic: it reports init code + status
+and refuses to fake success (first bench run exposed that CMD_FLASHERASE on
+a detached flash no-ops below the fault latch: a 0-second "ok").
 Bring-up hazards actually hit on this bench (in symptom order): a damaged FFC
 end shorting pins 1-2 (VDD-GND -> Teensy won't enumerate on USB), and a flaky
 Teensy micro-USB cable that perfectly mimicked a dead board. Bench rules that

@@ -82,20 +82,20 @@ ASSET_LIST = [
     ("emblem", "emblem-200x200.png", "4x4", False),
     ("wordmark", "wordmark-mustang-700x80.png", "4x4", False),
     ("bars_chrome", "bars-chrome-240x45.png", "4x4", False),
-    ("bg_blue", "bg-blue-1024x600.png", "8x8", True),
+    ("bg_blue", "bg-blue-1024x600.png", "4x4", True),  # quality trial 2026-07-21: fits RAM_G only while no street layer stages
     ("line_blue", "line-blue-340x40.png", "4x4", False),
     ("year_blue", "year-1965-blue.png", "4x4", False),
-    ("bg_red", "bg-red-1024x600.png", "8x8", True),
+    ("bg_red", "bg-red-1024x600.png", "4x4", True),  # 4x4 trial 2026-07-21 (same budget rule as bg_blue)
     ("line_red", "line-red-340x40.png", "4x4", False),
     ("year_red", "year-1965-red.png", "4x4", False),
-    ("bg_checkered", "bg-checkered-1024x600.png", "8x8", True),
+    ("bg_checkered", "bg-checkered-1024x600.png", "6x6", True),
     ("checker_block", "checker-block-240x52.png", "4x4", False),
     ("checker_line", "checker-line-300x14.png", "4x4", False),
     ("checker_strip", "checker-strip-1024x26.png", "4x4", False),
     ("year_checkered", "year-1965-checkered.png", "4x4", False),
 ]
 
-EVE_FMT = {"4x4": "EVE_ASTC_4X4", "8x8": "EVE_ASTC_8X8"}
+EVE_FMT = {"4x4": "EVE_ASTC_4X4", "6x6": "EVE_ASTC_6X6", "8x8": "EVE_ASTC_8X8"}
 
 
 def _box_blur_axis(arr, radius, axis):
@@ -287,13 +287,16 @@ def emit_header(assets, pack, crc):
         "",
         "#include <stdint.h>",
         "",
-        "/* self-contained for host tests: no-op PROGMEM and the two EVE ASTC",
+        "/* self-contained for host tests: no-op PROGMEM and the EVE ASTC",
         " * format ids (guarded; EVE.h's definitions win when included first) */",
         "#ifndef PROGMEM",
         "#define PROGMEM",
         "#endif",
         "#ifndef EVE_ASTC_4X4",
         "#define EVE_ASTC_4X4 ((uint32_t) 37808UL)",
+        "#endif",
+        "#ifndef EVE_ASTC_6X6",
+        "#define EVE_ASTC_6X6 ((uint32_t) 37812UL)",
         "#endif",
         "#ifndef EVE_ASTC_8X8",
         "#define EVE_ASTC_8X8 ((uint32_t) 37815UL)",

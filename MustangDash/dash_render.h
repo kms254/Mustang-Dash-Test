@@ -514,6 +514,12 @@ void draw_dash_content(uint32_t now_ms, uint8_t alpha)
     }
     else if (DASH_MODE_STREET == g_dash.mode)
     {
+        /* NOTE for any future full-screen bitmap here: CMD_SETBITMAP
+         * configures the CURRENTLY SELECTED handle, and register_fonts
+         * parks the selection on the last font handle -- draw on a scratch
+         * handle (e.g. 15) and restore 0, or every glyph on that font
+         * renders as scrambled blocks (bench-found 2026-07-21; the carbon
+         * base-layer trial hit this before being retired to flat black). */
         draw_street_mode(now_ms, alpha);
     }
     else

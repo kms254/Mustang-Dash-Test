@@ -590,6 +590,18 @@ void EVE_start_dma_transfer(void)
 #include "EVE.h"
 #include <SPI.h>
 
+#if defined (EVE_PANEL_HAS_BUS)
+/* multi-panel: buffer transfers ride the selected panel's SPI peripheral */
+static SPIClass &eve_dma_spi(void)
+{
+    return ((NULL != EVE_active_panel) && (NULL != EVE_active_panel->bus))
+               ? *((SPIClass *) EVE_active_panel->bus)
+               : SPI;
+}
+#else
+#define eve_dma_spi() SPI
+#endif
+
 #if defined (EVE_DMA)
 
 uint32_t EVE_dma_buffer[1025U];
@@ -605,7 +617,7 @@ void EVE_start_dma_transfer(void)
     EVE_cs_set();
 
 #if !defined (EVE_SPI_BOOST)
-    SPI.transfer(((uint8_t *) &EVE_dma_buffer[0]) + 1U, (((EVE_dma_buffer_index) * 4U) - 1U));
+    eve_dma_spi().transfer(((uint8_t *) &EVE_dma_buffer[0]) + 1U, (((EVE_dma_buffer_index) * 4U) - 1U));
 #else
     uint8_t *buffer = ((uint8_t *) &EVE_dma_buffer[0]) + 1U;
     size_t count = (((EVE_dma_buffer_index) * 4U) - 1U);

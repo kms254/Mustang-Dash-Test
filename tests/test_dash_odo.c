@@ -320,6 +320,21 @@ int main(void)
                "dash_trip_miles must read 142.6");
     }
 
+    /* trip reset (migration plan U6): trip zeroed, lifetime untouched,
+     * immediate write demanded */
+    {
+        DashOdo o;
+        dash_odo_init(&o);
+        o.odo_tenths = 243180U;
+        o.trip_tenths = 1426U;
+        o.rem_ums = 77U;
+        dash_odo_trip_reset(&o);
+        expect(o.trip_tenths == 0U, "trip reset must zero the trip");
+        expect(o.odo_tenths == 243180U, "trip reset must not touch the lifetime odometer");
+        expect(o.rem_ums == 77U, "trip reset must not touch the sub-tenth carry");
+        expect(o.dirty_now, "trip reset must demand an immediate write");
+    }
+
     if (failures == 0)
     {
         printf("OK: odometer v2 layout, crc, ping-pong slots, torn-write recovery, "

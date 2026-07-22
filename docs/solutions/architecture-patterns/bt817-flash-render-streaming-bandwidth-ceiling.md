@@ -23,6 +23,12 @@ tags:
 
 # BT817 flash render-streaming has a per-frame bandwidth ceiling
 
+> **Scope note (2026-07-21):** the flash-source fallback this doc discusses
+> was removed by the 2026-07-21 MCU-direct splash rewrite — the splash now
+> stages the embedded pack MCU-flash -> RAM_G at boot with no flash-render
+> path left at all. The bandwidth-ceiling finding itself stands unchanged;
+> it's the reason rendering is RAM_G-only now, not merely the preferred path.
+
 ## Context
 
 The boot splash originally rendered its ASTC assets direct from the panel's

@@ -18,15 +18,15 @@
  *      500 ms enumeration window before display init, not the 2 s wait
  *   2. brings the EVE chip out of power-down, runs EVE_init(), reads REG_ID
  *      (a healthy BT817 returns 0x7C) and reports both on Serial
- *   3. checks the splash ASTC assets in the panel's QSPI flash against the
- *      embedded pack (splash_flash.h) and provisions them once on mismatch
- *      (CMD_FLASHUPDATE, sector 0 never touched); inflates the dash fonts
- *      into RAM_G (dash_fonts.h) -- all with the backlight held dark
+ *   3. inflates the dash fonts into RAM_G (dash_fonts.h) -- all with the
+ *      backlight held dark; the panel's QSPI flash is never touched
+ *      (2026-07-21 MCU-direct rewrite)
  *   4. plays the 2000 ms animated splash (assets/splash/README.md spec,
  *      timing in splash_timeline.h; theme picked in splash_config.h),
- *      staging the theme's ASTC bitmaps flash->RAM_G and rendering from
- *      RAM_G (see splash_render.h for why), lighting the backlight only
- *      after the first frame is on screen
+ *      staging the theme's ASTC bitmaps from the firmware-embedded pack
+ *      (splash_flash.h) MCU flash -> RAM_G with per-asset readback
+ *      spot-checks, rendering from RAM_G (see splash_render.h for why),
+ *      lighting the backlight only after the first frame is on screen
  *   5. crossfades ~400 ms into the dash -- TRACK or STREET view fed by the
  *      built-in simulator (dash_sim.h) with serial overrides (dash_serial.h),
  *      alarm takeover on critical conditions, EEPROM-persisted odometer --
@@ -35,11 +35,13 @@
  * Serial is 115200 8N1. Boot prints a diagnostic banner; after boot the
  * firmware emits nothing except one `ok ...` / `err ...` ack per received
  * command line (see dash_serial.h for the protocol; /dash skill wraps it).
+ * One documented exception: `flashwipe really` prints a pre-erase warning
+ * line before its ack, because the erase then blocks silently for minutes.
  *
  * Rendering lives in sibling single-TU headers: dash_draw.h (shared
  * primitives), dash_render.h (center TRACK/STREET/alarm), engine_render.h
  * (left 5" ENGINE screen), timing_render.h (right 5" TIMING/ROAD screen),
- * and splash_render.h (flash provisioning + splash + crossfade).
+ * and splash_render.h (RAM_G staging + splash + crossfade).
  * This file keeps setup/loop and the glue: panel selection, EVE frame
  * plumbing, cluster brightness, fonts, serial pump, odometer EEPROM, and
  * the shared state every header reads.
@@ -51,7 +53,9 @@
 
 #include <Arduino.h>
 #include <SPI.h>
+#if defined(ARDUINO_TEENSY41)
 #include <avr/eeprom.h> /* Teensy 4.1 wear-leveled EEPROM emulation (4284 B) */
+#endif
 #include "EVE.h"
 #include "splash_config.h"
 #include "splash_timeline.h"
@@ -64,11 +68,18 @@
 #include "dash_odo.h"
 #include "dash_fonts.h"
 #include "dash_panels.h" /* per-panel pins + timings (host-tested); mapped to EVE_panel_t in setup() */
+#include "dash_telltales.h" /* 8-lamp warning mask (host-tested); pins + lamp test live below */
+#include "dash_can.h" /* FDCAN bring-up to loopback (U7); Teensy compiles stubs */
+#if !defined(ARDUINO_TEENSY41)
+#include <Wire.h> /* FM24CL64B I2C FRAM odometer backend (migration plan U6) */
+#endif
 
 /* Teensy 4 USB device state: non-zero once the USB host has configured us
  * (cores/teensy4/usb.c). Zero when running from a wall adapter / car power. */
 extern "C" {
+#if defined(ARDUINO_TEENSY41)
 extern volatile uint8_t usb_configuration;
+#endif
 }
 
 /* Volatile so the compiler cannot fold the table access down to the one
@@ -96,9 +107,90 @@ static DashOdo g_odo;
 
 /* ---- panel plumbing (three BT817s on one shared SPI bus, KTD1/KTD9) ---- */
 static EVE_panel_t g_eve_panels[DASH_PANEL_COUNT]; /* library form of DASH_PANELS, filled in setup() */
+
+#if defined(EVE_PANEL_HAS_BUS)
+#if defined(DASH_BOARD_NUCLEO_F767)
+/* NUCLEO-F767ZI three-panel mule: three genuinely dedicated SPI peripherals
+ * on pins clear of the board's fixed functions -- Ethernet RMII steals
+ * SPI1's default MOSI (PA7) and SPI2's default SCK (PB13), hence the
+ * alternates. Panels attach via FFC breakouts; backlights on external 5V.
+ * Constructor order: MOSI, MISO, SCLK. */
+static SPIClass g_spi_center(PB5, PA6, PA5);  /* SPI1: MOSI on PB5 (PA7 is RMII) */
+static SPIClass g_spi_left(PB15, PC2, PB10);  /* SPI2: SCK on PB10, MISO on PC2 (PB13/PB14 taken) */
+static SPIClass g_spi_right(PE6, PE5, PE2);   /* SPI4 */
+static SPIClass *const DASH_SPI_BUSES[DASH_PANEL_COUNT] = { &g_spi_center, &g_spi_left, &g_spi_right };
+static const uint8_t DASH_CS_PINS[DASH_PANEL_COUNT] = { PF13, PE9, PE11 };
+static const uint8_t DASH_PD_PINS[DASH_PANEL_COUNT] = { PF14, PE13, PF15 };
+#elif defined(DASH_BOARD_RIVERDI_F469)
+/* Riverdi STM32 Evaluation Board (STM32F469II): ONE RiBUS connector on SPI2
+ * -- center panel only; the sides are physically absent and retire at boot
+ * (R9), so all three descriptors share the one bus and the side CS/PD pins
+ * are harmless spares. Pin map from riverdi-eve host_layer/stm32f4:
+ * CS PB12, PD PH6, INT PH7 (unused -- we poll). */
+static SPIClass g_spi_center(PB15, PB14, PB13); /* SPI2: MOSI, MISO, SCLK */
+static SPIClass *const DASH_SPI_BUSES[DASH_PANEL_COUNT] = { &g_spi_center, &g_spi_center, &g_spi_center };
+static const uint8_t DASH_CS_PINS[DASH_PANEL_COUNT] = { PB12, PC6, PC7 }; /* sides: spare GPIOs */
+static const uint8_t DASH_PD_PINS[DASH_PANEL_COUNT] = { PH6, PC8, PC9 };
+#else
+/* STM32 carrier (migration plan U5): one dedicated SPI peripheral per panel,
+ * indexed by DashPanelDesc.bus_index. Pin sets are compile-valid LQFP-100
+ * defaults for the WeAct H743 mule; the carrier schematic (plan U2) owns the
+ * final assignment. Constructor order: MOSI, MISO, SCLK. */
+static SPIClass g_spi_center(PA7, PA6, PA5); /* SPI1 -- review fix: the variant's
+    default `SPI` object IS SPI2 on PB13/14/15, i.e. the same bus as the left
+    panel; an explicit SPI1 instance keeps all three buses genuinely disjoint */
+static SPIClass g_spi_left(PB15, PB14, PB13); /* SPI2 */
+static SPIClass g_spi_right(PE6, PE5, PE2);   /* SPI4 */
+static SPIClass *const DASH_SPI_BUSES[DASH_PANEL_COUNT] = { &g_spi_center, &g_spi_left, &g_spi_right };
+
+/* Review fix: dash_panels.h's CS/PD values are Teensy digital numbers; on the
+ * STM32 variant those same numbers land on USB DP, the telltale port, and the
+ * uSD pins. The descriptor table stays host-pure (canonical Teensy data); the
+ * STM32 build remaps the roles here, clear of USB (PA11/12), lamps (PD0-7),
+ * FDCAN (PB5/6/8/9), I2C2 (PB10/11), K1 (PC13), and the SPI pins above.
+ * TODO(U2): the carrier schematic owns the final assignment. */
+static const uint8_t DASH_CS_PINS[DASH_PANEL_COUNT] = { PD8, PD9, PD10 };
+static const uint8_t DASH_PD_PINS[DASH_PANEL_COUNT] = { PD11, PD12, PD13 };
+#endif
+#endif
 static bool g_panel_ok[DASH_PANEL_COUNT];          /* init succeeded; a dead panel stays dark, never blocks the others (R9) */
 static uint8_t g_active_panel = DASH_PANEL_CENTER; /* which panel the EVE library is currently routed at */
 static uint8_t g_dash_brightness = 0U;             /* ONE cluster brightness (R12); set to BL_STEADY at boot_complete */
+
+/* ---- telltales + switches (migration plan U6) ---- */
+/* Teensy pins follow the pin-budget note in dash_panels.h (telltales 2-9,
+ * buttons from 24); STM32 pins are WeAct-mule-valid placeholders until the
+ * carrier schematic (plan U2) fixes them. */
+#if defined(ARDUINO_TEENSY41)
+static const uint8_t DASH_LAMP_PINS[DASH_LAMP_COUNT] = { 2, 3, 4, 5, 6, 7, 8, 9 };
+static const uint8_t DASH_SWITCH_TRIP_PIN = 24U;
+#elif defined(DASH_BOARD_NUCLEO_F767)
+/* TEMPORARY bench visibility (2026-07-21): lamps 0-2 drive the Nucleo's
+ * onboard LEDs -- LD1 green PB0, LD2 blue PB7, LD3 red PB14 -- so the board
+ * visibly participates (boot lamp-test lights all three, then live alarm
+ * states) before real telltale hardware exists. Revert to plain GPIOs when
+ * external lamps arrive. Remaining lamps on free PD pins (clear of the VCP
+ * on PD8/9 and every SPI leg); trip switch = the blue USER button B1. */
+static const uint8_t DASH_LAMP_PINS[DASH_LAMP_COUNT] = { PB0, PB7, PB14, PD0, PD1, PD2, PD3, PD4 };
+static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* Nucleo USER button B1 */
+/* B1 is ACTIVE-HIGH (pressed connects PC13 to VDD; the board carries its
+ * own pull-down) -- plain INPUT, and never the internal pull-up, which
+ * would fight the external pull-down to an indeterminate idle level
+ * (review finding). */
+#define DASH_SWITCH_TRIP_PINMODE INPUT
+#define DASH_SWITCH_TRIP_PRESSED HIGH
+#else
+static const uint8_t DASH_LAMP_PINS[DASH_LAMP_COUNT] = { PD0, PD1, PD2, PD3, PD4, PD5, PD6, PD7 };
+static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* WeAct user button K1 */
+#endif
+/* default trip-switch electrical contract: active-LOW on internal pull-up */
+#if !defined(DASH_SWITCH_TRIP_PINMODE)
+#define DASH_SWITCH_TRIP_PINMODE INPUT_PULLUP
+#define DASH_SWITCH_TRIP_PRESSED LOW
+#endif
+static uint32_t g_trip_btn_edge_ms = 0UL; /* last raw edge time (debounce) */
+static bool g_trip_btn_down = false;      /* last raw sample */
+static bool g_trip_btn_fired = false;     /* one reset per stable press */
 
 static char g_serial_line[DASH_SERIAL_MAX_LINE + 17]; /* headroom to detect too-long */
 static uint8_t g_serial_len = 0U;
@@ -146,7 +238,13 @@ static const uint8_t BL_STEADY = 128U;
  * dragged fps to 25 with faults=0 -- writes mostly survived, reads did not.
  * 8 MHz is the verified operating point until the U9 soak walks it up --
  * fps alone never accepts an operating point. */
-static const uint32_t DASH_SPI_RUN_HZ = 8000000UL;
+static const uint32_t DASH_SPI_RUN_HZ = 13500000UL; /* 13.5 MHz: F767 bench-accepted operating point (2026-07-21 clock walk on
+    long low-quality jumpers). 6.75 MHz clean; 13.5 MHz clean -- 3 min STREET
+    soak, fps=60, faults=0, REG_ID stable x15, both modes eyes-on. 27 MHz
+    HARD-WEDGED the firmware (serial dead, loop stuck in the unbounded
+    EVE_execute_cmd busy-poll on corrupted reads) -- REJECTED. Note the F767
+    prescaler rounds requests DOWN to 6.75/13.5/27/54; re-walk on the carrier's
+    point-to-point copper, never accept a step without eyes-on-panel. */
 
 /* ---- forward declarations (explicit prototypes, see note above) ---- */
 void set_backlight(uint8_t duty);
@@ -160,6 +258,7 @@ bool load_dash_fonts(uint8_t panel);
 uint16_t dash_font(uint8_t idx);
 void dash_register_fonts(uint16_t needed);
 uint16_t measure_side_dl(uint8_t panel, DashMode mode);
+static void odo_storage_init(void); /* review fix: offline no-ctags build needs the explicit prototype */
 void odo_eeprom_load(void);
 void odo_eeprom_write(void);
 void pump_serial(void);
@@ -185,6 +284,7 @@ void setup(void)
      * stays 0 and the loop exits at its 500 ms timeout -- the car boot
      * cost is that bounded window, not the 2 s monitor wait. */
     uint32_t t_start = millis();
+#if defined(ARDUINO_TEENSY41)
     while ((0U == usb_configuration) && ((millis() - t_start) < 500U))
     {
         /* wait for USB enumeration, briefly */
@@ -196,16 +296,21 @@ void setup(void)
             /* host present: wait up to 2 s total for the monitor to open */
         }
     }
+#else
+    /* STM32 CDC exposes no cheap "enumerated but monitor closed" signal, so
+     * a single bounded wait covers both cases: host present and opening the
+     * monitor -> banner captured; car supply -> exits at 500 ms. Bench UX is
+     * slightly worse than the Teensy path (a slow-opening monitor can miss
+     * the banner); revisit in U6 if it bites. */
+    while (!Serial && ((millis() - t_start) < 500U))
+    {
+        /* wait briefly for a USB host */
+    }
+#endif
 
     Serial.println();
     Serial.println(F("=== MustangDash / Riverdi triple dash (BT817 x3) on Teensy 4.1 ==="));
     static const char *const kPanelNames[DASH_PANEL_COUNT] = { "CENTER", "LEFT", "RIGHT" };
-    for (uint8_t p = 0U; p < DASH_PANEL_COUNT; p++)
-    {
-        Serial.printf("Panel %s: CS=%u PD=%u %ux%u\r\n", kPanelNames[p],
-                      (unsigned)DASH_PANELS[p].cs_pin, (unsigned)DASH_PANELS[p].pd_pin,
-                      (unsigned)DASH_PANELS[p].width, (unsigned)DASH_PANELS[p].height);
-    }
     Serial.printf("Splash theme: %u (0=blue 1=red 2=checkered)\r\n", (unsigned)g_theme);
 
     /* Map the host-tested descriptor table into the library's panel form and
@@ -233,18 +338,37 @@ void setup(void)
         e->swizzle = d->swizzle;
         e->pclkpol = d->pclkpol;
         e->cspread = d->cspread;
-        pinMode(d->cs_pin, OUTPUT);
-        digitalWrite(d->cs_pin, HIGH);
-        pinMode(d->pd_pin, OUTPUT);
-        digitalWrite(d->pd_pin, LOW);
+#if defined(EVE_PANEL_HAS_BUS)
+        e->bus = DASH_SPI_BUSES[d->bus_index]; /* dedicated peripheral per panel */
+        /* review fix: remap CS/PD off the raw Teensy numbers (see the pin
+         * tables above); the descriptor stays canonical, the target adapts */
+        e->cs_pin = DASH_CS_PINS[p];
+        e->pdn_pin = DASH_PD_PINS[p];
+#endif
+        pinMode(e->cs_pin, OUTPUT);
+        digitalWrite(e->cs_pin, HIGH);
+        pinMode(e->pdn_pin, OUTPUT);
+        digitalWrite(e->pdn_pin, LOW);
+        Serial.printf("Panel %s: CS=%u PD=%u %ux%u\r\n", kPanelNames[p],
+                      (unsigned)e->cs_pin, (unsigned)e->pdn_pin,
+                      (unsigned)d->width, (unsigned)d->height);
     }
 
     /* SPI mode 0, MSB first; the clock stays conservative through every
      * panel's init (BT817 needs <= 11 MHz until configured), then rises
-     * once, bus-wide, to the R11 operating point. */
+     * once to the operating point. */
+#if defined(EVE_PANEL_HAS_BUS)
+    for (uint8_t b = 0U; b < DASH_PANEL_COUNT; b++)
+    {
+        DASH_SPI_BUSES[b]->begin();
+        DASH_SPI_BUSES[b]->beginTransaction(SPISettings(8UL * 1000000UL, MSBFIRST, SPI_MODE0));
+    }
+    Serial.println(F("3x dedicated SPI up at 8 MHz, mode 0 (init)."));
+#else
     SPI.begin();
     SPI.beginTransaction(SPISettings(8UL * 1000000UL, MSBFIRST, SPI_MODE0));
     Serial.println(F("SPI up at 8 MHz, mode 0 (init)."));
+#endif
 
     /* Per-panel init (KTD9): select -> EVE_init with that panel's timings ->
      * REG_ID check -> backlight forced dark immediately (the library's init
@@ -264,48 +388,49 @@ void setup(void)
     }
     const bool any_panel_ok = g_panel_ok[0] || g_panel_ok[1] || g_panel_ok[2];
 
-    /* One bus-wide raise after every init is done (KTD8). */
+    /* One raise after every init is done (KTD8). Per-panel buses raise
+     * independently -- point-to-point links, so per-panel clocks are
+     * individually tunable on the STM32 carrier. */
+#if defined(EVE_PANEL_HAS_BUS)
+    for (uint8_t b = 0U; b < DASH_PANEL_COUNT; b++)
+    {
+        DASH_SPI_BUSES[b]->endTransaction();
+        DASH_SPI_BUSES[b]->beginTransaction(SPISettings(DASH_SPI_RUN_HZ, MSBFIRST, SPI_MODE0));
+    }
+#else
     SPI.endTransaction();
     SPI.beginTransaction(SPISettings(DASH_SPI_RUN_HZ, MSBFIRST, SPI_MODE0));
-    Serial.printf("SPI raised to %lu MHz (U9 read-integrity soak gates this operating point)\r\n",
-                  (unsigned long)(DASH_SPI_RUN_HZ / 1000000UL));
-
-    /* Probe the CENTER panel's onboard QSPI flash: attach and switch to fast
-     * mode. Center-only -- the sides carry no flash assets this round. A
-     * failure is logged, never fatal: the dash must not depend on flash. */
-    uint8_t flash_ret = E_NOT_OK;
-    if (dash_select_panel(DASH_PANEL_CENTER))
-    {
-        flash_ret = EVE_init_flash();
-        const uint32_t flash_mb = EVE_memRead32(REG_FLASH_SIZE);
-        Serial.printf("EVE_init_flash() returned 0x%02X (E_OK=0x00), REG_FLASH_SIZE = %lu MB\r\n",
-                      flash_ret, (unsigned long)flash_mb);
-    }
+#endif
+    Serial.printf("SPI raised to %.2f MHz requested (prescaler rounds down; read-integrity soak gates the attained operating point)\r\n",
+                  (double)DASH_SPI_RUN_HZ / 1000000.0);
 
     /* Odometer loads regardless of panel state -- it is Teensy-local. */
     dash_state_init(&g_dash);
     dash_sim_init(&g_sim);
     dash_odo_init(&g_odo);
+    /* telltales: pins out + full-mask bulb check; the lamps hold ALL through
+     * the splash (a visible ~2.4 s lamp test) until loop()'s first live
+     * update. Trip switch: input with pull-up, debounced in loop(). */
+    for (uint8_t l = 0U; l < DASH_LAMP_COUNT; l++)
+    {
+        pinMode(DASH_LAMP_PINS[l], OUTPUT);
+        digitalWrite(DASH_LAMP_PINS[l], HIGH);
+    }
+    pinMode(DASH_SWITCH_TRIP_PIN, DASH_SWITCH_TRIP_PINMODE);
+
+    odo_storage_init();
     odo_eeprom_load();
+    dash_can_init(); /* logged, never fatal -- the dash must not depend on CAN (U7) */
     Serial.printf("Odometer: %.1f mi (trip %.1f)\r\n",
                   (double)dash_odo_miles(&g_odo), (double)dash_trip_miles(&g_odo));
 
     if (any_panel_ok)
     {
-        /* Splash needs its ASTC assets in the CENTER panel's QSPI flash;
-         * verify (and provision on first boot / asset change). Skipped --
-         * along with the splash itself -- if the center or its flash probe
-         * failed: the dash must never depend on flash. */
-        bool splash_ok = false;
-        if (g_panel_ok[DASH_PANEL_CENTER] && (E_OK == flash_ret)
-            && dash_select_panel(DASH_PANEL_CENTER))
-        {
-            splash_ok = splash_flash_provision();
-        }
-        else
-        {
-            Serial.println(F("QSPI flash unavailable -> skipping splash (assets live in flash)."));
-        }
+        /* Splash assets ship embedded in the firmware and stage into the
+         * center panel's RAM_G just before the splash runs (2026-07-21
+         * MCU-direct rewrite) -- boot never touches the panel's QSPI flash.
+         * Splash needs only a healthy center panel. */
+        const bool splash_ok = g_panel_ok[DASH_PANEL_CENTER];
 
         /* Dash fonts into every healthy panel's own RAM_G before the splash
          * starts (KTD3/KTD6): each BT817 is independent silicon, so the
@@ -345,9 +470,9 @@ void setup(void)
         if (splash_ok && dash_select_panel(DASH_PANEL_CENTER))
         {
             const ThemeDesc *theme = &THEMES[g_theme];
-            /* Stage the theme into RAM_G (command-path reads) so the splash
-             * renders from RAM_G, not flash streaming -- see the rationale
-             * in splash_render.h. A failed stage falls back per-asset. */
+            /* Stage the theme MCU flash -> RAM_G (bulk SPI writes, 16-byte
+             * readback spot-check per asset) -- see the rationale in
+             * splash_render.h. An asset that fails its check is skipped. */
             (void)splash_stage_theme_to_ramg(theme);
             run_splash(theme); /* 2000 ms animation, then the crossfade fades the sides in too (R8) */
         }
@@ -389,6 +514,70 @@ void loop(void)
     {
         odo_eeprom_write();
         dash_odo_mark_written(&g_odo);
+    }
+
+    /* telltales track the live state every frame (U6); the mask is pure
+     * logic (dash_telltales.h), only the pin writes live here */
+    {
+        const uint8_t lamp_mask = dash_telltale_mask(&g_dash);
+        uint8_t first_live = 0U;
+#if defined(DASH_BOARD_NUCLEO_F767)
+        /* TEMPORARY bench boot show (2026-07-21): the three onboard LEDs
+         * hold all-on (continuing setup()'s lamp test through the splash),
+         * then roll one-at-a-time green->blue->red every 750 ms until 10 s
+         * after boot, then join live telltale duty. Remove together with
+         * the onboard-LED pin mapping when real telltale hardware lands. */
+        if (now < 10000UL)
+        {
+            first_live = 3U;
+            if (now < 2500UL)
+            {
+                for (uint8_t l = 0U; l < 3U; l++)
+                {
+                    digitalWrite(DASH_LAMP_PINS[l], HIGH);
+                }
+            }
+            else
+            {
+                const uint8_t step = (uint8_t)(((now - 2500UL) / 750UL) % 3U);
+                for (uint8_t l = 0U; l < 3U; l++)
+                {
+                    digitalWrite(DASH_LAMP_PINS[l], (l == step) ? HIGH : LOW);
+                }
+            }
+        }
+#endif
+        for (uint8_t l = first_live; l < DASH_LAMP_COUNT; l++)
+        {
+            digitalWrite(DASH_LAMP_PINS[l], ((lamp_mask >> l) & 1U) ? HIGH : LOW);
+        }
+    }
+
+    /* trip-reset switch (pull-up, LOW = pressed). Review fix: fire only
+     * after the pin has been stably LOW for >= 30 ms -- a single EMI glitch
+     * on a car harness must not zero the trip. One reset per press; the
+     * latch clears after a stable release. The write lands here, inline. */
+    {
+        const bool down = (DASH_SWITCH_TRIP_PRESSED == digitalRead(DASH_SWITCH_TRIP_PIN));
+        if (down != g_trip_btn_down)
+        {
+            g_trip_btn_edge_ms = now; /* raw edge: restart the stability window */
+            g_trip_btn_down = down;
+        }
+        else if ((now - g_trip_btn_edge_ms) > 30UL)
+        {
+            if (down && !g_trip_btn_fired)
+            {
+                g_trip_btn_fired = true;
+                dash_odo_trip_reset(&g_odo);
+                odo_eeprom_write();
+                dash_odo_mark_written(&g_odo);
+            }
+            else if (!down)
+            {
+                g_trip_btn_fired = false;
+            }
+        }
     }
 
     /* Sequential per-panel render (KTD8): center first (mode or alarm
@@ -656,6 +845,101 @@ void dash_register_fonts(uint16_t needed)
 
 /* ---- odometer EEPROM glue (KTD7): the pure record logic lives in
  * dash_odo.h; this is the only code that touches the EEPROM API ---- */
+/* Storage seam (unique names -- the .ino->cpp prototype hoisting in both
+ * build paths would lift any redefinition of the avr eeprom_* names above
+ * target guards and collide with <avr/eeprom.h> on Teensy). U6 replaces the
+ * STM32 branch with the FM24CL64B I2C FRAM backend. */
+#if defined(ARDUINO_TEENSY41)
+static void odo_storage_init(void)
+{
+    /* Teensy EEPROM needs no bring-up (review fix: consolidated here from a
+     * separate trailing #if block so both backends read as one unit) */
+}
+static void odo_storage_read(void *dst, uint32_t off, size_t n)
+{
+    eeprom_read_block(dst, (const void *)(uintptr_t)off, n);
+}
+static void odo_storage_write(const void *src, uint32_t off, size_t n)
+{
+    eeprom_write_block(src, (void *)(uintptr_t)off, n);
+}
+#else
+/* STM32 backend (U6): FM24CL64B I2C FRAM at 0x50, 16-bit addressing, no
+ * write-cycle delay (FRAM writes at bus speed -- no polling, no wear
+ * leveling). Probed once at boot; a missing chip (e.g. the bare WeAct
+ * mule) degrades to a RAM shadow: the dash runs, the odometer just does
+ * not persist, and the banner says so. */
+static const uint8_t ODO_FRAM_ADDR = 0x50U;
+static bool g_odo_fram_ok = false;
+static uint8_t g_odo_shadow[DASH_ODO_SLOT_ADDR(1) + DASH_ODO_RECORD_SIZE];
+
+static void odo_storage_init(void)
+{
+    Wire.begin();
+    Wire.beginTransmission(ODO_FRAM_ADDR);
+    g_odo_fram_ok = (0U == Wire.endTransmission());
+    Serial.printf("Odometer backend: %s\r\n",
+                  g_odo_fram_ok ? "FRAM (FM24CL64B)" : "RAM shadow -- NOT persistent (no FRAM found)");
+}
+
+static void odo_storage_read(void *dst, uint32_t off, size_t n)
+{
+    memset(dst, 0, n); /* review fix: a short I2C read must yield a clean
+                        * CRC-fail record, never uninitialized stack tails */
+    if (!g_odo_fram_ok)
+    {
+        memcpy(dst, &g_odo_shadow[off], n);
+        return;
+    }
+    Wire.beginTransmission(ODO_FRAM_ADDR);
+    Wire.write((uint8_t)(off >> 8));
+    Wire.write((uint8_t)(off & 0xFFU));
+    const bool addr_ok = (0U == Wire.endTransmission(false)); /* repeated start */
+    const size_t got = addr_ok ? (size_t)Wire.requestFrom(ODO_FRAM_ADDR, (uint8_t)n) : 0U;
+    if (got != n)
+    {
+        /* review fix: a transient read fault must NOT zero-start and then
+         * clobber the surviving FRAM records on the next cadence write.
+         * Latch the shadow backend: this drive runs unpersisted, the good
+         * records stay untouched for the next boot's fresh probe. */
+        g_odo_fram_ok = false;
+        Serial.printf("Odometer FRAM read fault (got %u/%u) -> RAM shadow for this run\r\n",
+                      (unsigned)got, (unsigned)n);
+        memcpy(dst, &g_odo_shadow[off], n);
+        return;
+    }
+    uint8_t *p = (uint8_t *)dst;
+    for (size_t i = 0U; (i < n) && (Wire.available() > 0); i++)
+    {
+        p[i] = (uint8_t)Wire.read();
+    }
+}
+
+static void odo_storage_write(const void *src, uint32_t off, size_t n)
+{
+    if (!g_odo_fram_ok)
+    {
+        memcpy(&g_odo_shadow[off], src, n);
+        return;
+    }
+    Wire.beginTransmission(ODO_FRAM_ADDR);
+    Wire.write((uint8_t)(off >> 8));
+    Wire.write((uint8_t)(off & 0xFFU));
+    Wire.write((const uint8_t *)src, n);
+    if (0U != Wire.endTransmission()) /* review fix: a lost write must not be silent */
+    {
+        /* PR#6 review: the record being persisted must still land -- copy
+         * it into the RAM shadow (the backend all future calls now use)
+         * and log, mirroring the read-fault diagnostic. Without this, one
+         * transient I2C fault silently dropped the current record (e.g.
+         * the trip-reset's immediate anti-resurrection write). */
+        g_odo_fram_ok = false; /* degrade to shadow; reboot re-probes fresh */
+        memcpy(&g_odo_shadow[off], src, n);
+        Serial.println(F("Odometer FRAM write fault -> RAM shadow for this run"));
+    }
+}
+#endif
+
 void odo_eeprom_load(void)
 {
     /* Two-slot ping-pong (review finding): a torn write -- power loss
@@ -664,8 +948,8 @@ void odo_eeprom_load(void)
      * tear costs 0.1 mi, never the lifetime count. */
     uint8_t rec0[DASH_ODO_RECORD_SIZE];
     uint8_t rec1[DASH_ODO_RECORD_SIZE];
-    eeprom_read_block(rec0, (const void *)DASH_ODO_SLOT_ADDR(0), DASH_ODO_RECORD_SIZE);
-    eeprom_read_block(rec1, (const void *)DASH_ODO_SLOT_ADDR(1), DASH_ODO_RECORD_SIZE);
+    odo_storage_read(rec0, DASH_ODO_SLOT_ADDR(0), DASH_ODO_RECORD_SIZE);
+    odo_storage_read(rec1, DASH_ODO_SLOT_ADDR(1), DASH_ODO_RECORD_SIZE);
     if (dash_odo_pick_load_slot(rec0, rec1, &g_odo) == 0xFFU)
     {
         dash_odo_init(&g_odo); /* blank or corrupt EEPROM: clean zero start */
@@ -677,7 +961,7 @@ void odo_eeprom_write(void)
     uint8_t rec[DASH_ODO_RECORD_SIZE];
     uint8_t slot;
     dash_odo_encode_next(&g_odo, rec, &slot); /* bumps seq, alternates slots */
-    eeprom_write_block(rec, (void *)DASH_ODO_SLOT_ADDR(slot), DASH_ODO_RECORD_SIZE);
+    odo_storage_write(rec, DASH_ODO_SLOT_ADDR(slot), DASH_ODO_RECORD_SIZE);
 }
 
 /* ---- serial pump (KTD6): accumulate a line, parse, apply, ack ---- */
@@ -688,6 +972,17 @@ void pump_serial(void)
         const char c = (char)Serial.read();
         if ('\n' == c)
         {
+            /* PR#6 review: trim trailing CR/blanks so CRLF terminals reach
+             * the pre-parser commands (cantest) whose raw whole-line
+             * compare has no tokenizer to strip them -- every parser-side
+             * command already tolerated the \r, only these didn't. */
+            while ((g_serial_len > 0U) &&
+                   (('\r' == g_serial_line[g_serial_len - 1U]) ||
+                    (' ' == g_serial_line[g_serial_len - 1U]) ||
+                    ('\t' == g_serial_line[g_serial_len - 1U])))
+            {
+                g_serial_len--;
+            }
             g_serial_line[g_serial_len] = '\0';
             handle_serial_line(g_serial_line);
             g_serial_len = 0U;
@@ -701,6 +996,16 @@ void pump_serial(void)
 
 void handle_serial_line(const char *line)
 {
+    /* `cantest` (U7): one-shot loopback proof, bus 1 -> bus 2 with the two
+     * buses wire-jumpered. Ahead of the parser like a diagnostic, because
+     * it is one: not part of the channel protocol. Case-insensitive to
+     * honor the protocol's documented contract (review fix). */
+    if (dash_serial_ieq_(line, "cantest"))
+    {
+        Serial.println(dash_can_test() ? F("ok cantest") : F("err cantest failed (init/jumper/termination/timeout)"));
+        return;
+    }
+
     DashCommand cmd;
     const DashSerialErr err = dash_parse_line(line, &cmd);
 
@@ -733,6 +1038,65 @@ void handle_serial_line(const char *line)
             odo_eeprom_write();
             dash_odo_mark_written(&g_odo);
             Serial.printf("ok odo set %.1f\r\n", (double)dash_odo_miles(&g_odo));
+            break;
+        case DASH_CMD_FLASHWIPE:
+            /* Full-chip erase of the center panel's QSPI flash (plan
+             * 2026-07-21-002 U5/KTD7): retires the obsolete ESE image, blob
+             * included -- boot never reads panel flash. A 64 MB chip erase
+             * takes MINUTES: the dash freezes and serial stays silent until
+             * the ok. Basic flash mode suffices for erase (no blob needed). */
+            if (g_panel_ok[DASH_PANEL_CENTER] && dash_select_panel(DASH_PANEL_CENTER))
+            {
+                Serial.println(F("flashwipe: erasing (minutes of silence -- do NOT power-cycle)"));
+                /* Clear the fault latch first so the ack attributes any fault
+                 * to THIS erase; EVE_busy() auto-recovers coprocessor faults
+                 * silently (resets the chip, clears the ring -- the erase
+                 * would abort), so an unconditional ok would be a false pass
+                 * on the one irreversible command (review finding). */
+                (void)EVE_get_and_reset_fault_state();
+                /* EVE_init_flash() is the library's full INIT-wait +
+                 * attach-retry state walk -- the recipe the old boot flow
+                 * used (a bare mid-session CMD_FLASHATTACH left the flash
+                 * DETACHED on the bench, and erasing a detached flash
+                 * no-ops below the fault latch: the 0-second fake ok,
+                 * 2026-07-21). A flashfast error is fine -- erase only
+                 * needs BASIC (status >= 2). */
+                const uint8_t finit = EVE_init_flash();
+                const uint32_t fst_pre = EVE_memRead32(REG_FLASH_STATUS);
+                if (fst_pre < 2UL)
+                {
+                    Serial.printf("err flashwipe flash not attached (init=0x%02X, REG_FLASH_STATUS=%lu)\r\n",
+                                  finit, (unsigned long)fst_pre);
+                    break;
+                }
+                {
+                    const uint32_t t0 = millis();
+                    EVE_cmd_flasherase();
+                    EVE_execute_cmd();
+                    const uint32_t secs = (millis() - t0) / 1000UL;
+                    const uint32_t fst_post = EVE_memRead32(REG_FLASH_STATUS);
+                    if (EVE_FAULT_RECOVERED == EVE_get_and_reset_fault_state())
+                    {
+                        Serial.println(F("err flashwipe coprocessor fault during erase (flash state unknown)"));
+                    }
+                    else if (secs < 10UL)
+                    {
+                        /* a real 64 MB chip erase takes minutes; an instant
+                         * return means it did not happen */
+                        Serial.printf("err flashwipe suspiciously fast (%lus, status=%lu) -- erase likely did not run\r\n",
+                                      (unsigned long)secs, (unsigned long)fst_post);
+                    }
+                    else
+                    {
+                        Serial.printf("ok flashwipe (%lus, status=%lu)\r\n",
+                                      (unsigned long)secs, (unsigned long)fst_post);
+                    }
+                }
+            }
+            else
+            {
+                Serial.println(F("err flashwipe center panel unavailable"));
+            }
             break;
         case DASH_CMD_STATUS: {
             /* Full-state snapshot (context parity, review finding): every
