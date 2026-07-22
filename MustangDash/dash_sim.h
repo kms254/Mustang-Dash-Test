@@ -68,8 +68,45 @@ static const float SIM_GEAR_RATIOS[6] = { 2.66f, 1.78f, 1.30f, 1.00f, 0.80f, 0.6
 #define SIM_UPSHIFT_RPM       7400.0f /* pull the next gear above this */
 #define SIM_DOWNSHIFT_RPM     3300.0f /* consider a lower gear below this... */
 #define SIM_DOWNSHIFT_MAX_RPM 6900.0f /* ...if it lands the revs below this */
-#define SIM_SEG_JITTER_MPH    9u      /* per-lap corner-limit jitter: 0..8 - 4 mph */
+/* Per-lap corner-limit jitter: an odd count, centred so the draw spans
+ * +/-(N-1)/2 mph. Narrowed from 9 (+/-4) to 3 (+/-1) in U4, and this is a
+ * consequence of the arc change rather than a free knob. Pinning a corner's
+ * arc to track geometry instead of to the driver's speed made a corner a fixed
+ * length of tarmac, so a given mph of jitter now buys several times more lap
+ * TIME than it did when the arc shrank along with the speed. Measured over 35
+ * flying laps at the default skill: +/-4 mph spreads laps by 5.7 s, +/-2 by
+ * 3.1 s, +/-1 by 1.55 s. Only the last fits S2's 0.3-1.5 s band. */
+#define SIM_SEG_JITTER_MPH    3u
+#define SIM_SEG_JITTER_MID    ((float) ((SIM_SEG_JITTER_MPH - 1u) / 2u))
 #define SIM_SEG_COUNT         16u
+
+/* ---- driver skill (plan U4, R7) ----
+ * ONE constant standing in for "moderate, not expert". It does three things:
+ * scales the corner limits the driver is willing to carry, backs the brakes
+ * off slightly from the tires' maximum, and widens the per-lap jitter
+ * INVERSELY -- a less consistent driver is a less repeatable one.
+ *
+ * It applies ONLY to segments flagged is_corner_limit. Scaling segment 9 would
+ * turn T12's flat-out kink into an enforced ceiling and lookahead braking would
+ * then invent a braking event on the one section that must stay pinned --
+ * corrupting the rpm sawtooth, invisibly, because a wrong sawtooth still looks
+ * like a sawtooth.
+ *
+ * Held to 0.82..0.95 on purpose. At least four independent error sources feed
+ * lap time -- apportioned segment lengths (KTD3), authored corner speeds, the
+ * estimated CdA, and the power figure -- so a value outside that band is
+ * evidence that one of THOSE is wrong, not licence to keep turning this one.
+ * It is also no longer the dominant lever it was drafted as: per-corner turn
+ * angle (below) moves lap time considerably harder. */
+#define SIM_DRIVER_SKILL      0.86f
+
+/* Brakes are derated only half as far as cornering: a moderate driver gets
+ * closer to the tires' limit in a straight line -- one axis of grip and no
+ * balance to manage -- than at an apex. */
+static inline float dash_sim_brake_g(float driver_skill)
+{
+    return SIM_BRAKE_G * (0.5f * (1.0f + driver_skill));
+}
 
 /* ---- lap geometry: High Plains Raceway, 2.55 mi (plan R1) ---- */
 #define SIM_TRACK_LAP_FT    13464.0f
@@ -95,31 +132,44 @@ static const float SIM_GEAR_RATIOS[6] = { 2.66f, 1.78f, 1.30f, 1.00f, 0.80f, 0.6
  * is_corner_limit separates real constraints from annotations. Segment 0 (the
  * straight) and segment 9 (T12 "Ladder to Heaven", a flat-out uphill kink)
  * carry a speed for reference only: they are never braked for, and U4's
- * driver-skill scaling must skip them. */
+ * driver-skill scaling must skip them.
+ *
+ * turn_rad is how far the car's heading swings through the corner, and it is
+ * the same category of authored track geometry as len_ft and limit_mph -- the
+ * PCA/Speed Secrets character notes describe every corner, and T1 is published
+ * at 160 deg, which anchors the rest. It matters far more than it looks: arc
+ * length is radius x angle, so the angle column is the single strongest lever
+ * on lap time in this model. A circuit-wide nominal angle claimed all fifteen
+ * turns were the same corner, which T1 (a 160 deg hairpin) and T12 (a kink)
+ * plainly are not. */
 typedef struct {
     float len_ft;         /* segment length */
     float end_ft;         /* cumulative distance at this segment's end */
     float limit_mph;      /* speed at this segment's ENTRY boundary */
+    float turn_rad;       /* heading change through the corner; 0 for annotations */
     bool is_corner_limit; /* false = annotation only, never enforced */
 } SimSeg;
 
+#define SIM_DEG(d) ((d) * 0.0174532925f)
+
 static const SimSeg SIM_SEGS[SIM_SEG_COUNT] = {
-    { 2838.0f,  2838.0f,   0.0f, false }, /* front straight T3->T4: longest straight, official figure */
-    {  700.0f,  3538.0f,  65.0f, true  }, /* T4  Biker's Berm -- primary braking zone */
-    {  600.0f,  4138.0f,  75.0f, true  }, /* T5  Niagara -- blind left, apex past middle */
-    {  700.0f,  4838.0f,  55.0f, true  }, /* T6  Danny's Lesson -- decreasing radius, very late apex */
-    { 1100.0f,  5938.0f, 105.0f, true  }, /* T7  High Plains Drifter -- fast right sweeper */
-    {  800.0f,  6738.0f,  70.0f, true  }, /* T8  -- uphill braking zone */
-    { 1000.0f,  7738.0f,  85.0f, true  }, /* T9A/9B To Hell on a Bobsled -- linked downhill pair */
-    {  700.0f,  8438.0f,  80.0f, true  }, /* T10 -- compression at the bottom of the hill */
-    {  800.0f,  9238.0f,  70.0f, true  }, /* T11 -- blind, extremely late apex, uphill */
-    {  900.0f, 10138.0f, 125.0f, false }, /* T12 Ladder to Heaven -- flat-out uphill kink, NOT a limit */
-    {  600.0f, 10738.0f,  60.0f, true  }, /* T13 Prairie Corkscrew entry -- brake at the 2 marker */
-    {  500.0f, 11238.0f,  65.0f, true  }, /* T14 -- right, 3/4 through the curb */
-    {  500.0f, 11738.0f,  70.0f, true  }, /* T15 -- left, tracks out far right */
-    {  800.0f, 12538.0f,  40.0f, true  }, /* T1  -- tightest on track: 80 ft radius, 160 deg, off-camber */
-    {  500.0f, 13038.0f,  50.0f, true  }, /* T2  -- very late apex */
-    {  426.0f, 13464.0f,  75.0f, true  }, /* T3  -- double apex, leads onto the straight (+2 ft remainder) */
+    /* len_ft     end_ft   limit  turn angle          is_corner_limit */
+    { 2838.0f,  2838.0f,   0.0f, SIM_DEG(  0.0f), false }, /* front straight T3->T4: longest straight, official figure */
+    {  700.0f,  3538.0f,  65.0f, SIM_DEG( 90.0f), true  }, /* T4  Biker's Berm -- primary braking zone, a square right off the straight */
+    {  600.0f,  4138.0f,  75.0f, SIM_DEG( 80.0f), true  }, /* T5  Niagara -- blind left, apex past middle: an open bend */
+    {  700.0f,  4838.0f,  55.0f, SIM_DEG(120.0f), true  }, /* T6  Danny's Lesson -- decreasing radius + very late apex: tightens well past 90 */
+    { 1100.0f,  5938.0f, 105.0f, SIM_DEG( 75.0f), true  }, /* T7  High Plains Drifter -- fast sweeper: long by radius, not by angle */
+    {  800.0f,  6738.0f,  70.0f, SIM_DEG( 90.0f), true  }, /* T8  -- uphill braking zone, a conventional right */
+    { 1000.0f,  7738.0f,  85.0f, SIM_DEG(120.0f), true  }, /* T9A/9B To Hell on a Bobsled -- LINKED pair, so the angles sum */
+    {  700.0f,  8438.0f,  80.0f, SIM_DEG( 60.0f), true  }, /* T10 -- a compression more than a corner: shallow direction change */
+    {  800.0f,  9238.0f,  70.0f, SIM_DEG(110.0f), true  }, /* T11 -- "extremely late apex" means holding lock well past 90 */
+    {  900.0f, 10138.0f, 125.0f, SIM_DEG(  0.0f), false }, /* T12 Ladder to Heaven -- flat-out uphill kink, NOT a limit and NOT an arc */
+    {  600.0f, 10738.0f,  60.0f, SIM_DEG(100.0f), true  }, /* T13 Prairie Corkscrew entry -- hard direction change off the brakes */
+    {  500.0f, 11238.0f,  65.0f, SIM_DEG( 90.0f), true  }, /* T14 -- right, 3/4 through the curb */
+    {  500.0f, 11738.0f,  70.0f, SIM_DEG( 90.0f), true  }, /* T15 -- left, tracks out far right */
+    {  800.0f, 12538.0f,  40.0f, SIM_DEG(160.0f), true  }, /* T1  -- 80 ft radius, 160 deg PUBLISHED, off-camber: the one sourced angle */
+    {  500.0f, 13038.0f,  50.0f, SIM_DEG(100.0f), true  }, /* T2  -- very late apex, past 90 like T11 */
+    {  426.0f, 13464.0f,  75.0f, SIM_DEG(120.0f), true  }, /* T3  -- DOUBLE apex: one long corner turning through two (+2 ft remainder) */
 };
 
 /* ---- temperatures / pressures / electrics ---- */
@@ -172,6 +222,7 @@ typedef struct {
     float rpm;
     float speed_mph;    /* driving-cycle integrator state */
     float lap_dist_ft;  /* lap position: integrated road speed, not a clock (U1) */
+    float driver_skill; /* SIM_DRIVER_SKILL, held in state so it is retunable (U4) */
     uint8_t seg_idx;    /* current circuit segment */
     float seg_jitter_mph[SIM_SEG_COUNT]; /* per-lap corner-limit offsets */
     float ect_f;
@@ -201,53 +252,84 @@ static inline float dash_sim_rpm_from_speed(float mph, uint8_t gear)
            / SIM_TIRE_DIA_IN;
 }
 
-/* This corner's limit including the current lap's jitter. */
+/* This corner's limit: the authored speed pulled down to what the driver will
+ * actually carry, plus the current lap's jitter. Annotations (segments 0 and
+ * 9) are returned untouched -- they are never enforced, and scaling them would
+ * manufacture a braking zone on a flat-out section (U4). */
 static inline float dash_sim_seg_limit_mph(const DashSimState *sim, uint8_t seg)
 {
-    return SIM_SEGS[seg].limit_mph + sim->seg_jitter_mph[seg];
+    if (!SIM_SEGS[seg].is_corner_limit)
+    {
+        return SIM_SEGS[seg].limit_mph;
+    }
+    return SIM_SEGS[seg].limit_mph * sim->driver_skill + sim->seg_jitter_mph[seg];
 }
 
 /* U10: how far a corner LASTS. A corner is not a point on the track -- the
  * car is pinned by lateral grip for an arc past the entry boundary, and that
  * arc is what actually costs the lap time. It is derived, not authored:
  *
- *     r   = v^2 / (SIM_LATERAL_G * g)     radius implied by holding the limit
- *     arc = r * SIM_CORNER_ARC_RAD
+ *     r   = v_authored^2 / (SIM_LATERAL_G * g)   radius implied by the corner
+ *     arc = r * turn_rad                         geometry of the corner
  *
- * so a slow corner is geometrically tight and short, a fast sweeper is long,
- * and retuning a limit moves its duration with it. Sanity check on the one
- * corner HPR publishes: T1's 40 mph limit implies an 82 ft radius against a
- * documented 80 ft.
+ * so a slow corner is geometrically tight and short, a fast sweeper is long.
+ * Sanity check on the one corner HPR publishes: T1's 40 mph limit implies an
+ * 82 ft radius against a documented 80 ft, and its 160 deg is published too.
  *
- * SIM_CORNER_ARC_RAD is ONE nominal turned angle for the whole circuit rather
- * than a per-corner column -- per-corner angles would be a second table of
- * authored numbers with no better source than this one (plan KTD2/KTD3).
- * Clamped to the segment: a short segment cannot contain more arc than it has. */
-#define SIM_CORNER_ARC_RAD 1.5708f /* ~90 deg of turn: a generic road-course corner */
-
-static inline float dash_sim_corner_arc_ft(uint8_t seg, float limit_mph)
+ * BOTH inputs are track geometry, so the arc is DRIVER-INDEPENDENT -- radius
+ * comes from the authored limit, not the skill-scaled or jittered one. That is
+ * deliberate and it is what gives SIM_DRIVER_SKILL any leverage: a corner is a
+ * fixed length of tarmac, so a slower driver spends LONGER in it. Deriving the
+ * radius from the driver's speed instead made the arc shrink exactly as fast
+ * as the car slowed (arc ~ v^2, so arc time ~ v), which is why skill was worth
+ * barely 6 s across its whole range before this unit.
+ *
+ * Clamped to the segment: a short segment cannot contain more arc than it has
+ * (T3's double apex wants 605 ft of its 426 ft, so it corners throughout). */
+static inline float dash_sim_corner_arc_ft(uint8_t seg)
 {
     if (!SIM_SEGS[seg].is_corner_limit)
     {
         return 0.0f; /* annotations (segment 0, segment 9) turn nothing */
     }
-    const float v = limit_mph * SIM_FPS_PER_MPH;
-    const float arc = (v * v / (SIM_LATERAL_G * SIM_G_FPS2)) * SIM_CORNER_ARC_RAD;
+    const float v = SIM_SEGS[seg].limit_mph * SIM_FPS_PER_MPH;
+    const float arc = (v * v / (SIM_LATERAL_G * SIM_G_FPS2)) * SIM_SEGS[seg].turn_rad;
     return (arc > SIM_SEGS[seg].len_ft) ? SIM_SEGS[seg].len_ft : arc;
 }
 
 /* Redraw every corner's limit jitter. Once per lap rather than per visit, so
  * lookahead braking sees one stable target all the way down to the boundary
  * (a target that moved under the braking curve would chatter the throttle).
- * Non-corner segments keep 0 -- their speeds are annotations, not limits. */
+ * Non-corner segments keep 0 -- their speeds are annotations, not limits.
+ *
+ * Magnitude scales INVERSELY with driver skill (U4): the worse the driver, the
+ * less repeatable, so the wider the lap-to-lap spread. The LCG is drawn the
+ * same number of times whatever the skill, so determinism is unaffected. */
 static inline void dash_sim_reseed_jitter(DashSimState *sim)
 {
     for (uint8_t i = 0u; i < SIM_SEG_COUNT; i++)
     {
-        sim->seg_jitter_mph[i] = SIM_SEGS[i].is_corner_limit
-                                 ? ((float) dash_sim_jitter(sim, SIM_SEG_JITTER_MPH) - 4.0f)
-                                 : 0.0f;
+        sim->seg_jitter_mph[i] =
+            SIM_SEGS[i].is_corner_limit
+            ? (((float) dash_sim_jitter(sim, SIM_SEG_JITTER_MPH) - SIM_SEG_JITTER_MID)
+               / sim->driver_skill)
+            : 0.0f;
     }
+}
+
+/* Retune the driver without disturbing the LCG. The current lap's jitter is
+ * rescaled in place rather than redrawn, so two sims run at different skills
+ * walk the same random stream and differ ONLY by the driver -- which is what
+ * makes "a better driver is faster" a testable claim rather than a coin flip
+ * against +/-4 mph of corner-limit noise. */
+static inline void dash_sim_set_skill(DashSimState *sim, float skill)
+{
+    const float rescale = sim->driver_skill / skill;
+    for (uint8_t i = 0u; i < SIM_SEG_COUNT; i++)
+    {
+        sim->seg_jitter_mph[i] *= rescale;
+    }
+    sim->driver_skill = skill;
 }
 
 /* Gear 1, warm-start temps at ambient-ish cold values, full-ish tank.
@@ -263,6 +345,7 @@ static inline void dash_sim_init(DashSimState *sim)
     sim->rpm = SIM_RPM_START;
     sim->speed_mph = dash_sim_speed_mph(SIM_RPM_START, 1); /* ~7 mph, rolling out */
     sim->lap_dist_ft = 0.0f;
+    sim->driver_skill = SIM_DRIVER_SKILL; /* must precede the first jitter draw */
     sim->seg_idx = 0u;
     dash_sim_reseed_jitter(sim);
     sim->ect_f = SIM_COLD_START_F;
@@ -337,7 +420,7 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
          * braking zone, and it lands the car exactly on the limit at the
          * boundary -- which is what makes the braking points, and therefore
          * the tach sawtooth, come out in the right place. */
-        const float a_brake = SIM_BRAKE_G * SIM_G_FPS2;
+        const float a_brake = dash_sim_brake_g(sim->driver_skill) * SIM_G_FPS2;
         float v_fps = sim->speed_mph * SIM_FPS_PER_MPH;
         float cap_fps = 1.0e6f; /* no corner in range -> no cap */
         /* measured from where the car will be at the END of this step, not
@@ -376,7 +459,7 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
         {
             const float lim_mph = dash_sim_seg_limit_mph(sim, si);
             const float seg_start_ft = SIM_SEGS[si].end_ft - SIM_SEGS[si].len_ft;
-            if ((sim->lap_dist_ft - seg_start_ft) < dash_sim_corner_arc_ft(si, lim_mph))
+            if ((sim->lap_dist_ft - seg_start_ft) < dash_sim_corner_arc_ft(si))
             {
                 const float v_lim = lim_mph * SIM_FPS_PER_MPH;
                 float used = (v_fps * v_fps) / (v_lim * v_lim);

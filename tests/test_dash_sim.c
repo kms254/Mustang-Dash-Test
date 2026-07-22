@@ -35,6 +35,20 @@ static void expect(int cond, const char *msg)
     }
 }
 
+/* U4: best flying-lap time with the driver retuned to `skill`. dash_sim_set_skill
+ * rescales the jitter table in place rather than redrawing it, so two runs at
+ * different skills walk the same LCG stream and differ ONLY by the driver. */
+static uint32_t best_lap_at_skill(float skill)
+{
+    DashState s;
+    DashSimState m;
+    dash_state_init(&s);
+    dash_sim_init(&m);
+    dash_sim_set_skill(&m, skill);
+    while (m.lap_count < 4u) { dash_sim_step(&m, &s, 50u); }
+    return m.best_ms;
+}
+
 /* the test's own copy of the speed law the sim must obey (315/30R18, R5) */
 static float expected_mph(float rpm, uint8_t gear)
 {
@@ -81,6 +95,26 @@ int main(void)
         }
         expect(fabsf(SIM_SEGS[13].limit_mph - 40.0f) < 0.01f,
                "segment 13 is T1, the tightest corner on the track");
+
+        /* U4: per-corner turn angle. Every real corner turns through some
+         * angle; the two annotations turn through none. */
+        for (uint8_t i = 0; i < SIM_SEG_COUNT; i++)
+        {
+            if (SIM_SEGS[i].is_corner_limit)
+            {
+                expect(SIM_SEGS[i].turn_rad > 0.3f && SIM_SEGS[i].turn_rad < 3.2f,
+                       "every corner must turn through a plausible angle (17-183 deg)");
+            }
+            else
+            {
+                expect(SIM_SEGS[i].turn_rad == 0.0f,
+                       "annotation segments (0 and 9) must turn through no angle");
+            }
+        }
+        expect(fabsf(SIM_SEGS[13].turn_rad - SIM_DEG(160.0f)) < 0.001f,
+               "segment 13 is T1, documented by the track at 160 degrees");
+        expect(SIM_SEGS[13].turn_rad > SIM_SEGS[4].turn_rad,
+               "T1 (160 deg hairpin) must turn through more angle than T7 (fast sweeper)");
     }
 
     /* ---- long-run bounds: 10 sim-minutes of TRACK at dt = 50 ms ---- */
@@ -210,7 +244,7 @@ int main(void)
             uint8_t si = sim.seg_idx;
             if ((prev_si != 0xFFu) && SIM_SEGS[si].is_corner_limit)
             {
-                float lim = SIM_SEGS[si].limit_mph + sim.seg_jitter_mph[si];
+                float lim = dash_sim_seg_limit_mph(&sim, si);
                 expect(s.ch.speed_mph <= lim + 2.0f,
                        "the car must enter every corner at or below that corner's limit");
                 corner_entries++;
@@ -235,11 +269,21 @@ int main(void)
         {
             seg9_max_mph = s.ch.speed_mph;
         }
+        /* U4: T12 is a flat-out kink. The car must be pinned across its entry
+         * -- the only lift allowed inside segment 9 is the lookahead braking
+         * for T13, which lives at the segment's far end. */
+        if (sim.seg_idx == 9u
+            && sim.lap_dist_ft < (SIM_SEGS[9].end_ft - SIM_SEGS[9].len_ft + 100.0f))
+        {
+            expect(s.ch.throttle_pct == 100.0f,
+                   "the car must be at full throttle entering T12, never braked "
+                   "for its annotation speed");
+        }
 
         /* ---- U10: corners must have DURATION ---- */
         {
             uint8_t si = sim.seg_idx;
-            float lim = SIM_SEGS[si].limit_mph + sim.seg_jitter_mph[si];
+            float lim = dash_sim_seg_limit_mph(&sim, si);
 
             if (sim.lap_dist_ft < prev_dist_ft) /* lap rolled over */
             {
@@ -318,8 +362,14 @@ int main(void)
     expect(max_speed_seen <= 205.0f, "top speed must stay under the 210 contract with margin");
     expect(seg0_peak_mph >= 140.0f && seg0_peak_mph <= 185.0f,
            "front-straight peak must land in the 140-185 mph sanity band");
-    expect(min_speed_after_lap1 <= 46.0f && min_speed_after_lap1 >= 33.0f,
-           "the slowest point on the lap must be near T1's 40 mph target");
+    /* T1's target is the authored 40 mph pulled down by the driver constant,
+     * plus this lap's jitter -- so the band tracks SIM_DRIVER_SKILL rather
+     * than pinning a number that only holds at one skill value. */
+    {
+        float t1 = SIM_SEGS[13].limit_mph * SIM_DRIVER_SKILL;
+        expect(min_speed_after_lap1 <= t1 + 6.0f && min_speed_after_lap1 >= t1 - 6.0f,
+               "the slowest point on the lap must be near T1's skill-scaled target");
+    }
     expect(min_speed_seg == 12u || min_speed_seg == 13u,
            "the slowest point on the lap must be at T1 (segment 13) or its entry");
     expect(corner_entries >= 40, "every corner on every lap must be checked");
@@ -332,11 +382,120 @@ int main(void)
     expect(near_limit_ft_min >= 2500.0f,
            "a lap must hold a corner limit over thousands of feet of arc, "
            "not touch each limit for a single instant");
-    expect(seg9_max_mph >= 135.0f,
-           "segment 9 (T12) is flat out and must NOT be given a corner arc");
+    /* T12 carries a 125 mph annotation. If it were ever treated as a limit the
+     * car would be capped there -- or at 125 * SIM_DRIVER_SKILL once U4 lands,
+     * ~108 mph. Running clean past the annotation is the decisive evidence that
+     * it is neither arced nor scaled, and unlike a fixed mph threshold it does
+     * not silently re-pin itself to one skill value. */
+    expect(seg9_max_mph > SIM_SEGS[9].limit_mph + 5.0f,
+           "segment 9 (T12) is flat out: the car must run past its annotation "
+           "speed, never be arced or skill-scaled down to it");
     expect(s.ch.best_ms > 95000u && s.ch.best_ms < 150000u,
            "corner duration must move lap time substantially off the 1:28 "
            "entry-boundary-only baseline, toward the real-world band");
+
+    /* ---- U4: the driver skill constant ---- */
+
+    /* the constant must stay inside its guardrail. Outside 0.82-0.95 it has
+     * stopped meaning "moderate driver" and started absorbing errors in the
+     * apportioned lengths, the authored speeds, CdA, or the power figure. */
+    expect(SIM_DRIVER_SKILL >= 0.82f && SIM_DRIVER_SKILL <= 0.95f,
+           "the calibrated SIM_DRIVER_SKILL must sit within 0.82-0.95");
+
+    /* wide sanity bound on the calibrated default: catches genuine model
+     * breakage without pinning the sim to an unverified target */
+    expect(s.ch.best_ms > 100000u && s.ch.best_ms < 150000u,
+           "the default lap must land in a 1:40-2:30 sanity band");
+
+    /* a better driver is faster, at every step of the constant */
+    {
+        const float skills[6] = { 0.82f, 0.86f, 0.90f, 0.94f, 0.97f, 1.00f };
+        uint32_t prev = 0xFFFFFFFFu;
+        for (int i = 0; i < 6; i++)
+        {
+            uint32_t best = best_lap_at_skill(skills[i]);
+            expect(best < prev, "raising SIM_DRIVER_SKILL toward 1.0 must reduce lap time");
+            prev = best;
+        }
+    }
+
+    /* skill scales real corner limits and NOTHING else. Segments 0 and 9 carry
+     * annotation speeds: scaling those would put an enforced ceiling on the
+     * front straight and on T12's flat-out kink, and lookahead braking would
+     * then invent a braking zone on both. */
+    {
+        DashState u4s;
+        DashSimState u4m;
+        dash_state_init(&u4s);
+        dash_sim_init(&u4m);
+        for (float k = 0.82f; k <= 1.001f; k += 0.06f)
+        {
+            dash_sim_set_skill(&u4m, k);
+            expect(dash_sim_seg_limit_mph(&u4m, 0u) == SIM_SEGS[0].limit_mph,
+                   "segment 0 (front straight) must never be scaled by driver skill");
+            expect(dash_sim_seg_limit_mph(&u4m, 9u) == SIM_SEGS[9].limit_mph,
+                   "segment 9 (T12) must never be scaled by driver skill");
+            expect(dash_sim_corner_arc_ft(9u) == 0.0f,
+                   "segment 9 (T12) must never be given a corner arc");
+            expect(fabsf(dash_sim_seg_limit_mph(&u4m, 13u)
+                         - (SIM_SEGS[13].limit_mph * k + u4m.seg_jitter_mph[13])) < 0.01f,
+                   "a real corner limit must be scaled by driver skill");
+        }
+    }
+
+    /* a corner's ARC is track geometry, so it must not move with the driver --
+     * a slower driver spends LONGER in the same corner, which is exactly why
+     * skill has leverage on lap time at all. */
+    {
+        DashState u4s;
+        DashSimState u4m;
+        dash_state_init(&u4s);
+        dash_sim_init(&u4m);
+        float arc_default = dash_sim_corner_arc_ft(13u);
+        dash_sim_set_skill(&u4m, 1.0f);
+        expect(dash_sim_corner_arc_ft(13u) == arc_default,
+               "corner arc length must not change with driver skill");
+        expect(arc_default > 200.0f,
+               "T1's 160 deg over its ~82 ft radius must produce a real arc");
+    }
+
+    /* consecutive laps must differ visibly, and not by zero */
+    {
+        float min_l = 1e9f, max_l = 0.0f;
+        for (int i = 1; i < lap_times_n; i++)
+        {
+            if (i > 1)
+            {
+                expect(lap_times_ms[i] != lap_times_ms[i - 1],
+                       "consecutive flying laps must not be identical");
+            }
+            float sec = (float) lap_times_ms[i] / 1000.0f;
+            if (sec < min_l) { min_l = sec; }
+            if (sec > max_l) { max_l = sec; }
+        }
+        expect((max_l - min_l) >= 0.3f && (max_l - min_l) <= 1.5f,
+               "flying laps must vary by roughly 0.3-1.5 s");
+    }
+
+    /* determinism holds at any constant value, not just the default */
+    {
+        DashState ka, kb;
+        DashSimState pa, pb;
+        dash_state_init(&ka);
+        dash_state_init(&kb);
+        dash_sim_init(&pa);
+        dash_sim_init(&pb);
+        dash_sim_set_skill(&pa, 0.83f);
+        dash_sim_set_skill(&pb, 0.83f);
+        for (int i = 0; i < 3000; i++)
+        {
+            dash_sim_step(&pa, &ka, 50u);
+            dash_sim_step(&pb, &kb, 50u);
+        }
+        expect(pa.lap_dist_ft == pb.lap_dist_ft, "determinism at a retuned skill: distance");
+        expect(pa.last_ms == pb.last_ms, "determinism at a retuned skill: lap time");
+        expect(ka.ch.rpm == kb.ch.rpm, "determinism at a retuned skill: rpm");
+    }
 
     /* ---- alarm reachability: an override must survive sim steps ---- */
     dash_ch_set(&s, DASH_CH_OILP, 25.0f);
