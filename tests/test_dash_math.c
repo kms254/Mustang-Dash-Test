@@ -319,8 +319,19 @@ int main(void)
         expect(strcmp(buf, "-0.73") == 0,
                "the delta must be against the previous lap, not against best");
 
-        /* a TAINTED lap must not flash at all... */
+        /* a dead-equal lap must be neither win nor loss. Without the dead-zone
+         * this rendered "+0.00" in RED -- the sign manufacturing a distinction
+         * the number does not support. Observed twice in one 50-minute run. */
         dash_ch_set(&s, DASH_CH_LAPN, 7.0f);
+        dash_ch_set(&s, DASH_CH_LAST, 122000.0f); /* identical to the lap before */
+        dash_lap_flash_update(&f, &s, 350000U, false);
+        expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_EVEN,
+               "a lap matching the previous one must flash EVEN, not SLOWER");
+        expect(DASH_LAP_FLASH_DEADZONE_S < 0.01f * 10.0f,
+               "the dead-zone must stay under the flash's own 2-decimal resolution");
+
+        /* a TAINTED lap must not flash at all... */
+        dash_ch_set(&s, DASH_CH_LAPN, 8.0f);
         dash_ch_set(&s, DASH_CH_LAST, 46000.0f);
         dash_lap_flash_update(&f, &s, 400000U, true);
         expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
@@ -328,14 +339,14 @@ int main(void)
 
         /* ...and the lap AFTER it must not either: the reference is that same
          * fabricated time, so it would flash an equally fabricated loss */
-        dash_ch_set(&s, DASH_CH_LAPN, 8.0f);
+        dash_ch_set(&s, DASH_CH_LAPN, 9.0f);
         dash_ch_set(&s, DASH_CH_LAST, 122100.0f);
         dash_lap_flash_update(&f, &s, 500000U, false);
         expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_NONE,
                "the lap after a tainted one must not flash against the tainted time");
 
         /* the lap after THAT is honest again */
-        dash_ch_set(&s, DASH_CH_LAPN, 9.0f);
+        dash_ch_set(&s, DASH_CH_LAPN, 10.0f);
         dash_ch_set(&s, DASH_CH_LAST, 122400.0f);
         dash_lap_flash_update(&f, &s, 600000U, false);
         expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_SLOWER,

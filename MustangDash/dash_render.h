@@ -214,6 +214,13 @@ void draw_track_mode(uint32_t now_ms, uint8_t alpha)
         {
             lfc = dash_lap_flash_blink(&g_lap_flash, now_ms) ? COLOR_BEST : COLOR_VALUE;
         }
+        else if (DASH_LAPFLASH_EVEN == lfk)
+        {
+            /* Matched the previous lap. Neutral white, the same colour the
+             * running clock uses -- green or red here would manufacture a
+             * win or a loss out of a lap that was neither. */
+            lfc = COLOR_VALUE;
+        }
         else
         {
             lfc = (DASH_LAPFLASH_QUICKER == lfk) ? COLOR_GREEN : COLOR_RED_TEXT;

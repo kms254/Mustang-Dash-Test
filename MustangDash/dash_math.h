@@ -356,8 +356,17 @@ typedef enum {
     DASH_LAPFLASH_NONE = 0, /* no override: draw the running lap clock */
     DASH_LAPFLASH_QUICKER,  /* quicker than the previous lap */
     DASH_LAPFLASH_SLOWER,   /* slower than the previous lap */
+    DASH_LAPFLASH_EVEN,     /* within the dead-zone: neither, draw it neutral */
     DASH_LAPFLASH_BEST,     /* ...and it is a new best lap */
 } DashLapFlashKind;
+
+/* Dead-zone for the lap flash, seconds. Without it a dead-equal lap renders
+ * "+0.00" in red -- the sign manufactures a distinction the number does not
+ * support, and a driver reading red concludes they lost time when they did
+ * not. Observed twice in one 50-minute bench run, so this is not a corner
+ * case. 0.05 s is under the flash's own 2-decimal display resolution, so
+ * anything neutral here also reads as +/-0.00 or +/-0.01. */
+#define DASH_LAP_FLASH_DEADZONE_S 0.05f
 
 typedef struct {
     uint32_t lap_n;        /* LAPN as of the last update; 0 = nothing seen yet */
@@ -461,10 +470,19 @@ static inline void dash_lap_flash_update(DashLapFlash *f, const DashState *s,
              * matching it, which an equalled lap would also do. */
             const bool new_best = best_ok && (best_ms == last_ms)
                                   && (!f->prev_best_ok || (best_ms < f->prev_best_ms));
-            f->kind = new_best
-                          ? DASH_LAPFLASH_BEST
-                          : ((f->delta_s < 0.0f) ? DASH_LAPFLASH_QUICKER
-                                                 : DASH_LAPFLASH_SLOWER);
+            if (new_best)
+            {
+                f->kind = DASH_LAPFLASH_BEST;
+            }
+            else if (fabsf(f->delta_s) < DASH_LAP_FLASH_DEADZONE_S)
+            {
+                f->kind = DASH_LAPFLASH_EVEN; /* matched it: neither win nor loss */
+            }
+            else
+            {
+                f->kind = (f->delta_s < 0.0f) ? DASH_LAPFLASH_QUICKER
+                                              : DASH_LAPFLASH_SLOWER;
+            }
             f->start_ms = now_ms;
         }
         f->prev_last_ms = last_ms;
