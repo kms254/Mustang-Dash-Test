@@ -86,6 +86,17 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   on the bus they become measured, and the simulator becomes bench-only.
   Unconfirmed: whether one value can be changed *trackside* from the phone
   (live control vs. a config push). Check the real unit before designing on it.
+- **The simulator drives `DashState` directly — it does NOT emit fake CAN.**
+  `dash_sim_step()` calls `dash_ch_set()`; renderers read the struct. That is
+  the documented seam (`dash_data.h`: "Producers — `dash_sim.h` now, CAN
+  decoders later — fill `DashState.ch`"), so sim and CAN decoders are peers,
+  and adding CAN is not a refactor. **The catch:** the sim therefore gives the
+  decode path zero exercise, so a 20-minute clean bench run proves nothing
+  about it — the seam we will actually ship on is the one thing untested.
+  Do NOT fix this by routing the sim through CAN in the render loop (encode +
+  decode every frame at 60 fps, no runtime benefit). Fix it with a **host
+  test**: take sim output, encode to CAN frames, run it back through the real
+  decoder, assert the resulting `DashState` matches. Cheap, once frames exist.
 
 ## Hardware truths (don't re-derive)
 
