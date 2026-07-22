@@ -36,6 +36,15 @@ tags:
 > splash-specific numbers and load-order details below as a historical case
 > study of the technique.
 
+> **Scope note (2026-07-21):** counter-note to the above — the splash is back
+> in RAM_G. The 2026-07-21 MCU-direct rewrite stages the embedded ASTC pack
+> straight from MCU flash to RAM_G at boot (the panel's QSPI flash is no
+> longer used at all); peak resident footprint is the custom fonts (~285 KB)
+> plus the largest theme (~301 KB), roughly 586 KB of the 1 MiB budget. This
+> budgeting technique governs that footprint again — see
+> `docs/solutions/architecture-patterns/bt817-flash-resident-astc-assets.md`
+> for the pack format, which now targets RAM_G instead of panel flash.
+
 ## Context
 
 The BT817 renders bitmaps from RAM_G — 1 MiB, `#define EVE_RAM_G_SIZE ((uint32_t) 1024UL*1024UL)` (libraries/FT800-FT813/src/EVE.h:103) — with one exception: ASTC-compressed bitmaps in attached QSPI flash render directly from flash (the escape hatch the splash later took). Compressed PNG size is irrelevant to this budget: on-chip decode expands every asset to its full raster footprint (ARGB4 and RGB565 are both 2 bytes/pixel), so a single full-screen 1024x600 background costs 1,228,800 B — more than the entire chip.

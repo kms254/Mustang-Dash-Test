@@ -40,6 +40,14 @@ last_refreshed: 2026-07-19
 > read-integrity soak acceptance rule — the clock-walk on the new board uses
 > exactly that acceptance procedure.
 
+> **Scope note (2026-07-21):** the "flash init 0x01" leg of this doc's failure
+> signature can no longer occur — boot no longer calls `EVE_init_flash()`, deleted
+> along with panel-flash provisioning by the 2026-07-21 MCU-direct splash
+> rewrite. The surviving read-integrity signals are the splash's staging
+> spot-check miscompares (16-byte readback per asset) and font-inflate
+> `EVE_cmd_getptr()` verification failures. The clock-discipline finding and
+> the U9 read-integrity soak acceptance rule are unchanged.
+
 ## Problem
 
 On `feat/side-panels`, the shared SPI bus rises once — after all three panels'

@@ -46,6 +46,9 @@ typedef enum {
     DASH_CMD_SIM,
     DASH_CMD_STATUS,
     DASH_CMD_HELP,
+    DASH_CMD_FLASHWIPE, /* guarded full-chip erase of the center panel's
+                         * QSPI flash; requires the literal argument
+                         * "really" (plan 2026-07-21-002 U5/KTD7) */
 } DashCmdKind;
 
 typedef enum {
@@ -74,7 +77,8 @@ typedef enum {
 
 #define DASH_HELP_TEXT \
     "commands: set <ch> <v> | clear <ch> | mode track|street | " \
-    "alarm oilp|oilt|clt|off | odo set <miles> | sim on|off | status | help | cantest " \
+    "alarm oilp|oilt|clt|off | odo set <miles> | sim on|off | status | help | cantest | " \
+    "flashwipe really " \
     "(ch: rpm speed ect oilt oilp volts fuel delta lap last best ambient " \
     "afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2)"
 
@@ -304,6 +308,15 @@ static inline DashSerialErr dash_parse_line(const char *line, DashCommand *out)
         return DASH_ERR_NONE;
     }
 
+    if (dash_serial_ieq_(tok[0], "flashwipe")) {
+        /* destructive: the bare verb never wipes -- the literal
+         * confirmation argument is the guard (AE3) */
+        if (ntok < 2) { return DASH_ERR_MISSING_VALUE; }
+        if (!dash_serial_ieq_(tok[1], "really")) { return DASH_ERR_BAD_VALUE; }
+        out->kind = DASH_CMD_FLASHWIPE;
+        return DASH_ERR_NONE;
+    }
+
     return DASH_ERR_UNKNOWN_CMD;
 }
 
@@ -403,7 +416,8 @@ static inline bool dash_apply_command(DashState *s, const DashCommand *cmd,
             }
             return true;
 
-        default: /* NONE, ODO_SET, STATUS, HELP: the caller composes these */
+        default: /* NONE, ODO_SET, STATUS, HELP, FLASHWIPE: the caller
+                  * composes/executes these (FLASHWIPE is EVE-bound) */
             return false;
     }
 }

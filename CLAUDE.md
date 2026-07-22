@@ -30,15 +30,15 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   "Tests: invariant suite"). All 13/13 pass.
 - Boot splash: a 2000 ms animated splash (spec vendored in `assets/splash/`)
   plays at power-up, then crossfades directly into the dash. Splash assets are
-  **ASTC bitmaps stored in the panel's 64 MB QSPI flash**, staged flash->RAM_G
-  once at boot and rendered from RAM_G (flash-source kept as a degraded
-  fallback) — rendering direct from flash hits a per-frame bandwidth ceiling
-  above ~40 KB per asset, see
-  `docs/solutions/architecture-patterns/bt817-flash-render-streaming-bandwidth-ceiling.md`:
-  `tools/make_splash_flash.py` (astcenc pinned by
-  `tools/get-astcenc.sh`, WSL) emits `splash_flash.h`; the firmware provisions
-  the panel flash once at boot when the pack CRC differs — sector 0 (the
-  vendor flashfast blob) is never written. Theme stays build-time via
+  **ASTC bitmaps embedded in the firmware image** (`tools/make_splash_flash.py`,
+  astcenc pinned by `tools/get-astcenc.sh`, WSL, emits `splash_flash.h`) and
+  staged MCU flash -> RAM_G at boot with a 16-byte readback spot-check per
+  asset; a failed check skips that asset for the session — no fallback. The
+  panel's QSPI flash is NOT used by boot: the provision-then-stage path was
+  deleted 2026-07-21 (direct-from-flash render hits a per-frame bandwidth
+  ceiling above ~40 KB per asset, see
+  `docs/solutions/architecture-patterns/bt817-flash-render-streaming-bandwidth-ceiling.md`,
+  and the pack ships embedded either way). Theme stays build-time via
   `SPLASH_THEME` in `MustangDash/splash_config.h`.
 - Dash: TRACK/STREET screens per the vendored design handoff
   (`assets/dash-design/`), all-procedural at ~60 fps with custom EVE bitmap
@@ -168,6 +168,11 @@ rendering at 8 MHz SPI, backlight under `REG_PWM_DUTY` control. Dash-era bench
 facts (2026-07-09): 64 MB QSPI flash detected on the panel, one-time splash
 provisioning + CRC no-op reboot path verified, 60 fps sustained, serial AE walk
 acked, odometer persistence across power cycles verified.
+Panel-flash state (2026-07-21): the center panel's QSPI flash holds an
+obsolete EVE Screen Editor image — a 2026-07-20 ESE session loaded generated
+map/bin files to address 0, so sector 0 is ESE-provenance, not factory.
+Firmware no longer reads or writes panel flash; a guarded `flashwipe` serial
+command performs the full-chip erase (takes minutes — do not power-cycle).
 Bring-up hazards actually hit on this bench (in symptom order): a damaged FFC
 end shorting pins 1-2 (VDD-GND -> Teensy won't enumerate on USB), and a flaky
 Teensy micro-USB cable that perfectly mimicked a dead board. Bench rules that

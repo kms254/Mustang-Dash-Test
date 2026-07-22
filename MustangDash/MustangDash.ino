@@ -376,18 +376,6 @@ void setup(void)
     Serial.printf("SPI raised to %lu MHz (U9 read-integrity soak gates this operating point)\r\n",
                   (unsigned long)(DASH_SPI_RUN_HZ / 1000000UL));
 
-    /* Probe the CENTER panel's onboard QSPI flash: attach and switch to fast
-     * mode. Center-only -- the sides carry no flash assets this round. A
-     * failure is logged, never fatal: the dash must not depend on flash. */
-    uint8_t flash_ret = E_NOT_OK;
-    if (dash_select_panel(DASH_PANEL_CENTER))
-    {
-        flash_ret = EVE_init_flash();
-        const uint32_t flash_mb = EVE_memRead32(REG_FLASH_SIZE);
-        Serial.printf("EVE_init_flash() returned 0x%02X (E_OK=0x00), REG_FLASH_SIZE = %lu MB\r\n",
-                      flash_ret, (unsigned long)flash_mb);
-    }
-
     /* Odometer loads regardless of panel state -- it is Teensy-local. */
     dash_state_init(&g_dash);
     dash_sim_init(&g_sim);
@@ -410,20 +398,11 @@ void setup(void)
 
     if (any_panel_ok)
     {
-        /* Splash needs its ASTC assets in the CENTER panel's QSPI flash;
-         * verify (and provision on first boot / asset change). Skipped --
-         * along with the splash itself -- if the center or its flash probe
-         * failed: the dash must never depend on flash. */
-        bool splash_ok = false;
-        if (g_panel_ok[DASH_PANEL_CENTER] && (E_OK == flash_ret)
-            && dash_select_panel(DASH_PANEL_CENTER))
-        {
-            splash_ok = splash_flash_provision();
-        }
-        else
-        {
-            Serial.println(F("QSPI flash unavailable -> skipping splash (assets live in flash)."));
-        }
+        /* Splash assets ship embedded in the firmware and stage into the
+         * center panel's RAM_G just before the splash runs (2026-07-21
+         * MCU-direct rewrite) -- boot never touches the panel's QSPI flash.
+         * Splash needs only a healthy center panel. */
+        const bool splash_ok = g_panel_ok[DASH_PANEL_CENTER];
 
         /* Dash fonts into every healthy panel's own RAM_G before the splash
          * starts (KTD3/KTD6): each BT817 is independent silicon, so the
@@ -463,9 +442,9 @@ void setup(void)
         if (splash_ok && dash_select_panel(DASH_PANEL_CENTER))
         {
             const ThemeDesc *theme = &THEMES[g_theme];
-            /* Stage the theme into RAM_G (command-path reads) so the splash
-             * renders from RAM_G, not flash streaming -- see the rationale
-             * in splash_render.h. A failed stage falls back per-asset. */
+            /* Stage the theme MCU flash -> RAM_G (bulk SPI writes, 16-byte
+             * readback spot-check per asset) -- see the rationale in
+             * splash_render.h. An asset that fails its check is skipped. */
             (void)splash_stage_theme_to_ramg(theme);
             run_splash(theme); /* 2000 ms animation, then the crossfade fades the sides in too (R8) */
         }
@@ -986,6 +965,26 @@ void handle_serial_line(const char *line)
             odo_eeprom_write();
             dash_odo_mark_written(&g_odo);
             Serial.printf("ok odo set %.1f\r\n", (double)dash_odo_miles(&g_odo));
+            break;
+        case DASH_CMD_FLASHWIPE:
+            /* Full-chip erase of the center panel's QSPI flash (plan
+             * 2026-07-21-002 U5/KTD7): retires the obsolete ESE image, blob
+             * included -- boot never reads panel flash. A 64 MB chip erase
+             * takes MINUTES: the dash freezes and serial stays silent until
+             * the ok. Basic flash mode suffices for erase (no blob needed). */
+            if (g_panel_ok[DASH_PANEL_CENTER] && dash_select_panel(DASH_PANEL_CENTER))
+            {
+                Serial.println(F("flashwipe: erasing (minutes of silence -- do NOT power-cycle)"));
+                EVE_cmd_flashattach();
+                EVE_execute_cmd();
+                EVE_cmd_flasherase();
+                EVE_execute_cmd();
+                Serial.println(F("ok flashwipe"));
+            }
+            else
+            {
+                Serial.println(F("err flashwipe center panel unavailable"));
+            }
             break;
         case DASH_CMD_STATUS: {
             /* Full-state snapshot (context parity, review finding): every

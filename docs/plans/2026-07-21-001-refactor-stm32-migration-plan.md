@@ -376,7 +376,7 @@ down-side contact, beep BLGND continuity before applying backlight power).
   - rails in spec under full backlight load
   - DFU enumerates; VCP carries the serial protocol (`status` acks)
   - `REG_ID == 0x7C` on all three panels via their dedicated buses
-  - splash plays from provisioned panel flash; CRC no-op on second boot
+  - splash plays from RAM_G, staged from the firmware-embedded pack at boot (MCU-direct architecture, 2026-07-21 — panel flash unused)
   - dash renders at 60 fps (center), sides at their target rate
   - odometer value survives 10 power cycles on FRAM
   - telltale lamp-test at boot; oil-pressure lamp gated on rpm >= 500

@@ -25,6 +25,17 @@ tags:
 
 # Flash-resident ASTC assets on the BT817 (EVE4)
 
+> **Scope note (2026-07-21):** the firmware half of this doc — provisioning
+> (`splash_flash_provision()`), the header/CRC commit-record, `EVE_cmd_flashread`
+> staging, and flash-source rendering — describes machinery deleted by the
+> 2026-07-21 MCU-direct rewrite: the splash now stages the embedded pack
+> straight from MCU flash to RAM_G at boot (bulk SPI writes plus a 16-byte
+> readback spot-check per asset; a failed check skips that asset, no
+> fallback), and the panel's onboard QSPI flash is unused. The offline
+> pipeline half (ASTC swizzle, 64-byte alignment, pack layout, determinism)
+> still binds unchanged — the same pack format now targets RAM_G instead of
+> panel flash.
+
 ## Context
 
 The dash layout work created a RAM_G collision. The custom EVE bitmap fonts need ~273 KB of RAM_G from address 0 (`MustangDash/dash_fonts.h` budget footer — total 273,120 B), while the boot splash at the time occupied roughly 850 KB of the BT817's 1 MiB RAM_G as PNG bitmaps decoded via CMD_LOADIMAGE. Both had to be resident *simultaneously* during the splash-to-dash crossfade — the union problem already documented in the RAM_G budgeting pattern. The first plan draft gave up and substituted a fade-through-black so the two tenants never coexisted; Kevin rejected that and directed moving the splash assets into the panel's onboard QSPI flash instead, rendered directly from flash so the splash uses zero RAM_G. Shipped in PR #3 (branch `feat/dash-layout`, open as of this writing).

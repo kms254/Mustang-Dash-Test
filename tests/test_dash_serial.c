@@ -374,6 +374,29 @@ int main(void)
         expect((s.cleared & DASH_CH_BIT(DASH_CH_AFR_L)) != 0, "AE5: clear afr_l must set the cleared bit");
     }
 
+    /* ---- AE3: flashwipe guard -- the bare verb must never reach the
+     * wipe handler; only the literal confirmation argument parses ---- */
+    {
+        DashState s;
+        char reply[64];
+        dash_state_init(&s);
+
+        expect(parse("flashwipe", &c) == DASH_ERR_MISSING_VALUE,
+               "AE3: bare flashwipe must be MISSING_VALUE (no erase)");
+        expect(c.kind == DASH_CMD_NONE, "AE3: bare flashwipe must not set a command");
+        expect(parse("flashwipe yes", &c) == DASH_ERR_BAD_VALUE,
+               "AE3: flashwipe with wrong argument must be BAD_VALUE");
+        expect(parse("flashwipe really", &c) == DASH_ERR_NONE,
+               "AE3: flashwipe really must parse");
+        expect(c.kind == DASH_CMD_FLASHWIPE,
+               "AE3: flashwipe really must be DASH_CMD_FLASHWIPE");
+        expect(parse("FLASHWIPE REALLY", &c) == DASH_ERR_NONE &&
+                   c.kind == DASH_CMD_FLASHWIPE,
+               "AE3: flashwipe must be case-insensitive like the protocol");
+        expect(!dash_apply_command(&s, &c, reply, sizeof reply),
+               "AE3: apply must NOT handle FLASHWIPE (EVE-bound, caller executes)");
+    }
+
     /* help text exists and mentions every command verb and new channels */
     expect(strstr(DASH_HELP_TEXT, "set") != NULL &&
                strstr(DASH_HELP_TEXT, "clear") != NULL &&
