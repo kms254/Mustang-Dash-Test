@@ -29,18 +29,26 @@ static void expect(int cond, const char *msg)
     }
 }
 
+/* square block edge for an ASTC format id (4x4, 6x6, 8x8 in use) */
+static uint32_t astc_block(uint32_t fmt)
+{
+    if (fmt == EVE_ASTC_8X8) { return 8U; }
+    if (fmt == EVE_ASTC_6X6) { return 6U; }
+    return 4U;
+}
+
 /* bytes per block row for an ASTC format: ceil(w / block_w) * 16 */
 static uint32_t astc_stride(uint32_t fmt, uint32_t w)
 {
-    uint32_t bw = (fmt == EVE_ASTC_8X8) ? 8U : 4U;
+    uint32_t bw = astc_block(fmt);
     return ((w + bw - 1U) / bw) * 16U;
 }
 
 /* payload bytes: ceil(w/bw) * ceil(h/bh) * 16 */
 static uint32_t astc_size(uint32_t fmt, uint32_t w, uint32_t h)
 {
-    uint32_t bw = (fmt == EVE_ASTC_8X8) ? 8U : 4U;
-    uint32_t bh = (fmt == EVE_ASTC_8X8) ? 8U : 4U;
+    uint32_t bw = astc_block(fmt);
+    uint32_t bh = astc_block(fmt);
     return ((w + bw - 1U) / bw) * ((h + bh - 1U) / bh) * 16U;
 }
 
@@ -137,8 +145,8 @@ int main(void)
         expect(a->addr >= prev_end, msg);
         prev_end = a->addr + a->size;
 
-        snprintf(msg, sizeof(msg), "asset %zu (%s): fmt must be ASTC 4x4 or 8x8", i, a->name);
-        expect(a->fmt == EVE_ASTC_4X4 || a->fmt == EVE_ASTC_8X8, msg);
+        snprintf(msg, sizeof(msg), "asset %zu (%s): fmt must be ASTC 4x4, 6x6 or 8x8", i, a->name);
+        expect(a->fmt == EVE_ASTC_4X4 || a->fmt == EVE_ASTC_6X6 || a->fmt == EVE_ASTC_8X8, msg);
 
         snprintf(msg, sizeof(msg), "asset %zu (%s): size must match the block footprint", i, a->name);
         expect(a->size == astc_size(a->fmt, a->w, a->h), msg);
@@ -153,8 +161,8 @@ int main(void)
            "SPLASH_FA_EMBLEM_ADDR must match the table");
     expect(SPLASH_FLASH_ASSETS[SPLASH_FA_BG_BLUE].addr == SPLASH_FA_BG_BLUE_ADDR,
            "SPLASH_FA_BG_BLUE_ADDR must match the table");
-    expect(SPLASH_FLASH_ASSETS[SPLASH_FA_BG_BLUE].fmt == EVE_ASTC_8X8,
-           "backgrounds must be ASTC 8x8");
+    expect(SPLASH_FLASH_ASSETS[SPLASH_FA_BG_BLUE].fmt == EVE_ASTC_6X6,
+           "backgrounds must be ASTC 6x6 (raised from 8x8 for gradient quality, 2026-07-21)");
     expect(SPLASH_FLASH_ASSETS[SPLASH_FA_EMBLEM].fmt == EVE_ASTC_4X4,
            "alpha elements must be ASTC 4x4");
     expect(SPLASH_FLASH_ASSETS[SPLASH_FA_BG_BLUE].w == 1024 &&

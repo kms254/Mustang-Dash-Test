@@ -31,10 +31,11 @@
  * dependency on flash init without saving any MCU flash -- the pack ships
  * embedded either way. Boot never touches the panel's flash now.
  *
- * Cost: fonts (~285 KB) and the staged theme (largest ~301 KB, checkered)
- * are RAM_G co-tenants through the crossfade -- peak ~586 KB of the
- * center's 1 MiB. An asset that fails its staging spot-check is skipped
- * for the session; there is no flash fallback. */
+ * Cost: fonts (~285 KB) and the staged theme (largest ~421 KB, checkered,
+ * after the 2026-07-21 6x6 background re-encode for gradient quality) are
+ * RAM_G co-tenants through the crossfade -- peak ~706 KB of the center's
+ * 1 MiB. An asset that fails its staging spot-check is skipped for the
+ * session; there is no flash fallback. */
 
 struct ThemeDesc
 {

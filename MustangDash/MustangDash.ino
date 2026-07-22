@@ -1036,17 +1036,43 @@ void handle_serial_line(const char *line)
                  * would abort), so an unconditional ok would be a false pass
                  * on the one irreversible command (review finding). */
                 (void)EVE_get_and_reset_fault_state();
-                EVE_cmd_flashattach();
-                EVE_execute_cmd();
-                EVE_cmd_flasherase();
-                EVE_execute_cmd();
-                if (EVE_FAULT_RECOVERED == EVE_get_and_reset_fault_state())
+                /* EVE_init_flash() is the library's full INIT-wait +
+                 * attach-retry state walk -- the recipe the old boot flow
+                 * used (a bare mid-session CMD_FLASHATTACH left the flash
+                 * DETACHED on the bench, and erasing a detached flash
+                 * no-ops below the fault latch: the 0-second fake ok,
+                 * 2026-07-21). A flashfast error is fine -- erase only
+                 * needs BASIC (status >= 2). */
+                const uint8_t finit = EVE_init_flash();
+                const uint32_t fst_pre = EVE_memRead32(REG_FLASH_STATUS);
+                if (fst_pre < 2UL)
                 {
-                    Serial.println(F("err flashwipe coprocessor fault during erase (flash state unknown)"));
+                    Serial.printf("err flashwipe flash not attached (init=0x%02X, REG_FLASH_STATUS=%lu)\r\n",
+                                  finit, (unsigned long)fst_pre);
+                    break;
                 }
-                else
                 {
-                    Serial.println(F("ok flashwipe"));
+                    const uint32_t t0 = millis();
+                    EVE_cmd_flasherase();
+                    EVE_execute_cmd();
+                    const uint32_t secs = (millis() - t0) / 1000UL;
+                    const uint32_t fst_post = EVE_memRead32(REG_FLASH_STATUS);
+                    if (EVE_FAULT_RECOVERED == EVE_get_and_reset_fault_state())
+                    {
+                        Serial.println(F("err flashwipe coprocessor fault during erase (flash state unknown)"));
+                    }
+                    else if (secs < 10UL)
+                    {
+                        /* a real 64 MB chip erase takes minutes; an instant
+                         * return means it did not happen */
+                        Serial.printf("err flashwipe suspiciously fast (%lus, status=%lu) -- erase likely did not run\r\n",
+                                      (unsigned long)secs, (unsigned long)fst_post);
+                    }
+                    else
+                    {
+                        Serial.printf("ok flashwipe (%lus, status=%lu)\r\n",
+                                      (unsigned long)secs, (unsigned long)fst_post);
+                    }
                 }
             }
             else
