@@ -60,3 +60,21 @@ The purpose-built PCB that replaces the bench wiring loom as the dash's physical
 
 ### Data Channel
 One live value the dash consumes (RPM, oil pressure, lap delta…), carried in a single shared structure with a per-channel validity flag. Producers fill channels — the built-in simulator today, CAN decoders later — and renderers only read them; the source is invisible to rendering. An invalid channel displays `--` and can never assert an alarm, which is what makes "no stale alarms" a structural guarantee rather than a convention.
+
+## Track Simulation
+
+### Circuit
+The driving model TRACK mode runs behind the screen: the real racetrack lap, or a range-sweep bench fixture whose only job is walking every gauge through its full display range. Distinct from Dash Mode, which chooses *which* screen is shown — Circuit chooses what the simulator is doing behind it. Selecting a circuit abandons the lap in progress rather than resuming it, because a half-driven lap would commit a fabricated time to the lap book.
+
+### Segment
+One entry in the distance-keyed table that defines a lap: a length, a speed limit, whether that limit is a real corner constraint or merely a descriptive annotation, and how far the car's heading swings through it. Lap position is a distance along this table rather than a fraction of elapsed time, which is what makes lap time an output of the simulation instead of an input to it. A limit binds at its segment's entry boundary only — within a segment the car accelerates freely until it must brake for the next limit.
+
+### Corner Arc
+The stretch of a Segment over which the car is lateral-grip-limited and holds roughly its corner speed before accelerating out. Derived from the segment's *authored* limit and the car's lateral grip — never from the speed the driver actually carries.
+
+That distinction is load-bearing rather than stylistic. A corner is a fixed length of road, so deriving its geometry from live speed makes a slower driver drive a physically shorter corner, which gives back most of the time the lower speed cost and silently cancels Driver Skill's effect on lap time.
+
+### Driver Skill
+A single scalar standing in for how close to the car's limit the driver operates, scaling corner limits and widening lap-to-lap variation. Segments whose limit is an annotation rather than a real constraint are exempt from it, and it must never reach Corner Arc geometry.
+
+It is calibrated last and held to a defensible range, because it is the only constant tuned directly against lap time and will otherwise absorb error from every upstream constant — at which point it stops meaning "driver" and starts meaning "whatever makes the number come out." A fit that lands outside the defensible range is evidence that an upstream constant is wrong, not a value to accept.
