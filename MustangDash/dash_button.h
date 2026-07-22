@@ -55,6 +55,7 @@ typedef struct {
     bool raw_down;     /* last raw sample */
     bool stable_down;  /* debounced level */
     bool fired;        /* an event already fired for this press (one per press) */
+    bool primed;       /* the first sample has been taken (see dash_button_step) */
 } DashButton;
 
 static inline void dash_button_init(DashButton *b)
@@ -64,6 +65,7 @@ static inline void dash_button_init(DashButton *b)
     b->raw_down = false;
     b->stable_down = false;
     b->fired = false;
+    b->primed = false; /* nothing is known about the line until it is first read */
 }
 
 /* Advance the machine one poll. `pressed_now` is the debounce-free, already
@@ -71,6 +73,28 @@ static inline void dash_button_init(DashButton *b)
  * call produced, at most one. Call every loop iteration. */
 static inline DashBtnEvent dash_button_step(DashButton *b, bool pressed_now, uint32_t now_ms)
 {
+    if (!b->primed)
+    {
+        /* The first poll is a MEASUREMENT of the line, never an edge. Seeding
+         * raw_down = false in init instead made a level that was already
+         * asserted at power-up -- a button held through boot, or a shorted
+         * harness wire -- look like a fresh press at t=0, which fired LONG at
+         * the 1 s mark and (since U11 put the trip reset on that gesture)
+         * zeroed the trip odometer and wrote EEPROM silently on every boot.
+         *
+         * A level found already down is therefore adopted as ALREADY FIRED, so
+         * it must be released once before any gesture can be produced. A line
+         * found idle seeds exactly the state init used to assert, so nothing
+         * about normal operation changes. */
+        b->primed = true;
+        b->edge_ms = now_ms;
+        b->press_ms = now_ms;
+        b->raw_down = pressed_now;
+        b->stable_down = pressed_now;
+        b->fired = pressed_now;
+        return DASH_BTN_EVENT_NONE;
+    }
+
     if (pressed_now != b->raw_down)
     {
         /* raw edge: restart the stability window, believe nothing yet */

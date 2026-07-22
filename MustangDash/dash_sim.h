@@ -100,6 +100,12 @@ static const float SIM_GEAR_RATIOS[6] = { 2.66f, 1.78f, 1.30f, 1.00f, 0.80f, 0.6
  * angle (below) moves lap time considerably harder. */
 #define SIM_DRIVER_SKILL      0.86f
 
+/* Hard bounds on what dash_sim_set_skill will STORE -- the domain of the
+ * arithmetic, not the tuning band above. See dash_sim_set_skill for why the two
+ * are deliberately different numbers. */
+#define SIM_SKILL_FLOOR       0.10f
+#define SIM_SKILL_CEIL        2.00f
+
 /* Brakes are derated only half as far as cornering: a moderate driver gets
  * closer to the tires' limit in a straight line -- one axis of grip and no
  * balance to manage -- than at an apex. */
@@ -428,6 +434,11 @@ typedef struct {
     uint16_t ref_trace_cs[SIM_TRACE_SLOTS];
     uint16_t trace_next;  /* next unstamped bucket, 0..SIM_TRACE_SLOTS */
     bool ref_valid;       /* a reference lap exists; DELTA is dead-front until it does */
+    /* The lap in progress was not driven purely by the model, so its time is
+     * not evidence about the car. Two things raise it (see dash_sim_step and
+     * dash_sim_set_circuit) and it is cleared at each lap boundary, AFTER the
+     * commit decision that reads it. */
+    bool lap_tainted;
 } DashSimState;
 
 /* Which distance bucket a lap position falls in. Clamped at BOTH ends: the
@@ -634,6 +645,22 @@ static inline void dash_sim_reseed_jitter(DashSimState *sim)
  * against +/-4 mph of corner-limit noise. */
 static inline void dash_sim_set_skill(DashSimState *sim, float skill)
 {
+    /* This divides BY its argument, and dash_sim_reseed_jitter divides by the
+     * STORED skill on every lap, so a zero / negative / NaN argument fills
+     * seg_jitter_mph with Inf or NaN. That is not a bounded wrong number: it
+     * propagates through dash_sim_seg_limit_mph into the sqrtf lookahead cap
+     * and the grip-circle divide and corrupts speed and rpm for the rest of the
+     * run, with nothing that ever brings them back.
+     *
+     * What is clamped here is the ARITHMETIC's domain, deliberately not
+     * SIM_DRIVER_SKILL's documented 0.82..0.95 tuning band. That band is a
+     * review constraint on what the shipped constant may be -- "a value outside
+     * it is evidence something else is wrong" -- not a runtime range: the test
+     * suite drives 0.80 and 1.00 on purpose to show that a better driver is
+     * faster, and silently folding those onto the band's edges would turn that
+     * evidence into a tautology. */
+    if (!(skill >= SIM_SKILL_FLOOR)) { skill = SIM_SKILL_FLOOR; } /* !(>=) also catches NaN */
+    if (skill > SIM_SKILL_CEIL) { skill = SIM_SKILL_CEIL; }
     const float rescale = sim->driver_skill / skill;
     for (uint8_t i = 0u; i < SIM_SEG_COUNT; i++)
     {
@@ -654,6 +681,15 @@ static inline void dash_sim_set_skill(DashSimState *sim, float skill)
  * rest of the session. Completed laps (lap_count, last_ms, best_ms, the
  * reference trace) are history and are deliberately kept.
  *
+ * Abandoning the OLD lap only ever guarded the exit side, though, and the same
+ * argument applies to the lap this starts. speed_mph is deliberately NOT reset
+ * -- the physics of carrying speed across the line is exactly what a flying lap
+ * does -- but the car arrives at whatever the previous model left, which off
+ * the top of the sweep ramp is 200 mph in 6th, and a lap begun there runs
+ * several seconds quick. So the NEW lap is marked ineligible for best_ms and
+ * for the delta reference. It still populates LAST: it is a lap that was
+ * driven, it is just not evidence about the car.
+ *
  * The LCG is NOT touched, so a sweep detour does not rewind the jitter stream
  * into a bit-identical replay of the laps already driven. */
 static inline void dash_sim_set_circuit(DashSimState *sim, SimCircuit circuit)
@@ -662,6 +698,7 @@ static inline void dash_sim_set_circuit(DashSimState *sim, SimCircuit circuit)
     sim->sweep_t_s = 0.0f;   /* the sweep always starts at the bottom of the dial */
     sim->lap_dist_ft = 0.0f; /* back to start/finish: no half-driven lap to resume */
     sim->lap_ms = 0u;
+    sim->lap_tainted = true; /* this lap starts at an inherited speed: LAST only */
     sim->trace_next = 0u;
     dash_sim_trace_stamp(sim, 0u); /* the new lap starts at t=0 by definition */
 }
@@ -711,6 +748,7 @@ static inline void dash_sim_session_reset(DashSimState *sim)
     sim->trace_next = 0u;
     dash_sim_trace_stamp(sim, 0u); /* the new lap starts at t=0 by definition */
     sim->ref_valid = false;        /* DELTA dead-fronts again until a flying lap */
+    sim->lap_tainted = false;      /* the new session opens on a clean out-lap */
 
     /* draws from the surviving LCG, so the new session's corners differ */
     dash_sim_reseed_jitter(sim);
@@ -749,6 +787,7 @@ static inline void dash_sim_init(DashSimState *sim)
     }
     sim->trace_next = 0u;
     sim->ref_valid = false; /* no lap driven yet: DELTA stays dead-fronted */
+    sim->lap_tainted = false;
 }
 
 static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms)
@@ -805,6 +844,19 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
          * dash showing 45 mph while the sim laps at 150. A cleared SPEED is
          * invalid and there is no number to integrate, so fall back to the
          * sim's own rather than freezing the lap forever. */
+        /* ...and that is exactly why this lap's TIME cannot be trusted. The
+         * distance the lap is measured over is now the operator's number, not
+         * the model's, so `set speed 200` produces a ~46 s lap of a 2:02
+         * circuit. LAST is still allowed to show it -- it is what they drove --
+         * but a lap timed against a forced speed must never become best_ms or
+         * the U5 delta reference, because best_ms only ever DECREASES: one
+         * forced lap would otherwise read every honest lap afterwards as more
+         * than a minute behind, for the rest of the session, with no operator
+         * command that clears it. */
+        if (dash_ch_valid(s, DASH_CH_SPEED) && !dash_ch_sim_owned(s, DASH_CH_SPEED))
+        {
+            sim->lap_tainted = true;
+        }
         float dist_mph = dash_ch_valid(s, DASH_CH_SPEED)
                          ? dash_ch_get(s, DASH_CH_SPEED)
                          : sim->speed_mph;
@@ -826,8 +878,15 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
              * still populates LAST and still displays -- it is a real lap, just
              * not a representative one. lap_count here is laps completed
              * BEFORE this one, so 1 is the first flying lap to finish. */
-            if ((sim->lap_count == 1u)
-                || ((sim->lap_count > 1u) && (sim->last_ms < sim->best_ms)))
+            /* ...and a lap the model did not fully drive is excluded on the
+             * same footing as the out-lap: a forced SPEED (U6) or a lap begun
+             * by a circuit switch both produce a real elapsed time over a
+             * fabricated distance. Gating BOTH best_ms and the reference trace
+             * on one flag keeps them from ever disagreeing about which lap the
+             * benchmark is. */
+            if (!sim->lap_tainted
+                && ((sim->lap_count == 1u)
+                    || ((sim->lap_count > 1u) && (sim->last_ms < sim->best_ms))))
             {
                 sim->best_ms = sim->last_ms;
                 /* U5: the best lap is also the delta REFERENCE, so it commits
@@ -840,6 +899,10 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
                 }
                 sim->ref_valid = true;
             }
+            /* cleared AFTER the commit decision above reads it: the taint
+             * belongs to the lap that just ended, and the next lap is clean
+             * until something taints it in turn */
+            sim->lap_tainted = false;
             sim->lap_ms = 0u;
             sim->trace_next = 0u;
             dash_sim_trace_stamp(sim, 0u); /* the new lap starts at t=0 by definition */
@@ -1076,6 +1139,18 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
     {
         sim->fuel_gal = 0.0f;
     }
+    /* U9's refill lives at a lap boundary, which is the right place for it on
+     * TRACK -- the tank jumping back to full mid-corner would be visible. But
+     * STREET and the SWEEP fixture never reach a lap boundary at all, so on
+     * those paths the tank simply ran dry and stayed there: measured, 5.5
+     * sim-hours of STREET ends at 0.000 gal with the low-fuel telltale latched
+     * for the rest of the run, and U11's button puts STREET one press away.
+     * Neither path has a corner for the jump to be visible in, so on them the
+     * refill keys off the tank alone. */
+    if (!lap_active && (sim->fuel_gal <= 0.0f))
+    {
+        sim->fuel_gal = SIM_FUEL_START_GAL;
+    }
 
     /* AFR: tracks rpm load -- richer (lower AFR) toward redline, small
      * bank-to-bank variation; deterministic wander via sinf(t). */
@@ -1138,9 +1213,16 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
             /* BEST needs a flying lap: after the out-lap alone there is no
              * representative time, so it stays dead-fronted rather than
              * publishing the out-lap or a fabricated zero (U1). */
-            if ((sim->lap_count > 1u) && dash_ch_sim_owned(s, DASH_CH_BEST))
+            if (sim->lap_count > 1u)
             {
-                dash_ch_set(s, DASH_CH_BEST, (float) sim->best_ms);
+                if (dash_ch_sim_owned(s, DASH_CH_BEST))
+                {
+                    dash_ch_set(s, DASH_CH_BEST, (float) sim->best_ms);
+                }
+            }
+            else
+            {
+                dash_ch_invalidate(s, DASH_CH_BEST);
             }
 
             /* predicted lap: near the last lap, +/-200 ms deterministic jitter */
@@ -1150,6 +1232,20 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
                 if (pred < 0) { pred = 0; }
                 if (dash_ch_sim_owned(s, DASH_CH_PRED)) { dash_ch_set(s, DASH_CH_PRED, (float) pred); }
             }
+        }
+        else
+        {
+            /* No completed lap in THIS session -- which after a 20-minute
+             * rollover is a state the dash re-enters every session, not just
+             * once at boot. dash_ch_set only raises the valid bit, so without
+             * this the out-lap of every new session displays the PREVIOUS
+             * session's LAST, BEST and PRED as live values, exactly the
+             * stale-lap-book failure dash_sim_dead_front_lap exists to prevent
+             * on the STREET/SWEEP paths. DELTA already did this correctly via
+             * its own else-branch above; these three did not. */
+            dash_ch_invalidate(s, DASH_CH_LAST);
+            dash_ch_invalidate(s, DASH_CH_BEST);
+            dash_ch_invalidate(s, DASH_CH_PRED);
         }
 
         /* lap number (1-indexed, current lap) and race position -- position

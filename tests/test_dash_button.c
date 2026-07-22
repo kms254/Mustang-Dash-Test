@@ -188,6 +188,32 @@ int main(void)
     expect(n == 1U && ev == DASH_BTN_EVENT_LONG,
            "a hold across the millis() rollover must still fire LONG exactly once");
 
+    /* ---- a level already asserted at power-up must not fire ----
+     * The machine starts with no idea what the line is doing, so its first
+     * sample is a MEASUREMENT, not an edge. Without that, a button held through
+     * boot -- or a shorted harness line -- reads as a fresh press at t=0 and
+     * fires LONG at the 1 s mark, which since U11 means zeroing the trip
+     * odometer and writing EEPROM, silently, on every boot. */
+    dash_button_init(&b);
+    ev = DASH_BTN_EVENT_NONE;
+    n = 0U;
+    for (uint32_t i = 0U; i <= 5000U; i++)
+    {
+        DashBtnEvent e = dash_button_step(&b, true, i); /* held from the very first poll */
+        if (e != DASH_BTN_EVENT_NONE) { ev = e; n++; }
+    }
+    expect(n == 0U,
+           "a button held from the first poll must never fire -- boot must not reset the trip");
+
+    /* ...and once it IS released, the button works normally again */
+    n = run_until(&b, false, 5000U, 5200U, &ev, &at);
+    expect(n == 0U, "the release that disarms a boot-held button must itself stay silent");
+    ev = DASH_BTN_EVENT_NONE;
+    (void)run_until(&b, true, 5200U, 5400U, NULL, NULL);
+    n = run_until(&b, false, 5400U, 5600U, &ev, &at);
+    expect(n == 1U && ev == DASH_BTN_EVENT_SHORT,
+           "after the boot-held level is released, a real press must fire again");
+
     if (failures == 0)
     {
         printf("    OK (dash_button.h gesture state machine)\n");

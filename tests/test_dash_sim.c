@@ -53,6 +53,34 @@ static uint32_t best_lap_at_skill(float skill)
     return m.best_ms;
 }
 
+/* U10: where a corner actually ENDS on track, MEASURED by driving it rather
+ * than read back off the function under test. Inside the arc the cap holds the
+ * car at that run's own (skill-scaled, jittered) limit, so the first point past
+ * the segment start where speed climbs clear of that limit is the arc's exit.
+ * Both inputs to the arc are track geometry, so this distance must come out the
+ * same at any driver skill -- which is precisely what gives skill its leverage
+ * on lap time: a slower driver spends LONGER in the same length of tarmac. */
+static float observed_arc_ft(float skill, uint8_t seg)
+{
+    DashState s;
+    DashSimState m;
+    dash_state_init(&s);
+    dash_sim_init(&m);
+    dash_sim_set_skill(&m, skill);
+    while (m.lap_count < 2u) { dash_sim_step(&m, &s, 10u); } /* onto a flying lap */
+    const float seg_start = SIM_SEGS[seg].end_ft - SIM_SEGS[seg].len_ft;
+    while (m.lap_dist_ft < seg_start) { dash_sim_step(&m, &s, 10u); }
+    while (m.seg_idx == seg)
+    {
+        if (m.speed_mph > dash_sim_seg_limit_mph(&m, seg) * 1.02f)
+        {
+            return m.lap_dist_ft - seg_start;
+        }
+        dash_sim_step(&m, &s, 10u);
+    }
+    return -1.0f; /* never left the limit: the corner filled the whole segment */
+}
+
 /* the test's own copy of the speed law the sim must obey (315/30R18, R5) */
 static float expected_mph(float rpm, uint8_t gear)
 {
@@ -460,16 +488,22 @@ int main(void)
      * a slower driver spends LONGER in the same corner, which is exactly why
      * skill has leverage on lap time at all. */
     {
-        DashState u4s;
-        DashSimState u4m;
-        dash_state_init(&u4s);
-        dash_sim_init(&u4m);
-        float arc_default = dash_sim_corner_arc_ft(13u);
-        dash_sim_set_skill(&u4m, 1.0f);
-        expect(dash_sim_corner_arc_ft(13u) == arc_default,
-               "corner arc length must not change with driver skill");
+        const float arc_default = dash_sim_corner_arc_ft(13u);
         expect(arc_default > 200.0f,
                "T1's 160 deg over its ~82 ft radius must produce a real arc");
+
+        /* Measured by driving T1 at two different skills, not by calling the
+         * pure arc function twice on the same literal segment index -- that
+         * compares a function to itself and cannot fail. */
+        const float arc_slow = observed_arc_ft(0.82f, 13u);
+        const float arc_fast = observed_arc_ft(0.95f, 13u);
+        expect(arc_slow > 0.0f && arc_fast > 0.0f,
+               "T1's arc must be observable -- the car must leave the limit inside the segment");
+        expect(fabsf(arc_slow - arc_fast) < 25.0f,
+               "the DRIVEN corner arc must not move with driver skill");
+        expect(fabsf(arc_slow - arc_default) < 40.0f
+                   && fabsf(arc_fast - arc_default) < 40.0f,
+               "the driven arc must match the geometry dash_sim_corner_arc_ft derives");
     }
 
     /* consecutive laps must differ visibly, and not by zero */
@@ -1598,8 +1632,6 @@ int main(void)
                 dash_sim_step(&cm, &cs, 50u);
                 if (cm.session_ms < sess_before) { fuel_post = cm.fuel_gal; break; }
             }
-            expect(fuel_post == fuel_pre - (fuel_pre - fuel_post),
-                   "fuel must be a continuous quantity across the reset");
             expect(fabsf(fuel_post - fuel_pre) < 0.01f,
                    "fuel must NOT reset on a session boundary");
             expect(fuel_pre > 5.0f && fuel_pre < 8.0f,
@@ -1731,6 +1763,174 @@ int main(void)
                 dash_sim_step(&qb, &fb, 50u);
             }
             expect(qa.fuel_gal == qb.fuel_gal, "determinism: fuel must match exactly");
+        }
+    }
+
+    /* ---- the lap book must not outlive its session ----
+     * dash_sim_session_reset zeroes lap_count / last_ms / best_ms, but
+     * dash_ch_set is one-way, so without an explicit dead-front the dash keeps
+     * showing the PREVIOUS session's LAST, BEST and PRED as live values right
+     * through the new out-lap. DELTA already handled this correctly; these
+     * three did not. The out-lap exclusion (U1) is a per-SESSION rule, so BEST
+     * must stay dead-fronted for the out-lap AND the first flying lap. */
+    {
+        DashState rs;
+        DashSimState rm;
+        dash_state_init(&rs);
+        dash_sim_init(&rm);
+        uint32_t sess_before;
+        for (;;)
+        {
+            sess_before = rm.session_ms;
+            dash_sim_step(&rm, &rs, 50u);
+            if (rm.session_ms < sess_before) { break; } /* the rollover step */
+        }
+        expect(rm.lap_count == 0u, "the rollover must leave the new session on its out-lap");
+        expect(!dash_ch_valid(&rs, DASH_CH_LAST),
+               "LAST must dead-front at a session rollover, not strand the old session's time");
+        expect(!dash_ch_valid(&rs, DASH_CH_BEST),
+               "BEST must dead-front at a session rollover");
+        expect(!dash_ch_valid(&rs, DASH_CH_PRED),
+               "PRED must dead-front at a session rollover");
+        expect(!dash_ch_valid(&rs, DASH_CH_DELTA),
+               "DELTA must dead-front at a session rollover (it already did)");
+
+        /* LAST returns as soon as the out-lap completes; BEST must wait for a
+         * flying lap, exactly as it does from a cold boot. */
+        while (rm.lap_count < 1u) { dash_sim_step(&rm, &rs, 50u); }
+        expect(dash_ch_valid(&rs, DASH_CH_LAST),
+               "LAST must return once the new session's out-lap completes");
+        expect(!dash_ch_valid(&rs, DASH_CH_BEST),
+               "BEST must stay dead-fronted through the new session's out-lap");
+        while (rm.lap_count < 2u) { dash_sim_step(&rm, &rs, 50u); }
+        expect(dash_ch_valid(&rs, DASH_CH_BEST),
+               "BEST must return once the new session has a flying lap");
+    }
+
+    /* ---- a lap driven under a forced SPEED must not become BEST ----
+     * U6 integrates lap distance from the PUBLISHED speed channel, so an
+     * operator holding `set speed 200` drives a fabricated ~46 s lap. It is a
+     * real thing they did, so LAST still shows it -- but adopting it as best_ms
+     * AND as the U5 delta reference corrupts DELTA for the rest of the session
+     * with no operator-reachable way to clear it (best_ms only ever decreases). */
+    {
+        DashState ts;
+        DashSimState tm;
+        dash_state_init(&ts);
+        dash_sim_init(&tm);
+        while (tm.lap_count < 3u) { dash_sim_step(&tm, &ts, 50u); }
+        const uint32_t honest_best = tm.best_ms;
+        expect(honest_best > 100000u, "three honest laps must have set a real best");
+
+        /* the operator forces SPEED, exactly as `set speed 200` does */
+        ts.overridden |= DASH_CH_BIT(DASH_CH_SPEED);
+        dash_ch_set(&ts, DASH_CH_SPEED, 200.0f);
+        const uint32_t before = tm.lap_count;
+        while (tm.lap_count < before + 1u) { dash_sim_step(&tm, &ts, 50u); }
+
+        expect(tm.last_ms < honest_best,
+               "the forced-speed lap must genuinely be quicker (else this proves nothing)");
+        expect(tm.best_ms == honest_best,
+               "a lap driven under a forced SPEED must NOT be adopted as BEST");
+
+        /* release the override; the next honest lap must read a sane DELTA
+         * against the honest reference rather than tens of seconds behind */
+        ts.overridden = (uint32_t) (ts.overridden & ~DASH_CH_BIT(DASH_CH_SPEED));
+        const uint32_t after = tm.lap_count;
+        while (tm.lap_count < after + 1u) { dash_sim_step(&tm, &ts, 50u); }
+        for (int i = 0; i < 200; i++) { dash_sim_step(&tm, &ts, 50u); }
+        expect(dash_ch_valid(&ts, DASH_CH_DELTA), "DELTA must still be published");
+        expect(fabsf(dash_ch_get(&ts, DASH_CH_DELTA)) < 10.0f,
+               "DELTA must stay sane -- the forced lap must not have become the reference");
+        expect(tm.best_ms <= honest_best,
+               "best must remain an honestly driven lap");
+    }
+
+    /* ---- a circuit switch must not hand a fabricated lap to BEST ----
+     * dash_sim_set_circuit zeroes lap position and the lap clock but leaves
+     * speed_mph, so a lap STARTED by `circuit hpr` opens at whatever the sweep
+     * ramp (or the abandoned lap) left behind -- up to 200 mph in 6th. The
+     * physics of carrying that speed is fine; committing the resulting lap time
+     * is not. */
+    {
+        DashState cs;
+        DashSimState cm;
+        dash_state_init(&cs);
+        dash_sim_init(&cm);
+        while (cm.lap_count < 3u) { dash_sim_step(&cm, &cs, 50u); }
+        const uint32_t honest_best = cm.best_ms;
+
+        /* up the sweep ramp to the top of the dial, then back to the lap */
+        dash_sim_set_circuit(&cm, SIM_CIRCUIT_SWEEP);
+        while (cm.speed_mph < SIM_SWEEP_MAX_MPH - 1.0f) { dash_sim_step(&cm, &cs, 50u); }
+        expect(cm.speed_mph > 190.0f, "the sweep must have reached the top of the dial");
+        dash_sim_set_circuit(&cm, SIM_CIRCUIT_HPR);
+
+        const uint32_t before = cm.lap_count;
+        while (cm.lap_count < before + 1u) { dash_sim_step(&cm, &cs, 50u); }
+        expect(cm.best_ms == honest_best,
+               "a lap started by a circuit switch must NOT be adopted as BEST");
+
+        /* the lap AFTER it is driven normally and is eligible again */
+        const uint32_t after = cm.lap_count;
+        while (cm.lap_count < after + 1u) { dash_sim_step(&cm, &cs, 50u); }
+        expect(cm.best_ms > 100000u && cm.best_ms <= honest_best,
+               "the next clean lap must be eligible for BEST again");
+    }
+
+    /* ---- FUEL must cycle on every driving path, not just TRACK ----
+     * U9's refill sits at a lap boundary, which STREET and SWEEP never reach.
+     * Its stated purpose -- that the gauge never sits dead at zero -- was
+     * therefore unmet on two of the three paths, and U11's button puts STREET
+     * one press away. */
+    {
+        DashState fs;
+        DashSimState fm;
+        dash_state_init(&fs);
+        dash_sim_init(&fm);
+        fs.mode = DASH_MODE_STREET;
+        for (int i = 0; i < 396000; i++) { dash_sim_step(&fm, &fs, 50u); } /* 5.5 sim-hours */
+        expect(fm.fuel_gal > 0.0f,
+               "STREET must refill an empty tank -- the gauge must not strand at zero");
+        expect(fm.fuel_gal <= SIM_FUEL_START_GAL,
+               "a STREET refill must not overfill the tank");
+
+        DashState ws;
+        DashSimState wm;
+        dash_state_init(&ws);
+        dash_sim_init(&wm);
+        dash_sim_set_circuit(&wm, SIM_CIRCUIT_SWEEP);
+        for (int i = 0; i < 396000; i++) { dash_sim_step(&wm, &ws, 50u); }
+        expect(wm.fuel_gal > 0.0f,
+               "SWEEP must refill an empty tank too -- it has no lap boundary either");
+    }
+
+    /* ---- dash_sim_set_skill divides BY its argument ----
+     * A zero (or NaN) skill fills seg_jitter_mph with Inf/NaN, which propagates
+     * through dash_sim_seg_limit_mph into the sqrtf lookahead cap and the
+     * grip-circle divide and corrupts speed and rpm for the rest of the run,
+     * with no recovery. The public entry point must not be able to do that. */
+    {
+        const float poison[] = { 0.0f, -1.0f, -0.0f };
+        for (unsigned p = 0; p < sizeof(poison) / sizeof(poison[0]); p++)
+        {
+            DashState ks;
+            DashSimState km;
+            dash_state_init(&ks);
+            dash_sim_init(&km);
+            dash_sim_set_skill(&km, poison[p]);
+            expect(km.driver_skill > 0.0f,
+                   "a non-positive driver skill must never be stored");
+            for (uint8_t i = 0u; i < SIM_SEG_COUNT; i++)
+            {
+                expect(isfinite(km.seg_jitter_mph[i]),
+                       "corner jitter must stay finite after a poison skill");
+            }
+            for (int i = 0; i < 4000; i++) { dash_sim_step(&km, &ks, 50u); }
+            expect(isfinite(km.speed_mph) && isfinite(km.rpm),
+                   "speed and rpm must survive a poison skill");
+            expect(km.speed_mph >= 0.0f && km.speed_mph < SIM_SWEEP_MAX_MPH,
+                   "speed must stay in range after a poison skill");
         }
     }
 
