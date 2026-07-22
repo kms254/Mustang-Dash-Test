@@ -21,6 +21,11 @@ The bounded sequence of drawing commands EVE executes to render a frame. The mic
 ### Bitmap Handle
 One of the EVE chip's small set of per-frame bitmap state slots — each holds one bitmap's source, layout, size, and format, and drawing reads whatever the currently selected handle carries. Fonts claim handles for the whole frame once registered, so anything that configures "the current handle" must first select a scratch handle no font uses and restore the default afterwards — otherwise it silently retargets a font, and that font's glyphs render as garbage while every health signal stays clean.
 
+### Font Instance
+One typeface rendered at one pixel size into a fixed-cell glyph sheet, claiming its own Bitmap Handle and uploaded to RAM_G at boot. Each instance carries its own character set, and that set is stored as a contiguous run of character codes rather than a sparse map — so an instance's memory cost is set by the span between its lowest and highest character, not by how many characters it actually uses.
+
+Every cell within an instance is sized to fit its largest glyph, so introducing one wide character enlarges every other cell as well, including ones already present. Both properties make "add one character" a change worth costing before making rather than after.
+
 ### RAM_G
 EVE's fixed-size on-chip graphics memory — the home of any bitmap the chip decodes or the firmware uploads at runtime, and the fastest asset storage the renderer has. Its capacity is a hard budget that shapes asset decisions: storage formats, downscaling with render-time upscaling, and which assets are resident at once. One caveat: the on-chip PNG decoder borrows the top of RAM_G as scratch during image loads, so anything packed near the top must leave it headroom. Rendering straight from the panel's own flash once served as an escape valve for small assets, but its per-frame ceiling (see Flash Render Streaming) meant large assets needed RAM_G staging anyway, and the flash path has been retired.
 
