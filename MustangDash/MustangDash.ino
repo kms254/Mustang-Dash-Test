@@ -238,7 +238,13 @@ static const uint8_t BL_STEADY = 128U;
  * dragged fps to 25 with faults=0 -- writes mostly survived, reads did not.
  * 8 MHz is the verified operating point until the U9 soak walks it up --
  * fps alone never accepts an operating point. */
-static const uint32_t DASH_SPI_RUN_HZ = 8000000UL;
+static const uint32_t DASH_SPI_RUN_HZ = 13500000UL; /* 13.5 MHz: F767 bench-accepted operating point (2026-07-21 clock walk on
+    long low-quality jumpers). 6.75 MHz clean; 13.5 MHz clean -- 3 min STREET
+    soak, fps=60, faults=0, REG_ID stable x15, both modes eyes-on. 27 MHz
+    HARD-WEDGED the firmware (serial dead, loop stuck in the unbounded
+    EVE_execute_cmd busy-poll on corrupted reads) -- REJECTED. Note the F767
+    prescaler rounds requests DOWN to 6.75/13.5/27/54; re-walk on the carrier's
+    point-to-point copper, never accept a step without eyes-on-panel. */
 
 /* ---- forward declarations (explicit prototypes, see note above) ---- */
 void set_backlight(uint8_t duty);

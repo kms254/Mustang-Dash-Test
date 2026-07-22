@@ -173,15 +173,17 @@ acked, odometer persistence across power cycles verified.
 MCU-direct splash (embedded pack -> RAM_G) played on glass, crossfade, 60 fps
 sim dash, REG_ID 0x7C, faults=0, pwm=128 -- all on the single ST-LINK USB
 cable (power Plan A held at full backlight duty; bench buck not needed).
-Actual SPI clock is 6.75 MHz (F767 APB2=108 MHz, power-of-two prescalers
-round the 8 MHz request down; attainable set 6.75/13.5/27/54). Wiring per
+F767 SPI clocks are prescaler-quantized (APB2=108 MHz, powers of two:
+6.75/13.5/27/54 -- requests round DOWN). Clock walk result (2026-07-21, on
+long low-quality jumpers): 6.75 MHz clean; **13.5 MHz ACCEPTED** (3-min
+STREET soak, fps=60 every sample, faults=0, REG_ID stable x15, splash
+staging clean, eyes-on in both modes); **27 MHz HARD-WEDGED the firmware**
+-- serial fully dead, loop stuck in the unbounded EVE_execute_cmd busy-poll
+on corrupted reads; recovered by ST-LINK reflash, no power-cycle needed.
+13.5 MHz is the F767 operating point; re-walk on carrier copper. Wiring per
 docs/hardware/nucleo-f767-center-panel-wiring.md (breakout BL pads bridged
-17-18 and 19-20, single tails to CN8-9/CN8-11) -- on long, low-quality
-jumpers, and still faults=0. Clock walk deliberately deferred: staging
-(~0.8 s) hides behind the dark-backlight boot phase and the dash is already
-frame-capped at 60 fps (dl=405/644), so more clock buys nothing visible on
-one panel; the walk belongs to the three-panel rig / carrier copper.
-Serial mode switch (`mode street`) verified live on the F767.
+17-18 and 19-20, single tails to CN8-9/CN8-11). Serial mode switch, forced
+alarm (green LED + takeover, both modes), and alarm-off all verified live.
 Panel-flash state (2026-07-21): the center panel's QSPI flash holds an
 obsolete EVE Screen Editor image — a 2026-07-20 ESE session loaded generated
 map/bin files to address 0, so sector 0 is ESE-provenance, not factory.
