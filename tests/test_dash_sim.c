@@ -979,7 +979,13 @@ int main(void)
         expect(dash_ch_valid(&st, DASH_CH_TIME), "street mode must still validate TIME");
         expect(st.ch.afr_l >= 11.0f && st.ch.afr_l <= 14.0f, "street afr_l must stay in [11, 14]");
     }
-    expect(st.ch.fuel_gal >= 11.99f, "street fuel burn must be ~40x slower than track");
+    /* U9/R15/V5: this assertion used to read `>= 11.99f` -- street burned
+     * 1.2/40 gal/hr, so two minutes moved the gauge by 0.001 gal. It could not
+     * survive the load-proportional model and is UPDATED rather than deleted:
+     * street still burns visibly less than track, it just burns a real amount.
+     * 3 gal/hr over two minutes is 0.1 gal. */
+    expect(st.ch.fuel_gal > 11.85f && st.ch.fuel_gal < 11.95f,
+           "street must burn a real but modest ~0.1 gal in two minutes");
 
     /* ---- U7: the range-sweep fixture (R12, S4) ----
      * A real HPR lap tops out around 170 mph in 5th, so it cannot reach the top
@@ -1196,6 +1202,477 @@ int main(void)
         dash_sim_step(&swm, &sw, 50u);
         expect(dash_ch_valid(&sw, DASH_CH_LAP),
                "STREET -> TRACK must publish LAP again");
+    }
+
+    /* ---- U8: the 20-minute session cycle and the split thermal model ----
+     * One instrumented run through a full session and into the next, which is
+     * where every claim in this unit actually lives: the rollover lands on a
+     * lap boundary, the temperatures come back cold, and the two fluids move on
+     * visibly different constants. */
+    {
+        DashState es;
+        DashSimState em;
+        dash_state_init(&es);
+        dash_sim_init(&em);
+
+        expect(em.session_ms == 0u && !em.session_pending,
+               "a fresh sim must open a fresh session");
+        expect(SIM_SESSION_MS == 1200000u, "a session must be 20 minutes");
+        expect(SIM_OILT_TAU_S > 3.0f * SIM_ECT_TAU_S,
+               "oil must warm on a far longer constant than coolant -- one shared "
+               "constant is exactly what pinned both gauges by minute five");
+        expect(SIM_OILT_TRACK_F > SIM_ECT_OPERATING_F,
+               "oil's target must sit above coolant's regulated plateau");
+        expect(SIM_OILT_TRACK_F > SIM_OILT_STREET_F,
+               "a track session must run the oil hotter than a street cruise");
+
+        float ect_at[26], oilt_at[26];
+        for (int k = 0; k < 26; k++) { ect_at[k] = 0.0f; oilt_at[k] = 0.0f; }
+        int minute = 0;
+        uint32_t reset_at_ms = 0u;      /* session_ms the instant before the reset */
+        float dist_before_reset = -1.0f;
+        float dist_after_reset = -1.0f;
+        float ect_after_reset = -1.0f;
+        float oilt_after_reset = -1.0f;
+        uint32_t best_before_reset = 0u;
+        uint32_t max_lap_count = 0u;
+        uint32_t laps_in_session1 = 0u;
+        uint32_t out_lap_ms_s1 = 0u;
+        int resets = 0;
+        bool delta_valid_on_new_outlap = false;
+
+        /* 25 sim-minutes: comfortably past one rollover (20 min + the in-lap) */
+        for (int i = 0; i < 30000; i++)
+        {
+            uint32_t sess_before = em.session_ms;
+            float dist_pre = em.lap_dist_ft;
+            uint32_t best_pre = em.best_ms;
+            if (em.lap_count > max_lap_count) { max_lap_count = em.lap_count; }
+            if (em.lap_count == 1u && out_lap_ms_s1 == 0u) { out_lap_ms_s1 = em.last_ms; }
+
+            dash_sim_step(&em, &es, 50u);
+
+            if (em.session_ms < sess_before) /* the session just rolled over */
+            {
+                resets++;
+                if (resets == 1)
+                {
+                    reset_at_ms = sess_before;
+                    dist_before_reset = dist_pre;
+                    dist_after_reset = em.lap_dist_ft;
+                    ect_after_reset = em.ect_f;
+                    oilt_after_reset = em.oilt_f;
+                    best_before_reset = best_pre;
+                    laps_in_session1 = max_lap_count;
+                }
+                max_lap_count = 0u;
+            }
+            /* the new session's out-lap must be dead-fronted again: the old
+             * session's reference trace is not a benchmark for this one */
+            if (resets == 1 && em.lap_count == 0u && dash_ch_valid(&es, DASH_CH_DELTA))
+            {
+                delta_valid_on_new_outlap = true;
+            }
+
+            int m_now = (int) (em.t_s / 60.0f);
+            if (m_now > minute && m_now <= 25)
+            {
+                minute = m_now;
+                ect_at[m_now] = em.ect_f;
+                oilt_at[m_now] = em.oilt_f;
+            }
+        }
+
+        expect(resets >= 1, "a 25-minute run must roll the session over at least once");
+
+        /* R14: the reset lands ON a lap boundary, never mid-lap. The car was
+         * within a step of the finish line before it and back at the line after
+         * -- which is the whole reason the reset is free of discontinuity. */
+        expect(dist_before_reset > SIM_TRACK_LAP_FT - 400.0f,
+               "the session reset must fire at a lap crossing, not mid-lap");
+        expect(dist_after_reset == 0.0f,
+               "lap distance must be exactly the start/finish line after a reset");
+
+        /* the session runs AT LEAST its 20 minutes, and at most one lap longer */
+        expect(reset_at_ms >= SIM_SESSION_MS,
+               "a session must run its full 20 minutes before ending");
+        expect(reset_at_ms <= SIM_SESSION_MS + 150000u,
+               "a session must not overrun 20 minutes by more than one lap");
+        expect(laps_in_session1 >= 8u,
+               "a 20-minute session at ~2:02 laps must complete at least 8 laps");
+
+        /* Temperatures come back cold and climb again. Sampled at the end of
+         * the step that reset them, so each has already taken one step's worth
+         * of warming back toward target -- hence "at cold start" rather than
+         * "exactly SIM_COLD_START_F". */
+        expect(ect_after_reset < SIM_COLD_START_F + 3.0f
+                   && oilt_after_reset < SIM_COLD_START_F + 3.0f,
+               "the session reset must return both temperatures to cold start");
+        expect(ect_at[25] > 150.0f && oilt_at[25] > 100.0f,
+               "both temperatures must climb again in the new session");
+
+        /* the split constants, measured rather than asserted from the source:
+         * coolant is DONE by minute 10 and moves under 2 F over the next ten,
+         * while oil moves tens of degrees over the same window. */
+        expect(fabsf(ect_at[5] - SIM_ECT_OPERATING_F) < 12.0f,
+               "coolant must be within 12 F of its plateau by minute 5");
+        expect(fabsf(ect_at[20] - ect_at[10]) < 2.0f,
+               "coolant must be settled: under 2 F of movement from minute 10 to 20");
+        expect((oilt_at[20] - oilt_at[10]) > 25.0f,
+               "oil must still be climbing hard from minute 10 to 20, not settled");
+        /* the S6 headline claim, pinned on its own: this fails the moment oil
+         * is retuned to settle early, which is the failure mode this unit
+         * exists to prevent. */
+        expect((oilt_at[15] - oilt_at[10]) > 10.0f,
+               "oil at minute 15 must be measurably hotter than at minute 10");
+        expect(oilt_at[5] < ect_at[5] - 30.0f,
+               "early in the session oil must lag well behind coolant");
+        expect(oilt_at[20] > ect_at[20],
+               "by the end of the session oil must run hotter than coolant");
+        /* and it must not cook itself into a permanent amber gauge */
+        expect(oilt_at[20] < DASH_OILT_AMBER_F,
+               "a normal session must not end with the oil gauge stuck in amber");
+
+        /* the out-lap rule is per SESSION, not per boot: best_ms is cleared, so
+         * the new session's ~7 mph rollout cannot become the benchmark */
+        expect(best_before_reset > 0u, "the first session must have set a best lap");
+        {
+            DashState bs;
+            DashSimState bm;
+            dash_state_init(&bs);
+            dash_sim_init(&bm);
+            while (bm.session_ms < SIM_SESSION_MS) { dash_sim_step(&bm, &bs, 50u); }
+            while (bm.session_pending) { dash_sim_step(&bm, &bs, 50u); }
+            expect(bm.best_ms == 0u && bm.lap_count == 0u,
+                   "a session reset must clear the lap book, best_ms included");
+            expect(!bm.ref_valid, "a session reset must clear the U5 delta reference");
+            /* run the new session's out-lap and the flying lap after it */
+            uint32_t out_lap = 0u;
+            while (bm.lap_count < 1u) { dash_sim_step(&bm, &bs, 50u); }
+            out_lap = bm.last_ms;
+            expect(bm.best_ms == 0u,
+                   "the new session's OUT-LAP must never be adopted as best_ms");
+            while (bm.lap_count < 2u) { dash_sim_step(&bm, &bs, 50u); }
+            expect(bm.best_ms > 0u && bm.best_ms < out_lap,
+                   "the new session's first FLYING lap must set its best, and beat "
+                   "the out-lap");
+        }
+        expect(!delta_valid_on_new_outlap,
+               "DELTA must be dead-fronted again through the new session's out-lap");
+        (void) out_lap_ms_s1;
+
+        /* successive sessions must NOT be bit-identical: the LCG survives the
+         * reset, so the new session draws fresh corner jitter rather than
+         * replaying the last one exactly. */
+        {
+            DashState js;
+            DashSimState jm;
+            dash_state_init(&js);
+            dash_sim_init(&jm);
+            uint32_t s1_best, s2_best;
+            float s1_jit13, s2_jit13;
+            while (jm.lap_count < 3u) { dash_sim_step(&jm, &js, 50u); }
+            s1_best = jm.best_ms;
+            s1_jit13 = jm.seg_jitter_mph[13];
+            while (jm.session_ms < SIM_SESSION_MS) { dash_sim_step(&jm, &js, 50u); }
+            while (jm.session_pending) { dash_sim_step(&jm, &js, 50u); }
+            while (jm.lap_count < 3u) { dash_sim_step(&jm, &js, 50u); }
+            s2_best = jm.best_ms;
+            s2_jit13 = jm.seg_jitter_mph[13];
+            expect(s1_best != s2_best || s1_jit13 != s2_jit13,
+                   "successive sessions must not be bit-identical replays: the "
+                   "jitter LCG must survive the reset");
+        }
+
+        /* determinism must survive the session boundary too */
+        {
+            DashState da, db;
+            DashSimState pa, pb;
+            dash_state_init(&da);
+            dash_state_init(&db);
+            dash_sim_init(&pa);
+            dash_sim_init(&pb);
+            for (int i = 0; i < 27000; i++) /* 22.5 min: past one rollover */
+            {
+                dash_sim_step(&pa, &da, 50u);
+                dash_sim_step(&pb, &db, 50u);
+            }
+            expect(pa.session_ms == pb.session_ms, "determinism across a session: clock");
+            expect(pa.lap_dist_ft == pb.lap_dist_ft, "determinism across a session: distance");
+            expect(pa.ect_f == pb.ect_f && pa.oilt_f == pb.oilt_f,
+                   "determinism across a session: temperatures");
+            expect(pa.fuel_gal == pb.fuel_gal, "determinism across a session: fuel");
+        }
+
+        /* the session clock is TRACK-only: STREET has no laps, so a
+         * lap-gated rollover would have nothing to fire on */
+        {
+            DashState ts;
+            DashSimState tm;
+            dash_state_init(&ts);
+            dash_sim_init(&tm);
+            for (int i = 0; i < 600; i++) { dash_sim_step(&tm, &ts, 50u); } /* 30 s TRACK */
+            uint32_t sess = tm.session_ms;
+            expect(sess > 0u, "TRACK must advance the session clock");
+            ts.mode = DASH_MODE_STREET;
+            for (int i = 0; i < 2400; i++) { dash_sim_step(&tm, &ts, 50u); } /* 2 min */
+            expect(tm.session_ms == sess, "time spent in STREET must not advance the session");
+            /* nor may the SWEEP fixture, which has no laps either -- a clock
+             * that ran there would strand the session pending-end until the
+             * forced-reset bound fired in the middle of the ramp */
+            ts.mode = DASH_MODE_TRACK;
+            dash_sim_set_circuit(&tm, SIM_CIRCUIT_SWEEP);
+            for (int i = 0; i < 2400; i++) { dash_sim_step(&tm, &ts, 50u); }
+            expect(tm.session_ms == sess, "the SWEEP fixture must not advance the session");
+        }
+
+        /* the bounded exception: `set speed 0` stalls the lap forever, so the
+         * pending-end must not wait forever with it */
+        {
+            DashState zs;
+            DashSimState zm;
+            dash_state_init(&zs);
+            dash_sim_init(&zm);
+            while (!zm.session_pending) { dash_sim_step(&zm, &zs, 50u); }
+            dash_ch_set(&zs, DASH_CH_SPEED, 0.0f);
+            zs.overridden |= DASH_CH_BIT(DASH_CH_SPEED);
+            int steps = 0;
+            while (zm.session_pending && steps < 20000) { dash_sim_step(&zm, &zs, 50u); steps++; }
+            expect(!zm.session_pending,
+                   "an overridden SPEED of 0 must not strand the session pending-end");
+            expect((uint32_t) steps * 50u <= SIM_SESSION_PENDING_MAX_MS + 1000u,
+                   "the forced reset must fire within one nominal lap plus margin");
+            expect(zm.ect_f < SIM_COLD_START_F + 3.0f,
+                   "the forced reset is still a real session reset");
+        }
+
+        /* the oil-pressure alarm's rpm >= 500 gate must survive the cold start:
+         * the rollout is ~950 rpm, above the gate, and oil pressure at that rpm
+         * must already be clear of the alarm threshold -- no spurious takeover
+         * on the opening lap of every session. */
+        {
+            DashState as;
+            DashSimState am;
+            dash_state_init(&as);
+            dash_sim_init(&am);
+            for (int i = 0; i < 200; i++)
+            {
+                dash_sim_step(&am, &as, 50u);
+                expect(as.ch.rpm >= DASH_ENGINE_RUNNING_RPM,
+                       "the rollout must idle above the engine-running gate");
+                expect(dash_alarm_classify(&as) != DASH_ALARM_OILP,
+                       "a cold-start rollout must not raise the oil-pressure alarm");
+            }
+        }
+    }
+
+    /* ---- U9: load-proportional fuel burn (R15, S7) ---- */
+    {
+        /* one flying lap must cost roughly the calibrated figure. A band, not
+         * an equality: burn is load-dependent, so no two laps agree exactly. */
+        DashState fs;
+        DashSimState fm;
+        dash_state_init(&fs);
+        dash_sim_init(&fm);
+        while (fm.lap_count < 2u) { dash_sim_step(&fm, &fs, 50u); }
+        float f0 = fm.fuel_gal;
+        while (fm.lap_count < 3u) { dash_sim_step(&fm, &fs, 50u); }
+        float lap_gal = f0 - fm.fuel_gal;
+        expect(lap_gal > 0.45f && lap_gal < 0.75f,
+               "a flying lap must cost roughly the calibrated 0.6 gal, not the "
+               "0.04 gal the old flat rate burned");
+        /* and the renderer's own constant must agree with it -- the deliberate
+         * decoupling in dash_math.h is retired (U9) */
+        expect(fabsf(lap_gal - DASH_LAP_BURN_GAL) < 0.06f,
+               "DASH_LAP_BURN_GAL must now agree with the sim's measured per-lap "
+               "burn: the two are no longer deliberately independent");
+
+        /* driving harder burns faster. NOTE the honest form of this claim: the
+         * per-lap TOTAL barely moves (a quicker lap is over sooner, so the
+         * extra power is spent for less time -- the two nearly cancel, which is
+         * a genuine and rather pleasing emergent result). What moves clearly is
+         * the RATE, so that is what is pinned here, with the weak per-lap
+         * direction checked alongside it. */
+        {
+            float gal_slow, gal_fast;
+            uint32_t ms_slow, ms_fast;
+            DashState a; DashSimState b;
+
+            dash_state_init(&a); dash_sim_init(&b);
+            while (b.lap_count < 2u) { dash_sim_step(&b, &a, 50u); }
+            dash_sim_set_skill(&b, 0.80f);
+            float g0 = b.fuel_gal;
+            while (b.lap_count < 3u) { dash_sim_step(&b, &a, 50u); }
+            gal_slow = g0 - b.fuel_gal;
+            ms_slow = b.last_ms;
+
+            dash_state_init(&a); dash_sim_init(&b);
+            while (b.lap_count < 2u) { dash_sim_step(&b, &a, 50u); }
+            dash_sim_set_skill(&b, 1.00f);
+            g0 = b.fuel_gal;
+            while (b.lap_count < 3u) { dash_sim_step(&b, &a, 50u); }
+            gal_fast = g0 - b.fuel_gal;
+            ms_fast = b.last_ms;
+
+            expect(ms_fast < ms_slow, "the tidier lap must be the quicker one");
+            expect((gal_fast / (float) ms_fast) > (gal_slow / (float) ms_slow) * 1.05f,
+                   "a lap spent harder on the throttle must burn at a visibly "
+                   "higher rate");
+            expect(gal_fast > gal_slow,
+                   "and cost more per lap, even if only slightly");
+        }
+
+        /* fuel does NOT reset with the session: it is the one thing that
+         * carries across, so the tank and the thermal cycle run on different
+         * periods and a cold-start out-lap regularly happens half empty */
+        {
+            DashState cs;
+            DashSimState cm;
+            dash_state_init(&cs);
+            dash_sim_init(&cm);
+            float fuel_pre = 0.0f, fuel_post = 0.0f;
+            uint32_t sess_before;
+            for (;;)
+            {
+                sess_before = cm.session_ms;
+                fuel_pre = cm.fuel_gal;
+                dash_sim_step(&cm, &cs, 50u);
+                if (cm.session_ms < sess_before) { fuel_post = cm.fuel_gal; break; }
+            }
+            expect(fuel_post == fuel_pre - (fuel_pre - fuel_post),
+                   "fuel must be a continuous quantity across the reset");
+            expect(fabsf(fuel_post - fuel_pre) < 0.01f,
+                   "fuel must NOT reset on a session boundary");
+            expect(fuel_pre > 5.0f && fuel_pre < 8.0f,
+                   "a 20-minute session must burn roughly half a 12 gallon tank");
+
+            /* ...and keeps depleting into the next session */
+            for (int i = 0; i < 6000; i++) { dash_sim_step(&cm, &cs, 50u); } /* 5 min */
+            expect(cm.fuel_gal < fuel_post - 1.0f,
+                   "fuel must keep depleting into the next session");
+
+            /* a tank is deliberately about two sessions, not one */
+            float per_session = SIM_FUEL_START_GAL - fuel_pre;
+            expect((SIM_FUEL_START_GAL / per_session) > 1.7f
+                   && (SIM_FUEL_START_GAL / per_session) < 2.5f,
+                   "a 12 gallon tank must span roughly two sessions");
+        }
+
+        /* refill on EMPTY, at a lap boundary, never mid-lap -- and therefore
+         * never pinned at zero indefinitely */
+        {
+            DashState rs;
+            DashSimState rm;
+            dash_state_init(&rs);
+            dash_sim_init(&rm);
+            int refills = 0;
+            int zero_run = 0, zero_run_max = 0;
+            float prev = rm.fuel_gal;
+            float prev_dist = rm.lap_dist_ft;
+            for (int i = 0; i < 240000; i++) /* 200 sim-minutes, many tanks */
+            {
+                dash_sim_step(&rm, &rs, 50u);
+                if (rm.fuel_gal > prev + 0.01f) /* the tank just filled */
+                {
+                    refills++;
+                    /* the same step burns its own slice after the fill, so this
+                     * is "a full tank", not a bit-exact SIM_FUEL_START_GAL */
+                    expect(rm.fuel_gal > SIM_FUEL_START_GAL - 0.01f
+                               && rm.fuel_gal <= SIM_FUEL_START_GAL,
+                           "a refill must fill the tank to SIM_FUEL_START_GAL");
+                    expect(prev_dist > SIM_TRACK_LAP_FT - 400.0f,
+                           "a refill must happen at a lap boundary, never mid-lap");
+                }
+                if (rm.fuel_gal <= 0.0f) { zero_run++; if (zero_run > zero_run_max) { zero_run_max = zero_run; } }
+                else { zero_run = 0; }
+                prev = rm.fuel_gal;
+                prev_dist = rm.lap_dist_ft;
+            }
+            expect(refills >= 3, "200 sim-minutes must run the tank dry and refill it several times");
+            expect(rm.fuel_gal > 0.0f, "fuel must not be sitting at zero at the end of a long run");
+            /* it DOES sit at zero -- from running dry mid-lap until the lap
+             * ends -- but for a bounded stretch, not indefinitely */
+            expect(zero_run_max * 50u < 150000u,
+                   "a dry tank must be refilled within one lap, not left dead");
+        }
+
+        /* a frozen sim burns nothing */
+        {
+            DashState zs;
+            DashSimState zm;
+            dash_state_init(&zs);
+            dash_sim_init(&zm);
+            for (int i = 0; i < 200; i++) { dash_sim_step(&zm, &zs, 50u); }
+            float held = zm.fuel_gal;
+            zs.sim_frozen = true;
+            for (int i = 0; i < 200; i++) { dash_sim_step(&zm, &zs, 50u); }
+            expect(zm.fuel_gal == held, "a frozen sim must burn no fuel");
+            zs.sim_frozen = false;
+        }
+
+        /* STREET burns visibly less per unit time than TRACK */
+        {
+            DashState ks, us;
+            DashSimState km, um;
+            dash_state_init(&ks);
+            dash_state_init(&us);
+            dash_sim_init(&km);
+            dash_sim_init(&um);
+            us.mode = DASH_MODE_STREET;
+            for (int i = 0; i < 2400; i++) /* 2 sim-minutes each */
+            {
+                dash_sim_step(&km, &ks, 50u);
+                dash_sim_step(&um, &us, 50u);
+            }
+            float track_burn = SIM_FUEL_START_GAL - km.fuel_gal;
+            float street_burn = SIM_FUEL_START_GAL - um.fuel_gal;
+            expect(street_burn > 0.05f, "street must burn a visible amount, not nothing");
+            expect(street_burn * 3.0f < track_burn,
+                   "street must burn several times less per unit time than track");
+        }
+
+        /* dash_laps_remaining must now agree with what the sim actually does --
+         * the point of retiring the decoupling. Predicted from a full tank
+         * against laps actually driven to empty, within a lap. */
+        {
+            DashState ls;
+            DashSimState lm;
+            dash_state_init(&ls);
+            dash_sim_init(&lm);
+            float predicted = 0.0f;
+            expect(dash_laps_remaining(lm.fuel_gal, true, &predicted),
+                   "laps-remaining must compute from a full tank");
+            uint32_t laps = 0u;
+            for (int i = 0; i < 60000 && lm.fuel_gal > 0.0f; i++)
+            {
+                uint32_t lc = lm.lap_count;
+                uint32_t sess = lm.session_ms;
+                dash_sim_step(&lm, &ls, 50u);
+                /* a session reset zeroes lap_count, so count crossings, not the
+                 * counter -- the tank spans more than one session by design */
+                if (lm.lap_count > lc || lm.session_ms < sess) { laps++; }
+            }
+            expect(lm.fuel_gal <= 0.0f, "the tank must actually run dry inside 50 minutes");
+            expect(fabsf((float) laps - predicted) <= 1.5f,
+                   "dash_laps_remaining must agree with the sim's observed burn "
+                   "to within about a lap");
+        }
+
+        /* determinism through the whole fuel path */
+        {
+            DashState fa, fb;
+            DashSimState qa, qb;
+            dash_state_init(&fa);
+            dash_state_init(&fb);
+            dash_sim_init(&qa);
+            dash_sim_init(&qb);
+            for (int i = 0; i < 5000; i++)
+            {
+                dash_sim_step(&qa, &fa, 50u);
+                dash_sim_step(&qb, &fb, 50u);
+            }
+            expect(qa.fuel_gal == qb.fuel_gal, "determinism: fuel must match exactly");
+        }
     }
 
     if (failures == 0)

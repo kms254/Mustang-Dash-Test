@@ -55,10 +55,17 @@
 /* ---- derivation constants (README ~L103) ---- */
 #define DASH_RANGE_MPG        16.0f  /* range estimate = gal * 16 mi/gal (street) */
 /* laps-remaining = usable fuel / per-lap burn (track). The design doc states
- * the formula but not a figure; this pins a plausible per-lap consumption
- * for a road-course lap and is independent of dash_sim.h's demo-scaled
- * (deliberately slow) fuel depletion rate. */
-#define DASH_LAP_BURN_GAL      0.4f
+ * the formula but not a figure.
+ *
+ * This figure and dash_sim.h's fuel depletion are now intended to AGREE, and
+ * that is a change: the constant used to be deliberately decoupled, because the
+ * simulator burned a demo-scaled 1.2 gal/hr that no realistic per-lap number
+ * could have matched. U9 replaced that with a load-proportional burn measuring
+ * 0.589 gal over an HPR lap, so the decoupling is retired -- this is the
+ * measured figure, rounded. LAPS on the timing screen now counts down in step
+ * with the laps the car actually drives (12 gal / 0.59 = ~20 laps), and if the
+ * two ever drift apart again that is a defect rather than a design choice. */
+#define DASH_LAP_BURN_GAL      0.59f
 
 #define DASH_DEG_TO_RAD (3.14159265358979323846f / 180.0f)
 

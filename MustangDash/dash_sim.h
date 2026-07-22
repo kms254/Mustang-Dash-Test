@@ -240,11 +240,58 @@ static const SimSeg SIM_SEGS[SIM_SEG_COUNT] = {
 #define SIM_TRACE_BUCKET_FT (SIM_TRACK_LAP_FT / (float) SIM_TRACE_BUCKETS)
 #define SIM_TRACE_CS_MAX    65535u
 
-/* ---- temperatures / pressures / electrics ---- */
-#define SIM_COLD_START_F    75.0f    /* ambient-ish warm-start value */
-#define SIM_WARMUP_TAU_S    90.0f    /* exponential-approach time constant */
-#define SIM_ECT_OPERATING_F 195.0f
-#define SIM_OILT_OPERATING_F 220.0f
+/* ---- session cycle (plan U8, R13/R14) ----
+ * TRACK runs as a repeating 20-minute session that opens with a cold
+ * standing-start out-lap, so the temperature gauges tell a story instead of
+ * pinning five minutes after boot and never moving again.
+ *
+ * The session ends on the first lap completion AT OR AFTER the 20-minute mark,
+ * never mid-lap: reaching the mark raises a pending-end flag (the checkered
+ * flag), the car finishes its in-lap, and the reset fires at that lap boundary.
+ * Actual session length is therefore 20 minutes PLUS the remainder of the
+ * in-lap. That mirrors a real session and it also costs nothing: at a lap
+ * boundary lap_dist_ft is already zero, so the reset introduces no
+ * discontinuity in track position or corner state. A mid-lap reset would snap
+ * the car out of a corner.
+ *
+ * ...with ONE bounded exception. U6 integrates lap distance from the published
+ * SPEED channel, so a bench operator who leaves `set speed 0` in place stalls
+ * lap progression indefinitely -- and with it the session rollover and U9's
+ * empty-tank refill, the two mechanisms whose entire purpose is keeping the
+ * gauges cycling. If pending-end has been held longer than one nominal lap plus
+ * margin, the reset is forced regardless of lap position. The mid-lap
+ * discontinuity is acceptable in that override-only case, and this is the
+ * documented exception to the rule above. */
+#define SIM_SESSION_MS          1200000u /* 20 minutes */
+#define SIM_SESSION_PENDING_MAX_MS 180000u /* ~1 nominal lap (2:02) + margin */
+
+/* ---- temperatures / pressures / electrics ----
+ * Coolant and oil used to share ONE 90 s constant, which is why both flatlined
+ * inside the first five minutes and neither gauge was worth watching. They are
+ * different physical systems and they now have different constants (R13):
+ *
+ *  - COOLANT is thermostat-governed. It rises fast to a REGULATED plateau and
+ *    then holds, breathing a few degrees. Realistic and unexciting -- done by
+ *    lap 3 and there for the rest of the session.
+ *  - OIL has no thermostat and far more mass. It rises slowly toward a target
+ *    well above coolant and, on a road course, is still climbing at minute 15.
+ *    This is the channel that actually tells the session's story.
+ *
+ * Both remain exponential approaches driven by dt_s, so step-size independence
+ * is unaffected. The two tau values are bench-ergonomics calls, not
+ * measurements: the criterion is watchability. */
+#define SIM_COLD_START_F    75.0f    /* ambient-ish cold-start value */
+#define SIM_ECT_TAU_S       120.0f   /* thermostat-governed: settles early */
+#define SIM_OILT_TAU_S      600.0f   /* no thermostat, lots of mass: still climbing late */
+#define SIM_ECT_OPERATING_F 195.0f   /* the thermostat's regulated plateau */
+/* Oil's target is LOAD-dependent rather than a constant, so a hard session runs
+ * hotter than a cruise: a TRACK base well above coolant, a STREET base only
+ * just above it, plus a nudge with sustained rpm. Held under DASH_OILT_AMBER_F
+ * (235) on purpose -- a session that ends in a permanent amber oil gauge is a
+ * broken calibration, not a realistic one. */
+#define SIM_OILT_TRACK_F    222.0f
+#define SIM_OILT_STREET_F   205.0f
+#define SIM_OILT_LOAD_F      12.0f   /* added at redline, scaled by rpm fraction */
 /* oilp = base + rpm/8000*40 + 2*sin: base 25 keeps normal running (any
  * rpm above ~800) clear of the 29 psi alarm threshold -- no flapping
  * alarms at cruise-idle dips -- and tops out ~67 psi at redline. Forcing
@@ -253,10 +300,41 @@ static const SimSeg SIM_SEGS[SIM_SEG_COUNT] = {
 #define SIM_OILP_RPM_SPAN   40.0f
 #define SIM_VOLTS_NOMINAL   13.6f
 
-/* ---- fuel ---- */
+/* ---- fuel (plan U9, R15/S7) ----
+ * The old rate was a flat 1.2 gal/hr -- about 0.04 gal over a two-minute lap,
+ * which is invisible on a 12-gallon gauge. A 500+ whp NA V8 at road-course pace
+ * runs roughly 4 mpg, so a 2.55-mile lap costs about 0.6 gal and a session
+ * about 6: half a tank, and a real thing to watch.
+ *
+ * Burn is not a flat higher number, it is proportional to the power actually
+ * being DEMANDED. U2 already computes the propulsive acceleration it applied,
+ * so a throttle proxy falls straight out of it:
+ *
+ *     p_frac = (mass * a_applied * v) / (whp * 550)     in 0..1
+ *
+ * which is 1 wherever the car is power-limited (anywhere above ~90 mph), less
+ * than 1 where it is traction- or grip-limited, and 0 on the brakes. Fuel then
+ * emerges from the lap the same way lap time does, and a scruffy lap -- more
+ * time hard on the throttle recovering from a bad corner -- genuinely costs
+ * more than a tidy one.
+ *
+ * SIM_FUEL_PEAK_GPH is the one calibrated number, and it is calibrated by
+ * MEASUREMENT, not derivation: p_frac integrates to a mean of only ~0.30 over
+ * an HPR lap (braking zones contribute nothing and the grip circle throttles
+ * the corners hard), so the peak has to sit well above the lap average to land
+ * the lap at 0.6 gal. Measured result at 55 gal/hr is 0.589 gal/lap.
+ *
+ * Cross-check, since an order-of-magnitude error here would be easy and
+ * invisible: 511 whp is ~600 hp at the crank, and a race calibration running
+ * rich for charge cooling (this sim's own AFR channel reaches ~11.5 at
+ * redline) burns ~0.55 lb/hp-hr -- 330 lb/hr, or ~54 gal/hr at 6.1 lb/gal.
+ * 55 is that number. A street-tuned 0.50 BSFC would be ~49; the difference is
+ * the mixture, not a modelling error. */
 #define SIM_FUEL_START_GAL  12.0f
-#define SIM_FUEL_BURN_GPS   (0.02f / 60.0f) /* gal per second at track pace */
-#define SIM_FUEL_STREET_DIV 40.0f           /* street burns 40x slower */
+#define SIM_FUEL_PEAK_GPH   55.0f  /* wide open, power-limited */
+#define SIM_FUEL_IDLE_GPH    1.2f  /* on the brakes / trailing throttle */
+#define SIM_FUEL_STREET_GPH  3.0f  /* 60 mph cruise at ~20 mpg */
+#define SIM_GPH_TO_GPS      (1.0f / 3600.0f)
 
 /* ---- Phase-2 channels (plan KTD5): engine + PMU sensors, always published
  * (both modes, like ECT/OILT/OILP/VOLTS above); lap-timing channels
@@ -286,6 +364,9 @@ typedef struct {
     uint32_t lcg;       /* deterministic jitter state */
     uint32_t lap_ms;    /* current lap accumulator */
     uint32_t lap_count; /* completed laps */
+    uint32_t session_ms;         /* 20-minute session clock; TRACK laps only (U8) */
+    uint32_t session_pending_ms; /* how long the checkered flag has been out */
+    bool session_pending;        /* past the 20 min mark, waiting on the in-lap */
     /* internal continuous state */
     float rpm;
     float speed_mph;    /* driving-cycle integrator state */
@@ -516,6 +597,56 @@ static inline void dash_sim_set_circuit(DashSimState *sim, SimCircuit circuit)
     dash_sim_trace_stamp(sim, 0u); /* the new lap starts at t=0 by definition */
 }
 
+/* Start a fresh 20-minute session (U8). Everything the SESSION owns goes back
+ * to its cold-start value: the temperatures, the lap book (count / last / best
+ * / the U5 delta reference), and the pit-lane rollout speed, so the new session
+ * opens with another out-lap for the thermal model to climb away from.
+ *
+ * Clearing best_ms matters more than it looks. The best-lap update is
+ * `lap_count == 1 || last_ms < best_ms`, so zeroing lap_count while LEAVING
+ * best_ms would let the new session's OUT-LAP unconditionally overwrite the
+ * best time -- reintroducing exactly the bogus baseline U1's out-lap exclusion
+ * exists to prevent. The out-lap rule is a per-SESSION rule, not a per-boot one.
+ *
+ * This is deliberately NOT dash_sim_init. Three things survive on purpose:
+ *  - the LCG, or every session would be a bit-identical replay of the last;
+ *  - sim->t_s, which the deterministic sinf() wanders are keyed to;
+ *  - FUEL (U9), which runs on its own period so a cold-start out-lap regularly
+ *    happens on a half-empty tank -- a combination a shared reset never makes.
+ * The circuit selection and driver skill are operator settings and also stay. */
+static inline void dash_sim_session_reset(DashSimState *sim)
+{
+    sim->session_ms = 0u;
+    sim->session_pending_ms = 0u;
+    sim->session_pending = false;
+
+    sim->ect_f = SIM_COLD_START_F;
+    sim->oilt_f = SIM_COLD_START_F;
+
+    sim->lap_count = 0u;
+    sim->last_ms = 0u;
+    sim->best_ms = 0u;
+    sim->lap_ms = 0u;
+    sim->lap_dist_ft = 0.0f; /* exactly the line, not the crossing's remainder */
+    sim->seg_idx = 0u;
+
+    sim->gear = 1u;
+    sim->rpm = SIM_RPM_START;
+    sim->speed_mph = dash_sim_speed_mph(SIM_RPM_START, 1); /* ~7 mph, rolling out */
+
+    for (uint16_t b = 0u; b < SIM_TRACE_SLOTS; b++)
+    {
+        sim->lap_trace_cs[b] = 0u;
+        sim->ref_trace_cs[b] = 0u;
+    }
+    sim->trace_next = 0u;
+    dash_sim_trace_stamp(sim, 0u); /* the new lap starts at t=0 by definition */
+    sim->ref_valid = false;        /* DELTA dead-fronts again until a flying lap */
+
+    /* draws from the surviving LCG, so the new session's corners differ */
+    dash_sim_reseed_jitter(sim);
+}
+
 /* Gear 1, warm-start temps at ambient-ish cold values, full-ish tank.
  * The ~7 mph rollout is deliberate: it makes lap 1 the session out-lap, which
  * is why lap 1 is excluded from best_ms below (U1). */
@@ -526,6 +657,9 @@ static inline void dash_sim_init(DashSimState *sim)
     sim->lcg = SIM_LCG_SEED;
     sim->lap_ms = 0u;
     sim->lap_count = 0u;
+    sim->session_ms = 0u;
+    sim->session_pending_ms = 0u;
+    sim->session_pending = false;
     sim->rpm = SIM_RPM_START;
     sim->speed_mph = dash_sim_speed_mph(SIM_RPM_START, 1); /* ~7 mph, rolling out */
     sim->lap_dist_ft = 0.0f;
@@ -560,7 +694,7 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
     float t = sim->t_s;
 
     float speed_mph;
-    float fuel_burn_gps = SIM_FUEL_BURN_GPS;
+    float fuel_burn_gps = SIM_FUEL_STREET_GPH * SIM_GPH_TO_GPS;
     float delta_s = 0.0f;
     bool delta_valid = false; /* U5: no reference lap yet -> DELTA dead-fronts */
     bool track = (s->mode == DASH_MODE_TRACK);
@@ -575,6 +709,19 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
     {
         /* lap TIMER (no longer the lap position -- see below) */
         sim->lap_ms += dt_ms;
+
+        /* U8: the session clock. It runs only HERE -- on the TRACK lap path --
+         * and not in STREET or in the SWEEP fixture, because the rollover is
+         * gated on a LAP boundary and neither of those has laps to fire it. A
+         * clock that ran in STREET would mean twenty minutes of cruising
+         * followed by a mode switch snapped the temps cold on the first TRACK
+         * lap, with nothing visible to explain it. */
+        sim->session_ms += dt_ms;
+        if (sim->session_ms >= SIM_SESSION_MS)
+        {
+            sim->session_pending = true; /* checkered flag: finish the in-lap */
+        }
+        if (sim->session_pending) { sim->session_pending_ms += dt_ms; }
 
         /* U1: lap position is integrated road speed. A lap closes when the
          * car crosses SIM_TRACK_LAP_FT, so lap time is an OUTPUT. Nothing but
@@ -629,6 +776,37 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
             dash_sim_trace_stamp(sim, 0u); /* the new lap starts at t=0 by definition */
             sim->lap_count++;
             dash_sim_reseed_jitter(sim);
+
+            /* U9: the tank refills on EMPTY, not on the session clock -- and
+             * at a lap boundary, so the gauge never jumps mid-corner. 12 gal at
+             * ~0.6 gal/lap is ~20 laps, about two sessions, after which without
+             * this the gauge would sit dead at zero for every session after the
+             * first. Keying it to the fuel state instead means the low-fuel
+             * warning is exercised once per tank, on its own rhythm. */
+            if (sim->fuel_gal <= 0.0f)
+            {
+                sim->fuel_gal = SIM_FUEL_START_GAL;
+            }
+
+            /* U8/R14: the checkered flag is honored HERE and only here in
+             * normal running -- the session ends at a lap boundary, never mid
+             * lap. lap_dist_ft is already back at the line, so nothing about
+             * track position or corner state is discontinuous. */
+            if (sim->session_pending)
+            {
+                dash_sim_session_reset(sim);
+            }
+        }
+
+        /* U8: the bounded exception. `set speed 0` stalls lap progression
+         * forever (U6 integrates the PUBLISHED speed), which would strand the
+         * session pending-end for as long as the override is left in place --
+         * and the whole point of the session cycle is that the gauges keep
+         * cycling. Past one nominal lap plus margin, reset regardless of where
+         * on track the car is. */
+        if (sim->session_pending && (sim->session_pending_ms >= SIM_SESSION_PENDING_MAX_MS))
+        {
+            dash_sim_session_reset(sim);
         }
 
         /* locate the current segment by distance (U3) */
@@ -697,6 +875,8 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
         }
 
         bool braking = false;
+        float a_applied = 0.0f; /* propulsive accel actually delivered (U9) */
+        float v_power_fps = v_fps;
         if (v_fps > cap_fps)
         {
             v_fps -= a_brake * dt_s;
@@ -717,12 +897,28 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
                                  / SIM_MASS_SLUG;
             const float a_prop = (a_power < a_traction) ? a_power : a_traction;
             /* drag is never scaled: it does not compete for tire grip */
-            const float a_net = a_prop * grip_scale - a_drag;
+            a_applied = a_prop * grip_scale;
+            v_power_fps = v_guard;
+            const float a_net = a_applied - a_drag;
             v_fps += a_net * dt_s;
             if (v_fps > cap_fps) { v_fps = cap_fps; braking = true; }
         }
         if (v_fps < 0.0f) { v_fps = 0.0f; }
         sim->speed_mph = v_fps / SIM_FPS_PER_MPH;
+
+        /* U9: fuel from the power actually demanded. p_frac is 1 wherever the
+         * car is power-limited, below 1 where traction or the grip circle is
+         * what is holding it back, and 0 on the brakes -- so the burn is the
+         * throttle trace, not the clock. */
+        {
+            float p_frac = (SIM_MASS_SLUG * a_applied * v_power_fps)
+                           / (SIM_POWER_WHP * SIM_HP_FT_LB_S);
+            if (!(p_frac > 0.0f)) { p_frac = 0.0f; } /* also catches NaN */
+            if (p_frac > 1.0f) { p_frac = 1.0f; }
+            fuel_burn_gps = (SIM_FUEL_IDLE_GPH
+                             + p_frac * (SIM_FUEL_PEAK_GPH - SIM_FUEL_IDLE_GPH))
+                            * SIM_GPH_TO_GPS;
+        }
 
         /* the model has exactly two states: on the brakes, or on the throttle */
         track_throttle_pct = braking ? 0.0f : 100.0f;
@@ -778,15 +974,28 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
         sim->gear = 6;
         sim->rpm = 2500.0f + 450.0f * sinf(t * 0.5f) + (float) dash_sim_jitter(sim, 61u);
         speed_mph = 60.0f + 8.0f * sinf(t * 0.22f);
-        fuel_burn_gps = SIM_FUEL_BURN_GPS / SIM_FUEL_STREET_DIV;
+        /* STREET keeps its own flat cruise rate (U9/R11): its driving model has
+         * no throttle trace to proportion against, and a 60 mph cruise at ~20
+         * mpg is a number, not a proxy. The SWEEP fixture inherits it too --
+         * fuel_burn_gps is initialised to this rate, and the fixture bypasses
+         * the physics model that the p_frac proxy is derived from. */
+        fuel_burn_gps = SIM_FUEL_STREET_GPH * SIM_GPH_TO_GPS;
     }
 
-    /* temps warm toward operating on a ~90 s time constant, then breathe */
-    float warm_k = 1.0f - expf(-dt_s / SIM_WARMUP_TAU_S);
+    /* U8/R13: two fluids, two time constants. Coolant runs to the thermostat's
+     * regulated plateau on a fast tau and then just breathes; oil crawls toward
+     * a higher, LOAD-dependent target on a tau five times longer and is still
+     * visibly climbing at minute 15. That difference is the entire point --
+     * sharing one 90 s constant is what made both gauges dead by minute five. */
+    float ect_k = 1.0f - expf(-dt_s / SIM_ECT_TAU_S);
+    float oilt_k = 1.0f - expf(-dt_s / SIM_OILT_TAU_S);
     float ect_target = SIM_ECT_OPERATING_F + 3.0f * sinf(t * 0.15f);
-    float oilt_target = SIM_OILT_OPERATING_F + 7.0f * sinf(t * 0.12f + 1.0f);
-    sim->ect_f += (ect_target - sim->ect_f) * warm_k;
-    sim->oilt_f += (oilt_target - sim->oilt_f) * warm_k;
+    float oilt_base = track ? SIM_OILT_TRACK_F : SIM_OILT_STREET_F;
+    float oilt_target = oilt_base
+                        + SIM_OILT_LOAD_F * (sim->rpm / SIM_REDLINE_RPM)
+                        + 7.0f * sinf(t * 0.12f + 1.0f);
+    sim->ect_f += (ect_target - sim->ect_f) * ect_k;
+    sim->oilt_f += (oilt_target - sim->oilt_f) * oilt_k;
 
     float oilp_psi = SIM_OILP_BASE_PSI + (sim->rpm / 8000.0f) * SIM_OILP_RPM_SPAN
                      + 2.0f * sinf(t * 0.9f);
