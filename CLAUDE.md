@@ -176,8 +176,12 @@ cable (power Plan A held at full backlight duty; bench buck not needed).
 Actual SPI clock is 6.75 MHz (F767 APB2=108 MHz, power-of-two prescalers
 round the 8 MHz request down; attainable set 6.75/13.5/27/54). Wiring per
 docs/hardware/nucleo-f767-center-panel-wiring.md (breakout BL pads bridged
-17-18 and 19-20, single tails to CN8-9/CN8-11). Clock walk beyond 6.75 MHz
-not yet attempted.
+17-18 and 19-20, single tails to CN8-9/CN8-11) -- on long, low-quality
+jumpers, and still faults=0. Clock walk deliberately deferred: staging
+(~0.8 s) hides behind the dark-backlight boot phase and the dash is already
+frame-capped at 60 fps (dl=405/644), so more clock buys nothing visible on
+one panel; the walk belongs to the three-panel rig / carrier copper.
+Serial mode switch (`mode street`) verified live on the F767.
 Panel-flash state (2026-07-21): the center panel's QSPI flash holds an
 obsolete EVE Screen Editor image — a 2026-07-20 ESE session loaded generated
 map/bin files to address 0, so sector 0 is ESE-provenance, not factory.
