@@ -87,10 +87,11 @@ static uint32_t g_splash_ramg[SPLASH_FA_COUNT];
  * only when a readback verifiably lied or RAM_G would overflow. */
 bool splash_stage_theme_to_ramg(const ThemeDesc *theme)
 {
-    const SplashFlashAsset *set[7];
+    const SplashFlashAsset *set[8];
     uint8_t n = 0U;
     set[n++] = SPLASH_FA(SPLASH_FA_EMBLEM);
     set[n++] = SPLASH_FA(SPLASH_FA_WORDMARK);
+    set[n++] = SPLASH_FA(SPLASH_FA_BG_STREET); /* STREET dash base layer */
     set[n++] = theme->bg;
     set[n++] = theme->side;
     set[n++] = theme->line;
@@ -144,6 +145,14 @@ bool splash_stage_theme_to_ramg(const ThemeDesc *theme)
     Serial.printf("Splash theme staged to RAM_G: %u assets, top %lu (headroom %lu)\r\n",
                   (unsigned)n, (unsigned long)addr,
                   (unsigned long)((uint32_t)EVE_RAM_G_SIZE - addr));
+
+    /* publish the STREET base layer to the dash renderer (0 = unstaged,
+     * dash_render.h falls back to the plain COLOR_BG clear) */
+    {
+        const SplashFlashAsset *sb = SPLASH_FA(SPLASH_FA_BG_STREET);
+        g_street_bg_src = g_splash_ramg[(uint8_t)(sb - SPLASH_FLASH_ASSETS)];
+        g_street_bg_fmt = (uint16_t)sb->fmt;
+    }
     return all_ok;
 }
 

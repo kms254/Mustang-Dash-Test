@@ -93,6 +93,10 @@ ASSET_LIST = [
     ("checker_line", "checker-line-300x14.png", "4x4", False),
     ("checker_strip", "checker-strip-1024x26.png", "4x4", False),
     ("year_checkered", "year-1965-checkered.png", "4x4", False),
+    # STREET dash base layer (not a splash element): staged to RAM_G at boot
+    # and drawn under the STREET mode content. 8x8: gauge-covered + weave
+    # texture hides blocks; keeps RAM_G peak ~840 KB with the blue theme.
+    ("bg_street", "bg-street-1024x600.png", "8x8", True),
 ]
 
 EVE_FMT = {"4x4": "EVE_ASTC_4X4", "6x6": "EVE_ASTC_6X6", "8x8": "EVE_ASTC_8X8"}
