@@ -188,8 +188,16 @@ alarm (green LED + takeover, both modes), and alarm-off all verified live.
 Panel-flash state (2026-07-21): the center panel's QSPI flash holds an
 obsolete EVE Screen Editor image — a 2026-07-20 ESE session loaded generated
 map/bin files to address 0, so sector 0 is ESE-provenance, not factory.
-Firmware no longer reads or writes panel flash; a guarded `flashwipe` serial
-command performs the full-chip erase (takes minutes — do not power-cycle).
+Firmware no longer reads or writes panel flash. A guarded `flashwipe` serial
+command exists for the full-chip erase, but as of 2026-07-21 the center
+panel's flash NO LONGER ATTACHES (EVE_init_flash -> 0x06 DETACHED, warm and
+cold boots alike, post-ESE-session) — the erase cannot run, and equally the
+stale image cannot be read by anything, which retires the hygiene concern.
+Diagnosis needs the eval board (does ESE direct-USB still detect the chip?);
+only matters if panel flash is ever wanted again (the carrier uses external
+NOR instead). flashwipe's ack is diagnostic: it reports init code + status
+and refuses to fake success (first bench run exposed that CMD_FLASHERASE on
+a detached flash no-ops below the fault latch: a 0-second "ok").
 Bring-up hazards actually hit on this bench (in symptom order): a damaged FFC
 end shorting pins 1-2 (VDD-GND -> Teensy won't enumerate on USB), and a flaky
 Teensy micro-USB cable that perfectly mimicked a dead board. Bench rules that
