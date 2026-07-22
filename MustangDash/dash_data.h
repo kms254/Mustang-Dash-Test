@@ -147,6 +147,26 @@ static inline void dash_ch_set(DashState *s, uint8_t ch, float v)
     s->valid |= DASH_CH_BIT(ch);
 }
 
+/* Put a channel BACK to invalid, so it renders `--` / dead-front again.
+ *
+ * dash_ch_set is one-way -- it only ever raises the valid bit -- so once the
+ * simulator published a channel nothing it could do would take it back. It
+ * needs to: DELTA has no meaning before a reference lap exists, and publishing
+ * a fabricated zero instead of dead-fronting would be a lie the renderer has
+ * no way to spot (U5).
+ *
+ * Guarded by the SAME ownership rule as writing (dash_ch_sim_owned), because
+ * dead-fronting a channel is a write in every sense that matters:
+ *  - overridden: the operator's forced value stays valid and untouched;
+ *  - cleared:    already invalid, and the sticky cleared bit is left alone.
+ * The value itself is never disturbed -- only the valid bit moves. */
+static inline void dash_ch_invalidate(DashState *s, uint8_t ch)
+{
+    if (ch >= DASH_CH_COUNT) { return; }
+    if (!dash_ch_sim_owned(s, ch)) { return; }
+    s->valid = (uint32_t) (s->valid & ~DASH_CH_BIT(ch));
+}
+
 static inline float dash_ch_get(const DashState *s, uint8_t ch)
 {
     switch (ch) {

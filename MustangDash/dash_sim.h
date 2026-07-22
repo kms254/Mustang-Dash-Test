@@ -172,6 +172,38 @@ static const SimSeg SIM_SEGS[SIM_SEG_COUNT] = {
     {  426.0f, 13464.0f,  75.0f, SIM_DEG(120.0f), true  }, /* T3  -- DOUBLE apex: one long corner turning through two (+2 ft remainder) */
 };
 
+/* ---- lap delta trace (plan U5, R8) ----
+ * DELTA is measured against the best lap the car actually drove, not authored.
+ * Each lap is sampled into a distance-bucketed table of elapsed times, so the
+ * reference can be read back at the car's exact position on track.
+ *
+ * TWO tables, not one, and this is the whole design: the current lap is being
+ * written at the same moment the reference must stay readable, so a single
+ * table would have the car compared against a half-overwritten mixture of two
+ * laps. The current lap is committed over the reference only at a lap boundary,
+ * and only when that lap is a new best.
+ *
+ * 128 buckets over 13464 ft is ~105 ft of track each, and the delta
+ * INTERPOLATES within a bucket rather than stepping at its edge -- otherwise
+ * the bar would jerk once per bucket, worst at corner speeds where a bucket
+ * lasts nearly two seconds. The +1 slot is the lap's finish time, which is what
+ * the last bucket interpolates toward.
+ *
+ * uint16_t centiseconds caps a stored lap at 655.35 s against a ~122 s driven
+ * lap. Only a stalled `set speed 0` lap can reach the cap, and it saturates
+ * rather than wrapping. Total cost 516 bytes.
+ *
+ * DELTA is deliberately NOT step-size invariant. A bucket's time is stamped on
+ * the first step at or past its boundary, so 10 ms and 50 ms runs stamp times
+ * up to one step apart -- and the underlying lap times already differ by up to
+ * the 2% the suite allows. The step-size contract covers the integrators
+ * (distance, lap time); DELTA is a display value derived from them, and no test
+ * asserts it across step sizes. */
+#define SIM_TRACE_BUCKETS   128u
+#define SIM_TRACE_SLOTS     (SIM_TRACE_BUCKETS + 1u) /* +1: the finish stamp */
+#define SIM_TRACE_BUCKET_FT (SIM_TRACK_LAP_FT / (float) SIM_TRACE_BUCKETS)
+#define SIM_TRACE_CS_MAX    65535u
+
 /* ---- temperatures / pressures / electrics ---- */
 #define SIM_COLD_START_F    75.0f    /* ambient-ish warm-start value */
 #define SIM_WARMUP_TAU_S    90.0f    /* exponential-approach time constant */
@@ -230,7 +262,46 @@ typedef struct {
     float fuel_gal;
     uint32_t last_ms;
     uint32_t best_ms;
+    /* U5 lap delta: the lap being driven, and the best lap to measure it
+     * against. Elapsed centiseconds at each distance bucket; slot
+     * SIM_TRACE_BUCKETS is the finish stamp. */
+    uint16_t lap_trace_cs[SIM_TRACE_SLOTS];
+    uint16_t ref_trace_cs[SIM_TRACE_SLOTS];
+    uint16_t trace_next;  /* next unstamped bucket, 0..SIM_TRACE_SLOTS */
+    bool ref_valid;       /* a reference lap exists; DELTA is dead-front until it does */
 } DashSimState;
+
+/* Which distance bucket a lap position falls in. Clamped at BOTH ends: the
+ * rollover invariant keeps lap_dist_ft in [0, SIM_TRACK_LAP_FT), but the
+ * stamp below is called before the rollover subtraction, so a distance at or
+ * past the lap length must land on the last bucket rather than off the end of
+ * the array. The !(> 0) form also catches NaN. */
+static inline uint8_t dash_sim_trace_bucket(float dist_ft)
+{
+    if (!(dist_ft > 0.0f)) { return 0u; }
+    const float b = dist_ft / SIM_TRACE_BUCKET_FT;
+    if (b >= (float) (SIM_TRACE_BUCKETS - 1u))
+    {
+        return (uint8_t) (SIM_TRACE_BUCKETS - 1u);
+    }
+    return (uint8_t) b;
+}
+
+/* Stamp the current lap clock into every bucket up to `upto` that has not been
+ * stamped yet. Buckets are filled forward-only, so a bucket records the time at
+ * which the car FIRST reached it -- and a step long enough to skip buckets
+ * fills the skipped ones rather than leaving holes the delta would read as
+ * zero. Saturates rather than wrapping at the uint16 cap. */
+static inline void dash_sim_trace_stamp(DashSimState *sim, uint16_t upto)
+{
+    uint32_t cs = sim->lap_ms / 10u;
+    if (cs > SIM_TRACE_CS_MAX) { cs = SIM_TRACE_CS_MAX; }
+    while ((sim->trace_next <= upto) && (sim->trace_next < SIM_TRACE_SLOTS))
+    {
+        sim->lap_trace_cs[sim->trace_next] = (uint16_t) cs;
+        sim->trace_next++;
+    }
+}
 
 /* lcg = lcg*1664525 + 1013904223; jitter = (lcg>>16) % range */
 static inline uint32_t dash_sim_jitter(DashSimState *sim, uint32_t range)
@@ -353,6 +424,13 @@ static inline void dash_sim_init(DashSimState *sim)
     sim->fuel_gal = SIM_FUEL_START_GAL;
     sim->last_ms = 0u;
     sim->best_ms = 0u;
+    for (uint16_t b = 0u; b < SIM_TRACE_SLOTS; b++)
+    {
+        sim->lap_trace_cs[b] = 0u;
+        sim->ref_trace_cs[b] = 0u;
+    }
+    sim->trace_next = 0u;
+    sim->ref_valid = false; /* no lap driven yet: DELTA stays dead-fronted */
 }
 
 static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms)
@@ -369,6 +447,7 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
     float speed_mph;
     float fuel_burn_gps = SIM_FUEL_BURN_GPS;
     float delta_s = 0.0f;
+    bool delta_valid = false; /* U5: no reference lap yet -> DELTA dead-fronts */
     bool track = (s->mode == DASH_MODE_TRACK);
 
     float track_throttle_pct = 0.0f;
@@ -384,11 +463,30 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
          * lap_dist_ft and lap_ms reset, so laps 2+ cross start/finish carrying
          * their speed -- and with S/F at T3's exit that is a corner-exit speed
          * feeding the front straight, i.e. flying laps by construction. */
-        sim->lap_dist_ft += sim->speed_mph * SIM_FPS_PER_MPH * dt_s;
+        /* U6/R9: integrate the PUBLISHED speed, not the sim's private one. In
+         * normal operation these are the same float -- the channel holds what
+         * the sim wrote at the end of the previous step -- so nothing changes.
+         * When an operator forces SPEED, the car genuinely travels at the
+         * commanded speed, and the speedo and the lap agree instead of the
+         * dash showing 45 mph while the sim laps at 150. A cleared SPEED is
+         * invalid and there is no number to integrate, so fall back to the
+         * sim's own rather than freezing the lap forever. */
+        float dist_mph = dash_ch_valid(s, DASH_CH_SPEED)
+                         ? dash_ch_get(s, DASH_CH_SPEED)
+                         : sim->speed_mph;
+        if (dist_mph < 0.0f) { dist_mph = 0.0f; } /* a forced negative must not reverse the lap */
+        sim->lap_dist_ft += dist_mph * SIM_FPS_PER_MPH * dt_s;
+
+        /* U5: record when this lap reached where it is. Stamped before the
+         * rollover subtraction, so the bucket clamp is what keeps the final
+         * partial bucket in range. */
+        dash_sim_trace_stamp(sim, dash_sim_trace_bucket(sim->lap_dist_ft));
+
         if (sim->lap_dist_ft >= SIM_TRACK_LAP_FT)
         {
             sim->lap_dist_ft -= SIM_TRACK_LAP_FT;
             sim->last_ms = sim->lap_ms;
+            dash_sim_trace_stamp(sim, (uint16_t) SIM_TRACE_BUCKETS); /* finish stamp */
             /* lap 1 is the out-lap: it rolls out of the pits at ~7 mph, so it
              * is several seconds slow and must never set the benchmark. It
              * still populates LAST and still displays -- it is a real lap, just
@@ -398,8 +496,19 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
                 || ((sim->lap_count > 1u) && (sim->last_ms < sim->best_ms)))
             {
                 sim->best_ms = sim->last_ms;
+                /* U5: the best lap is also the delta REFERENCE, so it commits
+                 * on exactly the same condition -- which is what keeps the
+                 * out-lap out of it. Referencing a ~7 mph rollout would read
+                 * every flying lap as tens of seconds ahead. */
+                for (uint16_t b = 0u; b < SIM_TRACE_SLOTS; b++)
+                {
+                    sim->ref_trace_cs[b] = sim->lap_trace_cs[b];
+                }
+                sim->ref_valid = true;
             }
             sim->lap_ms = 0u;
+            sim->trace_next = 0u;
+            dash_sim_trace_stamp(sim, 0u); /* the new lap starts at t=0 by definition */
             sim->lap_count++;
             dash_sim_reseed_jitter(sim);
         }
@@ -521,8 +630,25 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
         if (sim->rpm > SIM_RPM_MAX) { sim->rpm = SIM_RPM_MAX; }
         speed_mph = sim->speed_mph;
 
-        /* lap delta: the mock's two-sine blend, range about +/-0.88 s */
-        delta_s = 0.55f * sinf(t * 0.8f) + 0.25f * sinf(t * 0.27f) - 0.08f;
+        /* U5/R8: lap delta against the best lap actually driven. The reference
+         * table holds elapsed time at each bucket boundary, so interpolating
+         * between the two that bracket the car gives the reference's time AT
+         * this spot on the track; the delta is what the clock reads now minus
+         * that. Positive = behind the reference. Before any reference exists
+         * there is nothing to subtract, and DELTA is dead-fronted below rather
+         * than publishing a fabricated zero. */
+        if (sim->ref_valid)
+        {
+            const uint8_t b = dash_sim_trace_bucket(sim->lap_dist_ft);
+            float frac = (sim->lap_dist_ft - (float) b * SIM_TRACE_BUCKET_FT)
+                         / SIM_TRACE_BUCKET_FT;
+            if (frac < 0.0f) { frac = 0.0f; }
+            if (frac > 1.0f) { frac = 1.0f; } /* the clamped last bucket runs long */
+            const float t0 = (float) sim->ref_trace_cs[b] * 0.01f;
+            const float t1 = (float) sim->ref_trace_cs[b + 1u] * 0.01f;
+            delta_s = ((float) sim->lap_ms * 0.001f) - (t0 + (t1 - t0) * frac);
+            delta_valid = true;
+        }
     }
     else
     {
@@ -597,7 +723,14 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
 
     if (track)
     {
-        if (dash_ch_sim_owned(s, DASH_CH_DELTA)) { dash_ch_set(s, DASH_CH_DELTA, delta_s); }
+        if (delta_valid)
+        {
+            if (dash_ch_sim_owned(s, DASH_CH_DELTA)) { dash_ch_set(s, DASH_CH_DELTA, delta_s); }
+        }
+        else
+        {
+            dash_ch_invalidate(s, DASH_CH_DELTA); /* `--`, not a fabricated 0.00 */
+        }
         if (dash_ch_sim_owned(s, DASH_CH_LAP))   { dash_ch_set(s, DASH_CH_LAP, (float) sim->lap_ms); }
         if (sim->lap_count > 0u) /* before the first lap, LAST/BEST stay --:--.--- */
         {

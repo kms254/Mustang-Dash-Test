@@ -186,6 +186,15 @@ int main(void)
             expect(s.ch.pred_ms <= 599999u, "pred must stay within the serial range");
         }
 
+        /* U5: once a reference lap exists DELTA is a real measurement, so it
+         * must stay finite and inside a sane band -- a broken trace shows up
+         * here as a wild or non-finite number rather than a plausible one. */
+        if (dash_ch_valid(&s, DASH_CH_DELTA))
+        {
+            expect(isfinite(s.ch.delta_s) && fabsf(s.ch.delta_s) <= 5.0f,
+                   "delta must stay finite and within +/-5 s");
+        }
+
         expect(s.ch.fuel_gal >= 0.0f, "fuel must never go negative");
         expect(s.ch.fuel_gal <= prev_fuel + 1e-6f, "fuel must be monotonically non-increasing");
         prev_fuel = s.ch.fuel_gal;
@@ -495,6 +504,276 @@ int main(void)
         expect(pa.lap_dist_ft == pb.lap_dist_ft, "determinism at a retuned skill: distance");
         expect(pa.last_ms == pb.last_ms, "determinism at a retuned skill: lap time");
         expect(ka.ch.rpm == kb.ch.rpm, "determinism at a retuned skill: rpm");
+    }
+
+    /* ---- U5 prerequisite: dash_ch_invalidate's ownership contract ----
+     * The sim needs a way to put a channel BACK to invalid (no reference lap
+     * yet, and later the non-lap fixture modes). It must obey exactly the same
+     * ownership rule as writing does: what the operator forced is the
+     * operator's, not the sim's. */
+    {
+        DashState iv;
+        dash_state_init(&iv);
+
+        dash_ch_set(&iv, DASH_CH_DELTA, 0.5f);
+        expect(dash_ch_valid(&iv, DASH_CH_DELTA), "a sim-owned channel starts valid");
+        dash_ch_invalidate(&iv, DASH_CH_DELTA);
+        expect(!dash_ch_valid(&iv, DASH_CH_DELTA),
+               "invalidate must dead-front a sim-owned channel");
+
+        /* an overridden channel belongs to the operator: untouched */
+        dash_ch_set(&iv, DASH_CH_DELTA, 0.5f);
+        iv.overridden |= DASH_CH_BIT(DASH_CH_DELTA);
+        dash_ch_invalidate(&iv, DASH_CH_DELTA);
+        expect(dash_ch_valid(&iv, DASH_CH_DELTA),
+               "invalidate must never dead-front an overridden channel");
+        expect(iv.ch.delta_s == 0.5f, "invalidate must never disturb a channel's value");
+
+        /* a serially cleared channel is already invalid and must stay so --
+         * and the sticky cleared bit must survive, or `sim on` would be the
+         * only way back and `clear` would stop being sticky */
+        iv.overridden = (uint32_t) (iv.overridden & ~DASH_CH_BIT(DASH_CH_DELTA));
+        iv.cleared |= DASH_CH_BIT(DASH_CH_DELTA);
+        iv.valid = (uint32_t) (iv.valid & ~DASH_CH_BIT(DASH_CH_DELTA));
+        dash_ch_invalidate(&iv, DASH_CH_DELTA);
+        expect(!dash_ch_valid(&iv, DASH_CH_DELTA), "a cleared channel stays invalid");
+        expect((iv.cleared & DASH_CH_BIT(DASH_CH_DELTA)) != 0,
+               "invalidate must not disturb the sticky cleared bit");
+
+        /* out-of-range ids are a no-op, matching dash_ch_set */
+        iv.valid = DASH_CH_ALL;
+        iv.overridden = 0U;
+        iv.cleared = 0U;
+        dash_ch_invalidate(&iv, (uint8_t) DASH_CH_COUNT);
+        expect(iv.valid == DASH_CH_ALL, "invalidate must ignore an out-of-range channel id");
+    }
+
+    /* ---- U5: real lap delta from a best-lap trace ---- */
+    {
+        DashState d5s;
+        DashSimState d5m;
+
+        /* bucket indexing must be safe at both lap boundaries */
+        expect(dash_sim_trace_bucket(0.0f) == 0u, "distance 0 must land in bucket 0");
+        expect(dash_sim_trace_bucket(-1.0f) == 0u,
+               "a negative distance must clamp to bucket 0");
+        expect(dash_sim_trace_bucket(SIM_TRACK_LAP_FT) == (uint8_t) (SIM_TRACE_BUCKETS - 1u),
+               "distance of exactly one lap must clamp to the last bucket");
+        expect(dash_sim_trace_bucket(SIM_TRACK_LAP_FT * 2.0f)
+               == (uint8_t) (SIM_TRACE_BUCKETS - 1u),
+               "distance past a lap must clamp to the last bucket");
+        for (float d = 0.0f; d <= SIM_TRACK_LAP_FT; d += 37.0f)
+        {
+            expect(dash_sim_trace_bucket(d) < SIM_TRACE_BUCKETS,
+                   "every lap position must index a real bucket");
+        }
+
+        dash_state_init(&d5s);
+        dash_sim_init(&d5m);
+        expect(!d5m.ref_valid, "a fresh sim must have no delta reference");
+
+        /* before any reference lap DELTA is dead-fronted (`--`), never a
+         * fabricated zero -- matching LAST/BEST's treatment (U1) */
+        while (d5m.lap_count < 1u)
+        {
+            dash_sim_step(&d5m, &d5s, 50u);
+            expect(!dash_ch_valid(&d5s, DASH_CH_DELTA),
+                   "DELTA must stay invalid before any lap completes");
+        }
+        expect(!d5m.ref_valid, "the out-lap must never become the delta reference");
+        expect(!dash_ch_valid(&d5s, DASH_CH_DELTA),
+               "DELTA must still be invalid after only the out-lap");
+
+        while (d5m.lap_count < 2u) { dash_sim_step(&d5m, &d5s, 50u); }
+        expect(d5m.ref_valid, "the first flying lap must commit a delta reference");
+        dash_sim_step(&d5m, &d5s, 50u);
+        expect(dash_ch_valid(&d5s, DASH_CH_DELTA),
+               "DELTA must become valid once a reference lap exists");
+
+        expect(d5m.ref_trace_cs[0] == 0u, "the reference trace must start at t=0");
+        for (uint16_t b = 1u; b < SIM_TRACE_SLOTS; b++)
+        {
+            expect(d5m.ref_trace_cs[b] >= d5m.ref_trace_cs[b - 1u],
+                   "the reference trace must be monotonic in distance");
+        }
+        expect(fabsf((float) d5m.ref_trace_cs[SIM_TRACE_BUCKETS] * 10.0f
+                     - (float) d5m.best_ms) < 15.0f,
+               "the reference trace's finish stamp must be the reference lap's time");
+
+        /* the sim must not dead-front an operator's DELTA on its way past */
+        {
+            DashState os;
+            DashSimState om;
+            dash_state_init(&os);
+            dash_sim_init(&om);
+            dash_ch_set(&os, DASH_CH_DELTA, 0.75f);
+            os.overridden |= DASH_CH_BIT(DASH_CH_DELTA);
+            for (int i = 0; i < 200; i++) { dash_sim_step(&om, &os, 50u); }
+            expect(dash_ch_valid(&os, DASH_CH_DELTA) && os.ch.delta_s == 0.75f,
+                   "an overridden DELTA must survive the sim's dead-fronting");
+        }
+
+        /* sign: a lap slower than the reference runs positive, a faster one
+         * negative. Driver skill is the only lever that moves lap time without
+         * disturbing the LCG stream, so it is what "drive slower" means here.
+         * Both are sampled on the step BEFORE the line, since the crossing
+         * resets the lap clock and takes the delta back to ~0. */
+        {
+            DashState ss, fs;
+            DashSimState sm, fm;
+            dash_state_init(&ss);
+            dash_sim_init(&sm);
+            while (sm.lap_count < 2u) { dash_sim_step(&sm, &ss, 50u); }
+            fs = ss;
+            fm = sm;
+            dash_sim_set_skill(&sm, 0.80f); /* scruffier lap */
+            dash_sim_set_skill(&fm, 1.00f); /* tidier lap */
+            float slow_last = 0.0f, fast_last = 0.0f;
+            while (sm.lap_count < 3u) { slow_last = ss.ch.delta_s; dash_sim_step(&sm, &ss, 50u); }
+            while (fm.lap_count < 3u) { fast_last = fs.ch.delta_s; dash_sim_step(&fm, &fs, 50u); }
+            expect(slow_last > 0.05f,
+                   "a lap slower than the reference must run a positive delta");
+            expect(fast_last < -0.05f,
+                   "a lap faster than the reference must run a negative delta");
+        }
+
+        /* a new best lap replaces the reference trace with its own */
+        {
+            DashState ns;
+            DashSimState nm;
+            uint16_t ref_before[SIM_TRACE_SLOTS];
+            int changed = 0;
+            dash_state_init(&ns);
+            dash_sim_init(&nm);
+            while (nm.lap_count < 2u) { dash_sim_step(&nm, &ns, 50u); }
+            for (uint16_t b = 0u; b < SIM_TRACE_SLOTS; b++)
+            {
+                ref_before[b] = nm.ref_trace_cs[b];
+            }
+            uint32_t best_before = nm.best_ms;
+            dash_sim_set_skill(&nm, 1.00f); /* guarantees the next lap is a new best */
+            while (nm.lap_count < 3u) { dash_sim_step(&nm, &ns, 50u); }
+            expect(nm.best_ms < best_before, "the tidier lap must set a new best");
+            for (uint16_t b = 0u; b < SIM_TRACE_SLOTS; b++)
+            {
+                if (nm.ref_trace_cs[b] != ref_before[b]) { changed++; }
+            }
+            expect(changed > 0, "a new best lap must replace the delta reference trace");
+            expect(fabsf((float) nm.ref_trace_cs[SIM_TRACE_BUCKETS] * 10.0f
+                         - (float) nm.best_ms) < 15.0f,
+                   "the committed reference must be the new best lap's own trace");
+        }
+
+        /* a slower lap must NOT replace the reference */
+        {
+            DashState rs;
+            DashSimState rm;
+            dash_state_init(&rs);
+            dash_sim_init(&rm);
+            while (rm.lap_count < 2u) { dash_sim_step(&rm, &rs, 50u); }
+            uint16_t finish_before = rm.ref_trace_cs[SIM_TRACE_BUCKETS];
+            dash_sim_set_skill(&rm, 0.70f); /* comfortably slower than the reference */
+            while (rm.lap_count < 3u) { dash_sim_step(&rm, &rs, 50u); }
+            expect(rm.ref_trace_cs[SIM_TRACE_BUCKETS] == finish_before,
+                   "a lap slower than the best must leave the reference trace alone");
+        }
+
+        /* determinism through the delta path */
+        {
+            DashState da, db;
+            DashSimState pa, pb;
+            dash_state_init(&da);
+            dash_state_init(&db);
+            dash_sim_init(&pa);
+            dash_sim_init(&pb);
+            while (pa.lap_count < 3u) { dash_sim_step(&pa, &da, 50u); }
+            while (pb.lap_count < 3u) { dash_sim_step(&pb, &db, 50u); }
+            expect(da.ch.delta_s == db.ch.delta_s, "determinism: delta must match exactly");
+            int trace_diff = 0;
+            for (uint16_t b = 0u; b < SIM_TRACE_SLOTS; b++)
+            {
+                if (pa.ref_trace_cs[b] != pb.ref_trace_cs[b]) { trace_diff++; }
+            }
+            expect(trace_diff == 0, "determinism: the reference trace must match exactly");
+        }
+    }
+
+    /* ---- U6: lap position integrates the PUBLISHED speed (R9, KTD6) ---- */
+    {
+        DashState u6s;
+        DashSimState u6m;
+
+        /* sim-owned: distance advances by exactly the speed the dash is
+         * showing. When the sim owns SPEED that is its own number, so normal
+         * operation is unchanged -- this pins the two together. */
+        dash_state_init(&u6s);
+        dash_sim_init(&u6m);
+        for (int i = 0; i < 400; i++)
+        {
+            float shown = u6s.ch.speed_mph;
+            float before = u6m.lap_dist_ft;
+            dash_sim_step(&u6m, &u6s, 50u);
+            if (i > 0 && u6m.lap_dist_ft >= before)
+            {
+                expect(fabsf((u6m.lap_dist_ft - before)
+                             - shown * SIM_FPS_PER_MPH * 0.05f) < 0.05f,
+                       "lap distance must advance at exactly the displayed speed");
+            }
+        }
+
+        /* overridden low: `set speed 45` genuinely crawls the circuit */
+        dash_state_init(&u6s);
+        dash_sim_init(&u6m);
+        for (int i = 0; i < 200; i++) { dash_sim_step(&u6m, &u6s, 50u); }
+        dash_ch_set(&u6s, DASH_CH_SPEED, 45.0f);
+        u6s.overridden |= DASH_CH_BIT(DASH_CH_SPEED);
+        float d0 = u6m.lap_dist_ft;
+        uint32_t lapc0 = u6m.lap_count;
+        for (int i = 0; i < 200; i++) { dash_sim_step(&u6m, &u6s, 50u); } /* 10 s */
+        expect(u6m.lap_count == lapc0, "10 s at 45 mph must not complete a lap");
+        expect(fabsf((u6m.lap_dist_ft - d0) - 45.0f * SIM_FPS_PER_MPH * 10.0f) < 1.0f,
+               "an overridden SPEED must drive lap position at the commanded speed");
+
+        /* overridden to zero: track position freezes, the lap clock does not */
+        dash_ch_set(&u6s, DASH_CH_SPEED, 0.0f);
+        float d1 = u6m.lap_dist_ft;
+        uint32_t lap0 = u6m.lap_ms;
+        for (int i = 0; i < 200; i++) { dash_sim_step(&u6m, &u6s, 50u); }
+        expect(u6m.lap_dist_ft == d1, "SPEED overridden to 0 must freeze lap position");
+        expect(u6m.lap_ms == lap0 + 10000u, "the lap timer must keep running at speed 0");
+
+        /* cleared: there is no speed to integrate, so fall back to the sim's
+         * own -- the lap continues rather than freezing forever */
+        u6s.overridden = (uint32_t) (u6s.overridden & ~DASH_CH_BIT(DASH_CH_SPEED));
+        u6s.cleared |= DASH_CH_BIT(DASH_CH_SPEED);
+        u6s.valid = (uint32_t) (u6s.valid & ~DASH_CH_BIT(DASH_CH_SPEED));
+        float d2 = u6m.lap_dist_ft;
+        for (int i = 0; i < 200; i++) { dash_sim_step(&u6m, &u6s, 50u); }
+        expect(!dash_ch_valid(&u6s, DASH_CH_SPEED), "a cleared SPEED must stay invalid");
+        expect(u6m.lap_dist_ft > d2 + 100.0f,
+               "a cleared SPEED must fall back to the sim's own speed, not freeze the lap");
+
+        /* determinism with an override in place */
+        {
+            DashState oa, ob;
+            DashSimState qa, qb;
+            dash_state_init(&oa);
+            dash_state_init(&ob);
+            dash_sim_init(&qa);
+            dash_sim_init(&qb);
+            dash_ch_set(&oa, DASH_CH_SPEED, 45.0f);
+            dash_ch_set(&ob, DASH_CH_SPEED, 45.0f);
+            oa.overridden |= DASH_CH_BIT(DASH_CH_SPEED);
+            ob.overridden |= DASH_CH_BIT(DASH_CH_SPEED);
+            for (int i = 0; i < 2000; i++)
+            {
+                dash_sim_step(&qa, &oa, 50u);
+                dash_sim_step(&qb, &ob, 50u);
+            }
+            expect(qa.lap_dist_ft == qb.lap_dist_ft,
+                   "determinism under an overridden SPEED: distance");
+            expect(qa.lap_ms == qb.lap_ms, "determinism under an overridden SPEED: lap time");
+        }
     }
 
     /* ---- alarm reachability: an override must survive sim steps ---- */
