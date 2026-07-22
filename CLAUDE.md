@@ -43,7 +43,7 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   `SPLASH_THEME` in `MustangDash/splash_config.h`.
 - Dash: TRACK/STREET screens per the vendored design handoff
   (`assets/dash-design/`), all-procedural at ~60 fps with custom EVE bitmap
-  fonts (`tools/make_dash_fonts.py` → `dash_fonts.h`, ~273 KB — RAM_G's only
+  fonts (`tools/make_dash_fonts.py` → `dash_fonts.h`, ~324 KB — RAM_G's only
   tenant). Data flows simulator → `DashState` channels (validity bitmask) →
   renderers; the serial protocol (115200; `ok`/`err` acks are the ONLY output
   after boot, with one documented exception: `flashwipe really` prints a

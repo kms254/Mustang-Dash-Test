@@ -201,11 +201,14 @@ void draw_track_mode(uint32_t now_ms, uint8_t alpha)
     const DashLapFlashKind lfk = dash_lap_flash_kind(&g_lap_flash);
     if (DASH_LAPFLASH_NONE != lfk)
     {
-        /* A new best alternates purple <-> white rather than blinking on and
-         * off: the number stays readable in every phase, and the alternation
-         * is what makes it read as an EVENT instead of just another delta.
-         * COLOR_BEST is the dash's existing best-lap purple, which is the
-         * timing convention the driver already knows from the side screen. */
+        /* A new best alternates BEST! in purple <-> the delta in white, both
+         * on the same 2 Hz phase, so the driver gets the event and the number
+         * inside one 4 s hold. It alternates rather than blinking on and off
+         * because something stays readable in every phase. COLOR_BEST is the
+         * dash's existing best-lap purple -- the timing convention the driver
+         * already knows from the side screen. DF_MID only carries the letters
+         * B/E/S/T and '!', added to tools/make_dash_fonts.py for this; any
+         * other word would render as blank cells. */
         uint32_t lfc;
         if (DASH_LAPFLASH_BEST == lfk)
         {
@@ -216,7 +219,7 @@ void draw_track_mode(uint32_t now_ms, uint8_t alpha)
             lfc = (DASH_LAPFLASH_QUICKER == lfk) ? COLOR_GREEN : COLOR_RED_TEXT;
         }
         dash_color(lfc, alpha);
-        dash_lap_flash_text(&g_lap_flash, buf);
+        dash_lap_flash_text(&g_lap_flash, now_ms, buf);
     }
     else
     {

@@ -381,17 +381,33 @@ static inline DashLapFlashKind dash_lap_flash_kind(const DashLapFlash *f)
     return f->kind;
 }
 
-/* The override's text: signed, two decimals, seconds. */
-static inline void dash_lap_flash_text(const DashLapFlash *f, char out[16])
-{
-    snprintf(out, 16, "%+.2f", (double)f->delta_s);
-}
-
-/* True on the "highlight" phase of the new-best alternation. */
+/* True on the "highlight" phase of the new-best alternation. Defined ahead of
+ * dash_lap_flash_text because that function calls it. */
 static inline bool dash_lap_flash_blink(const DashLapFlash *f, uint32_t now_ms)
 {
     return dash_flash_phase((uint32_t)(now_ms - f->start_ms),
                             (uint16_t)DASH_LAP_FLASH_BLINK_HALF_MS);
+}
+
+/* The override's text: signed, two decimals, seconds.
+ *
+ * On a new best the word BEST! alternates with the delta on the same 2 Hz
+ * phase the colour uses, so the driver gets the event AND the number inside
+ * one 4 s hold. DF_MID carries only "0123456789:.-+!BEST"
+ * (tools/make_dash_fonts.py) -- those five letters were added for exactly
+ * this, and no other word is renderable in this font. Anything else would
+ * print blank cells. */
+static inline void dash_lap_flash_text(const DashLapFlash *f, uint32_t now_ms,
+                                       char out[16])
+{
+    if ((DASH_LAPFLASH_BEST == f->kind) && dash_lap_flash_blink(f, now_ms))
+    {
+        snprintf(out, 16, "BEST!");
+    }
+    else
+    {
+        snprintf(out, 16, "%+.2f", (double)f->delta_s);
+    }
 }
 
 /* Drive the override. Call once per frame with the current millis().

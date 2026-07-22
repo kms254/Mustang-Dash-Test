@@ -278,7 +278,14 @@ int main(void)
         dash_lap_flash_update(&f, &s, 100000U, false);
         expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_BEST,
                "a new best must get the dedicated best treatment, not the plain green");
-        dash_lap_flash_text(&f, buf);
+        /* a new best ALTERNATES the word with the number on the blink phase,
+         * so the driver gets the event and the delta inside one hold. Both
+         * phases are pinned: BEST! is only renderable because DF_MID carries
+         * A-Z (tools/make_dash_fonts.py), and the number must still appear. */
+        dash_lap_flash_text(&f, f.start_ms, buf);
+        expect(strcmp(buf, "BEST!") == 0,
+               "a new best must show BEST! on the highlight phase");
+        dash_lap_flash_text(&f, f.start_ms + DASH_LAP_FLASH_BLINK_HALF_MS, buf);
         expect(strcmp(buf, "-0.42") == 0,
                "the flash must read the signed 2-decimal delta vs the PREVIOUS lap");
 
@@ -298,7 +305,7 @@ int main(void)
         dash_lap_flash_update(&f, &s, 200000U, false);
         expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_SLOWER,
                "a slower lap must flash slower, even though BEST did not move");
-        dash_lap_flash_text(&f, buf);
+        dash_lap_flash_text(&f, f.start_ms, buf);
         expect(strcmp(buf, "+1.15") == 0, "a slower lap must read a signed positive delta");
 
         /* lap 5 quicker than lap 4 but still off the best: plain green, and
@@ -308,7 +315,7 @@ int main(void)
         dash_lap_flash_update(&f, &s, 300000U, false);
         expect(dash_lap_flash_kind(&f) == DASH_LAPFLASH_QUICKER,
                "quicker than the previous lap but off the best must flash plain quicker");
-        dash_lap_flash_text(&f, buf);
+        dash_lap_flash_text(&f, f.start_ms, buf);
         expect(strcmp(buf, "-0.73") == 0,
                "the delta must be against the previous lap, not against best");
 

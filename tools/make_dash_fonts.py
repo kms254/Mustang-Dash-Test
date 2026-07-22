@@ -53,7 +53,16 @@ LABEL_SET = ' "/0123456789;ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 INSTANCES = [
     ("hero", "SairaCondensed-Bold.ttf", 216, "0123456789-", 1, 0, {}),
     ("big", "SairaCondensed-Bold.ttf", 96, "0123456789:.-", 2, 0, {}),
-    ("mid", "SairaCondensed-SemiBold.ttf", 52, "0123456789:.-+", 3, 0, {}),
+    # Full A-Z plus '!' so the lap-flash can render words (BEST!) in the big
+    # number font. EVE legacy fonts store a CONTIGUOUS codepoint range, so the
+    # cost is set by the span, not the glyph count: '!'(33)..'Z'(90) is 58
+    # cells against the 16 that "0123456789:.-+" alone needed. Adding just
+    # "BEST" would already have cost 52 cells -- the whole alphabet is ~6 cells
+    # (~2.8 KB) more than that, which is why this is the full set rather than
+    # the five letters actually used today. Blank cells compress to almost
+    # nothing in flash; the cost is RAM_G, and RAM_G is not scarce here.
+    ("mid", "SairaCondensed-SemiBold.ttf", 52,
+     "0123456789:.-+!ABCDEFGHIJKLMNOPQRSTUVWXYZ", 3, 0, {}),
     ("val", "SairaCondensed-SemiBold.ttf", 32, "0123456789:.-+*", 4, 0,
      {"*": "°"}),
     ("small", "SairaCondensed-SemiBold.ttf", 26, "0123456789.", 5, 0, {}),
