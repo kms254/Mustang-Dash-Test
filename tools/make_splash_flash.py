@@ -85,7 +85,7 @@ ASSET_LIST = [
     ("bg_blue", "bg-blue-1024x600.png", "4x4", True),  # quality trial 2026-07-21: fits RAM_G only while no street layer stages
     ("line_blue", "line-blue-340x40.png", "4x4", False),
     ("year_blue", "year-1965-blue.png", "4x4", False),
-    ("bg_red", "bg-red-1024x600.png", "6x6", True),
+    ("bg_red", "bg-red-1024x600.png", "4x4", True),  # 4x4 trial 2026-07-21 (same budget rule as bg_blue)
     ("line_red", "line-red-340x40.png", "4x4", False),
     ("year_red", "year-1965-red.png", "4x4", False),
     ("bg_checkered", "bg-checkered-1024x600.png", "6x6", True),
