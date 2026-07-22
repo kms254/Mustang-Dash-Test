@@ -83,7 +83,7 @@ The dash renders no gear indicator (`dash_data.h:27-55` has no gear channel), so
 **In scope:** the TRACK driving model in `MustangDash/dash_sim.h`, the sweep-fixture selector in `MustangDash/dash_serial.h`, the fuel-burn constant in `MustangDash/dash_math.h` (U9), and their host tests.
 
 **Deferred for later:**
-- Real corner radii and elevation-derived corner speeds. The stated fidelity bar is "reasonable, not exact" — corner speeds are hand-authored per turn.
+- Real corner radii and elevation-derived corner speeds. The stated fidelity bar is "reasonable, not exact" — corner speeds are hand-authored per turn. **Amended during execution:** corner *duration* is in scope (U10), because without it the lap ran 34 s fast. Corner radius is still derived from the authored limit speed and `SIM_LATERAL_G`, not measured from the track.
 - A driver *model* (trail braking, corner entry/exit shaping, missed apexes, tire warm-up). Driver skill is one constant.
 - Track selection across multiple real circuits. HPR is compiled in; the sweep fixture is not a second circuit.
 - Re-calibrating `DASH_SPEED_MAX` / `DASH_SPEED_KNEE` (`dash_math.h:30-31`). The speedo dial stays 200 mph; the sweep fixture is what exercises its upper range.
@@ -294,6 +294,40 @@ Carry the corner names as comments — they are the documented source of each sp
 - The rpm spread at a fixed road speed still spans gears (preserve the existing `rpm_at_100` intent, retargeted to a speed this car actually sees, e.g. 80 mph).
 
 **Verification.** A full lap on the bench shows braking zones that precede corners and an rpm sawtooth that resets a plausible number of times.
+
+---
+
+### U10. Corner duration from lateral grip
+
+**Goal.** Give corners *duration*. Without it the lap comes out ~34 seconds too fast.
+
+**Requirements.** R1, R6, S1
+
+**Dependencies.** U3
+
+**Files.**
+- `MustangDash/dash_sim.h` (modify)
+- `tests/test_dash_sim.c` (modify)
+
+**Why this unit exists.** U1–U3 measured **1:28** against real HPR times of 2:04–2:10. The car averages 104 mph over 2.55 miles where a real 2:05 lap averages 73. The cause is U3's entry-boundary-only rule: a corner's limit binds for a single instant at its entry, after which the car pulls full traction-limited acceleration for the remaining 500–1,100 ft of the corner. Corners have no duration at all.
+
+That rule was itself a correction — an earlier draft held the limit across a segment's entire length, which had the car crawling at 65 mph for all 700 ft of T4. Both extremes are wrong. **`SIM_LATERAL_G` (1.30) has been in the constants table since the first draft and is used by nothing**, which is the tell: the design always intended lateral grip to constrain cornering and never said how.
+
+**Approach.** A car at its lateral limit cannot also accelerate hard — the grip circle is shared. Model each `is_corner_limit` segment as having an **arc** over which the car is lateral-grip-limited and holds approximately its corner speed, followed by exit acceleration onto whatever comes next. Derive the arc from the segment's limit speed and `SIM_LATERAL_G` rather than authoring a per-corner duration by hand: at a given speed and lateral g the implied radius is `v²/(g·32.174)`, and the corner's turned angle over that radius gives an arc length. Clamp the arc to the segment length so a short segment cannot demand more arc than it has.
+
+Longitudinal acceleration available *within* the arc should be reduced rather than zeroed — a real driver is picking up throttle through the exit half. A simple grip-circle scaling (longitudinal budget scaled by how much lateral grip is being used) is enough and avoids authoring a second set of constants.
+
+**Execution note.** This is calibration-adjacent: land the mechanism, measure the lap, and report the number. Do **not** tune toward 2:04 by bending constants — if the mechanism is right and the lap is still off, that is information about the segment apportionment (KTD3), not a reason to fudge `SIM_LATERAL_G`.
+
+**Test scenarios.**
+- Corner speed is held approximately flat across the corner's arc, not touched for a single instant.
+- Speed within a corner never exceeds that corner's limit.
+- Non-limit segments (0 and 9) are unaffected — the car is at full throttle through T12 and the front straight.
+- Lap time moves substantially toward the real-world band relative to the U1–U3 baseline of 1:28.
+- Step-size independence holds (10 ms vs 50 ms) across corners.
+- Determinism preserved.
+
+**Verification.** Lap time is plausible for a well-driven car at HPR, and the tach sawtooth shows the car settled in a gear through each corner rather than accelerating through it.
 
 ---
 
@@ -536,7 +570,7 @@ It cannot simply never refill, though: 12 gallons at ~0.6 gal/lap is 20 laps, wh
 
 ## Definition of Done
 
-- All nine units (U1–U9) landed, each with its test scenarios implemented.
+- All ten units (U1–U10) landed, each with its test scenarios implemented. U10 was added during execution after U1–U3 measured a 1:28 lap; it runs between U3 and U4.
 - V1 and V2 pass.
 - V3 through V7 observed on the bench by Kevin (hardware operations are his to initiate).
 - `SIM_DRIVER_SKILL` calibrated so the default lap sits in the target band.

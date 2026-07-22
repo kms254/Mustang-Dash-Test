@@ -100,6 +100,15 @@ int main(void)
     /* U1/U3 circuit instrumentation */
     float seg0_peak_mph = 0.0f;      /* front-straight peak */
     uint8_t prev_si = 0xFFu;
+    /* U10 corner-duration instrumentation. Deliberately knows nothing about
+     * how the arc is computed -- it measures only what a corner should LOOK
+     * like from outside: distance held near the limit, and the speed at a
+     * fixed depth into the corner. */
+    float seg9_max_mph = 0.0f;       /* T12 is flat out, must stay unaffected */
+    float prev_dist_ft = 0.0f;
+    float near_limit_ft = 0.0f;      /* this lap, distance held near a limit */
+    float near_limit_ft_min = 1e9f;  /* worst flying lap */
+    int corner_probes = 0;           /* 80 ft into a corner, still at the limit? */
     float seg_max_mph = 0.0f;        /* peak speed inside the segment just left */
     bool seg_saw_lift = false;       /* throttle hit 0 inside that segment */
     int corner_entries = 0;
@@ -222,6 +231,47 @@ int main(void)
         {
             seg0_peak_mph = s.ch.speed_mph;
         }
+        if (sim.seg_idx == 9u && s.ch.speed_mph > seg9_max_mph)
+        {
+            seg9_max_mph = s.ch.speed_mph;
+        }
+
+        /* ---- U10: corners must have DURATION ---- */
+        {
+            uint8_t si = sim.seg_idx;
+            float lim = SIM_SEGS[si].limit_mph + sim.seg_jitter_mph[si];
+
+            if (sim.lap_dist_ft < prev_dist_ft) /* lap rolled over */
+            {
+                if (sim.lap_count >= 2u && near_limit_ft < near_limit_ft_min)
+                {
+                    near_limit_ft_min = near_limit_ft;
+                }
+                near_limit_ft = 0.0f;
+            }
+            else if (SIM_SEGS[si].is_corner_limit
+                     && fabsf(s.ch.speed_mph - lim) <= 5.0f)
+            {
+                near_limit_ft += sim.lap_dist_ft - prev_dist_ft;
+            }
+
+            /* 80 ft into every corner the car must STILL be at its limit --
+             * this is what "the corner has an arc" means, and it is the one
+             * thing entry-boundary-only limiting cannot produce. 80 ft is
+             * comfortably inside even T1's arc at its most negative jitter. */
+            if (SIM_SEGS[si].is_corner_limit && sim.lap_count >= 1u)
+            {
+                float probe = (SIM_SEGS[si].end_ft - SIM_SEGS[si].len_ft) + 80.0f;
+                if (prev_dist_ft < probe && sim.lap_dist_ft >= probe)
+                {
+                    expect(s.ch.speed_mph <= lim + 3.0f,
+                           "80 ft into a corner the car must still be at its limit, "
+                           "not already accelerating away from it");
+                    corner_probes++;
+                }
+            }
+            prev_dist_ft = sim.lap_dist_ft;
+        }
 
         expect(sim.lap_dist_ft >= 0.0f && sim.lap_dist_ft < SIM_TRACK_LAP_FT,
                "lap distance must stay inside [0, SIM_TRACK_LAP_FT)");
@@ -276,6 +326,17 @@ int main(void)
     expect(brake_zones >= 20, "most corners must be preceded by a real braking zone");
     expect((rpm_at_80_max - rpm_at_80_min) >= 1200.0f,
            "~80 mph must occur at rpm at least 1200 apart (different gears, not a fixed speed->rpm map)");
+
+    /* ---- U10: corner duration from lateral grip ---- */
+    expect(corner_probes >= 40, "every corner on every lap must be probed for duration");
+    expect(near_limit_ft_min >= 2500.0f,
+           "a lap must hold a corner limit over thousands of feet of arc, "
+           "not touch each limit for a single instant");
+    expect(seg9_max_mph >= 135.0f,
+           "segment 9 (T12) is flat out and must NOT be given a corner arc");
+    expect(s.ch.best_ms > 95000u && s.ch.best_ms < 150000u,
+           "corner duration must move lap time substantially off the 1:28 "
+           "entry-boundary-only baseline, toward the real-world band");
 
     /* ---- alarm reachability: an override must survive sim steps ---- */
     dash_ch_set(&s, DASH_CH_OILP, 25.0f);
@@ -356,6 +417,25 @@ int main(void)
         expect(fabsf(m10.t_s - m50.t_s) < 0.05f, "both step sizes must accrue 60 s");
         expect(fabsf(m10.lap_dist_ft - m50.lap_dist_ft) < 0.02f * SIM_TRACK_LAP_FT,
                "10 ms and 50 ms steps must cover the same lap distance within 2%");
+    }
+
+    /* ---- U10: step-size independence THROUGH the corners ----
+     * 60 s of lap 1 barely leaves the front straight, so the check above
+     * says little about corner behavior. A completed flying lap integrates
+     * every arc, so its time is the real step-size invariant. */
+    {
+        DashState s10, s50;
+        DashSimState m10, m50;
+        dash_state_init(&s10);
+        dash_state_init(&s50);
+        dash_sim_init(&m10);
+        dash_sim_init(&m50);
+        while (m10.lap_count < 2u) { dash_sim_step(&m10, &s10, 10u); }
+        while (m50.lap_count < 2u) { dash_sim_step(&m50, &s50, 50u); }
+        expect(m10.last_ms > 0u && m50.last_ms > 0u, "both step sizes must time a flying lap");
+        float rel = fabsf((float) m10.last_ms - (float) m50.last_ms) / (float) m10.last_ms;
+        expect(rel < 0.02f,
+               "10 ms and 50 ms steps must produce the same flying-lap time within 2%");
     }
 
     /* ---- U2: the traction / power / drag acceleration model ---- */

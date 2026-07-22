@@ -44,7 +44,7 @@ static const float SIM_GEAR_RATIOS[6] = { 2.66f, 1.78f, 1.30f, 1.00f, 0.80f, 0.6
 #define SIM_POWER_WHP     511.0f   /* dyno-measured in Denver (KTD5) */
 #define SIM_TRACTION_G    1.05f    /* rear-driven on 315 R-comps */
 #define SIM_BRAKE_G       1.25f    /* square 315s, four-wheel braking */
-#define SIM_LATERAL_G     1.30f    /* informs the authored corner limits below */
+#define SIM_LATERAL_G     1.30f    /* holds the car through a corner's arc (U10) */
 #define SIM_CDA           9.5f     /* ft^2: Cd ~0.45 x ~21 ft^2; a 1965 body is not slippery */
 #define SIM_AIR_RHO       0.00174f /* slug/ft^3 at ~5000 ft density altitude */
 #define SIM_G_FPS2        32.174f
@@ -85,10 +85,12 @@ static const float SIM_GEAR_RATIOS[6] = { 2.66f, 1.78f, 1.30f, 1.00f, 0.80f, 0.6
  * the 2 ft reconciliation remainder lives in segment 15 (T3, 424 -> 426).
  * limit_mph is hand-authored from each corner's documented character (KTD2).
  *
- * A limit constrains its segment's ENTRY BOUNDARY ONLY. Inside a segment the
- * car accelerates freely until lookahead braking for the NEXT entry limit
- * engages; holding the limit across the whole segment would have the car
- * crawling at 65 mph for all 700 ft of T4.
+ * A limit binds at its segment's entry boundary AND across the corner's ARC
+ * beyond it (U10) -- the arc is derived from the limit and SIM_LATERAL_G, not
+ * authored here. Past the arc the car accelerates freely until lookahead
+ * braking for the NEXT entry limit engages. Both extremes are wrong: holding
+ * the limit for all 700 ft of T4 has the car crawling, and releasing it at the
+ * boundary gives the corner no duration at all (which ran the lap 34 s fast).
  *
  * is_corner_limit separates real constraints from annotations. Segment 0 (the
  * straight) and segment 9 (T12 "Ladder to Heaven", a flat-out uphill kink)
@@ -197,6 +199,41 @@ static inline float dash_sim_rpm_from_speed(float mph, uint8_t gear)
 {
     return mph * SIM_GEAR_RATIOS[gear - 1] * SIM_FINAL_DRIVE * SIM_MPH_CONST
            / SIM_TIRE_DIA_IN;
+}
+
+/* This corner's limit including the current lap's jitter. */
+static inline float dash_sim_seg_limit_mph(const DashSimState *sim, uint8_t seg)
+{
+    return SIM_SEGS[seg].limit_mph + sim->seg_jitter_mph[seg];
+}
+
+/* U10: how far a corner LASTS. A corner is not a point on the track -- the
+ * car is pinned by lateral grip for an arc past the entry boundary, and that
+ * arc is what actually costs the lap time. It is derived, not authored:
+ *
+ *     r   = v^2 / (SIM_LATERAL_G * g)     radius implied by holding the limit
+ *     arc = r * SIM_CORNER_ARC_RAD
+ *
+ * so a slow corner is geometrically tight and short, a fast sweeper is long,
+ * and retuning a limit moves its duration with it. Sanity check on the one
+ * corner HPR publishes: T1's 40 mph limit implies an 82 ft radius against a
+ * documented 80 ft.
+ *
+ * SIM_CORNER_ARC_RAD is ONE nominal turned angle for the whole circuit rather
+ * than a per-corner column -- per-corner angles would be a second table of
+ * authored numbers with no better source than this one (plan KTD2/KTD3).
+ * Clamped to the segment: a short segment cannot contain more arc than it has. */
+#define SIM_CORNER_ARC_RAD 1.5708f /* ~90 deg of turn: a generic road-course corner */
+
+static inline float dash_sim_corner_arc_ft(uint8_t seg, float limit_mph)
+{
+    if (!SIM_SEGS[seg].is_corner_limit)
+    {
+        return 0.0f; /* annotations (segment 0, segment 9) turn nothing */
+    }
+    const float v = limit_mph * SIM_FPS_PER_MPH;
+    const float arc = (v * v / (SIM_LATERAL_G * SIM_G_FPS2)) * SIM_CORNER_ARC_RAD;
+    return (arc > SIM_SEGS[seg].len_ft) ? SIM_SEGS[seg].len_ft : arc;
 }
 
 /* Redraw every corner's limit jitter. Once per lap rather than per visit, so
@@ -314,12 +351,39 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
             const uint8_t j = (uint8_t) ((si + k) % SIM_SEG_COUNT);
             if (SIM_SEGS[j].is_corner_limit) /* annotations are never braked for */
             {
-                const float vt = (SIM_SEGS[j].limit_mph + sim->seg_jitter_mph[j])
-                                 * SIM_FPS_PER_MPH;
+                const float vt = dash_sim_seg_limit_mph(sim, j) * SIM_FPS_PER_MPH;
                 const float allow = sqrtf(vt * vt + 2.0f * a_brake * d_ahead);
                 if (allow < cap_fps) { cap_fps = allow; }
             }
             d_ahead += SIM_SEGS[j].len_ft;
+        }
+
+        /* U10: corner DURATION. Inside a corner's arc the car is spending its
+         * grip on turning, so two things change. The limit becomes a ceiling
+         * for the whole arc rather than a single boundary instant, and the
+         * longitudinal budget is what the grip circle leaves over:
+         *
+         *     used  = a_lat / a_lat_max = (v / v_limit)^2
+         *     scale = sqrt(1 - used^2)
+         *
+         * At the limit nothing is left and the car holds speed; below it the
+         * driver can already feed throttle in, which is what a real exit looks
+         * like. Braking is deliberately NOT scaled -- the lookahead solution
+         * above assumes full a_brake, and derating one without the other would
+         * overshoot every corner entry. */
+        float grip_scale = 1.0f;
+        if (SIM_SEGS[si].is_corner_limit)
+        {
+            const float lim_mph = dash_sim_seg_limit_mph(sim, si);
+            const float seg_start_ft = SIM_SEGS[si].end_ft - SIM_SEGS[si].len_ft;
+            if ((sim->lap_dist_ft - seg_start_ft) < dash_sim_corner_arc_ft(si, lim_mph))
+            {
+                const float v_lim = lim_mph * SIM_FPS_PER_MPH;
+                float used = (v_fps * v_fps) / (v_lim * v_lim);
+                if (used > 1.0f) { used = 1.0f; }
+                grip_scale = sqrtf(1.0f - used * used);
+                if (cap_fps > v_lim) { cap_fps = v_lim; }
+            }
         }
 
         bool braking = false;
@@ -341,7 +405,9 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
                                   / (SIM_MASS_SLUG * v_guard);
             const float a_drag = 0.5f * SIM_AIR_RHO * SIM_CDA * v_guard * v_guard
                                  / SIM_MASS_SLUG;
-            const float a_net = ((a_power < a_traction) ? a_power : a_traction) - a_drag;
+            const float a_prop = (a_power < a_traction) ? a_power : a_traction;
+            /* drag is never scaled: it does not compete for tire grip */
+            const float a_net = a_prop * grip_scale - a_drag;
             v_fps += a_net * dt_s;
             if (v_fps > cap_fps) { v_fps = cap_fps; braking = true; }
         }
