@@ -55,6 +55,15 @@ previously bench-tested). FFC contacts face **down** at the panel end.
 | BL+ (backlight 5 V) | — | per power plan below | — | 17 **and** 18 | doubled |
 | BL− (backlight return) | — | per power plan below | — | 19 **and** 20 | doubled |
 
+**Zio diagram reading trap (cost us a double-take at the bench):** ST's Zio
+pinout diagram prints TWO label columns per side — ST name + Arduino name
+both describing the SAME pin. Power pins repeat the name ("+5V +5V"),
+which reads as if the adjacent even pin were also +5V. It is not: CN8 has
+exactly one +5V (pin 9); pins 10/12 are GPIOs **PC12/PD2 — and PD2 is
+telltale lamp 5 in this build**, so landing backlight return there would
+fight a driven output. Doubling: BL+ x2 joined into CN8-9; BL− split
+across CN8-11 and CN8-13 (both GND).
+
 Pin facts verified 2026-07-21 against UM1974 + STM32duino
 `variant_NUCLEO_F767ZI`. All five signal pins are free of on-board functions
 (Ethernet RMII, LEDs, USB, VCP all elsewhere). PB5 at D22 is a direct
