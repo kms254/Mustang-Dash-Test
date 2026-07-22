@@ -75,6 +75,17 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   EMI glitch on a car harness must not zero the trip. In the real car the mode
   switch will come from a **CAN message**; the button is a bench stand-in, and
   serial, button, and CAN all converge on one `s->mode` assignment.
+- CAN upstream is an **Autosport Labs RaceCapture** (broadcasts CAN, runs Lua,
+  configured from the phone app). Two things are meant to ride it, neither built
+  yet (`dash_can.h` is still FDCAN-loopback-only, so nothing receives):
+  **session length**, set in the paddock — this is the *only* thing blocking a
+  countdown session timer, since HPDE sessions vary (20/25/30 min) and the dash
+  has no input device left (both button gestures are taken); and **real lap
+  timing**, which RaceCapture does natively via GPS. `LAP`/`LAST`/`BEST`/`DELTA`
+  are simulated today only because there is no other source — with RaceCapture
+  on the bus they become measured, and the simulator becomes bench-only.
+  Unconfirmed: whether one value can be changed *trackside* from the phone
+  (live control vs. a config push). Check the real unit before designing on it.
 
 ## Hardware truths (don't re-derive)
 
