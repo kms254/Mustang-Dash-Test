@@ -72,9 +72,28 @@
  * could have matched. U9 replaced that with a load-proportional burn measuring
  * 0.589 gal over an HPR lap, so the decoupling is retired -- this is the
  * measured figure, rounded. LAPS on the timing screen now counts down in step
- * with the laps the car actually drives (12 gal / 0.59 = ~20 laps), and if the
- * two ever drift apart again that is a defect rather than a design choice. */
-#define DASH_LAP_BURN_GAL      0.59f
+ * with the laps the car actually drives, and if the two ever drift apart again
+ * that is a defect rather than a design choice.
+ *
+ * Re-measured at 0.632 after U12 gave corners a progressive exit: rolling on
+ * from the apex puts more of the lap under power, so the same lap costs more
+ * fuel even as it gets quicker. Kept at two decimals like the original, and
+ * rounded toward the pessimistic side on purpose -- this constant is a promise
+ * about laps remaining, and the safe direction for that promise is short. */
+#define DASH_LAP_BURN_GAL      0.63f
+/* Unusable fuel. LAPS answers "how many more laps can I drive", and the bottom
+ * of the tank cannot answer yes: under sustained lateral load the pickup
+ * starves well before the tank is dry, so laps promised out of that last gallon
+ * are laps the car will not complete. Subtracting it is the difference between
+ * a number a driver can plan a session on and one that strands them on track.
+ *
+ * This is the ONE place LAPS and the simulator are meant to diverge, and the
+ * divergence is deliberate: the sim models fuel MASS, so its tank runs to 0.0
+ * and it keeps lapping for ~1.7 laps after LAPS reads 0. The burn RATE must
+ * still agree with DASH_LAP_BURN_GAL above -- that agreement is the invariant,
+ * and tests/test_dash_sim.c checks the two claims separately so a real drift
+ * can never hide behind the reserve. */
+#define DASH_FUEL_RESERVE_GAL  1.0f
 
 #define DASH_DEG_TO_RAD (3.14159265358979323846f / 180.0f)
 
@@ -550,7 +569,11 @@ static inline bool dash_range_mi(float fuel_gal, bool fuel_valid, float *out_mi)
     return true;
 }
 
-/* laps-remaining = usable fuel / per-lap burn (track). */
+/* laps-remaining = usable fuel / per-lap burn (track). "Usable" is the whole
+ * point: it excludes DASH_FUEL_RESERVE_GAL, and floors at 0 rather than
+ * counting negative laps once the car is into the reserve. The comment used to
+ * say "usable" while the code divided the raw tank -- the wording was the
+ * intent and the code was the bug. */
 static inline bool dash_laps_remaining(float fuel_gal, bool fuel_valid, float *out_laps)
 {
     if (!fuel_valid)
@@ -558,7 +581,9 @@ static inline bool dash_laps_remaining(float fuel_gal, bool fuel_valid, float *o
         *out_laps = 0.0f;
         return false;
     }
-    *out_laps = fuel_gal / DASH_LAP_BURN_GAL;
+    float usable_gal = fuel_gal - DASH_FUEL_RESERVE_GAL;
+    if (usable_gal < 0.0f) { usable_gal = 0.0f; }
+    *out_laps = usable_gal / DASH_LAP_BURN_GAL;
     return true;
 }
 

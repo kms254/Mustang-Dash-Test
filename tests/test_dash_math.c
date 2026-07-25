@@ -445,9 +445,24 @@ int main(void)
         expect(out == 0.0f, "range_mi must zero the out-param when not computable");
 
         out = -1.0f;
-        expect(dash_laps_remaining(DASH_LAP_BURN_GAL * 3.0f, true, &out) == true,
+        expect(dash_laps_remaining(DASH_FUEL_RESERVE_GAL + DASH_LAP_BURN_GAL * 3.0f,
+                                   true, &out) == true,
                "laps_remaining must compute when fuel valid");
-        expect(nearf(out, 3.0f, 1e-4f), "laps_remaining must be fuel / DASH_LAP_BURN_GAL");
+        expect(nearf(out, 3.0f, 1e-4f),
+               "laps_remaining must be USABLE fuel / DASH_LAP_BURN_GAL -- the "
+               "reserve is excluded, so three laps' worth above it reads 3");
+        /* the reserve is unusable, not merely discouraged: a tank holding
+         * exactly it promises nothing, and below it the answer floors at zero
+         * instead of counting laps backwards. */
+        out = -1.0f;
+        expect(dash_laps_remaining(DASH_FUEL_RESERVE_GAL, true, &out) == true,
+               "laps_remaining must still compute sitting on the reserve");
+        expect(nearf(out, 0.0f, 1e-6f),
+               "a tank holding exactly the reserve must promise 0 laps");
+        out = -1.0f;
+        expect(dash_laps_remaining(DASH_FUEL_RESERVE_GAL * 0.25f, true, &out) == true,
+               "laps_remaining must compute below the reserve");
+        expect(out == 0.0f, "laps_remaining must floor at 0, never go negative");
         out = -1.0f;
         expect(dash_laps_remaining(12.0f, false, &out) == false,
                "laps_remaining must be not-computable when fuel invalid");

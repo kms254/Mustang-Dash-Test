@@ -231,7 +231,11 @@ void timing_track_screen(uint8_t alpha)
     {
         snprintf(buf, sizeof(buf), "--");
     }
-    timing_grid_cell(149, 271, COLOR_VALUE, "LAPS", buf, alpha);
+    /* "LAPS LEFT", not the mock's "LAPS": this cell is fuel range, and it sits
+     * on a screen whose other lap field is the live lap NUMBER. It was read as
+     * a lap counter on the bench by the person who wrote it, which is all the
+     * evidence a label needs to be wrong. */
+    timing_grid_cell(149, 271, COLOR_VALUE, "LAPS LEFT", buf, alpha);
 
     dash_fmt_value(buf, sizeof(buf), g_dash.ch.ambient_f, 0U,
                    dash_ch_valid(&g_dash, DASH_CH_AMBIENT));
