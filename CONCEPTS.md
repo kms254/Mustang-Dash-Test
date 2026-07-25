@@ -60,6 +60,12 @@ An operating point is accepted only by a read-integrity soak — repeated regist
 ### Clock Walk
 The stepwise process of raising the SPI Operating Point: one clock step at a time, each step accepted or rejected solely by the read-integrity soak before the next is attempted. The walk's diagnosis rules depend on the link: reads failing while writes stay clean points at round-trip latency — answered by delaying when the return data is sampled — whereas writes failing too means genuine signal degradation and a retreat. A step can also fail past degradation into a total wedge: reads corrupt enough that the command-wait loop never exits, the firmware freezes, and the failure presents as sudden silence rather than glitches — recovery is a debug-probe reflash, not a power cycle. Frame rate is never an acceptance signal at any step, and every accepted step also requires eyes on the panel.
 
+### Frame Drain
+The per-frame wait for the display controller to finish executing a display list before its command buffer is reused — the renderer polls the chip's command-FIFO registers over SPI until the coprocessor signals completion. Because that poll is a read, it is the frame loop's most exposed point to a marginal link: a bounded drain that never sees completion times out rather than hanging forever, and a timed-out drain retires the panel (see Retired Panel). A drain timeout therefore indicts the read path — clock, wiring, or the shared ground reference — not the rendering itself.
+
+### Retired Panel
+A panel the firmware has marked dead at runtime and now skips, after its Frame Drain timed out — distinct from a panel that merely failed to initialize at boot. A retired panel shows no image and reports its liveness field as absent while the healthy panels keep rendering, so one panel's read-path failure never blocks the others. Retirement is a runtime verdict on the link, not the silicon: the same panel typically returns clean once the read path (grounding, wiring, clock) is sound.
+
 ### Carrier Board
 The purpose-built PCB that replaces the bench wiring loom as the dash's physical platform: it hosts the microcontroller, gives each panel its own buffered, terminated point-to-point SPI leg with a dedicated RiBUS connector, gates each panel's read-return line by that panel's own chip select, and carries the power regulation for both logic rails. Its existence splits the project's electrical history in two — measurements and operating points established on the loom describe the loom, not the system.
 
