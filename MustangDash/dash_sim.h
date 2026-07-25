@@ -425,6 +425,10 @@ typedef struct {
     float ect_f;
     float oilt_f;
     float fuel_gal;
+    /* U12: the driver's right foot, 0..1, as a STATE rather than a per-step
+     * solve. It exists because a driver rolls on at a bounded rate instead of
+     * instantly taking whatever the grip circle has freed up. */
+    float throttle_frac;
     uint32_t last_ms;
     uint32_t best_ms;
     /* U5 lap delta: the lap being driven, and the best lap to measure it
@@ -630,6 +634,54 @@ static inline float dash_sim_corner_arc_ft(uint8_t seg)
     return (arc > SIM_SEGS[seg].len_ft) ? SIM_SEGS[seg].len_ft : arc;
 }
 
+/* U12: where in the arc the driver starts unwinding the wheel.
+ *
+ * Before this, a corner was a constant-radius arc that ENDED -- lateral demand
+ * went from everything to nothing between two 20 ms steps, so grip_scale
+ * snapped 0 -> 1 and the car took full thrust in a single step. On the bench
+ * that read as a throttle that slammed open at the arc's edge; in a real car,
+ * asking for 500 hp while the tires are still loaded up is how you spin it.
+ *
+ * A real exit is progressive: the driver straightens the wheel, effective
+ * curvature falls, and the grip that frees up is fed in as throttle. Modelling
+ * the unwind gives both for free from one number, because both come from the
+ * same lateral budget -- the speed ceiling rises as v_lim/sqrt(lat) while the
+ * longitudinal allowance rises as sqrt(1 - (lat*(v/v_lim)^2)^2). At lat -> 0
+ * the corner IS a straight, so the arc's end is now continuous rather than a
+ * cliff, and nothing special happens when the car crosses it.
+ *
+ * The FRACTION is load-bearing and was calibrated against lap time, not picked
+ * for tidiness. Unwinding from mid-arc (0.5) hands the car half of every corner
+ * and ran the lap 9.4 s quick -- 1:52.4 against the 2:01.6 this model was
+ * calibrated to -- because a thrust-limited exit from the apex is an enormous
+ * gain repeated over fourteen corners. A late unwind is also the more honest
+ * reading of the table's own character notes ("apex past middle", "very late
+ * apex", "extremely late apex"): these corners are held, then released.
+ *
+ * Uniform across every corner is still a simplification. Per-corner apex
+ * placement is the obvious next refinement, and those notes are the source for
+ * it -- but it wants authored data, not a guess here. */
+#define SIM_CORNER_APEX_FRAC 0.85f
+
+/* U12: how long the driver takes to roll from closed to flat, in seconds.
+ *
+ * The unwind above removed the CLIFF, but not the slam. grip_scale is
+ * sqrt(1 - used^2), which is nearly vertical as lateral load comes off, so the
+ * freed grip arrives in a rush: measured full pedal travel in about 50 ms,
+ * which is a stab, not a corner exit. A real driver does not track instantaneous
+ * available grip -- they squeeze, deliberately leaving margin, because the grip
+ * they are feeling for is the grip they cannot measure.
+ *
+ * So the pedal is rate-limited on the way UP and free on the way DOWN (lifting
+ * is fast, and needs to be -- it precedes every braking zone). 0.7 s is a
+ * deliberate driver characteristic, not a filter: thrust is taken from the
+ * SLEWED pedal, so the car actually accelerates the way the bar shows. Making
+ * this a display-only smoothing would recreate the original defect, where the
+ * pedal channels described a car the physics was not driving. */
+#define SIM_THROTTLE_ROLLON_S 0.7f
+/* below this the wheel is effectively straight: stop dividing by it */
+#define SIM_CORNER_LAT_FLOOR 0.02f
+
 /* Redraw every corner's limit jitter. Once per lap rather than per visit, so
  * lookahead braking sees one stable target all the way down to the boundary
  * (a target that moved under the braking curve would chatter the throttle).
@@ -751,6 +803,7 @@ static inline void dash_sim_session_reset(DashSimState *sim)
     sim->gear = 1u;
     sim->rpm = SIM_RPM_START;
     sim->speed_mph = dash_sim_speed_mph(SIM_RPM_START, 1); /* ~7 mph, rolling out */
+    sim->throttle_frac = 0.0f; /* U12: a new session opens with a closed pedal */
 
     for (uint16_t b = 0u; b < SIM_TRACE_SLOTS; b++)
     {
@@ -782,6 +835,7 @@ static inline void dash_sim_init(DashSimState *sim)
     sim->session_pending = false;
     sim->rpm = SIM_RPM_START;
     sim->speed_mph = dash_sim_speed_mph(SIM_RPM_START, 1); /* ~7 mph, rolling out */
+    sim->throttle_frac = 0.0f; /* U12 */
     sim->lap_dist_ft = 0.0f;
     sim->driver_skill = SIM_DRIVER_SKILL; /* must precede the first jitter draw */
     sim->circuit = SIM_CIRCUIT_HPR; /* HPR is the default; SWEEP is opt-in (R12) */
@@ -1012,24 +1066,66 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
         {
             const float lim_mph = dash_sim_seg_limit_mph(sim, si);
             const float seg_start_ft = SIM_SEGS[si].end_ft - SIM_SEGS[si].len_ft;
-            if ((sim->lap_dist_ft - seg_start_ft) < dash_sim_corner_arc_ft(si))
+            const float arc_ft = dash_sim_corner_arc_ft(si);
+            const float into_arc_ft = sim->lap_dist_ft - seg_start_ft;
+            if (into_arc_ft < arc_ft)
             {
-                const float v_lim = lim_mph * SIM_FPS_PER_MPH;
-                float used = (v_fps * v_fps) / (v_lim * v_lim);
-                if (used > 1.0f) { used = 1.0f; }
-                grip_scale = sqrtf(1.0f - used * used);
-                if (cap_fps > v_lim) { cap_fps = v_lim; }
+                /* U12: lateral demand through the arc. Full lock to the apex,
+                 * then unwound linearly to nothing at the arc's end, so the
+                 * corner releases the car instead of dropping it. */
+                float lat = 1.0f;
+                if (arc_ft > 0.0f)
+                {
+                    const float frac = into_arc_ft / arc_ft;
+                    if (frac > SIM_CORNER_APEX_FRAC)
+                    {
+                        lat = (1.0f - frac) / (1.0f - SIM_CORNER_APEX_FRAC);
+                        if (lat < 0.0f) { lat = 0.0f; }
+                    }
+                }
+                if (lat > SIM_CORNER_LAT_FLOOR)
+                {
+                    const float v_lim = lim_mph * SIM_FPS_PER_MPH;
+                    /* straightening the wheel raises the speed the corner
+                     * permits: a_lat_max = v^2/R, and R scales as 1/lat */
+                    const float v_allow = v_lim / sqrtf(lat);
+                    float used = lat * (v_fps * v_fps) / (v_lim * v_lim);
+                    if (used > 1.0f) { used = 1.0f; }
+                    grip_scale = sqrtf(1.0f - used * used);
+                    if (cap_fps > v_allow) { cap_fps = v_allow; }
+                }
             }
         }
 
-        bool braking = false;
         float a_applied = 0.0f; /* propulsive accel actually delivered (U9) */
         float v_power_fps = v_fps;
         if (v_fps > cap_fps)
         {
+            /* U11: brake EFFORT, not a brake light. The lookahead solution
+             * already knows how much speed this step has to shed, so state it
+             * as the fraction of the step's braking AUTHORITY being spent.
+             * A real 100% now means all of it, and the trace tapers over the
+             * last steps as the car settles onto the limit instead of
+             * switching off a cliff.
+             *
+             * Do NOT read more into the magnitude than that. U3's lookahead is
+             * a MAXIMUM-braking solution, so every zone spends full authority
+             * for nearly all of its length and peaks at 100 -- what separates
+             * T4's 170->65 hit from T10's 80->70 brush is the zone's DURATION,
+             * not its height. A graduated brake trace would mean changing how
+             * the model drives (releasing before the apex), which is a driving
+             * change, not a display one. */
+            const float authority = a_brake * dt_s;
+            track_brake_pct = (authority > 0.0f)
+                              ? (100.0f * (v_fps - cap_fps) / authority)
+                              : 100.0f;
+            if (track_brake_pct > 100.0f) { track_brake_pct = 100.0f; }
             v_fps -= a_brake * dt_s;
             if (v_fps < cap_fps) { v_fps = cap_fps; }
-            braking = true;
+            /* U12: braking closes the throttle, and the next exit therefore
+             * rolls on from ZERO rather than resuming wherever the foot was
+             * before the zone. This is what makes a corner exit a squeeze. */
+            sim->throttle_frac = 0.0f;
         }
         else
         {
@@ -1045,11 +1141,49 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
                                  / SIM_MASS_SLUG;
             const float a_prop = (a_power < a_traction) ? a_power : a_traction;
             /* drag is never scaled: it does not compete for tire grip */
-            a_applied = a_prop * grip_scale;
             v_power_fps = v_guard;
+            /* U12: the roll-on. The pedal CHASES what the grip circle has
+             * freed up, but may only rise at SIM_THROTTLE_ROLLON_S; it falls
+             * freely. Thrust is then taken from the pedal, so the bar and the
+             * car agree by construction. The maintenance term is a floor, not a
+             * target: without it the car would coast backwards off every apex,
+             * where the grip circle has nothing left to give. */
+            const float maint_frac = (a_prop > 0.0f) ? (a_drag / a_prop) : 0.0f;
+            float want_frac = (grip_scale > maint_frac) ? grip_scale : maint_frac;
+            if (want_frac > 1.0f) { want_frac = 1.0f; }
+            const float rise_max = dt_s / SIM_THROTTLE_ROLLON_S;
+            if (want_frac > sim->throttle_frac + rise_max)
+            {
+                want_frac = sim->throttle_frac + rise_max;
+            }
+            sim->throttle_frac = want_frac;
+            a_applied = a_prop * sim->throttle_frac;
             const float a_net = a_applied - a_drag;
             v_fps += a_net * dt_s;
-            if (v_fps > cap_fps) { v_fps = cap_fps; braking = true; }
+            if (v_fps > cap_fps)
+            {
+                v_fps = cap_fps;
+                /* Held ON a limit rather than accelerating into it -- either a
+                 * corner's own ceiling or the speed the next corner's braking
+                 * curve still permits. The driver is maintaining, so the foot
+                 * comes back to the maintenance throttle, and the next roll-on
+                 * starts from there instead of resuming at full ask. */
+                if (sim->throttle_frac > maint_frac) { sim->throttle_frac = maint_frac; }
+                a_applied = a_prop * sim->throttle_frac;
+            }
+            /* U11/U12: the published pedal is the STATE, mapped to travel.
+             * Deliberately not p_frac (used below for fuel): p_frac reads under
+             * 1 wherever traction is the constraint, so off a slow corner --
+             * foot flat, tires the limit -- a p_frac pedal would dip exactly
+             * where a real one is pinned.
+             *
+             * The sqrtf is a pedal MAP, not physics: travel-vs-torque is
+             * strongly nonlinear, and a linear map puts a 40 mph apex at ~1% --
+             * true in torque, nothing like the 20-30% a TPS trace shows there.
+             * This channel stands in for the ECU's TPS until it arrives over
+             * CAN, so it should look like the signal that will replace it.
+             * Monotonic in the pedal, and still exactly 100% flat out. */
+            track_throttle_pct = 100.0f * sqrtf(sim->throttle_frac);
         }
         if (v_fps < 0.0f) { v_fps = 0.0f; }
         sim->speed_mph = v_fps / SIM_FPS_PER_MPH;
@@ -1068,9 +1202,13 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
                             * SIM_GPH_TO_GPS;
         }
 
-        /* the model has exactly two states: on the brakes, or on the throttle */
-        track_throttle_pct = braking ? 0.0f : 100.0f;
-        track_brake_pct = braking ? (82.0f + 8.0f * sinf(t * 3.0f)) : 0.0f;
+        /* Both pedals were set by the branch above, from the same physics that
+         * moves the car -- exactly one of them is non-zero, because the model
+         * is always either shedding speed for a corner or making thrust. They
+         * used to be a two-state cartoon derived from one bool (0/100 throttle,
+         * a constant 82% brake wobbled by a wall-clock sine), which read as
+         * full brake through a corner the car was holding at a constant speed
+         * and as 100% throttle at that same apex. */
 
         dash_sim_gearbox(sim, false); /* TRACK drives: the shift point is the shift point */
         speed_mph = sim->speed_mph;
@@ -1290,9 +1428,9 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
             dash_ch_set(s, DASH_CH_POS, (float) pos);
         }
 
-        /* throttle/brake straight from the driving cycle's chase state:
-         * full throttle down the straights, hard brake into the corners,
-         * part throttle holding a corner. */
+        /* throttle/brake as computed by the lap physics above: flat out down
+         * the straights, braking effort proportional to what the next corner
+         * demands, and grip-circle-limited part throttle holding a corner. */
         if (dash_ch_sim_owned(s, DASH_CH_THROTTLE)) { dash_ch_set(s, DASH_CH_THROTTLE, track_throttle_pct); }
         if (dash_ch_sim_owned(s, DASH_CH_BRAKE))    { dash_ch_set(s, DASH_CH_BRAKE, track_brake_pct); }
     }

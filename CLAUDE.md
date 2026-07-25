@@ -55,16 +55,34 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   16-segment distance-keyed table; acceleration is traction/power/drag from the
   real spec (511 whp measured in Denver, 2900 lb, 315/30R18 square, T56 Magnum,
   3.73); corners carry an arc derived from their limit speed and lateral grip,
-  with per-corner turn angles. **Lap time is an output, not an input** — 2:01.6
-  at `SIM_DRIVER_SKILL` 0.86, front straight ~170 mph, peak 5th gear. Two
-  non-obvious traps, both found the hard way: corner arc radius must come from
+  with per-corner turn angles. **Lap time is an output, not an input** — 1:59.7
+  at `SIM_DRIVER_SKILL` 0.86 (was 2:01.6 before U12's corner exits), front
+  straight ~170 mph, peak 5th gear. Non-obvious traps, all found the hard way:
+  corner arc radius must come from
   the *authored* limit, not the skill-scaled one (otherwise a slower driver gets
   a shorter corner and skill loses its leverage), and segments flagged
   `is_corner_limit == false` (the front straight, T12) must be exempt from both
-  skill scaling and lookahead braking. Runs 20-minute **sessions** that end on
+  skill scaling and lookahead braking.
+  **U12 (2026-07-25) added the corner EXIT, and it took two mechanisms, not
+  one.** A corner used to be a constant-radius arc that just *ended*, so lateral
+  demand went from everything to nothing between two steps and the car took full
+  thrust instantly — visible on glass as a throttle that slammed open. Fixing it
+  needs (1) the arc to **unwind** past `SIM_CORNER_APEX_FRAC` (0.85; lateral
+  tapers to zero and the speed ceiling rises as `v_lim/sqrt(lat)`, so the arc's
+  end is continuous) *and* (2) a **rate-limited pedal**
+  (`SIM_THROTTLE_ROLLON_S` 0.7 s, `DashSimState.throttle_frac`, free on the way
+  down). (1) alone is not enough: `sqrt(1 - used^2)` is near-vertical as load
+  comes off, so the pedal still hit full travel in ~50 ms. **The apex fraction
+  is calibrated against lap time** — unwinding from mid-arc (0.5) hands the car
+  half of every corner and ran 1:52.4. Thrust comes from the slewed pedal, never
+  a display filter: the original defect was pedal channels describing a car the
+  physics wasn't driving. Consequence to expect: any test probing U2's
+  traction/power model must set `throttle_frac = 1.0f` first, or it measures the
+  roll-on and calls it the car's traction limit. Runs 20-minute **sessions** that end on
   the first lap completion past the mark — never mid-lap. Coolant and oil use
   separate time constants (120 s / 600 s) so oil is still climbing at minute 15;
-  fuel burns ~0.59 gal/lap and deliberately does *not* reset with the session,
+  fuel burns ~0.62 gal/lap (`DASH_LAP_BURN_GAL` 0.63, rounded pessimistic since
+  it backs the LAPS LEFT promise) and deliberately does *not* reset with the session,
   so tank and thermal cycles run on different periods. `circuit hpr|sweep`
   selects a range-sweep fixture that exercises the full speedo dial, all six
   gears, and the tach's red zone — none of which a real HPR lap reaches.

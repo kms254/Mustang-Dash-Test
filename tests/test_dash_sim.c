@@ -914,7 +914,13 @@ int main(void)
                "10 ms and 50 ms steps must produce the same flying-lap time within 2%");
     }
 
-    /* ---- U2: the traction / power / drag acceleration model ---- */
+    /* ---- U2: the traction / power / drag acceleration model ----
+     * These probe the CAR, not the driver: each one seeds a speed and measures
+     * a single step's acceleration against the spec. U12 gave the driver a
+     * rate-limited right foot that starts closed, so every probe must open the
+     * pedal first -- otherwise it measures a 0.7 s roll-on and calls it the
+     * car's traction limit. Setting throttle_frac directly is the point: the
+     * claim under test is "at full throttle, this car does X". */
     {
         DashState u2s;
         DashSimState u2m;
@@ -922,6 +928,7 @@ int main(void)
         /* off the line the car is tire-limited, not power-limited */
         dash_state_init(&u2s);
         dash_sim_init(&u2m);
+        u2m.throttle_frac = 1.0f;
         float v0 = u2m.speed_mph;
         dash_sim_step(&u2m, &u2s, 10u);
         float a0 = (u2m.speed_mph - v0) / 0.01f;
@@ -945,6 +952,7 @@ int main(void)
             dash_sim_init(&u2m);
             u2m.speed_mph = v;
             u2m.lap_dist_ft = 100.0f;
+            u2m.throttle_frac = 1.0f; /* flat: this probes the car, not the roll-on */
             dash_sim_step(&u2m, &u2s, 10u);
             float a = (u2m.speed_mph - v) / 0.01f;
             expect(a > 0.0f, "full throttle must never decelerate below terminal speed");
@@ -1752,9 +1760,135 @@ int main(void)
                 if (lm.lap_count > lc || lm.session_ms < sess) { laps++; }
             }
             expect(lm.fuel_gal <= 0.0f, "the tank must actually run dry inside 50 minutes");
-            expect(fabsf((float) laps - predicted) <= 1.5f,
+            /* The agreement is now offset by the reserve, deliberately: LAPS
+             * counts USABLE laps, so the sim -- which models fuel mass and
+             * runs its tank to 0.0 -- keeps lapping past LAPS reading zero by
+             * exactly the reserve's worth. Written as burn-rate agreement PLUS
+             * a named offset rather than a loosened tolerance, so a genuine
+             * drift in the burn constant still fails here. */
+            const float reserve_laps = DASH_FUEL_RESERVE_GAL / DASH_LAP_BURN_GAL;
+            expect(fabsf((float) laps - (predicted + reserve_laps)) <= 1.5f,
                    "dash_laps_remaining must agree with the sim's observed burn "
-                   "to within about a lap");
+                   "to within about a lap, once the unusable reserve is added "
+                   "back to the laps it declines to promise");
+        }
+
+        /* ---- U11: the pedals must be physics, not a two-state cartoon ----
+         * Found on glass, not here, which is why these exist: at a corner's
+         * limit the car holds a constant speed and THROTTLE read 100% while it
+         * did. The grip circle already knew better -- a_applied, and therefore
+         * the fuel burn, goes to ~0 at an apex -- so the model was right and
+         * only the two pedal channels ignored it. The old form was
+         * `throttle = braking ? 0 : 100` with a brake of 82% wobbled by a
+         * wall-clock sine, so every zone read alike and nothing ever tapered. */
+        {
+            DashState ps;
+            DashSimState pm;
+            dash_state_init(&ps);
+            dash_sim_init(&pm);
+            /* skip the out-lap: it rolls out of the pits at ~7 mph */
+            while (pm.lap_count < 1u) { dash_sim_step(&pm, &ps, 20u); }
+
+            float max_thr = 0.0f, max_brk = 0.0f, min_thr_moving = 100.0f;
+            int both_pedals = 0, brake_while_gaining = 0, held_at_100 = 0;
+            int partial_brake = 0, partial_throttle = 0;
+            float prev_mph = dash_ch_get(&ps, DASH_CH_SPEED);
+            while (pm.lap_count < 3u)
+            {
+                dash_sim_step(&pm, &ps, 20u);
+                const float thr = dash_ch_get(&ps, DASH_CH_THROTTLE);
+                const float brk = dash_ch_get(&ps, DASH_CH_BRAKE);
+                const float mph = dash_ch_get(&ps, DASH_CH_SPEED);
+                const float d_mph = mph - prev_mph;
+
+                expect(thr >= 0.0f && thr <= 100.0f, "throttle must stay within 0..100");
+                expect(brk >= 0.0f && brk <= 100.0f, "brake must stay within 0..100");
+                if (thr > 0.0f && brk > 0.0f) { both_pedals++; }
+                if (d_mph > 0.001f && brk > 0.0f) { brake_while_gaining++; }
+                /* the reported symptom: speed pinned, well under the straight's
+                 * terminal velocity, and the pedal claiming to be flat */
+                if (fabsf(d_mph) < 0.01f && mph < 90.0f && thr > 99.5f) { held_at_100++; }
+                if (brk > 1.0f && brk < 60.0f) { partial_brake++; }
+                if (thr > 5.0f && thr < 95.0f) { partial_throttle++; }
+                if (mph > 30.0f && thr < min_thr_moving) { min_thr_moving = thr; }
+                if (thr > max_thr) { max_thr = thr; }
+                if (brk > max_brk) { max_brk = brk; }
+                prev_mph = mph;
+            }
+
+            expect(both_pedals == 0,
+                   "throttle and brake must never be applied on the same step");
+            expect(brake_while_gaining == 0,
+                   "brake must read 0 on any step the car GAINED speed");
+            expect(held_at_100 == 0,
+                   "THROTTLE must not read 100% while the car holds a constant "
+                   "speed below the straight's terminal velocity -- the exact "
+                   "corner-limit case seen on the bench");
+            expect(max_thr > 99.5f,
+                   "throttle must still reach a true 100% flat out on the straight");
+            expect(max_brk > 95.0f,
+                   "the heaviest zone must spend essentially all the car's "
+                   "braking authority, not a shared constant 82%");
+            expect(partial_brake > 0,
+                   "braking must taper as the car settles onto a limit (trail "
+                   "braking), not switch between one value and zero");
+            expect(partial_throttle > 0,
+                   "part throttle must exist -- the grip circle rations a corner "
+                   "exit, and that is what a pedal trace should show");
+            expect(min_thr_moving < 60.0f,
+                   "somewhere on a lap above 30 mph the pedal must be well short "
+                   "of flat: a corner the car is actually limited in");
+        }
+
+        /* ---- U12: a corner exit must be a squeeze, not a stab ----
+         * Reported from the bench as "really aggressive throttle moves rather
+         * than easing into it -- you'd lose traction and spin". Two separate
+         * mechanisms had to land for that: the corner arc now UNWINDS instead of
+         * ending at a cliff, and the pedal is rate-limited on the way up. Before
+         * the rate limit the exit still took full travel in ~50 ms, because
+         * grip_scale = sqrt(1 - used^2) is nearly vertical as lateral load comes
+         * off, so removing the cliff alone was not enough.
+         *
+         * Asserted in PEDAL FRACTION, recovered by inverting the sqrt display
+         * map, so this pins the slew limiter itself and stays true if the map
+         * ever changes. */
+        {
+            DashState rs;
+            DashSimState rm;
+            dash_state_init(&rs);
+            dash_sim_init(&rm);
+            while (rm.lap_count < 1u) { dash_sim_step(&rm, &rs, 20u); }
+
+            const float rise_max = 0.020f / SIM_THROTTLE_ROLLON_S; /* frac per 20 ms */
+            int too_fast = 0, longest_rollon = 0, run = 0;
+            float prev_thr = dash_ch_get(&rs, DASH_CH_THROTTLE);
+            float prev_brk = dash_ch_get(&rs, DASH_CH_BRAKE);
+            while (rm.lap_count < 4u)
+            {
+                dash_sim_step(&rm, &rs, 20u);
+                const float thr = dash_ch_get(&rs, DASH_CH_THROTTLE);
+                const float brk = dash_ch_get(&rs, DASH_CH_BRAKE);
+                if (prev_brk == 0.0f && brk == 0.0f)
+                {
+                    const float f0 = (prev_thr / 100.0f) * (prev_thr / 100.0f);
+                    const float f1 = (thr / 100.0f) * (thr / 100.0f);
+                    if ((f1 - f0) > (rise_max + 1.0e-3f)) { too_fast++; }
+                    /* how many consecutive steps the pedal spends opening */
+                    if (f1 > f0) { run++; if (run > longest_rollon) { longest_rollon = run; } }
+                    else { run = 0; }
+                }
+                else { run = 0; }
+                prev_thr = thr; prev_brk = brk;
+            }
+
+            expect(too_fast == 0,
+                   "the pedal must never open faster than SIM_THROTTLE_ROLLON_S "
+                   "allows -- a stab off an apex is how a 511 whp car spins");
+            /* 0.7 s of travel is 35 steps at 20 ms; require most of one real
+             * roll-on to be observable rather than pinning the exact count. */
+            expect(longest_rollon >= 20,
+                   "at least one corner exit must open the throttle over 20+ "
+                   "consecutive steps (~0.4 s), not in a single jump");
         }
 
         /* determinism through the whole fuel path */
