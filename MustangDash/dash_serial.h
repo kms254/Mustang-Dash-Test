@@ -56,6 +56,9 @@ typedef enum {
     DASH_CMD_FLASHWIPE, /* guarded full-chip erase of the center panel's
                          * QSPI flash; requires the literal argument
                          * "really" (plan 2026-07-21-002 U5/KTD7) */
+    DASH_CMD_BRIGHT,    /* bench: live backlight percent 0-100 (caller scales
+                         * to REG_PWM_DUTY 0-128). Caller-applied hardware,
+                         * not a DashState channel -- same reason as CIRCUIT. */
 } DashCmdKind;
 
 typedef enum {
@@ -90,7 +93,7 @@ typedef enum {
 #define DASH_HELP_TEXT \
     "commands: set <ch> <v> | clear <ch> | mode track|street | " \
     "circuit hpr|sweep | " \
-    "alarm oilp|oilt|clt|off | odo set <miles> | sim on|off | status | help | cantest | " \
+    "alarm oilp|oilt|clt|off | odo set <miles> | sim on|off | bright <0-100%> | status | help | cantest | " \
     "flashwipe really " \
     "(ch: rpm speed ect oilt oilp volts fuel delta lap last best ambient " \
     "afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2 session)"
@@ -106,6 +109,7 @@ typedef struct {
                          * A plain bool like sim_on, not dash_sim.h's
                          * SimCircuit -- dash_serial.h sits below the
                          * simulator and must not reach up into it. */
+    uint8_t bright;     /* BRIGHT: backlight percent 0-100 */
 } DashCommand;
 
 /* ---- internals ---- */
@@ -330,6 +334,16 @@ static inline DashSerialErr dash_parse_line(const char *line, DashCommand *out)
         else if (dash_serial_ieq_(tok[1], "off")) { out->sim_on = false; }
         else { return DASH_ERR_BAD_VALUE; }
         out->kind = DASH_CMD_SIM;
+        return DASH_ERR_NONE;
+    }
+
+    if (dash_serial_ieq_(tok[0], "bright")) {
+        float v; /* percent 0-100; caller scales to REG_PWM_DUTY 0-128 */
+        if (ntok < 2) { return DASH_ERR_MISSING_VALUE; }
+        if (!dash_serial_parse_float_(tok[1], &v)) { return DASH_ERR_BAD_VALUE; }
+        if (!(v >= 0.0f && v <= 100.0f)) { return DASH_ERR_RANGE; }
+        out->kind = DASH_CMD_BRIGHT;
+        out->bright = (uint8_t) (v + 0.5f);
         return DASH_ERR_NONE;
     }
 

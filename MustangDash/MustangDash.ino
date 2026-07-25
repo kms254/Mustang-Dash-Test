@@ -245,13 +245,16 @@ static const uint8_t BL_STEADY = 128U;
  * dragged fps to 25 with faults=0 -- writes mostly survived, reads did not.
  * 8 MHz is the verified operating point until the U9 soak walks it up --
  * fps alone never accepts an operating point. */
-static const uint32_t DASH_SPI_RUN_HZ = 13500000UL; /* 13.5 MHz: F767 bench-accepted operating point (2026-07-21 clock walk on
-    long low-quality jumpers). 6.75 MHz clean; 13.5 MHz clean -- 3 min STREET
-    soak, fps=60, faults=0, REG_ID stable x15, both modes eyes-on. 27 MHz
-    HARD-WEDGED the firmware (serial dead, loop stuck in the unbounded
-    EVE_execute_cmd busy-poll on corrupted reads) -- REJECTED. Note the F767
-    prescaler rounds requests DOWN to 6.75/13.5/27/54; re-walk on the carrier's
-    point-to-point copper, never accept a step without eyes-on-panel. */
+static const uint32_t DASH_SPI_RUN_HZ = 13500000UL; /* 13.5 MHz: proven for TWO panels (center 7" + one 5" side)
+    once the grounds are clean -- 2026-07-23, fps=59, faults=0,0,0, eve=ok,ok, both DLs full. IMPORTANT: an
+    earlier same-night "three-point clock walk" (13.5 retire / 3.375 too-slow-retire / 6.75 renders-but-faults)
+    concluded 6.75 was the only render-capable step and blamed SPI crosstalk -- that was ALL confounded by a
+    FLOATING PANEL GROUND (a 5" running off the bench buck whose ground return to the MCU was bad). With clean
+    grounds (5" on MCU 3.3V/GND, 7" on buck, solid common ground) 13.5 runs two panels faults=0, same as the
+    center-only first light. The clock was never the limiter; grounding was. F767 prescaler steps:
+    6.75/13.5/27/54 (SPI1 /APB2 108MHz, SPI2 /APB1 54MHz; requests round DOWN). 27 MHz center-only HARD-WEDGED
+    2026-07-21 (serial dead, unbounded busy-poll on corrupted reads) -- still REJECTED; do not exceed 13.5
+    without a fresh eyes-on read-integrity soak. */
 
 /* ---- forward declarations (explicit prototypes, see note above) ---- */
 void set_backlight(uint8_t duty);
@@ -1063,6 +1066,15 @@ void handle_serial_line(const char *line)
                                  cmd.circuit_sweep ? SIM_CIRCUIT_SWEEP : SIM_CIRCUIT_HPR);
             Serial.printf("ok circuit %s\r\n", cmd.circuit_sweep ? "sweep" : "hpr");
             break;
+        case DASH_CMD_BRIGHT: {
+            /* cmd.bright is percent 0-100; scale to REG_PWM_DUTY 0-128 (rounded).
+             * Hardware path, so it lands here (dash_serial.h can't reach the
+             * panels). One ack, echoing the percent the user asked for. */
+            uint8_t duty = (uint8_t) (((uint16_t) cmd.bright * 128U + 50U) / 100U);
+            dash_set_brightness(duty);
+            Serial.printf("ok bright %u%%\r\n", (unsigned) cmd.bright);
+            break;
+        }
         case DASH_CMD_ODO_SET:
             dash_odo_reseed(&g_odo, cmd.value);
             odo_eeprom_write();
