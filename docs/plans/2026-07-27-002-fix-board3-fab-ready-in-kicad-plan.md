@@ -18,7 +18,7 @@ origin: docs/plans/2026-07-27-001-chore-kicad-evaluation-plan.md
 - **Product authority:** Kevin owns design decisions. This document owns sequencing and the completion bar.
 - **Execution profile:** Real design work on a board headed for fabrication. Unlike its predecessor, mistakes here reach copper.
 - **Stop conditions:** Stop and report if a fix would change circuit intent rather than implementation; if the recovered design rules contradict what the board was drawn to; or if DRC violations rise above the imported baseline of 41 after any unit.
-- **Tail ownership:** Kevin runs every schematic edit — KiCad exposes no headless schematic API, so those units are GUI-only by architecture. Layout, routing, verification and fab outputs are agent-run.
+- **Tail ownership:** Agent-run throughout, including connection-level schematic edits (see KTD4). Kevin runs **Update PCB from Schematic**, which has no CLI equivalent, and owns component-adding schematic work (U3). Layout, routing, verification and fab outputs are agent-run.
 - **Open blockers:** Two design rules are unrecovered — the CAN differential value and the intended USB width. U1 resolves them and gates the signal-integrity work.
 
 ---
@@ -87,7 +87,9 @@ None of this was visible before the board reached a tool that could be analyzed 
 - Design rules come from `tools/kicad_rules.json` (JLCPCB 4-layer standard), never from the board's own `.kicad_pro` — the importer wrote KiCad's factory defaults there. See [the migration learning](../solutions/integration-issues/easyeda-pro-to-kicad-migration-silent-data-loss.md).
 - Board3 as imported: 144 footprints, 107 nets, 4 copper layers, 250.25 × 50.25 mm, 41 DRC violations, 0 airwires before the strip.
 - The routed board carries 58 airwires and 37 new violations over baseline.
-- Schematic editing has no headless path in KiCad 10 — `pcbnew` exposes no `SCH_IO_MGR`, and `kicad-cli sch` offers only `erc`, `export`, `upgrade`.
+- Schematic *editing* has no headless **API** in KiCad 10 — `pcbnew` exposes no `SCH_IO_MGR`, and `kicad-cli sch` offers only `erc`, `export`, `upgrade`. It does have a headless **path**: the file is text. See KTD4 for when to take it.
+- **Update PCB from Schematic is the one genuinely GUI-only step**, and it must be run with "Re-link footprints to schematic symbols based on their reference designators" ticked. Without that box, it reports one `Cannot add <ref>` error per component (140 of them), invariant to every other option — the importer produces a schematic and board whose symbol↔footprint UUID paths do not correspond.
+- **ERC is measured as a delta, like DRC.** The imported schematic carries 1265 ERC violations; 477 of those are `unconnected_wire_endpoint` from the import's own pin-stub convention. An absolute ERC count is not a quality signal here.
 - `kicad-happy` and `KiCadRoutingTools` are cloned beside the repo; `KICAD_HAPPY` and `KICAD_ROUTING_TOOLS` override their locations.
 
 ### Open Questions
@@ -116,7 +118,15 @@ KTD2. **Design rules come from `tools/kicad_rules.json`, never from the board's 
 
 KTD3. **The DRC bar is a delta, not an absolute.** The imported board carries 41 pre-existing violations, so "DRC clean" is unachievable by construction and would fail the source design too. R13 therefore requires no *new* violations against that baseline. `tools/kicad_verify.py` already measures this way.
 
-KTD4. **Schematic units are GUI-only and Kevin-run.** KiCad 10 exposes no headless schematic API. Rather than pretend otherwise, R1–R3 are grouped into schematic units executed in the GUI, each followed by an explicit sync-to-PCB step. Scripting them would mean hand-editing `.kicad_sch` S-expressions, which risks the netlist for no gain.
+KTD4. **Schematic units are agent-run by direct file edit; only the sync-to-PCB step is GUI-bound.** *(Corrected 2026-07-27 — the original wording confused "no API" with "no access".)* KiCad 10 genuinely exposes no headless schematic API: `pcbnew` has no `SCH_IO_MGR` and `kicad-cli sch` offers only `erc`, `export`, `upgrade`. But `.kicad_sch` is a plain S-expression text file, and editing it is neither exotic nor especially risky when three conditions hold:
+
+- the edit **copies a convention already present on the sheet** rather than inventing geometry (U2's fix is four wire stubs plus four labels, identical in shape to the `VBUS_SENSE` / `USB_DP` / `+3V3` stubs on the same pin column);
+- it is parsed with a **tokenizer, never a regex** — regex parsing of these files failed five times in the evaluation session;
+- it is verified by **`kicad-cli sch export netlist`**, which is the same netlist KiCad syncs the board from, so a passing export is not a proxy for correctness but the thing itself.
+
+Adding *components* (U3) is materially riskier than adding *connections* (U2), because it needs symbol-library entries, unit and pin mapping, and footprint association — rather than two node types the sheet already contains. Treat U3 as GUI-first and U2-class edits as agent-run.
+
+What remains GUI-bound is **Update PCB from Schematic**, which has no CLI equivalent and additionally requires "Re-link footprints to schematic symbols based on their reference designators" to be ticked.
 
 KTD5. **The four flagged nets are hand-routed, never autorouted.** They are held out in `tools/kicad_netclass.json` precisely because an autorouter degrades them. Fixing them means deliberate routing against a stated intent — loop area for the crystal, symmetry for the pairs, length matching for QSPI — which no router optimises for.
 
@@ -128,12 +138,13 @@ Three phases with a hard boundary between them: the netlist must be final before
 
 ```mermaid
 flowchart TB
+  U0[U0 Footprint library] --> U7[U7 Thermal vias and fiducials]
   U1[U1 Recover missing design rules] --> U6[U6 Hand-route flagged SI nets]
-  subgraph SCH[Schematic - GUI, Kevin-run]
-    U2[U2 Join BTN pull-ups to switches]
-    U3[U3 CAN termination and NRST pull-up]
+  subgraph SCH[Schematic]
+    U2[U2 Join BTN nets to MCU pins - agent-run, DONE]
+    U3[U3 CAN termination and NRST pull-up - GUI]
   end
-  U2 --> SYNC[Update PCB from schematic]
+  U2 --> SYNC[Update PCB from schematic - GUI only]
   U3 --> SYNC
   SYNC --> U4[U4 Clear keepout violations]
   SYNC --> U5[U5 Route to zero airwires]
@@ -152,8 +163,9 @@ U8 runs independently of copper — it is a data problem, not a layout one — b
 
 | U-ID | Title | Key files | Depends on |
 |---|---|---|---|
+| U0 | Give the project a footprint library | `kicad/board3/fp-lib-table`, `kicad/board3/*.pretty/` | — |
 | U1 | Recover the missing design rules | `tools/kicad_rules.json` | — |
-| U2 | Join BTN pull-ups to their switches | `kicad/board3/*.kicad_sch` | — |
+| U2 | Join BTN switch nets to their MCU pins | `kicad/board3/*.kicad_sch` | — |
 | U3 | CAN termination and NRST pull-up | `kicad/board3/*.kicad_sch` | — |
 | U4 | Clear the keepout violations | `kicad/board3/*.kicad_pcb` | U2, U3 |
 | U5 | Route to zero airwires | `tools/kicad_route.py`, `kicad/board3/` | U2, U3, U4 |
@@ -161,6 +173,40 @@ U8 runs independently of copper — it is a data problem, not a layout one — b
 | U7 | Thermal vias and fiducials | `kicad/board3/*.kicad_pcb` | U6 |
 | U8 | BOM MPN coverage | `tools/kicad_fab.py` | — |
 | U9 | Fab outputs and final gate | `tools/kicad_fab.py` | U7, U8 |
+
+### U0. Give the project a footprint library — DONE 2026-07-27
+
+**Goal:** Make the project able to rebuild its own footprints. Right now it cannot.
+
+**Requirements:** Supports R17 (KiCad as authoritative source) — a source that cannot reproduce its own parts is not authoritative.
+
+**Dependencies:** None. Should run early; it is a safety net for every later unit that touches copper.
+
+**Files:** `kicad/board3/fp-lib-table`, `kicad/board3/ProPrj_New-easyedapro.pretty/`
+
+**Approach:** The EasyEDA Pro import handled symbols and footprints asymmetrically, and only the symbol half is complete:
+
+| | symbols | footprints |
+|---|---|---|
+| library file | `ProPrj_New-easyedapro.kicad_sym` (446 KB) | **none** |
+| library table | `sym-lib-table` | **no `fp-lib-table`** |
+| where the data lives | library + `lib_symbols` cache in `.kicad_sch` | **only embedded in `.kicad_pcb`** |
+
+Every footprint on the board names the library `ProPrj_New-easyedapro:`, and that nickname resolves to nothing. The geometry survives only because `.kicad_pcb` embeds a full copy of each footprint it uses. So the board renders and fabricates correctly today, while the project has no way to place any of these parts again, and no way to propagate a footprint correction to more than one instance.
+
+This is a genuine migration gap of the same family as the design rules (KTD2) — the importer translated *objects* and skipped the *library* they came from. It is worth its own unit for the same reason: it is invisible until the moment you need it, and by then the source project may be gone.
+
+Fix with **File → Export → Footprints to Library…** in the PCB editor, targeting a new `ProPrj_New-easyedapro.pretty` beside the existing `.kicad_sym`, then add the matching `fp-lib-table` with a `${KIPRJMOD}` URI mirroring `sym-lib-table`.
+
+**Execution note:** GUI export (no CLI equivalent), then the `fp-lib-table` can be written directly. Do this *before* U7 adds vias and fiducials, so the library reflects the board as imported rather than as amended.
+
+**Test scenarios:**
+- `fp-lib-table` exists, and its nickname matches the `ProPrj_New-easyedapro:` prefix every board footprint already uses.
+- The `.pretty` directory holds one `.kicad_mod` per distinct footprint on the board — count it against the board's distinct `fpid` set, not against 144 (instances ≠ distinct footprints).
+- Opening the board reports no unresolved-footprint warnings.
+- A footprint opened from the library is geometrically identical to its embedded copy on the board.
+
+**Verification:** The board's distinct footprint set is fully resolvable from the project's own library, with the board unchanged. ✅ **DONE** — `fp-lib-table` written with nickname `ProPrj_New-easyedapro` and a `${KIPRJMOD}` URI mirroring `sym-lib-table`; `ProPrj_New-easyedapro.pretty/` holds 30 `.kicad_mod`. The board uses 30 distinct fpids (26 library-prefixed, 4 bare `Pad_e67*` corner free pads); **all 26 prefixed footprints resolve, none unresolved**. Because the new library's nickname matches the prefix the board already used, "Update board footprints to link to exported footprints" was left unticked and the `.kicad_pcb` was not rewritten.
 
 ### U1. Recover the missing design rules
 
@@ -183,7 +229,7 @@ U8 runs independently of copper — it is a data problem, not a layout one — b
 
 **Verification:** `tools/kicad_rules.json` has no remaining `unresolved` entries, and a DRC run with the new values reports a coherent result rather than a flood.
 
-### U2. Join BTN pull-ups to their switches
+### U2. Join BTN switch nets to their MCU pins — SCHEMATIC DONE 2026-07-27
 
 **Goal:** Make all four buttons functional.
 
@@ -193,11 +239,32 @@ U8 runs independently of copper — it is a data problem, not a layout one — b
 
 **Files:** `kicad/board3/ProPrj_New Project_2026-07-15_23-14-34_2026-07-27.kicad_sch`
 
-**Approach:** Each of `BTN1`–`BTN4` is a single-pin net ending at `R28.2`–`R31.2`; each `BTN1_SW`–`BTN4_SW` carries the switch and ground. The two were never joined. Connect them in the schematic editor, then Update PCB from Schematic.
+**Approach:** *(The original framing of this unit was wrong and is corrected here.)* `BTN1`–`BTN4` were single-pin nets ending at `R28.2`–`R31.2`, and the plan read that as "the pull-up net was never joined to the switch net". It is not: `R28.1` and `SW1.1` were already joined on `/BTN1_SW`. **The missing link was on the MCU side** — `R28.2`–`R31.2` never reached `U1.93`–`U1.96` (`PC6`–`PC9`). The unit's own caution ("the MCU-side connection is what the single-pin net proves is missing") was the correct reading.
 
-Confirm the intended topology before wiring. A pull-up to the MCU pin with the switch pulling to ground is the obvious reading, but the MCU-side connection is what the single-pin net proves is missing — so check which pin each was meant to reach rather than assuming.
+The measured topology, and the reason the "pull-up" label is a misnomer:
 
-**Execution note:** GUI, Kevin-run. Verify with ERC before syncing to the PCB, not after.
+```
+SW*.1 ──/BTN*_SW── R28..R31 (1 kΩ, SERIES) ──/BTN*── U1.93..96 (PC6..PC9)
+SW*.4 ── /GND                       SW*.2, SW*.3 unconnected
+```
+
+There is **no external pull-up anywhere on these nets**. `R28`–`R31` are 1 kΩ series resistors between switch and MCU, and the switch pulls to ground. The buttons therefore work only with the **STM32's internal pull-ups enabled on PC6–PC9 in firmware**. Electrically that is sound — pressed, the pin sits at ≈0.08 V through 1 kΩ against a ~40 kΩ internal pull-up — but it is a firmware dependency, not a board one, and R2/R3's sibling findings should not be read as implying these nets have pull-ups too.
+
+**Implementation, as executed:** four 2.54 mm wire stubs `(48.26,y) → (50.8,y)` with local labels `BTN1`–`BTN4` at `(49.53,y)`, for y = 215.9 / 213.36 / 210.82 / 208.28. This copies exactly the stub-and-label convention the same pin column already uses for `VBUS_SENSE`, `USB_DP`, `USB_DM`, `QSPI_NCS`, `+3V3` and `GND`.
+
+**Execution note:** Agent-run by direct file edit (KTD4). **A prior attempt placed bare labels directly on the pin points with no wire; that worked electrically but was deleted by a later "remove orphaned residue" cleanup**, because a label sitting on a pin has no wire under it and reads as orphaned. The stub form is not cosmetic — it is what makes the connection survive cleanup.
+
+**Test scenarios:**
+- Each of `BTN1`–`BTN4` has at least two pins after the edit. ✅ measured: `/BTN1`=[R28.2, U1.93], `/BTN2`=[R29.2, U1.94], `/BTN3`=[R30.2, U1.95], `/BTN4`=[R31.2, U1.96]
+- `analyze_schematic.py` no longer reports `NT-001` single-pin warnings for the BTN nets. ✅ ERC `isolated_pin_label` 13 → 9
+- The MCU pin each button reaches is a valid input, confirmed against the H755 pin map. ✅ PC6–PC9, all GPIO-capable
+- Covers R1. Sync-to-PCB produces four new ratlines rather than silently changing existing nets. ✅ measured: airwires 1 → 5, nets 221 → 217 (the four `unconnected-(U1-PC*-Pad9*)` placeholders consumed), tracks+vias unchanged at 2557, footprints 144 with zero zero-pad footprints
+
+**Verification:** Zero single-pin BTN nets ✅, and the PCB shows the new connections as airwires awaiting routing ✅. **U2 COMPLETE** — R1 satisfied; the four ratlines are U5's to route.
+
+**Trap that cost two failed sync attempts — `Update PCB from Schematic` does not read `.kicad_sch` from disk.** It asks the Kiway's eeschema instance, which caches the schematic from earlier in the session. After an out-of-editor edit to the schematic file, the first sync reported *no changes* and saved a board byte-identical to HEAD — twice — while the file on disk was demonstrably correct. **Restarting KiCad cleared it.** This is the mirror image of the known stale-file trap: there, the file lagged the editor; here, the editor lagged the file. Check both directions. `git status` on the `.kicad_pcb` is the cheapest detector — an unmodified board after a sync that should have changed something means the sync saw stale input.
+
+ERC delta is zero (1265 → 1265) and fully accounted: −4 `isolated_pin_label`, −4 `pin_not_connected`, +4 `pin_to_pin` (imported symbols carry `unspecified` pin types; 317 such already existed), +4 `unconnected_wire_endpoint` (the far end of each stub — identical to the 477 the import's own stubs already produce).
 
 **Test scenarios:**
 - Each of `BTN1`–`BTN4` has at least two pins after the edit.
@@ -217,11 +284,24 @@ Confirm the intended topology before wiring. A pull-up to the MCU pin with the s
 
 **Files:** `kicad/board3/ProPrj_New Project_2026-07-15_23-14-34_2026-07-27.kicad_sch`
 
-**Approach:** Add 120 Ω termination across each CAN pair at the transceivers (`U8`, `U9`), and a pull-up on `NRST`.
+**Approach:** ~~Add 120 Ω termination across each CAN pair.~~ **R2 IS ALREADY SATISFIED — measured 2026-07-27. The plan's premise ("Neither CAN transceiver has 120 Ω termination") is false.** Both networks already carry complete, independently-jumpered split termination:
 
-Note first that `CAN1_TERM` and `CAN2_TERM` nets already exist, with `R14`/`R24` at 60.4 Ω and `H1`/`H3` jumper headers. Split termination may already be intended and merely unpopulated or unjoined — establish which before adding parts. The fix may be wiring rather than components.
+```
+CAN1:  U8.7 CANH ──[H1 jumper]── R10 60.4Ω ──┬── R14 60.4Ω ── U8.6 CANL
+                                    CAN1_CT ─┴── C57 4.7nF ── GND
+CAN2:  U9.7 CANH ──[H3 jumper]── R15 60.4Ω ──┬── R24 60.4Ω ── U9.6 CANL
+                                    CAN2_CT ─┴── C58 4.7nF ── GND
+```
 
-**Execution note:** GUI, Kevin-run. Determine whether the existing 60.4 Ω pair plus jumpers is the intended split termination before adding anything.
+60.4 + 60.4 = **120.8 Ω** across each pair, with the centre tap bypassed to ground through 4.7 nF — textbook AC/split termination, which damps common-mode noise as well as terminating the differential line. **Each network has its own jumper** (`H1` → CAN1, `H3` → CAN2), which is exactly the required topology: either bus can be terminated or not, independently, depending on whether this board sits at a bus end.
+
+`kicad-happy`'s `PR-003` is a **false positive**: it looks for a single ~120 Ω part across CANH/CANL and cannot see termination split across two resistors with a jumper in series.
+
+*Minor, non-blocking:* the jumper interrupts only the CANH leg, so with it open CANL still sees 60.4 Ω + 4.7 nF to ground (≈127 Ω at 500 kHz) — a slightly asymmetric AC stub. Normal practice for a 2-pin header and not worth a redesign; noted so it is not rediscovered as a defect.
+
+**Remaining in this unit: `NRST` only.** Measured `/NRST` = `C46` (100 nF), `H2.4`, `SW6.1`, `U1.27` — a reset cap and switch, no pull-up. The STM32H755 has an **internal** NRST pull-up (~30–50 kΩ), so the pin is not floating and `PU-001` is also arguably a false positive. An external 10 kΩ is optional; for a board going into a car, the EMI margin makes it worth adding.
+
+**Execution note:** GUI, Kevin-run — and now scoped to at most one resistor. Nothing to do for CAN.
 
 **Test scenarios:**
 - `analyze_schematic.py` no longer reports `PR-003` for `U8` or `U9`.
