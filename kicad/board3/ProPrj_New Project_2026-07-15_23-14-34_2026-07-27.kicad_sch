@@ -17136,6 +17136,46 @@
 	)
 	(wire
 		(pts
+			(xy 50.8 215.9) (xy 48.26 215.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "10665977-c806-4b84-8e06-0e42a657296a")
+	)
+	(wire
+		(pts
+			(xy 50.8 213.36) (xy 48.26 213.36)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "54054f09-b383-4c72-84d0-7c4158557352")
+	)
+	(wire
+		(pts
+			(xy 50.8 210.82) (xy 48.26 210.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f529753c-ea5a-4e7d-b0e1-1ae4ecc2e0ff")
+	)
+	(wire
+		(pts
+			(xy 50.8 208.28) (xy 48.26 208.28)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "76787325-b8fd-476f-a3dd-f3ec17404ec9")
+	)
+	(wire
+		(pts
 			(xy 109.22 43.18) (xy 106.68 43.18)
 		)
 		(stroke
@@ -19233,6 +19273,46 @@
 			(justify left bottom)
 		)
 		(uuid "0664ba1d-7b42-433e-974b-01ec92c6907c")
+	)
+	(label "BTN1"
+		(at 49.53 215.9 0)
+		(effects
+			(font
+				(size 1.2446 1.2446)
+			)
+			(justify left bottom)
+		)
+		(uuid "c4b51c16-33ab-43ce-9a94-297a967ee0b6")
+	)
+	(label "BTN2"
+		(at 49.53 213.36 0)
+		(effects
+			(font
+				(size 1.2446 1.2446)
+			)
+			(justify left bottom)
+		)
+		(uuid "098d144b-c834-47a1-b26c-0146d00ef261")
+	)
+	(label "BTN3"
+		(at 49.53 210.82 0)
+		(effects
+			(font
+				(size 1.2446 1.2446)
+			)
+			(justify left bottom)
+		)
+		(uuid "9b521461-b1b2-40b3-a3f8-89f5ab74767b")
+	)
+	(label "BTN4"
+		(at 49.53 208.28 0)
+		(effects
+			(font
+				(size 1.2446 1.2446)
+			)
+			(justify left bottom)
+		)
+		(uuid "c000c3d8-0e47-4dc8-a45b-73236c4bc5cf")
 	)
 	(label "+3V3"
 		(at 378.46 147.32 0)
