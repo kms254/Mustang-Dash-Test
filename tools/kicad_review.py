@@ -54,20 +54,32 @@ EXIT_MISSED_CALIBRATION = 3  # distinct: the reviewer failed, not the harness
 # findings are believed.
 #
 # Matching must be loose enough to accept the reviewer's own phrasing and tight
-# enough not to fire on a coincidence. The first version of this matched any
-# finding containing "vbus" and duly reported CALIBRATED against two info-level
+# enough not to fire on a coincidence. An early version matched any finding
+# containing "vbus" and duly reported CALIBRATED against two info-level
 # trace-width reports on nets *named* VBUS -- vouching for the reviewer on a
-# net-name collision, the exact failure this gate exists to prevent.
+# net-name collision, the exact failure this gate exists to prevent. So a match
+# needs a term from EVERY group, and must clear `excluded_severities`.
 #
-# So a match now needs a term from EVERY group (the defect concept and its
-# subject), and must clear `min_severity`: a real inrush violation is never
-# filed as info.
+# Why this is the BTN nets and not the USB inrush case
+# ----------------------------------------------------
+# The original case was "880 uF of bulk capacitance on VBUS violates the USB-C
+# 10 uF inrush limit". Running this gate for real disproved it: VBUS carries a
+# single 100 nF 0603 (C53). The four 220 uF electrolytics sit on +5V, behind the
+# U5/U6 ideal-diode ORing. The reviewer reported nothing because there was
+# nothing there -- scoring it MISSED would have condemned a working tool on a
+# bad premise. (Unsettled, and not this file's business: whether charging that
+# +5V bulk through the ideal-diode FET violates inrush anyway.)
+#
+# A calibration case must be a defect independently CONFIRMED to exist. This one
+# is: BTN1-4 are single-pin nets ending at R28.2-R31.2, because each pull-up net
+# was never joined to its switch's BTN*_SW net. Found by hand in the netlist,
+# then reproduced unprompted by analyze_schematic.py as NT-001.
 CALIBRATION = {
-    "name": "USB VBUS inrush (bulk capacitance exceeds the USB-C 10 uF limit)",
+    "name": "BTN1-4 single-pin nets (pull-up nets never joined to their switches)",
     "needs": "schematic",
     "all_groups": (
-        ("inrush", "bulk cap", "bulk capacit", "capacitance"),
-        ("vbus", "vusb", "usb-c", "usb c"),
+        ("single-pin", "single pin", "one pin", "exactly one pin"),
+        ("btn1", "btn2", "btn3", "btn4"),
     ),
     "excluded_severities": ("info", "note", "debug"),
 }
@@ -88,21 +100,59 @@ def find_analyzers() -> Path:
     return scripts
 
 
-def run_pcb_analysis(board: Path, scripts: Path) -> dict:
-    """Return the analyzer's JSON verbatim. Never re-derive findings here."""
+def _run_analyzer(script: Path, target: Path) -> dict:
+    """Return an analyzer's JSON verbatim. Never re-derive findings here.
+
+    A non-zero exit is not failure on its own -- these analyzers use the exit
+    code to signal finding counts and severity, and still emit a full report on
+    stdout. Only an empty stdout means the run genuinely died.
+    """
     proc = subprocess.run(
-        [sys.executable, str(scripts / "analyze_pcb.py"), str(board), "--compact"],
+        [sys.executable, str(script), str(target), "--compact"],
         capture_output=True,
         text=True,
     )
-    if proc.returncode != 0 and not proc.stdout.strip():
+    if not proc.stdout.strip():
         raise ReviewError(
-            f"analyze_pcb.py failed ({proc.returncode}): {proc.stderr.strip()[:500]}"
+            f"{script.name} produced no output ({proc.returncode}): "
+            f"{proc.stderr.strip()[:500]}"
         )
     try:
         return json.loads(proc.stdout)
     except json.JSONDecodeError as exc:
-        raise ReviewError(f"analyzer produced non-JSON output: {exc}") from exc
+        raise ReviewError(f"{script.name} produced non-JSON output: {exc}") from exc
+
+
+def run_pcb_analysis(board: Path, scripts: Path) -> dict:
+    return _run_analyzer(scripts / "analyze_pcb.py", board)
+
+
+def run_schematic_analysis(schematic: Path, scripts: Path) -> dict:
+    return _run_analyzer(scripts / "analyze_schematic.py", schematic)
+
+
+def find_board_and_schematic(target: Path) -> tuple[Path, Path | None]:
+    """Resolve a project directory (or a board path) to its board and schematic.
+
+    KiCad's EasyEDA Pro importer names files after the source project, so the
+    paths are long and not stable enough to hardcode -- glob for them instead.
+    """
+    if target.is_file():
+        project = target.parent
+        board = target
+    else:
+        project = target
+        boards = sorted(project.glob("*.kicad_pcb"))
+        if not boards:
+            raise ReviewError(f"no .kicad_pcb found in {project}")
+        if len(boards) > 1:
+            raise ReviewError(
+                f"{len(boards)} .kicad_pcb files in {project} -- name one explicitly: "
+                + ", ".join(p.name for p in boards)
+            )
+        board = boards[0]
+    schematics = sorted(project.glob("*.kicad_sch"))
+    return board, (schematics[0] if len(schematics) == 1 else None)
 
 
 def finding_text(finding: dict) -> str:
@@ -150,15 +200,20 @@ def main() -> int:
 
     try:
         scripts = find_analyzers()
-        result = run_pcb_analysis(target, scripts)
+        board, schematic = find_board_and_schematic(target)
+        findings = [
+            dict(f, source="pcb") for f in run_pcb_analysis(board, scripts).get("findings", [])
+        ]
+        if schematic:
+            findings += [
+                dict(f, source="schematic")
+                for f in run_schematic_analysis(schematic, scripts).get("findings", [])
+            ]
     except ReviewError as exc:
         print(f"review failed: {exc}", file=sys.stderr)
         return EXIT_ERROR
 
-    findings = result.get("findings", [])
-    project = target if target.is_dir() else target.parent
-    schematic_present = any(project.glob("*.kicad_sch"))
-
+    schematic_present = schematic is not None
     verdict, reason = calibrate(findings, schematic_present)
 
     by_sev: dict[str, int] = {}
@@ -166,9 +221,16 @@ def main() -> int:
         sev = str(f.get("severity", "unknown")).lower()
         by_sev[sev] = by_sev.get(sev, 0) + 1
 
+    by_source: dict[str, int] = {}
+    for f in findings:
+        by_source[f["source"]] = by_source.get(f["source"], 0) + 1
+
     report = {
         "target": str(target),
+        "board": str(board),
+        "schematic": str(schematic) if schematic else None,
         "schematic_analyzed": schematic_present,
+        "by_source": by_source,
         "calibration": {
             "verdict": verdict,
             "reason": reason,
@@ -182,11 +244,12 @@ def main() -> int:
     if args.json_out:
         Path(args.json_out).write_text(json.dumps(report, indent=2), encoding="utf-8")
 
-    print(f"target      : {target}")
-    print(f"schematic   : {'analyzed' if schematic_present else 'ABSENT'}")
+    print(f"board       : {board.name}")
+    print(f"schematic   : {schematic.name if schematic else 'ABSENT'}")
     print(
         f"findings    : {len(findings)}  "
         + ", ".join(f"{k}={v}" for k, v in sorted(by_sev.items()))
+        + "  [" + ", ".join(f"{k}={v}" for k, v in sorted(by_source.items())) + "]"
     )
     print(f"calibration : {verdict}")
     print(f"              {reason}")
