@@ -20,3 +20,12 @@
 
 # Scratch log dropped in the repo root by tooling; never a build input.
 /debug.log
+
+# KiCad per-user churn. The board and schematic files under kicad/ ARE tracked --
+# git diff is how the evaluation verifies that a write landed, so the design
+# itself must be in the repo. These four are per-machine or regenerable and would
+# otherwise produce diff noise on every open.
+/kicad/**/*-backups/
+*.kicad_prl
+fp-info-cache
+_autosave-*
