@@ -1,0 +1,4 @@
+(fp_lib_table
+	(version 7)
+	(lib (name "ProPrj_New-easyedapro") (type "KiCad") (uri "${KIPRJMOD}/ProPrj_New-easyedapro.pretty") (options "") (descr ""))
+)
