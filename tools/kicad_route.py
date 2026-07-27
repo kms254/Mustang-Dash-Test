@@ -79,9 +79,23 @@ def apply_rules(board: Path, template_pro: Path) -> Path:
 
 
 def excluded_net_args() -> list[str]:
+    """Router --nets patterns: everything, minus every held-out net.
+
+    Each name is emitted in BOTH the bare and the hierarchy-prefixed form.
+    kicad_netclass.json records nets as EasyEDA named them (USB_DP), but a KiCad
+    "Update PCB from Schematic" rewrites every board net to the schematic's
+    hierarchical form (/USB_DP). Matching is literal, so a bare-only pattern
+    silently stops excluding anything the moment that sync runs -- and the
+    failure is invisible: the router reports success while having ripped up and
+    re-solved the audited USB pair, the crystal loop and the QSPI bus, which are
+    held out precisely because an autorouter degrades them. Emitting both forms
+    keeps the exclusion correct on either side of that rename; an unmatched
+    pattern is harmless.
+    """
     spec = json.loads(NETCLASS.read_text(encoding="utf-8"))
     nets = sorted({n for e in spec["exclusions"] for n in e["nets"]})
-    return ["*"] + [f"!{n}" for n in nets]
+    patterns = {f"!{n}" for n in nets} | {f"!/{n.lstrip('/')}" for n in nets}
+    return ["*"] + sorted(patterns)
 
 
 def airwires(board: Path) -> int:
