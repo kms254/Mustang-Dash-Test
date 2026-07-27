@@ -23792,6 +23792,42 @@
 		(uuid "8ebe0460-9dc8-4e74-9ad9-59edfdc00d74")
 	)
 	(label "BTN1"
+		(at 48.26 215.9 0)
+		(effects
+			(font
+				(size 1.2446 1.2446)
+			)
+			(justify left bottom)
+		)
+	)
+	(label "BTN2"
+		(at 48.26 213.36 0)
+		(effects
+			(font
+				(size 1.2446 1.2446)
+			)
+			(justify left bottom)
+		)
+	)
+	(label "BTN3"
+		(at 48.26 210.82 0)
+		(effects
+			(font
+				(size 1.2446 1.2446)
+			)
+			(justify left bottom)
+		)
+	)
+	(label "BTN4"
+		(at 48.26 208.28 0)
+		(effects
+			(font
+				(size 1.2446 1.2446)
+			)
+			(justify left bottom)
+		)
+	)
+	(label "BTN1"
 		(at 364.49 181.61 0)
 		(effects
 			(font
