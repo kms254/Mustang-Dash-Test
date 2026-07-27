@@ -29,3 +29,10 @@
 *.kicad_prl
 fp-info-cache
 _autosave-*
+
+# Import staging. Only the export that actually produced the tracked board is
+# kept -- it is the provenance of everything downstream, so the conversion stays
+# reproducible from the repo alone. Extracted trees and rejected-format exports
+# are regenerable and stay out.
+/kicad/_import/*
+!/kicad/_import/PADS_*.zip
