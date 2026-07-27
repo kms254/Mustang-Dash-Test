@@ -40,6 +40,8 @@ _autosave-*
 !/kicad/_import/ProPrj_*.epro
 !/kicad/_import/PADS_*.zip
 
+__pycache__/
+
 # kicad-happy drops an analysis cache in whatever directory it runs from.
 # Regenerable per run; the committed evidence is the report tools/kicad_review.py
 # writes, not this.

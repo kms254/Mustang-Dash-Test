@@ -1,0 +1,55 @@
+{
+  "$comment": [
+    "Board3's real design rules. This file exists because KiCad's EasyEDA Pro",
+    "importer does NOT translate design rules -- it brings geometry, nets and the",
+    "schematic faithfully, then writes KiCad's stock factory defaults into the",
+    "netclass (clearance 0.2, track_width 0.2, via_diameter 0.6, via_drill 0.3).",
+    "",
+    "That substitution is silent and expensive. Measured against those invented",
+    "rules, an untouched Board3 reports 544 DRC violations, 503 of them clearance",
+    "-- every one a false positive, all sitting in a 0.117-0.197 mm band just under",
+    "a 0.2 mm rule the board was never drawn to. Against the real rules below the",
+    "same board reports 41. EasyEDA's own DRC was right all along.",
+    "",
+    "Anyone migrating a board here who trusts the imported .kicad_pro will chase",
+    "hundreds of phantom violations and route to constraints their fab never agreed",
+    "to. Apply these instead."
+  ],
+  "process": "JLCPCB 4-layer, standard (not advanced)",
+  "source": "https://jlcpcb.com/capabilities/pcb-capabilities",
+  "verified_on": "2026-07-27",
+
+  "rules_mm": {
+    "min_clearance": 0.1016,
+    "min_track_width": 0.1016,
+    "min_via_diameter": 0.45,
+    "min_through_hole_diameter": 0.3,
+    "min_hole_clearance": 0.1016,
+    "min_hole_to_hole": 0.5
+  },
+
+  "default_netclass_mm": {
+    "clearance": 0.1016,
+    "track_width": 0.254,
+    "via_diameter": 0.6,
+    "via_drill": 0.3
+  },
+
+  "$notes": {
+    "track_width": "0.254 mm (10 mil) is what every track on Board3 actually is, so it is the design's working width rather than the process floor. The 0.1016 mm minimum is JLC's standard limit; 0.09 mm (3.5 mil) is reachable on their ADVANCED process at extra cost, which is what an autorouter necks down to at fine-pitch pads if it is not constrained.",
+    "annular_ring": "JLC wants 0.15 mm minimum, 0.2 mm preferred. Not expressible as a single KiCad rule key; watch the annular_width violation class instead."
+  },
+
+  "unresolved": [
+    {
+      "item": "CAN differential",
+      "known": "Raised above standard during design; recorded from memory as '10mm', which cannot be a width -- 10 mil is 0.254 mm, the board-wide track width. Most likely a differential gap or an impedance target.",
+      "action": "Read the actual value from EasyEDA's net-class panel before this board is fabricated. It is not present in the imported rules."
+    },
+    {
+      "item": "USB differential width",
+      "known": "An action item existed to narrow it; the value was not recorded. USB_DP/USB_DM are currently 0.254 mm with 0.22% skew, zero vias, single layer.",
+      "action": "Recover the intended value. EasyEDA's DRC flags a length discrepancy on this pair against its configured rule, so a real constraint exists somewhere that this file does not capture."
+    }
+  ]
+}
