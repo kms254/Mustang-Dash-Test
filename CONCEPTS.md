@@ -77,6 +77,18 @@ The purpose-built PCB that replaces the bench wiring loom as the dash's physical
 ### Data Channel
 One live value the dash consumes (RPM, oil pressure, lap delta…), carried in a single shared structure with a per-channel validity flag. Producers fill channels — the built-in simulator today, CAN decoders later — and renderers only read them; the source is invisible to rendering. An invalid channel displays `--` and can never assert an alarm, which is what makes "no stale alarms" a structural guarantee rather than a convention.
 
+## Board Design
+
+### Airwire
+One unrouted pad-to-pad connection on a PCB — the thin line a layout tool draws between two pads the netlist says belong together and that no copper yet joins. A single net produces as many airwires as it has connections still to make, so airwires and nets count entirely different things and are not interchangeable.
+
+The distinction is load-bearing here because this project has already confused them once: a routing task recorded as "~274 unrouted nets" was in fact ~274 airwires across roughly a hundred nets, 93 of which already carried copper. Scoped against nets the work looked like most of the board; scoped correctly it was a nearly-complete board. Any statement about how much routing remains is ambiguous unless it names which unit it counts.
+
+### Design Rules
+The manufacturing constraints a board is drawn to — minimum clearance, track width, via diameter and drill, hole spacing — held as project metadata alongside the board rather than inside its geometry. Because they live outside the design objects, they travel separately: a tool can carry every footprint, net, and trace faithfully and still lose the rules entirely.
+
+That separation is why rules are verified rather than assumed after any import or handoff. Measured against the wrong rules a correct board reports hundreds of violations, and a router reading those rules will produce copper the fab never agreed to — with nothing in either output indicating the constraints themselves are fiction. The tell is a violation set clustered just under a round number: real sloppiness scatters, a mismatched rule produces a band.
+
 ## Track Simulation
 
 ### Circuit
