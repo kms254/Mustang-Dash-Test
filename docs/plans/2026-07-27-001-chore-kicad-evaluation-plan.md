@@ -7,6 +7,7 @@ artifact_contract: ce-unified-plan/v1
 artifact_readiness: implementation-ready
 product_contract_source: ce-brainstorm
 execution: code
+superseded_by: docs/plans/2026-07-27-002-fix-board3-fab-ready-in-kicad-plan.md
 ---
 
 # KiCad Evaluation Against EasyEDA - Plan
@@ -19,6 +20,47 @@ execution: code
 - **Execution profile:** Investigative. Units produce measurements and a verdict, not shippable firmware. Tooling written along the way is disposable if the verdict goes against KiCad.
 - **Stop conditions:** Stop and report if conversion fails on both Windows and WSL2 (U2 is a kill gate); if any step would modify the EasyEDA Board3 project; or if a router writes a board that fails connectivity against the netlist.
 - **Tail ownership:** Kevin runs anything that touches EasyEDA or requires the KiCad GUI. Everything else is agent-run.
+
+---
+
+## Outcome
+
+**This plan is closed. Its question was answered, and the work moved to
+[2026-07-27-002-fix-board3-fab-ready-in-kicad-plan.md](2026-07-27-002-fix-board3-fab-ready-in-kicad-plan.md).**
+
+The evaluation was cut short by its own result: once conversion, review and
+routing all worked, the question stopped being *whether* to move and became
+*what it takes to finish the board in KiCad*. The head-to-head against EasyEDA's
+autorouter (R17, R18, U7) was never run and is not planned — it would settle a
+comparison nobody needs settled.
+
+What each bar produced:
+
+| Bar | Result |
+|---|---|
+| R1 conversion fidelity | **Pass** — 144 footprints, 107 nets, zero pad loss |
+| R2 schematic | **Pass** — 1.15 MB `.kicad_sch` |
+| R12/R13/R14 review | **Pass** — 128 findings, calibrated, repeatable |
+| R5 headless routing | **Pass** — no GUI at any point |
+| R7 connectivity | **78%** — 208 of 266 airwires closed, no nets dropped |
+| R6 DRC-clean | **Fail as written** — 37 new violations. The bar was unachievable: the source board carries 41 pre-existing violations, so no routed board can be absolutely clean. A delta bar belongs in the successor plan |
+| R10/R11 creation | Not reached |
+| R15/R16 JLC pipeline | Not reached — carried into the successor plan as a deliverable rather than a bar |
+| R17/R18 head-to-head | **Not pursued** |
+
+Two corrections a reader should not have to reconstruct. **The conversion route
+below is wrong**: U2, U12 and KTD9 describe PADS ASCII, which was retired after
+it silently dropped every through-hole pad. The working route is
+`File → Save as → epro (V2 format)` into KiCad's EasyEDA Pro project importer.
+And **the 107→94 net-drop question is void** — it described the retired PADS
+baseline, which had 94 nets where the current one has 107.
+
+The durable findings are in `docs/solutions/`:
+[migration data loss](../solutions/integration-issues/easyeda-pro-to-kicad-migration-silent-data-loss.md),
+[zone refill](../solutions/developer-experience/refill-zones-before-measuring-a-headlessly-routed-board.md),
+[reviewer calibration](../solutions/design-patterns/calibrate-an-automated-reviewer-on-a-confirmed-defect.md).
+Unit bodies below describe the work as planned, not as executed; git is the
+record of what ran.
 
 ---
 
