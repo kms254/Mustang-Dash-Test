@@ -36,3 +36,8 @@ _autosave-*
 # are regenerable and stay out.
 /kicad/_import/*
 !/kicad/_import/PADS_*.zip
+
+# kicad-happy drops an analysis cache in whatever directory it runs from.
+# Regenerable per run; the committed evidence is the report tools/kicad_review.py
+# writes, not this.
+/analysis/
