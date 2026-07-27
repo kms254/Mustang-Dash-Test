@@ -15,7 +15,7 @@ execution: code
 
 - **Objective:** Decide whether Board3-class PCB work moves from EasyEDA Pro to KiCad, by importing Board3 as a parallel copy and measuring whether an agent can drive routing, creation, and design review without a human at a GUI.
 - **Product authority:** Kevin owns the verdict. This document owns the scope and the bars. Where the two disagree, Kevin wins and the document is corrected.
-- **Open blockers:** None blocking a start. `epro2kicad`'s Windows support is untested by its author and is the first thing likely to fail.
+- **Open blockers:** None blocking a start. One unit-scoped blocker: the 107→94 net drop across save must be explained before U5 or U7 treats this board as the routing baseline.
 - **Execution profile:** Investigative. Units produce measurements and a verdict, not shippable firmware. Tooling written along the way is disposable if the verdict goes against KiCad.
 - **Stop conditions:** Stop and report if conversion fails on both Windows and WSL2 (U2 is a kill gate); if any step would modify the EasyEDA Board3 project; or if a router writes a board that fails connectivity against the netlist.
 - **Tail ownership:** Kevin runs anything that touches EasyEDA or requires the KiCad GUI. Everything else is agent-run.
@@ -34,7 +34,7 @@ The EasyEDA MCP bridge can edit what already exists but cannot create. Every fai
 
 Two further costs compound it. Several wrapped tools report success without acting — `delete_primitive` returns `success: true` on components that survive, and `SCH_PrimitiveComponent.modify` with a partial state corrupts `otherProperty` while looking like it worked. And every schematic-side call depends on which browser tab has focus, with no programmatic way to detect or change it; a blank canvas capture and an empty region are indistinguishable.
 
-Board3 carries roughly 274 unrouted nets. The inability to route programmatically is what forced the question.
+Board3 carries roughly 274 unrouted airwires across ~100 nets. The inability to route programmatically is what forced the question.
 
 ### Key Decisions
 
@@ -147,7 +147,8 @@ The human sits on the critical path by construction in the first path and nowher
 
 ### Scope Boundaries
 
-- The USB VBUS inrush fix and the 4-layer stackup decision stay un-landed in both tools until the verdict. Neither board diverges during the evaluation.
+- The USB VBUS inrush fix stays un-landed in both tools until the verdict. Neither board diverges during the evaluation.
+- The 4-layer stackup is already applied in the design; what remains un-landed is the write-up of why 6-layer was rejected. That document is not this plan's work.
 - Board1 and Board2 stay locked in EasyEDA. Nothing migrates but the Board3 copy.
 - The EasyEDA baseline run is a measurement, not design work. Its routed output is discarded; no copper from it lands on a real board.
 - No round-trip back to EasyEDA at any point.
@@ -158,18 +159,24 @@ The human sits on the critical path by construction in the first path and nowher
 ### Dependencies and Assumptions
 
 - KiCad 10.0.5 is installed at `C:\Program Files\KiCad\10.0\`, with a bundled Python 3.11.5. `kicad-cli` is not on PATH, so scripts invoke it by absolute path or PATH is amended once.
-- `epro2kicad` is developed and tested on macOS through KiCad 10.0.4; its Windows support is explicitly untested, and the installed 10.0.5 is one patch beyond its tested range. WSL2 Ubuntu is the fallback host.
-- KiCad's EasyEDA Pro schematic importer is GUI-only. There is no headless path for the schematic, so R2 carries a manual step by design.
+- `epro2kicad` is unused. It requires a `.epro` export EasyEDA Pro v3 does not produce; the route is PADS instead, per KTD9. WSL2 Ubuntu remains available as a fallback host but was not needed.
+- Board3 as converted: 140 footprints, 3147 track segments, 122 vias, 6 zones, 4 copper layers, 250.25 × 50.25 mm outline, 93 of 94 nets carrying copper. These are measured, not estimated, and supersede the earlier net figures.
+- The 4-layer stackup is already applied in the design — confirmed independently by the PADS export's `MAXIMUMLAYER 4` and ODB++'s four copper layers.
+- KiCad's schematic importer accepts Altium, CADSTAR, EAGLE, EasyEDA, LTspice, and OrCAD — not PADS-LOGIC, which is the format `Schematic3.txt` uses. R2 has no confirmed path.
 - The IPC API is PCB-only in KiCad 9 and 10, with export and headless operation arriving in KiCad 11. The evaluation does not depend on it.
 - Automated review requires Python 3.10+; the workstation has Python 3.13.
 - Freerouting requires a JRE or its Docker image; WSL2 makes the container the lower-friction path.
-- Board3's net figures (~274 unrouted, ~72 on `+3V3`) carry over from the 2026-07-26 session and are not re-verified here.
 - Board3's pin count exceeds the 650-pin free tier of at least one candidate router.
 
 ### Outstanding Questions
 
+**Resolve before U5 or U7 runs**
+
+- Net count drops 107 on import to 94 after save. Most likely KiCad pruning empty nets, but that is a hypothesis. Silent net loss is what R7 exists to catch, so it must be confirmed before this board is trusted as the routing baseline.
+
 **Deferred to planning**
 
+- R2's schematic path. No KiCad importer reads PADS-LOGIC, and EasyEDA's Altium schematic export is Protel ASCII, which the Altium schematic importer will reject the same way its PCB counterpart did. The EasyEDA export menu was truncated below `T/DISA 4001` — check the remainder with a schematic tab active before concluding no path exists.
 - How the EasyEDA duplicate is produced, and whether its autorouter run needs the same layer stackup the KiCad copy uses for the comparison to be fair.
 
 - Which router runs first — the `.kicad_pcb`-native tooling or Freerouting through DSN/SES.
@@ -183,7 +190,7 @@ The human sits on the critical path by construction in the first path and nowher
 | [Freerouting](https://github.com/freerouting/freerouting) | Router candidate; DSN/SES, [headless CLI](https://github.com/freerouting/freerouting/blob/master/docs/command_line_arguments.md), REST API, Python SDK, Docker | Yes | Free |
 | [KiCadRoutingTools](https://github.com/drandyhaas/KiCadRoutingTools) | Router candidate; `.kicad_pcb` in/out, planes and via placement, ships a Claude skill | Yes | Free |
 | [kicad-happy](https://github.com/aklofas/kicad-happy) | Automated design review; parses S-expressions without KiCad installed | Yes | Free |
-| [epro2kicad](https://github.com/enkhbold470/epro2kicad) | PCB conversion from EasyEDA Pro via KiCad's own parser | Yes | Free |
+| [epro2kicad](https://github.com/enkhbold470/epro2kicad) | Rejected — needs a `.epro` export EasyEDA Pro v3 does not produce | n/a | Free |
 | [DeepPCB](https://deeppcb.ai/deeppcb-api-your-pcb-design-ai-agent/) | Fallback router; place and route via API, 8 layers / 1200 airwires | Yes | ~30 credits/hr |
 | [Quilter](https://www.quilter.ai/blog/the-true-cost-of-pcb-tools-in-2026-altium-vs-kicad-vs-quilter) | Fallback; physics-driven place and route, cloud | Unconfirmed | Pay on download |
 | [Electra](https://konekt.com/products/) | Fallback; DSN in, batch mode and TCL-scriptable strategy files | Partly | Commercial |
@@ -197,7 +204,7 @@ Existing EasyEDA constraints this evaluation is measured against are recorded in
 
 ## Planning Contract
 
-Product Contract unchanged. Requirements R1–R20, flows F1–F4, and acceptance examples AE1–AE5 carry over from the brainstorm verbatim.
+Product Contract unchanged. Requirements R1–R20, flows F1–F4, and acceptance examples AE1–AE5 carry over from the brainstorm verbatim. Execution corrected two factual premises the Product Contract rested on — the routing volume is ~274 airwires rather than nets, and the 4-layer stackup is already applied — but neither changes a requirement.
 
 ### Key Technical Decisions
 
@@ -217,6 +224,8 @@ KTD7. **New tooling is Python in `tools/`,** matching the existing `make_dash_fo
 
 KTD8. **Both routers start from the same stripped board, and the strip is partial.** Board3 is already partly routed, some of it by hand. Leaving that copper in place would measure whether a router can finish someone else's layout — and `KiCadRoutingTools` has no push-and-shove, so every existing trace is a hard constraint that biases the result pessimistically. Stripping everything is equally wrong: it would hand the R9-excluded nets to an autorouter that must not touch them. The strip therefore removes exactly the nets offered to the router, driven by the same `kicad_netclass.json`, and U7's EasyEDA baseline starts from that identical state. Different starting copper voids the comparison entirely.
 
+KTD9. **The conversion route is PADS ASCII, and importers must be validated before they are called.** EasyEDA Pro v3 offers no `.epro` export, so `epro2kicad` and KiCad's `EASYEDAPRO` importer are both unusable. EasyEDA exports PADS PowerPCB ASCII; KiCad reads it natively through `PCB_IO_MGR` plugin 17. Two rejected routes explain the constraints this places on the tooling: `EASYEDA` (9) on a `.eprj2` and `ALTIUM_DESIGNER` (6) on EasyEDA's Altium export — which is Protel ASCII where KiCad expects binary OLE/CFB — both terminate the process with a stack buffer overrun rather than raising, and the crash takes stdout's buffer with it, so the symptom is a silent hang. `EASYEDAPRO` (10) fails worse: it accepts a `.eprj2` without complaint and returns an empty board. Any caller of `PCB_IO_MGR.Load` therefore pins one plugin id, never iterates to find one that works, checks the container's magic bytes first, and treats an empty result as a failed conversion.
+
 ### High-Level Technical Design
 
 The plan is a gated pipeline, not a linear sequence. U2 is a kill gate; the routing units carry a router fallback; review runs on a branch that does not depend on routing at all.
@@ -224,8 +233,9 @@ The plan is a gated pipeline, not a linear sequence. U2 is a kill gate; the rout
 ```mermaid
 flowchart TB
   U1[U1 Toolchain and scaffolding] --> U2{U2 Convert PCB}
-  U2 -->|Windows or WSL2 succeeds| U3[U3 Schematic import and baseline commit]
-  U2 -->|both fail| VERDICT[U10 Verdict from partial evidence]
+  U12[U12 Export from EasyEDA Pro] --> U2
+  U2 -->|PADS route succeeds| U3[U3 Schematic import and baseline commit]
+  U2 -->|fails| VERDICT[U10 Verdict from partial evidence]
   U3 --> U4[U4 Review harness and calibration]
   U3 --> U11[U11 Strip routable nets]
   U11 --> U5[U5 Net classification and routing]
@@ -257,7 +267,8 @@ U11 is the fairness pivot: it defines the one starting state both routers are me
 | U-ID | Title | Key files | Depends on |
 |---|---|---|---|
 | U1 | Toolchain and repo scaffolding | `tools/kicad_env.py`, `.gitignore` | — |
-| U2 | Convert Board3 PCB (kill gate) | `tools/kicad_convert.py`, `kicad/board3/` | U1 |
+| U12 | Export Board3 from EasyEDA Pro | `kicad/_import/PADS_*.zip` | — |
+| U2 | Convert Board3 PCB (kill gate) | `tools/kicad_convert.py`, `kicad/board3/` | U1, U12 |
 | U3 | Schematic import and baseline commit | `kicad/board3/` | U2 |
 | U4 | Review harness and calibration | `tools/kicad_review.py` | U3 |
 | U11 | Strip routable nets to a common start | `tools/kicad_netclass.json`, `tools/kicad_strip.py` | U3 |
@@ -289,30 +300,56 @@ U11 is the fairness pivot: it defines the one starting state both routers are me
 
 **Verification:** `kicad_env.py` run standalone prints the resolved CLI path, KiCad version, and detected host.
 
+### U12. Export Board3 from EasyEDA Pro
+
+**Goal:** Produce the interchange file U2 converts, and keep it in the repo so the conversion is reproducible.
+
+**Requirements:** Supports R1, R4.
+
+**Dependencies:** None.
+
+**Files:** `kicad/_import/PADS_*.zip`, `.gitignore`
+
+**Approach:** Kevin exports from EasyEDA Pro with the Board3 PCB tab active — File → Export → PADS. The export is per-document, so it carries Board3 alone and no board-selection step is needed downstream. It contains `PCB3.asc` (PADS PowerPCB ASCII) and `Schematic3.txt` (PADS-LOGIC). The archive is committed alongside the converted board: it is the provenance of everything downstream. Extracted trees and rejected-format exports stay ignored.
+
+Altium and ODB++ exports were evaluated and rejected — see KTD9 for Altium, and ODB++ carries fabrication geometry without design intent.
+
+**Execution note:** Manual, Kevin-run. Fire nothing against EasyEDA unprompted.
+
+**Test scenarios:**
+- The archive contains a `.asc` opening with the `!PADS-POWERPCB` signature.
+- Covers R4. The EasyEDA project's own file is unmodified by the export, checked against its recorded baseline hash.
+- The export covers Board3 only, not Board1 or Board2.
+
+**Verification:** A PADS archive is committed and its `.asc` passes the signature check.
+
 ### U2. Convert Board3 PCB — kill gate
 
 **Goal:** Produce a KiCad PCB from the EasyEDA Pro export, and record which host succeeded.
 
 **Requirements:** R1. Advances R4.
 
-**Dependencies:** U1.
+**Dependencies:** U1, U12.
 
 **Files:** `tools/kicad_convert.py`, `kicad/board3/`
 
-**Approach:** Wrap `epro2kicad`'s three stages — normalize the `.epro`'s line endings, invoke KiCad's bundled Python against `pcbnew.PCB_IO_MGR.Load()`, package the result. Attempt Windows first; on failure, retry under WSL2 via `wsl -- bash -lc`. Record both outcomes. The EasyEDA project is read-only input; the script must never write back to it.
+**Approach:** Read the PADS ASCII export produced by U12 and load it through `PCB_IO_MGR` plugin 17, then save as `.kicad_pcb`. Per KTD9 the plugin id is pinned, never discovered, and the container is validated before `Load()` — a PADS ASCII board opens with the `!PADS-POWERPCB` signature, and anything else is refused without calling into KiCad. Run under KiCad's bundled Python, which is where `pcbnew` lives. The EasyEDA project is read-only input; the script never writes back to it.
 
-**Execution note:** Attempt one conversion by hand before writing the wrapper. If `epro2kicad` works unmodified on Windows, the wrapper is thin; if it needs patching, that shapes the script.
+Two behaviours the importer forces. An empty board — no footprints and no segments — is a conversion failure, not a success. And `SaveBoard` can crash the interpreter during teardown *after* the file is written, so success is judged by re-reading the saved board rather than by the process exit code.
 
-**Patterns to follow:** `wsl -- bash -lc "..."` invocation as used for the host test suite; `.gitignore` pins `*.sh` to LF per `.gitattributes` — the same CRLF hazard applies to any shell script this unit adds.
+**Execution note:** Attempt one conversion by hand before writing the wrapper, and run any KiCad probe unbuffered. A crashing importer loses buffered stdout, which reads as a hang and hides how far the run got.
+
+**Patterns to follow:** `tools/kicad_env.py` for interpreter and CLI resolution — never hardcode paths. `wsl -- bash -lc "..."` invocation as used for the host test suite, if a WSL fallback is ever needed.
 
 **Test scenarios:**
-- Conversion on Windows either produces a `.kicad_pcb` or fails with the host and error recorded.
-- Covers AE3. When Windows fails, the WSL2 retry runs automatically and its outcome is recorded separately rather than overwriting the Windows result.
-- Covers R1. The converted board contains footprints, tracks, vias, zones, nets, board outline, and silkscreen — verified by counting each primitive class against the EasyEDA source.
-- When both hosts fail, the script exits non-zero with both errors and does not leave a partial `kicad/board3/`.
+- Covers R1. The converted board carries footprints, tracks, vias, zones, board outline, and silkscreen, verified by counting each primitive class.
+- A board that loads with zero footprints and zero segments is reported as a failed conversion and exits non-zero.
+- A file failing the `!PADS-POWERPCB` signature check is refused before `Load()` is called, so no crash is possible.
+- The saved `.kicad_pcb` re-reads through KiCad's own parser with matching primitive counts, proving the write is sound even when the process crashed at teardown.
+- Covers AE3. A conversion failure is recorded with the route and the reason, and does not leave a partial `kicad/board3/`.
 - Re-running conversion over an existing `kicad/board3/` refuses rather than silently overwriting a baseline.
 
-**Verification:** `kicad/board3/board3.kicad_pcb` opens in KiCad and its primitive counts match the EasyEDA source within a documented tolerance. If both hosts fail, the plan proceeds directly to U10.
+**Verification:** `kicad/board3/board3.kicad_pcb` re-reads with primitive counts matching the import. If conversion fails, the plan proceeds directly to U10.
 
 ### U3. Schematic import and baseline commit
 
@@ -324,16 +361,18 @@ U11 is the fairness pivot: it defines the one starting state both routers are me
 
 **Files:** `kicad/board3/`
 
-**Approach:** Kevin imports the EasyEDA Pro schematic through KiCad's GUI — there is no headless path. The agent then commits the full converted project before any edit. This commit is the diff baseline every later unit measures against, so it must contain no agent-authored changes.
+**Approach:** The baseline commit is the unit's load-bearing half and does not depend on the schematic. Commit the converted board before any edit; this is the diff baseline every later unit measures against, so it must contain no agent-authored changes.
 
-**Execution note:** Manual step. Stage and commit only after Kevin confirms the import finished.
+The schematic half is contingent. KiCad reads Altium, CADSTAR, EAGLE, EasyEDA, LTspice, and OrCAD schematics — not the PADS-LOGIC that EasyEDA produced. Resolve the open question on R2's path before attempting an import; if no path exists, record R2 as not reached and continue. The routing and review units need only the board, so a missing schematic does not gate them.
+
+**Execution note:** Manual step where a GUI import turns out to be possible. Stage and commit the board baseline regardless — it must not wait on the schematic question.
 
 **Test scenarios:**
-- Covers R2. The imported schematic's component count matches the EasyEDA source.
 - Covers R3. The baseline commit contains only converted output — `git diff` between the commit and the conversion tool's output is empty.
-- Covers R4. The EasyEDA project file's mtime is unchanged across U2 and U3.
+- Covers R4. The EasyEDA project is unchanged across U2 and U3, checked against its recorded baseline hash.
+- Covers R2. Where an import path is found, the imported schematic's component count matches the EasyEDA source. Where none is found, R2 is recorded as not reached with the formats tried.
 
-**Verification:** A commit exists whose tree is the unmodified conversion output, and its hash is recorded for later diffs.
+**Verification:** A commit exists whose tree is the unmodified board conversion, and its hash is recorded for later diffs. R2 carries either an imported schematic or an explicit not-reached result.
 
 ### U4. Review harness and calibration
 
@@ -367,7 +406,7 @@ U11 is the fairness pivot: it defines the one starting state both routers are me
 
 **Approach:** Read the baseline board, classify every net against `kicad_netclass.json`, and delete track segments and vias belonging to the routable set only. Excluded nets — USB D+/D−, QSPI, and any net the classification marks hand-routed — keep their copper untouched. Write the result as a separate file so the baseline stays intact. Report the before/after routed-net counts: this is the number that tells you whether the comparison is a light top-up or a near-full reroute, and it is the number U7 must reproduce in EasyEDA.
 
-**Execution note:** Report the routed-vs-total net census before deleting anything. If the strip turns out to remove far more than the ~274 already-unrouted nets, that materially changes the size of both runs and is worth a decision before proceeding.
+**Execution note:** Report the census in **airwires**, not nets, and report it before deleting anything. Nets are the wrong unit here — 93 of Board3's 94 nets already carry copper, so a net-level count says almost nothing about how much routing work remains. If the strip removes far more than the ~274 airwires the board was thought to have outstanding, that materially changes the size of both runs and is worth a decision before proceeding.
 
 **Test scenarios:**
 - Every net in the exclusion list retains its exact track and via count after the strip.
@@ -513,7 +552,7 @@ Fire nothing against EasyEDA unprompted — Kevin initiates.
 | Gate | Command | Applies to |
 |---|---|---|
 | KiCad toolchain resolves | `python tools/kicad_env.py` | U1 |
-| Conversion produces a board | `python tools/kicad_convert.py` | U2 |
+| Conversion produces a board | `python tools/kicad_convert.py kicad/_import/<pads-export>.zip` | U2, U12 |
 | Strip census | `python tools/kicad_strip.py kicad/board3/board3.kicad_pcb` | U11 |
 | Board DRC | `& 'C:\Program Files\KiCad\10.0\bin\kicad-cli.exe' pcb drc kicad/board3/board3.kicad_pcb` | U6 |
 | Connectivity unchanged | `python tools/kicad_verify.py kicad/board3/board3.kicad_pcb` | U6 |
