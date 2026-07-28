@@ -285,6 +285,12 @@ Why it is a build dependency, not a preference: `tools/kicad_fab.py` builds the
 JLCPCB BOM from the schematic's supplier fields, so an un-sourced part does not
 warn — it silently vanishes from the BOM.
 
+**Searching for the part is itself a trap.** LCSC indexes `package` as the
+vendor filed it, so a JEDEC-name query hides the metric-name half of the
+catalogue (`PLCC-2` 98 parts vs `3528` 194; orange stock 79 vs 14,654). Always
+search a package **both ways** before calling a part scarce —
+`docs/solutions/developer-experience/search-a-package-by-both-its-jedec-and-metric-names.md`.
+
 Field-name traps, both load-bearing and both already paid for:
 
 - The LCSC code lives in **`Supplier Part`**. The JLCImport plugin writes it to a
