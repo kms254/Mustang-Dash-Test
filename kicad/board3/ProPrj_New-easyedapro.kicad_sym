@@ -25293,7 +25293,7 @@
 		)
 		(embedded_fonts no)
 	)
-	(symbol "ULN2803A_C181731"
+	(symbol "TBD62083AFWG_C165895"
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
@@ -25309,7 +25309,7 @@
 				)
 			)
 		)
-		(property "Value" ""
+		(property "Value" "TBD62083AFWG"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -25330,7 +25330,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/ULN2803A/193128.html"
+		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2304140030_TOSHIBA-TBD62083AFWG-EL_C165895.pdf"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -25341,7 +25341,7 @@
 				)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "number of channels:8 RDS(on):325mOhm Voltage - Supply:2.5V~30V Control Input Logic:Active High Operating Temperature:-40C~+85C Type:Low Side Switch"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -25352,7 +25352,7 @@
 				)
 			)
 		)
-		(property "Manufacturer Part" "ULN2803A"
+		(property "Manufacturer Part" "TBD62083AFWG"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -25363,7 +25363,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "Mixic(中科芯亿达)"
+		(property "Manufacturer" "TOSHIBA"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -25374,7 +25374,7 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C181731"
+		(property "Supplier Part" "C165895"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -25407,7 +25407,7 @@
 				)
 			)
 		)
-		(symbol "ULN2803A_C181731_1_0"
+		(symbol "TBD62083AFWG_C165895_1_0"
 			(rectangle
 				(start -7.62 12.7)
 				(end 7.62 -12.7)

@@ -47,6 +47,6 @@
 "U5,U6","LM74700QDBVRQ1","ProPrj_New-easyedapro:SOT-23-6_L2.9-W1.6-P0.95-LS2.8-BL","2","C2941042","LM74700QDBVRQ1","TI(德州仪器)","Extended Part"
 "U7","FM24CL64B-GTR","ProPrj_New-easyedapro:SOIC-8_L4.9-W3.9-P1.27-LS6.0-BL","1","C9829","FM24CL64B-GTR","Infineon/CYPRESS(赛普拉斯)","Extended Part"
 "U8,U9","TJA1051T/3/1J","ProPrj_New-easyedapro:SOIC-8_L4.9-W3.9-P1.27-LS6.0-BL","2","C38695","TJA1051T/3/1J","NXP(恩智浦)","Extended Part"
-"U10","ULN2803A","ProPrj_New-easyedapro:SOIC-18_L11.6-W7.5-P1.27-LS10.3-BL","1","C181731","ULN2803A","Mixic(中科芯亿达)","Extended Part"
+"U10","TBD62083AFWG","ProPrj_New-easyedapro:SOIC-18_L11.6-W7.5-P1.27-LS10.3-BL","1","C165895","TBD62083AFWG","TOSHIBA","Extended Part"
 "USBC1","TYPE-C-31-M-12","ProPrj_New-easyedapro:USB-C_SMD-TYPE-C-31-M-12_1","1","C165948","TYPE-C-31-M-12","韩国韩荣","Extended Part"
 "X1","25MHz","ProPrj_New-easyedapro:CRYSTAL-SMD_4P-L3.2-W2.5-BL","1","C9006","X322525MOB4SI","YXC(扬兴晶振)",""
