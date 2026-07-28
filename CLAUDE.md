@@ -329,6 +329,19 @@ with no CLI. All three candidate routes were tested on Board3 and all three fail
   ("without this step, the board has no footprints"), not to reconcile one
   already placed and routed. **Treat its success as meaningless on this board.**
 
+**A fourth route exists and is not a netlist sync: `pcbnew` can replace footprints
+directly.** `FootprintLoad`, `board.Add`/`Remove`, `SetPosition`/
+`SetOrientationDegrees`, `board.FindNet` and `pad.SetNet` are all exposed and all
+work — U11 swapped all eight telltales this way, preserving position, rotation
+and field layers, assigning every pad from the netlist. **It still had to be
+reverted:** DRC went 194 → 258 with **25 `shorting_items`**, and refilling zones
+first fixed the clearance/mask noise but not one short. The cause is a board
+anomaly, not the method — **all six copper zones parse with no net**, and netless
+fill touching both pads of a part shorts them; the larger 3528 pads reach into it
+where the 0805 pads did not. So: the API can place footprints, but do not use it
+to dodge the GUI step on a board whose copper is not ready for the new land
+pattern. Details in the U11 section of the telltale plan.
+
 So KTD12 holds: **Kevin runs Update PCB from Schematic in the GUI**, with
 re-link-by-reference ticked, and KiCad must be **restarted first** after any
 out-of-editor schematic edit — it syncs from eeschema's cache, not the file, and

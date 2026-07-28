@@ -313,7 +313,26 @@ So each position needs its anode pin landed on `/+5V` and its cathode on `/TT*_L
 
 The alternative — preserving the board's existing per-position polarity — was rejected as a preference: it is the smaller diff but it carries an inconsistency that exists only because six imported symbols disagreed, and it leaves the next person to rediscover this the hard way.
 
-**Unresolved and worth one look during the sync:** DRC reports **0 unconnected** on the current board, which does not square with sixteen pads carrying no track. All three large copper zones (`F.Cu`, `B.Cu`, `In1.Cu`) parse as netless, so what is satisfying connectivity there is not identified. It does not change this decision — nothing needs re-routing either way — but the ratsnest will show the truth the moment Update PCB from Schematic runs, and a surprise there should stop the unit rather than be routed around.
+**The board half was attempted in script and reverted. 2026-07-28.** Worth recording because it sharpens the "GUI-only" rule rather than just confirming it.
+
+`pcbnew` *can* do a targeted footprint replacement — `FootprintLoad`, `board.Add`/`Remove`, `SetPosition`/`SetOrientationDegrees`, `pad.SetNet` and `board.FindNet` are all exposed and all work. The eight telltales were swapped, positions and orientations preserved, Value/Reference field layers carried over, and every pad assigned from the netlist (pad 1 = cathode, pad 2 = anode). The script ran clean. **The board it produced is worse, so it was reverted:**
+
+| | baseline | after swap | after zone refill |
+|---|---|---|---|
+| `shorting_items` | 0 | 24 | **25** |
+| `solder_mask_bridge` | 0 | 39 | 25 |
+| `clearance` | 0 | 19 | 4 |
+| `courtyards_overlap` | 25 | 26 | 26 |
+| unconnected | 0 | 3 | 3 |
+| **total** | **194** | 286 | 258 |
+
+Refilling zones first (per `docs/solutions/developer-experience/refill-zones-before-measuring-a-headlessly-routed-board.md`) fixed most of the clearance and mask-bridge noise and **did not touch the shorts**, so the fill was not the cause.
+
+**The shorts point at a board anomaly, not at the swap.** A representative one is `Items shorting two nets (nets /TT6_LED_K and /+5V)` — LED6's own two pads bridging. The 3528 land pattern puts 1.2 × 2.5 mm pads at ±1.35 mm, a 1.5 mm edge-to-edge gap, so they cannot bridge each other. Something else carrying copper across them must be doing it, and the likeliest candidate is the same anomaly noted below: **all six copper zones parse with no net**. Netless filled copper touching both pads shorts them by definition, and the smaller 0805 pads evidently sat clear of it where the 3528 pads do not.
+
+So the conclusion is narrower and more useful than "the API cannot do it": **the API can place the footprints; the board is not ready to receive them until the netless-zone question is answered.** That is layout work with a real design question inside it, not a scripting gap. Do not re-attempt the scripted swap before the zones are understood — it will reproduce the same 25 shorts.
+
+**Unresolved, and now load-bearing rather than a curiosity:** DRC reports **0 unconnected** on the current board, which does not square with sixteen pads carrying no track. All three large copper zones (`F.Cu`, `B.Cu`, `In1.Cu`) parse as netless, so what is satisfying connectivity there is not identified. It does not change this decision — nothing needs re-routing either way — but the ratsnest will show the truth the moment Update PCB from Schematic runs, and a surprise there should stop the unit rather than be routed around.
 
 **Retire the superseded imports.** Three parts were imported during selection and lost: `67-21_BHC-FQ1R2F_2T` (`C264601`), `HVT-3528CPX` (`C5246350`), `HVY-3528CPX` (`C2843418`). Each carries a ~1.3-1.7 MB STEP plus a WRL. Remove their symbols, footprints and models rather than leaving three unreferenced parts a future reader has to disprove — git history keeps them if the decision is ever revisited.
 
