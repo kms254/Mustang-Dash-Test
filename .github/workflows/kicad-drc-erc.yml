@@ -44,14 +44,37 @@ jobs:
           echo "pcb=$(ls kicad/board3/*.kicad_pcb | head -1)" >> "$GITHUB_OUTPUT"
           echo "sch=$(ls kicad/board3/*.kicad_sch | head -1)" >> "$GITHUB_OUTPUT"
 
-      - name: DRC
+      # The DRC bar is a delta, not an absolute. Board3 came out of the EasyEDA
+      # Pro importer carrying 41 error-severity violations -- courtyard overlaps
+      # and edge clearances that no layout work removes -- so a zero-violation
+      # gate is unreachable by construction and would only teach people to merge
+      # past a red check (KTD3). This is that import, checked out beside the
+      # working tree so the inherited violations can be attributed to it.
+      - name: Check out the import baseline
+        uses: actions/checkout@v4
+        with:
+          ref: 52586d44e4490d43a20e6fb8543b4e6f641bfd61
+          path: import-baseline
+
+      # Informational: the raw report that ships in the artifact. It measures
+      # against the board's own .kicad_pro, and it no longer carries
+      # --exit-code-violations -- the step below is the gate.
+      - name: DRC report
         run: |
           kicad-cli pcb drc \
             --severity-error \
-            --exit-code-violations \
             --format json \
             -o drc.json \
             "${{ steps.find.outputs.pcb }}"
+
+      # Fails on NEW violations only, compared per type so a falling total
+      # cannot hide a class that did not exist before. Both boards are measured
+      # through tools/kicad_rules.json, never their own .kicad_pro.
+      - name: DRC delta against the import baseline
+        run: |
+          python3 tools/kicad_verify.py \
+            "${{ steps.find.outputs.pcb }}" \
+            --baseline "import-baseline/${{ steps.find.outputs.pcb }}"
 
       - name: ERC
         if: always()

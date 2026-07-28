@@ -1,5 +1,5 @@
 ---
-title: Refill zones before measuring a headlessly routed board, or DRC reports order-of-magnitude phantom violations
+title: Refill zones before measuring a headlessly routed board, and fill them under the real rules
 date: 2026-07-27
 category: developer-experience
 module: kicad-routing
@@ -9,13 +9,20 @@ severity: high
 applies_when:
   - "Routing a KiCad board from a CLI or script rather than through the GUI"
   - "A routed board reports hundreds of zero-clearance violations against copper pours"
+  - "Refilling zones on a board whose design rules do not live in its own .kicad_pro"
+  - "A copper edit produces thermal-relief violations you cannot account for"
   - "Comparing autorouter completion or DRC results between tools or runs"
 root_cause: missing_workflow_step
 resolution_type: workflow_improvement
-tags: [kicad, pcb, routing, drc, zones, headless, measurement]
+tags: [kicad, pcb, routing, drc, zones, clearance, design-rules, headless, measurement]
 ---
 
 # Refill zones before measuring a headlessly routed board
+
+A routed board that has not been refilled is not in a measurable state — and a
+refill performed under the wrong clearance is a copper edit you did not intend.
+Both mistakes are silent, and both produce violations that look like the change
+under test caused them.
 
 ## Context
 
@@ -35,23 +42,57 @@ zero-clearance violation.
 The KiCad GUI refills zones as part of ordinary editing, so this failure mode is
 invisible until routing moves to a script.
 
+**Refilling turned out to be only half the instruction.** A zone fill is
+clearance-dependent, so its result depends on which design rules were loaded
+when it ran — and KiCad loads those from the board's sibling `.kicad_pro`.
+Board3's tracked project file carried the EasyEDA Pro importer's factory
+defaults: netclass `Default` clearance **0.2 mm** against the board's real
+**0.1016 mm**. A refill under it pulled every pour back an extra 0.0984 mm,
+moved thermal spokes, and invented two `starved_thermal` violations that were
+indistinguishable from damage caused by the copper edit being tested.
+
+The trap is well hidden, because the obvious place to look says nothing is
+wrong. The importer wrote `board.design_settings.rules.min_clearance` as `0.0`;
+the 0.2 mm that governs the fill sits in `net_settings.classes`, a different
+block.
+
 ## Guidance
 
 **Refill zones as part of the routing step, not as a follow-up.** The two are
-inseparable — a routed board that has not been refilled is not in a measurable
-state:
+inseparable. Wrapping the router is the reliable place for this — a wrapper that
+routes and then returns without refilling hands the caller a board whose DRC
+output is meaningless, and nothing about the output says so.
+
+**Fill against a staged project carrying the real rules, and never write the
+tracked project file.** This is trap 1 in `tools/kicad_handroute.py`;
+`refill_under_real_rules()` is the reference implementation:
 
 ```python
-import pcbnew
+rules = json.loads(RULES.read_text(encoding="utf-8"))   # tools/kicad_rules.json
+with tempfile.TemporaryDirectory() as tmp:
+    staged = Path(tmp) / board_path.name
+    shutil.copy2(board_path, staged)
 
-board = pcbnew.LoadBoard(path)
-pcbnew.ZONE_FILLER(board).Fill(board.Zones())
-pcbnew.SaveBoard(path, board)
+    # Start from the real project so the stackup and layer names survive,
+    # then override only the rule keys.
+    project = json.loads(board_path.with_suffix(".kicad_pro").read_text())
+    project["board"]["design_settings"]["rules"].update(rules["rules_mm"])
+    for netclass in project["net_settings"]["classes"]:
+        if netclass["name"] == "Default":
+            netclass.update(rules["default_netclass_mm"])
+    staged.with_suffix(".kicad_pro").write_text(json.dumps(project, indent=2))
+
+    board = pcbnew.LoadBoard(str(staged))     # loaded under the staged rules
+    pcbnew.ZONE_FILLER(board).Fill(board.Zones())
+    pcbnew.SaveBoard(str(board_path), board)  # written back to the real board
 ```
 
-Wrapping the router is the reliable place for this. A wrapper that routes and
-then returns without refilling hands the caller a board whose DRC output is
-meaningless, and nothing about the output says so.
+Three properties make it correct. The project is a *copy* of the real one with
+rule keys overridden, so nothing else about the board's setup is invented. The
+board is loaded from the staged path so the staged project is the sibling KiCad
+actually reads. The result is saved back to the real board path, so the copper
+moves and the project file does not. `tools/kicad_verify.py` stages the same way
+in `_rules_project()` before every DRC run.
 
 **Check what a zero-clearance violation is actually between before believing
 it.** `actual 0.0000 mm` between two *nets* is a short. Between a track and a
@@ -69,25 +110,57 @@ kinds = collections.Counter(
 That one census turned a board that looked catastrophically broken into one
 with 37 real new violations.
 
+### The project file was later synced, and the rule did not change
+
+Commit `763aff9` wrote the real rules into
+`kicad/board3/ProPrj_New Project_2026-07-15_23-14-34_2026-07-27.kicad_pro`, so a
+GUI refill no longer silently changes copper. That is a convenience, not a
+transfer of authority. Restate the rule precisely:
+
+> **Design rules come from `tools/kicad_rules.json`, never from the
+> `.kicad_pro`. The project file is a synced copy of it, not a second source.**
+
+The earlier wording — treat the project file as untrusted — is now wrong in its
+reasoning and right in its conclusion. Nothing enforces the sync. KiCad rewrites
+the project file on ordinary GUI activity: commit `1941588` exists only because
+opening Board Setup materialised three zero-valued placeholder rows in the
+pre-defined size lists. A GUI session is exactly when the rules could quietly go
+back, which is why every tool still stages rather than trusting, and why that
+commit re-checked `min_clearance` 0.1016, `min_via_annular_width` 0.15,
+`min_hole_to_hole` 0.5 and the `Default` netclass at 0.1016 / 0.254 rather than
+assuming they had survived.
+
 ## Why This Matters
 
-The error is not small and it is not random — it inflated the result by more
-than an order of magnitude, in the direction of "this tool produces unusable
-output". Had it gone unchecked it would have been the headline finding of a
-tooling evaluation, and the conclusion drawn from it would have been the
+The first error is not small and it is not random — it inflated the result by
+more than an order of magnitude, in the direction of "this tool produces
+unusable output". Had it gone unchecked it would have been the headline finding
+of a tooling evaluation, and the conclusion drawn from it would have been the
 opposite of the truth.
 
-It is also silent in both directions. DRC does not warn that zones are stale;
-the router does not warn that it left them that way. Nothing in the pipeline
-reports a problem, and the number it produces looks precise.
+The second error is smaller and worse. Two invented `starved_thermal`
+violations do not look like a broken measurement; they look like a plausible
+consequence of the edit you just made to nearby copper. An order-of-magnitude
+error invites suspicion. A two-violation error gets attributed and fixed, and
+the fix is applied to a defect that does not exist.
+
+Both are silent in both directions. DRC does not warn that zones are stale, or
+that they were filled under different rules from the ones it is now grading
+against. The router does not warn that it left them either way. Nothing in the
+pipeline reports a problem, and the number it produces looks precise.
 
 ## When to Apply
 
 - Any KiCad routing, cleanup, or copper-modifying operation driven from a script
   or CLI rather than the GUI
 - Before running DRC on any board whose copper changed programmatically
-- Before comparing autorouter results across tools or runs — an unrefilled board
-  on one side of a comparison invalidates it entirely
+- Whenever a fill runs on a board whose authoritative rules live outside its
+  `.kicad_pro` — the fill must be given those rules explicitly
+- When a copper edit produces thermal-relief or clearance violations near, but
+  not on, the thing you changed: refill under the real rules and re-measure
+  before diagnosing
+- Before comparing autorouter results across tools or runs — an unrefilled board,
+  or one filled under different rules, invalidates the comparison entirely
 
 ## Examples
 
@@ -103,6 +176,27 @@ None were shorts. The `clearance`, `hole_clearance` and `track_width` classes
 vanished entirely — they had all been artifacts of comparing new copper against
 an outline computed before that copper existed.
 
+The rules the importer substituted, and what the board was actually drawn to
+(`tools/kicad_rules.json`, JLCPCB 4-layer standard):
+
+```text
+                       imported     real
+netclass clearance      0.2        0.1016   <- governs the zone fill
+netclass track_width    0.2        0.254
+min_clearance           0.0        0.1016
+min_track_width         0.2        0.1016
+min_via_diameter        0.5        0.45
+min_via_annular_width   0.1        0.15
+min_hole_to_hole        0.25       0.5
+```
+
+Measured against the imported column an untouched Board3 reports 544
+violations, 503 of them clearance, all sitting in a 0.117–0.197 mm band just
+under a 0.2 mm rule the board was never drawn to. Against the real column the
+same board reports 41 — the baseline every later DRC delta is taken from.
+
 ## Related
 
-- [Migrating a board from EasyEDA Pro to KiCad loses data silently](../integration-issues/easyeda-pro-to-kicad-migration-silent-data-loss.md) — the other reason DRC numbers on an imported board cannot be taken at face value
+- [Migrating a board from EasyEDA Pro to KiCad loses data silently](../integration-issues/easyeda-pro-to-kicad-migration-silent-data-loss.md) — why the rules had to be reconstructed into `tools/kicad_rules.json` in the first place
+- [Search every copper layer before placing a via](search-every-copper-layer-before-placing-a-via.md) — the same staged-rules requirement, applied to via placement instead of zone fills
+- [A gate that cannot pass gets waved through](../conventions/a-gate-that-cannot-pass-gets-waved-through.md) — what else goes wrong when the rule file and the checker disagree

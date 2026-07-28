@@ -1,5 +1,5 @@
 ---
-title: Migrating a board from EasyEDA Pro to KiCad loses data silently at four separate points
+title: Migrating a board from EasyEDA Pro to KiCad loses data silently at six separate points
 date: 2026-07-27
 category: integration-issues
 module: easyeda-workflow
@@ -11,19 +11,25 @@ symptoms:
   - "Footprints exist on the imported board with zero pads, so components have geometry but no electrical existence"
   - "A KiCad importer terminates the process with 0xC0000409 instead of rejecting the file, and prints nothing"
   - "PCB_IO_MGR.Load succeeds and returns a board with 0 footprints and 0 tracks"
+  - "A gerber package contains no file a fab would recognise as the board outline, because the outline shipped under another layer's name"
+  - "A rotation-correction plugin matches an imported footprint by name and rotates a part that was already correct"
 root_cause: wrong_api
 resolution_type: workflow_improvement
-tags: [easyeda, kicad, migration, import, design-rules, pcb, data-loss]
+tags: [easyeda, kicad, migration, import, design-rules, pcb, data-loss, gerbers, layer-names, rotation]
 ---
 
-# Migrating a board from EasyEDA Pro to KiCad loses data silently at four separate points
+# Migrating a board from EasyEDA Pro to KiCad loses data silently at six separate points
 
 ## Problem
 
 Getting Board3 (144 footprints, 107 nets, 4 layers) out of EasyEDA Pro v3 and
 into KiCad 10.0.5 cost most of a session and six rejected formats. Every failure
-mode was silent: no route announced that it had dropped something. Three of the
-four produced a board that opened, looked correct, and was wrong.
+mode was silent: no route announced that it had dropped something. Three of
+those four produced a board that opened, looked correct, and was wrong.
+
+Two further losses surfaced later the same day, when the imported board was
+turned into a fab package — long after the work had stopped looking like an
+import problem.
 
 ## Symptoms
 
@@ -38,6 +44,10 @@ four produced a board that opened, looked correct, and was wrong.
   with it, the visible symptom is a hang with no output, not an error.
 - **A silent empty board**: `EASYEDAPRO` accepted a `.eprj2` without complaint
   and returned 0 footprints, 0 tracks, 1 net.
+- **A board outline exported as `…-Multi-Layer.gbr`** — a filename that, in the
+  vocabulary of the tool it came from, describes the opposite of an outline.
+- **Footprints named `LQFP-144_…`, `SOIC-8_…`, `SOT-23-6_…` that are not drawn
+  to the rotation datum those names imply.** Nothing on the board says so.
 
 ## What Didn't Work
 
@@ -102,6 +112,83 @@ The 0.117–0.197 mm band is the diagnostic signature of the last one. A board w
 genuinely sloppy clearances shows a spread; a board drawn to a *looser* rule and
 measured against a stricter one clusters immediately below the stricter value.
 
+## Two More, Found When the Board Became a Fab Package
+
+Neither of the last two is a dropped object, which is why neither showed up in a
+pad census or a DRC run. In both, **a name survived the import while the meaning
+behind it did not** — worse than a deletion, because nothing looks missing.
+
+**The importer renames every layer, and one rename inverts its meaning.** KiCad's
+canonical names are replaced with EasyEDA's in the `(layers …)` block of
+[the board file](../../../kicad/board3/ProPrj_New%20Project_2026-07-15_23-14-34_2026-07-27.kicad_pcb),
+here for the eleven layers a 4-layer order exports:
+
+| KiCad canonical | name after import |
+|---|---|
+| `F.Cu` | Top Layer |
+| `In1.Cu` | Inner1 |
+| `In2.Cu` | Inner2 |
+| `B.Cu` | Bottom Layer |
+| `F.SilkS` | Top Silkscreen Layer |
+| `B.SilkS` | Bottom Silkscreen Layer |
+| `F.Mask` | Top Solder Mask Layer |
+| `B.Mask` | Bottom Solder Mask Layer |
+| `F.Paste` | Top Paste Mask Layer |
+| `B.Paste` | Bottom Paste Mask Layer |
+| **`Edge.Cuts`** | **Multi-Layer** |
+
+Most are merely verbose, and the rest of the stackup follows the same pattern
+(`F.Fab` → "Component Marking Layer", `Eco2.User` → "Mechanical Layer",
+`User.1` → "Ratline Layer"). `Edge.Cuts` → `Multi-Layer` is different. KiCad
+names each exported gerber after the layer's **user** name, so the board outline
+ships as `…-Multi-Layer.gbr`. In Altium and EasyEDA vocabulary "multi-layer"
+describes copper present on every layer — a pad property, not an outline. A fab
+reading that filename learns the opposite of the truth, and the package looks
+like it has no outline at all.
+
+Fixed in `ead50be`. `canonicalise_gerber_names()` in
+[tools/kicad_fab.py](../../../tools/kicad_fab.py) loads the board through
+`pcbnew`, compares `GetLayerName(lid)` with `pcbnew.LayerName(lid)` for every
+enabled layer, and renames each `…-<user name>.gbr` to the canonical name with
+dots as underscores — so the outline becomes `…-Edge_Cuts.gbr`. The canonical name
+is `pcbnew`'s, not the board file's token: `F.SilkS` in the table above comes out
+as `F_Silkscreen`. `check_gerber_layers()` then reports any of the eleven required
+names missing from the folder.
+
+**Renaming the derived output is safe in a way renaming the board's layers is
+not**, because layer names are referenced throughout the board file.
+
+The rename needs KiCad's own interpreter. Without `pcbnew` importable the
+function prints a note and leaves the EasyEDA names alone, so a package built
+under stock Python still ships `-Multi-Layer.gbr`.
+
+**Imported footprints are drawn to JLCPCB's rotation zero, not KiCad's.**
+Measured 2026-07-27 by de-rotating pad 1 into each footprint's own zero:
+
+| part | package | EasyEDA pin 1 | KiCad stock pin 1 | plugin correction | correct here |
+|---|---|---|---|---|---|
+| `U1` | LQFP-144 | south-west | north-west | +270 | **0** |
+| `U8` | SOIC-8 | south-west | north-west | +270 | **0** |
+| `D9` | SOT-23-6 | south-west | north-west | −90 | **0** |
+
+Three package families, two different plugin constants, all resolving to zero
+correction. EasyEDA/LCSC footprints are already drawn to JLC's own datum, which
+is what you would hope from the ecosystem that assembles the board.
+
+**The trap is that the name survived the datum change.** The `kicad-jlcpcb-tools`
+correction table is calibrated against KiCad's *official* library and matches on
+footprint **name** — and these are still named `LQFP-144_…`, `SOIC-8_…`,
+`SOT-23-6_…`. Running its fabrication export against this project matches all
+three rules and rotates a quarter turn that nothing needs: `U1` the STM32H755ZIT6,
+`U8` and `U9` the TJA1051 CAN transceivers, `U7` the FRAM, and four SOT-23-6
+parts. The tool reached for to prevent backwards parts is the one that would
+produce them. The derivation is kept in `tools/kicad_fab.py`'s module docstring,
+where anyone about to "fix" the uncorrected rotation will read it first.
+
+`USBC1` cannot be compared this way at all: the two libraries number that
+receptacle's pads differently (`A1` versus numeric), so there is no shared datum
+and the comparison returns a meaningless 73°.
+
 ## Prevention
 
 **Census pads per footprint after any conversion, never just count footprints.**
@@ -143,7 +230,21 @@ to have printed nothing and reads as a hang. Unbuffered output is what turns
 as its own, and deleted a committed, unrelated `board3.kicad_pcb` that happened
 to be sitting there.
 
+**Never let a derived artifact inherit an imported name.** Gerbers are named
+after layers and netlists after nets, so every renamed object propagates into a
+filename a stranger at a fab house has to interpret. Canonicalise on the way out;
+do not rename the board's own layers to make the output right.
+
+**Assume any correction table keyed on a name does not apply to imported parts.**
+A name-matched rule encodes a claim about how the part was *drawn*, and an import
+changes the drawing while preserving the name. Measure the datum before applying
+the rule — for footprints that means locating pad 1 relative to the body centre
+in the footprint's own zero, and comparing it against the library the rule was
+calibrated on. Zero correction is a legitimate answer, and reaching it takes the
+same measurement as any other.
+
 ## Related
 
 - [Verifying EasyEDA design state by reading the .eprj2 project file](../developer-experience/easyeda-eprj2-agent-verification.md) — the same SQLite file, read for verification rather than migration
 - [Authoring a full schematic through the EasyEDA MCP bridge](../developer-experience/easyeda-bridge-schematic-authoring-workflow.md) — the bridge's own limits, which motivated evaluating KiCad in the first place
+- ["DRC clean and measured" is not "assemblable"](../conventions/drc-clean-and-measured-is-not-assemblable.md) — the fab-package pass that surfaced the last two losses, long after the board verified clean
