@@ -75,7 +75,27 @@ def run_drc(board: Path, workdir: Path) -> tuple[collections.Counter, int]:
         raise RuntimeError(f"kicad-cli produced no DRC report for {board.name}")
     data = json.loads(report.read_text(encoding="utf-8"))
     counts = collections.Counter(v.get("type") for v in data.get("violations", []))
-    return counts, len(data.get("unconnected_items", []))
+    return counts, _identities(data), len(data.get("unconnected_items", []))
+
+
+def _identities(data: dict) -> collections.Counter:
+    """Violations keyed by what they are, not just how many share a type.
+
+    Counting by type alone cannot see a swap: fix one courtyard overlap,
+    introduce a different one, and the total is unchanged, so the gate reports
+    NEW = 0 and the regression ships. Keying on the involved reference
+    designators makes it visible. UUIDs would be stabler but they move whenever
+    a footprint is re-placed, which is exactly when this check earns its keep.
+    """
+    out: collections.Counter = collections.Counter()
+    for v in data.get("violations", []):
+        refs = []
+        for item in v.get("items", []):
+            desc = item.get("description", "")
+            m = re.search(r"(?:of|Footprint) ([A-Za-z]+\d+)", desc)
+            refs.append(m.group(1) if m else desc[:16])
+        out[(v.get("type"), tuple(sorted(refs)))] += 1
+    return out
 
 
 def cost_floor_advisories(board: Path) -> list:
@@ -115,11 +135,12 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         try:
-            counts, unconnected = run_drc(board, work)
+            counts, idents, unconnected = run_drc(board, work)
             base_counts = collections.Counter()
+            base_idents = collections.Counter()
             base_unconn = None
             if args.baseline:
-                base_counts, base_unconn = run_drc(Path(args.baseline), work)
+                base_counts, base_idents, base_unconn = run_drc(Path(args.baseline), work)
         except (RuntimeError, ImportError) as exc:
             print(f"verification failed: {exc}", file=sys.stderr)
             return EXIT_ERROR
@@ -133,13 +154,23 @@ def main() -> int:
           + (f"   (baseline {base_unconn})" if base_unconn is not None else ""))
 
     if args.baseline:
-        new = {k: counts[k] - base_counts.get(k, 0) for k in counts
-               if counts[k] > base_counts.get(k, 0)}
+        appeared = idents - base_idents          # by identity, so a swap cannot hide
+        resolved = base_idents - idents
+        new = collections.Counter(k[0] for k, n in appeared.items() for _ in range(n))
         print(f"baseline     : {sum(base_counts.values())} violations "
               f"({Path(args.baseline).name})")
         print(f"NEW          : {sum(new.values())}")
         for k, n in sorted(new.items(), key=lambda kv: -kv[1]):
             print(f"   {k:<26} +{n}  (baseline {base_counts.get(k, 0)})")
+        for (kind, refs), n in sorted(appeared.items())[:12]:
+            print(f"      {kind}: {' <-> '.join(refs)}")
+        if resolved:
+            fixed = collections.Counter(k[0] for k, n in resolved.items() for _ in range(n))
+            print("resolved     :", ", ".join(f"{k}={v}" for k, v in sorted(fixed.items())))
+        # A swap keeps the totals identical while changing what is wrong.
+        for kind in sorted({k[0] for k in appeared} & {k[0] for k in resolved}):
+            print(f"SWAP         : {kind} — different instances than the baseline, "
+                  f"same total. Counting by type alone would have missed this.")
         carried = {k: v for k, v in base_counts.items() if v and k not in new}
         if carried:
             print("carried over :", ", ".join(f"{k}={v}" for k, v in sorted(carried.items())))
