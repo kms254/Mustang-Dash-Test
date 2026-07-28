@@ -273,6 +273,39 @@ to positively identify the backlight end (17-20) before applying 5 V; the FFC
 is down-side contact at the panel; the panel survives being driven with no
 5 V on BLVDD (renders, just dark).
 
+## KiCad parts rule (Board3)
+
+**Every part placed on a KiCad board must be an LCSC part with matching supplier
+metadata and a 3D model.** Add them with `python tools/kicad_lcsc.py add C<n>` —
+never by dragging a generic symbol from the stock libraries. `check` audits and
+exits non-zero on any gap; `models` backfills missing 3D models. See
+`kicad/README.md`.
+
+Why it is a build dependency, not a preference: `tools/kicad_fab.py` builds the
+JLCPCB BOM from the schematic's supplier fields, so an un-sourced part does not
+warn — it silently vanishes from the BOM.
+
+Field-name traps, both load-bearing and both already paid for:
+
+- The LCSC code lives in **`Supplier Part`**. The JLCImport plugin writes it to a
+  property named `LCSC`, so `kicad_lcsc.py add` remaps it; skip the remap and the
+  part looks sourced on screen while being invisible to the BOM.
+- **`LCSC Part Name` is not the part number** — it holds descriptive text, often
+  Chinese. Mapping the obvious-looking field yields a BOM of garbage.
+- JLCImport opens files without an explicit encoding, so on a Windows cp1252
+  console any part with a `℃` or a Chinese character dies with a
+  UnicodeEncodeError. `kicad_lcsc.py` relaunches itself under `-X utf8` to dodge
+  this — via `subprocess`, **not** `os.execv`, which on Windows does not replace
+  the process and loses the child's output and exit code.
+
+3D models are `kicad/board3/EASYEDA_MODELS/*.step`, tracked (~53 MB), referenced
+as `${KIPRJMOD}/EASYEDA_MODELS/…`. The EasyEDA import wrote those refs but never
+the files, so the 3D view was empty until they were backfilled 2026-07-27.
+JLCImport's computed model transform agrees with the EasyEDA-authored one
+(checked on SOT-23-6: both `rotate 0 0 -180`), which is why the files could be
+dropped in under the existing names without rewriting 30 footprints and 140
+board entries.
+
 ## Knowledge store
 
 - `docs/solutions/` — documented solutions to past problems (best practices,
