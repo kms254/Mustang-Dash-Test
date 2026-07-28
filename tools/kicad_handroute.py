@@ -176,6 +176,53 @@ def apply_step(board, spec: dict, tracks: list, dry: bool):
               f"{'  tented' if rule.get('tented') else ''}")
         added += 1
 
+    for rule in spec.get("move_zones", []):
+        dx, dy = rule["by"]
+        hits = 0
+        for zone in board.Zones():
+            if zone.GetIsRuleArea() != rule.get("rule_area", False):
+                continue
+            if rule.get("net") and zone.GetNetname().lstrip("/") != rule["net"].lstrip("/"):
+                continue
+            layers = [board.GetLayerName(l) for l in zone.GetLayerSet().CuStack()]
+            if rule.get("layer") and rule["layer"] not in layers:
+                continue
+            before = zone.GetBoundingBox()
+            if not dry:
+                zone.Move(pcbnew.VECTOR2I(to_nm(dx), to_nm(dy)))
+            print(f"  ~ zone {zone.GetNetname()} on {','.join(layers)} moved by "
+                  f"({dx},{dy}) from ({before.GetLeft()/NM:.2f},{before.GetTop()/NM:.2f})")
+            hits += 1
+        if not hits:
+            raise SystemExit(f"move_zones matched nothing: {rule}")
+        added += hits
+
+    for rule in spec.get("set_pad_nets", []):
+        # Assigning a net to a board-only pad. Board3's mounting holes are
+        # footprints with no schematic symbol, so "Update PCB from Schematic"
+        # leaves them alone -- verified, it did -- but that also means nothing
+        # upstream will ever assert this net for them. It lives here or nowhere.
+        target_net = netmap[rule["net"].lstrip("/")]
+        hits = 0
+        for footprint in board.GetFootprints():
+            if rule.get("fpid") and rule["fpid"] not in footprint.GetFPID().GetUniStringLibId():
+                continue
+            if rule.get("ref") and footprint.GetReference() != rule["ref"]:
+                continue
+            for pad in footprint.Pads():
+                if rule.get("pad") and pad.GetNumber() != rule["pad"]:
+                    continue
+                pos = pad.GetPosition()
+                print(f"  ~ {footprint.GetFPID().GetUniStringLibId()} pad "
+                      f"{pad.GetNumber()} at ({pos.x/NM:.3f},{pos.y/NM:.3f}): "
+                      f"{pad.GetNetname()!r} -> {rule['net']}")
+                if not dry:
+                    pad.SetNet(target_net)
+                hits += 1
+        if not hits:
+            raise SystemExit(f"set_pad_nets matched nothing: {rule}")
+        added += hits
+
     for rule in spec.get("add_footprints", []):
         footprint = pcbnew.FootprintLoad(rule["lib"], rule["name"])
         if footprint is None:

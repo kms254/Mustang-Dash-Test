@@ -1,0 +1,81 @@
+{
+  "$comment": [
+    "U3 board half, plus the mounting holes.",
+    "",
+    "R49 (10k NRST pull-up) came across from the schematic sync parked at",
+    "(1.52,0.74), off the board, because the placement dialog was escaped. It goes",
+    "into the reset cluster ~8 mm north of C46, at a point measured clear by",
+    "3.87 mm. NRST runs to SW6.1's stub at (77.20,128.50); +3V3 meets the long",
+    "diagonal feed at (77.55,119.20), which is the foot of the perpendicular from",
+    "the pad, so the tap is as short as that trace allows.",
+    "",
+    "The four mounting holes are tied to GND. They are Pad_e672/673/674/675:",
+    "single PTH pads, 3.2 mm drill (M3) with a 5 mm annulus, at the board's",
+    "corners -- and until now on NO net, so each was an isolated 5 mm copper",
+    "island that would take whatever potential its standoff gave it. On a board",
+    "going into a metal chassis that is worth deciding rather than inheriting.",
+    "",
+    "Caveat worth knowing: these footprints have no schematic symbol, so nothing",
+    "upstream asserts their net -- it lives in the board file alone. The sync",
+    "leaves them be (verified), but a future 'Update PCB from Schematic' run with",
+    "'delete footprints with no symbols' ticked would remove the holes outright,",
+    "which is a bigger problem than the net. The durable fix is mounting-hole",
+    "symbols in the schematic."
+  ],
+  "set_pad_nets": [
+    {
+      "net": "/GND",
+      "fpid": "Pad_e67",
+      "pad": "1"
+    }
+  ],
+  "move_footprints": [
+    {
+      "ref": "R49",
+      "by": [
+        73.48,
+        121.763
+      ]
+    }
+  ],
+  "add": [
+    {
+      "net": "/NRST",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          75.7535,
+          122.5
+        ],
+        [
+          77.2,
+          123.947
+        ],
+        [
+          77.2,
+          128.5
+        ]
+      ]
+    },
+    {
+      "net": "/+3V3",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          74.2465,
+          122.5
+        ],
+        [
+          74.2465,
+          121.895
+        ],
+        [
+          77.55,
+          119.2
+        ]
+      ]
+    }
+  ]
+}

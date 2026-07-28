@@ -24,7 +24,7 @@ NCD0805R1,"LED6,LED7",ProPrj_New-easyedapro:LED0805-RD,C84256
 KT-0805Y,LED8,ProPrj_New-easyedapro:LED0805-R-RD,C2296
 WJ500V-5.08-2P,"P1,P2",ProPrj_New-easyedapro:CONN-TH_2P-P5.00_WJ500V-5.08-2P,C8465
 AO4406A,"Q1,Q2",ProPrj_New-easyedapro:SOP-8_L5.0-W3.8-P1.27-LS6.0-BL,C2944312
-10kΩ,"R1,R2,R7",ProPrj_New-easyedapro:R0603,C25804
+10kΩ,"R1,R2,R7,R49",ProPrj_New-easyedapro:R0603,C25804
 33kΩ,R3,ProPrj_New-easyedapro:R0603,C4216
 0Ω,R4,ProPrj_New-easyedapro:R0603,C21189
 4.7kΩ,"R5,R8",ProPrj_New-easyedapro:R0603,C23162

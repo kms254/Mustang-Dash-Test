@@ -24,7 +24,7 @@
 "LED8","KT-0805Y","ProPrj_New-easyedapro:LED0805-R-RD","1","C2296","KT-0805Y","KENTO","Basic Part"
 "P1,P2","WJ500V-5.08-2P","ProPrj_New-easyedapro:CONN-TH_2P-P5.00_WJ500V-5.08-2P","2","C8465","WJ500V-5.08-2P","KANGNEX(康奈克斯电气)","Extended Part"
 "Q1,Q2","AO4406A","ProPrj_New-easyedapro:SOP-8_L5.0-W3.8-P1.27-LS6.0-BL","2","C2944312","AO4406A","UMW(友台半导体)","Extended Part"
-"R1,R2,R7","10kΩ","ProPrj_New-easyedapro:R0603","3","C25804","0603WAF1002T5E","UNI-ROYAL(厚声)","Basic Part"
+"R1,R2,R7,R49","10kΩ","ProPrj_New-easyedapro:R0603","4","C25804","0603WAF1002T5E","UNI-ROYAL(厚声)","Basic Part"
 "R3","33kΩ","ProPrj_New-easyedapro:R0603","1","C4216","0603WAF3302T5E","UNI-ROYAL(厚声)","Basic Part"
 "R4","0Ω","ProPrj_New-easyedapro:R0603","1","C21189","0603WAF0000T5E","UNI-ROYAL(厚声)","Basic Part"
 "R5,R8","4.7kΩ","ProPrj_New-easyedapro:R0603","2","C23162","0603WAF4701T5E","UNI-ROYAL(厚声)","Basic Part"
