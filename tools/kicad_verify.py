@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import collections
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -77,6 +78,29 @@ def run_drc(board: Path, workdir: Path) -> tuple[collections.Counter, int]:
     return counts, len(data.get("unconnected_items", []))
 
 
+def cost_floor_advisories(board: Path) -> list:
+    """Report geometry that is manufacturable but priced above the cheap tier.
+
+    These must never fail the gate -- a gate that is permanently red gets waved
+    through, which is how the review harness's calibration rotted. But they must
+    not be invisible either: a 0.2 mm drill is inside JLC's 0.15-6.3 mm range and
+    still a surcharge, so it should stay a deliberate, visible choice.
+    """
+    spec = json.loads(RULES.read_text(encoding="utf-8"))
+    floors = {k: v for k, v in spec.get("cost_floors_mm", {}).items()
+              if not k.startswith("$")}
+    drill_floor = floors.get("through_hole_diameter")
+    if not drill_floor:
+        return []
+    text = board.read_text(encoding="utf-8", errors="ignore")
+    small = sorted({float(m) for m in re.findall(r"\(drill ([0-9.]+)\)", text)
+                    if float(m) < drill_floor})
+    if not small:
+        return []
+    return [f"drills below the {drill_floor} mm cost floor: "
+            + ", ".join(f"{d} mm" for d in small)]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("board")
@@ -103,6 +127,8 @@ def main() -> int:
     total = sum(counts.values())
     print(f"board        : {board.name}")
     print(f"violations   : {total}")
+    for note in cost_floor_advisories(board):
+        print(f"advisory     : {note}")
     print(f"unconnected  : {unconnected}"
           + (f"   (baseline {base_unconn})" if base_unconn is not None else ""))
 

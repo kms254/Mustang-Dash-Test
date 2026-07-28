@@ -354,7 +354,9 @@ Expect the tail to need hand-routing. A router that stalls at 78% is usually blo
 
 **Verification:** Zero airwires, flagged nets untouched, DRC delta no worse than before the unit.
 
-### U6. Hand-route the four flagged nets — DONE 2026-07-27
+### U6. Hand-route the four flagged nets — PARTIALLY DONE 2026-07-27 (CAN + USB kept; crystal + QSPI walked back)
+
+> **Read this before the section below.** Two of the four groups landed and hold: the CAN pairs (R9) and the USB connector segment (R7). The other two — the crystal (R6) and QSPI (R8) — were fixed, verified DRC-clean, committed, and then **reverted the same day** during U7, because the QSPI fix had quietly buried six escape vias inside U2's SMD pads and the crystal fix had taken the only lane those vias could escape to. The detail below describes what was built; the amendment at the end of the section describes why half of it is no longer on the board. Both are kept: the analysis is the recipe if that corner is ever re-planned.
 
 **Goal:** Fix the signal-integrity defects deliberately excluded from autorouting.
 
@@ -400,7 +402,21 @@ Three of the four defects had a **topologically forced** element, which the plan
 **Two findings for later units:**
 
 - **The tracked `.kicad_pro` still carries the importer's factory defaults** (clearance 0.2 mm against the board's real 0.1016). Zone fills are clearance-dependent, so *anyone who opens this project in the GUI and refills zones silently changes the copper* — a first attempt here did exactly that and invented two `starved_thermal` violations. `kicad_handroute.py` now stages the real rules before filling, but the landmine remains for GUI work. U9 should decide whether to write the real rules into the project file.
-- **`CAN1_TERM` (9.70 mm) and `SWDIO` (11.27 mm) still cut the Inner2 +5V plane.** Neither is in a flagged group, so both were left alone. `CAN1_TERM` is the twin of the CAN2 stub fixed here and is a one-line change if wanted.
+- **`CAN1_TERM` (9.70 mm) and `SWDIO` (11.27 mm) still cut the Inner2 +5V plane.** Neither is in a flagged group, so both were left alone. `CAN1_TERM` is the twin of the CAN2 stub fixed here and is a one-line change if wanted. *(Amended: it was not a one-line change — see the amendment below — but it was fixed, down to a 1.51 mm crossing.)*
+
+---
+
+#### Amendment, 2026-07-27: the crystal and QSPI fixes were reverted
+
+**What went wrong.** Routing the QSPI bus onto the bottom layer left the router nowhere to escape U2's pads, so it placed all six escape vias **inside** them. An unplugged via in an SMD pad wicks solder off the joint during reflow — a 0.3 mm barrel holds more volume than a small pad's entire paste deposit — and these were the flash's six signal pins. The imported layout had those vias correctly outside; U6 made it worse.
+
+**Why it was invisible.** Via-in-pad is not a DRC rule, so `kicad_verify.py` stayed green at 35 violations with NEW = 0. It is not a length, via-count or layer fact either, so `kicad_measure.py` — which is what U6's verification leaned on — could not see it. It took `kicad-happy`'s pad audit, run only because U7 needed its thermal-via findings. **"DRC clean and measured" is not "assemblable"**, and that is the durable lesson of this unit.
+
+**Why the crystal went too.** The escapes could not simply be moved back out: the only lane wide enough is the 0.96 mm between the Inner2 keepout edge (x=166.129) and U2's west pads (x=167.090), and the crystal fix had pushed X1's case-ground guard from x=165.959 to 166.45 — into that lane. The guard is not redundant (deleting it leaves an airwire, tested). The two fixes are geometrically incompatible: with X1 moved east by Δ, the guard moves with it, and the QSPI escape needs Δ ≤ 0.149 while OSC_OUT's escape corridor needs Δ ≥ 0.214. **A starved joint on the flash beats an oscillator's loop area**, so both were restored to the imported geometry.
+
+**What that costs.** R6 is not met — `OSC_OUT` is back to 11.171 mm with 2 vias, 5.3 mm of it on the bottom layer over the region where the Inner2 keepout voids the +5V plane. R8 is not met — the bus is back to five layer strategies, and the 72 mm of plane cut U6 removed is back. Both are recorded in `tools/kicad_netclass.json` under `$walked_back`, with the geometry, so a future re-plan of that corner starts from the analysis rather than repeating it.
+
+**What survives from U6:** the CAN fixes (CAN1_H 2 vias → 0; CAN2_H's stub off the +5V plane), the USB symmetry fix, and `CAN1_TERM`'s plane slot cut from 9.70 mm to 1.51 mm.
 
 ### U7. Thermal vias and fiducials — DONE 2026-07-27
 
@@ -430,7 +446,22 @@ Three of the four defects had a **topologically forced** element, which the plan
 **Two reviewer defects found, neither of them board defects:**
 
 - **`kicad-happy` cannot read KiCad 10's via tenting.** It still reports "13 via(s) are not tented" for pads whose vias all carry `(tenting (front yes) (back yes))` in the file, and which `pcbnew` confirms as `TENTING_MODE_TENTED`. Same false-positive class as the `PR-003` CAN-termination miss U3 documented. Trust the file, not the finding.
-- **`tools/kicad_review.py`'s calibration gate is now stale and fails every run.** Its known-defect probe is the BTN1–4 single-pin nets — which **U2 fixed**. The harness therefore reports `MISSED`, whose documented meaning is "the reviewer is unreliable; do not act on its other findings". That verdict is wrong here: the reviewer is fine, the fixture is out of date. **U9 must not run its review gate until this is repointed** at a defect that still exists, or the gate will either block on a false negative or be waved through by hand, which defeats it.
+- **`tools/kicad_review.py`'s calibration gate is now stale and fails every run.** Its known-defect probe is the BTN1–4 single-pin nets — which **U2 fixed**. The harness therefore reports `MISSED`, whose documented meaning is "the reviewer is unreliable; do not act on its other findings". That verdict is wrong here: the reviewer is fine, the fixture is out of date. **U9 must not run its review gate until this is repointed** at a defect that still exists, or the gate will either block on a false negative or be waved through by hand, which defeats it. ✅ **Fixed 2026-07-27** — see the amendment below.
+
+---
+
+#### Amendment, 2026-07-27: the six problems this unit uncovered, and their fixes
+
+Running the review for U7's findings turned up more than thermal vias. All six are now closed:
+
+1. **Six QSPI escape vias inside U2's SMD pads** — U6's regression. Fixed by walking U6's QSPI and crystal work back; see the U6 amendment. The one remaining via-in-pad, `U1.93`, cannot escape (0.28 × 2.0 mm QFP pad on 0.5 mm pitch, `+3V3` diagonal 1.6 mm east, GND trace 0.295 mm west — and that GND is not redundant either, tested). Its **annular ring was the hard breach**: 0.10 mm against JLC's published 0.15 mm absolute minimum. Since the neighbours cap the diameter at 0.517 mm, the drill shrank instead — **0.5/0.2 gives exactly 0.15 mm**. Residual, recorded not fixed: it is still a via in a pad. Remedy if the assembler objects is JLCPCB's plugged-via option, or re-planning the BTN1–4 / `+3V3` escape fan.
+2. **`R28.2` via-in-pad** — moved 0.8 mm out to open copper.
+3. **`tools/kicad_rules.json` never encoded an annular-ring rule.** For four units, every DRC run measured rings against the importer's 0.1 mm default, which is why a 0.10 mm ring survived since U5. `min_via_annular_width: 0.15` is now encoded. **A rule you do not encode is a rule you are not checking.**
+4. **JLC's real capabilities were re-verified** (multilayer 1oz): 0.09 mm track/space, 0.15–6.3 mm drill, annular ring 0.15 mm minimum / 0.20 recommended. `min_through_hole_diameter` was a *cost* floor (0.3 mm) masquerading as a capability floor, and it flagged the deliberate 0.2 mm drill as a violation. Capability floors now live in `rules_mm`; cost floors live in a new `cost_floors_mm` block that `kicad_verify.py` reports as an **advisory line, never a failure** — because a gate that is permanently red is a gate that gets waved through.
+5. **The tracked `.kicad_pro` now carries the real rules.** It held the importer's defaults (clearance 0.2 mm vs the real 0.1016), so any GUI zone refill silently changed copper — as one did here, inventing two `starved_thermal` violations. `kicad_rules.json` remains the source of truth per KTD2; the project file is now a synced copy of it.
+6. **The review harness's calibration gained a fourth verdict, `STALE`.** A probe now carries a `presence` check evaluated against the design files themselves, so "the reviewer missed it" and "somebody fixed it" stop being the same answer. Repointed at USBC1's 0.37 mm courtyard overhang — independently confirmed by KiCad DRC's ten `copper_edge_clearance` violations, which is what makes it a calibration case rather than an opinion. Verdict is now `CALIBRATED`.
+
+**Three `kicad-happy` false positives are now annotated rather than rediscovered** (`KNOWN_FALSE_POSITIVES` in the harness, 10 findings tagged): `PR-003` cannot see split CAN termination; `KO-001` tests vias against the keepout's **bounding box** instead of its L-shaped outline (all three "violations" are outside the polygon — verified point-in-polygon, and KiCad DRC agrees); `TV-001`'s tenting clause cannot read KiCad 10's per-via `(tenting …)` block. They are annotated, not suppressed — a reviewer you silently edit is a reviewer you have stopped reading.
 
 ### U8. BOM MPN coverage
 

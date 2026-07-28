@@ -1,0 +1,102 @@
+{
+  "$comment": [
+    "U2's nine thermal vias, re-placed after the crystal/QSPI walk-back.",
+    "The first placement was computed against U6's bottom-layer QSPI routing;",
+    "restoring the imported routing moved QSPI_IO1 back under the thermal pad at",
+    "y=107.75, leaving one via 0.012 mm from it. Thermal vias are only as valid as",
+    "the copper they were placed against -- re-run the search after any reroute",
+    "that passes under the pad."
+  ],
+  "add_vias": [
+    {
+      "net": "/GND",
+      "at": [
+        169.565,
+        104.906
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        173.265,
+        109.506
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        173.265,
+        104.906
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        169.565,
+        108.606
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        171.365,
+        106.706
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        173.565,
+        107.206
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        171.265,
+        109.506
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        171.365,
+        104.906
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        169.565,
+        106.706
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    }
+  ]
+}

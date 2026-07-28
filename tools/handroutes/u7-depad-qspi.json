@@ -1,0 +1,326 @@
+{
+  "$comment": [
+    "Get the QSPI vias OUT of U2's pads. This repairs a regression U6 introduced:",
+    "routing the bus bottom-side let the router drop its escape vias straight into",
+    "the flash's SMD pads, where an unplugged barrel wicks solder away from the",
+    "joint during reflow. The pre-U6 layout had them correctly outside, and the",
+    "west-column positions here are the original ones, which were DRC-clean.",
+    "",
+    "KiCad's DRC does not flag via-in-pad, and neither did the length/via/layer",
+    "measurements U6 verified against -- it took kicad-happy's pad audit to see it.",
+    "Worth remembering: 'DRC clean and measured' is not the same as 'assemblable'.",
+    "",
+    "West column escapes west into the lane between the Inner2 keepout edge",
+    "(x=166.129) and the pads (x=167.090). CLK escapes EAST instead, because U6",
+    "brought it down the north-east side rather than along the west lane. East",
+    "column escapes west into the gap between U2's thermal pad (east edge 173.915)",
+    "and the east pads (west edge 175.090), with the two verticals staggered to",
+    "174.35 and 174.75 so they clear each other and both pad columns."
+  ],
+  "delete": [
+    {
+      "net": "/QSPI_IO0",
+      "bbox": [
+        166.05,
+        104.85,
+        168.2,
+        105.95
+      ]
+    },
+    {
+      "net": "/QSPI_CLK",
+      "bbox": [
+        167.0,
+        105.9,
+        168.3,
+        107.2
+      ]
+    },
+    {
+      "net": "/QSPI_IO3",
+      "bbox": [
+        166.15,
+        107.4,
+        168.2,
+        108.75
+      ]
+    },
+    {
+      "net": "/QSPI_NCS",
+      "bbox": [
+        172.5,
+        108.9,
+        176.0,
+        112.2
+      ]
+    },
+    {
+      "net": "/QSPI_IO1",
+      "bbox": [
+        172.6,
+        107.5,
+        176.0,
+        110.8
+      ]
+    },
+    {
+      "net": "/QSPI_IO2",
+      "bbox": [
+        174.15,
+        105.85,
+        175.6,
+        106.65
+      ]
+    }
+  ],
+  "add": [
+    {
+      "net": "/QSPI_IO0",
+      "layer": "Bottom Layer",
+      "width": 0.254,
+      "points": [
+        [
+          166.1,
+          105.3
+        ],
+        [
+          166.642,
+          105.456
+        ]
+      ]
+    },
+    {
+      "net": "/QSPI_IO0",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          166.642,
+          105.456
+        ],
+        [
+          167.435,
+          105.456
+        ],
+        [
+          167.59,
+          105.301
+        ]
+      ]
+    },
+    {
+      "net": "/QSPI_CLK",
+      "layer": "Bottom Layer",
+      "width": 0.254,
+      "points": [
+        [
+          168.2,
+          106.0
+        ],
+        [
+          168.5,
+          106.2
+        ]
+      ]
+    },
+    {
+      "net": "/QSPI_CLK",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          168.5,
+          106.2
+        ],
+        [
+          167.59,
+          106.571
+        ]
+      ]
+    },
+    {
+      "net": "/QSPI_IO3",
+      "layer": "Bottom Layer",
+      "width": 0.254,
+      "points": [
+        [
+          166.2,
+          108.7
+        ],
+        [
+          166.67,
+          107.841
+        ]
+      ]
+    },
+    {
+      "net": "/QSPI_IO3",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          166.67,
+          107.841
+        ],
+        [
+          167.59,
+          107.841
+        ]
+      ]
+    },
+    {
+      "net": "/QSPI_NCS",
+      "layer": "Bottom Layer",
+      "width": 0.254,
+      "points": [
+        [
+          172.6,
+          112.1
+        ],
+        [
+          174.75,
+          112.1
+        ],
+        [
+          174.75,
+          109.111
+        ]
+      ]
+    },
+    {
+      "net": "/QSPI_NCS",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          174.75,
+          109.111
+        ],
+        [
+          175.59,
+          109.111
+        ]
+      ]
+    },
+    {
+      "net": "/QSPI_IO1",
+      "layer": "Bottom Layer",
+      "width": 0.254,
+      "points": [
+        [
+          172.7,
+          110.7
+        ],
+        [
+          174.35,
+          110.7
+        ],
+        [
+          174.35,
+          107.841
+        ]
+      ]
+    },
+    {
+      "net": "/QSPI_IO1",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          174.35,
+          107.841
+        ],
+        [
+          175.59,
+          107.841
+        ]
+      ]
+    },
+    {
+      "net": "/QSPI_IO2",
+      "layer": "Bottom Layer",
+      "width": 0.254,
+      "points": [
+        [
+          174.2,
+          105.9
+        ],
+        [
+          174.4,
+          106.571
+        ]
+      ]
+    },
+    {
+      "net": "/QSPI_IO2",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          174.4,
+          106.571
+        ],
+        [
+          175.59,
+          106.571
+        ]
+      ]
+    }
+  ],
+  "add_vias": [
+    {
+      "net": "/QSPI_IO0",
+      "at": [
+        166.642,
+        105.456
+      ],
+      "diameter": 0.6,
+      "drill": 0.3
+    },
+    {
+      "net": "/QSPI_CLK",
+      "at": [
+        168.5,
+        106.2
+      ],
+      "diameter": 0.6,
+      "drill": 0.3
+    },
+    {
+      "net": "/QSPI_IO3",
+      "at": [
+        166.67,
+        107.841
+      ],
+      "diameter": 0.6,
+      "drill": 0.3
+    },
+    {
+      "net": "/QSPI_NCS",
+      "at": [
+        174.75,
+        109.111
+      ],
+      "diameter": 0.6,
+      "drill": 0.3
+    },
+    {
+      "net": "/QSPI_IO1",
+      "at": [
+        174.35,
+        107.841
+      ],
+      "diameter": 0.6,
+      "drill": 0.3
+    },
+    {
+      "net": "/QSPI_IO2",
+      "at": [
+        174.4,
+        106.571
+      ],
+      "diameter": 0.6,
+      "drill": 0.3
+    }
+  ]
+}

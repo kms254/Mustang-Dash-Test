@@ -5,26 +5,35 @@ Drives kicad-happy's analyzers. They parse KiCad S-expressions directly and need
 neither KiCad installed nor anything on PATH, so this runs anywhere Python 3.10+
 does -- that independence is the point, and R12 asserts it.
 
-Calibration, and why it has three outcomes rather than two
-----------------------------------------------------------
+Calibration, and why it has four outcomes rather than two
+---------------------------------------------------------
 A review tool's findings are worth nothing until it has reproduced a defect we
-already know is there. Board3 has one: the USB VBUS bulk capacitance that
-violates the USB-C inrush limit. So the harness looks for that first and refuses
-to vouch for anything else until it appears.
+already know is there, so the harness looks for one first and refuses to vouch
+for anything else until it appears.
 
-The complication is that the known defect is a SCHEMATIC-level fact -- it is
-about capacitor values and their position in the power path. A PCB-only run
-cannot see it, and reporting "uncalibrated" there would blame the reviewer for
-input it was never given. So the outcomes are:
+Two things can go wrong that are NOT the reviewer's fault: the input may not be
+able to contain the defect (a PCB-only run cannot see a schematic fact), and the
+defect may simply have been fixed. Both would otherwise read as failure. So the
+outcomes are:
 
   CALIBRATED    expected defect reachable in the given input, and found
   MISSED        expected defect reachable in the given input, and NOT found
                 -> the reviewer is unreliable; do not act on its other findings
   UNREACHABLE   the input cannot contain the expected defect (no schematic)
                 -> says nothing about the reviewer; get the schematic
+  STALE         the expected defect is no longer IN the design -- somebody fixed
+                it -> says nothing about the reviewer; repoint the fixture
 
-Only MISSED is a verdict about the tool. Collapsing it with UNREACHABLE would
-have us discard a working reviewer because R2 has not landed yet.
+STALE was added on 2026-07-27 after the gate spent a whole unit crying wolf. Its
+probe was the BTN1-4 single-pin nets, U2 repaired them, and from then on every
+run reported MISSED -- "the reviewer is unreliable; do not act on its other
+findings" -- about a reviewer that was working perfectly. A calibration fixture
+that cannot notice its own defect being fixed turns every later success into a
+false alarm, and a gate that is always red is a gate everybody waves through.
+
+So a probe now carries a `presence` check against the design files themselves,
+evaluated independently of what the reviewer reported. Only MISSED is a verdict
+about the tool; UNREACHABLE is about the input and STALE is about the fixture.
 
 Usage:
 
@@ -49,6 +58,7 @@ DEFAULT_HAPPY = Path.home() / "Code" / "kicad-happy"
 EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_MISSED_CALIBRATION = 3  # distinct: the reviewer failed, not the harness
+EXIT_STALE_CALIBRATION = 4   # distinct again: the FIXTURE failed, not either
 
 # The known defect the reviewer must independently rediscover before its other
 # findings are believed.
@@ -60,28 +70,52 @@ EXIT_MISSED_CALIBRATION = 3  # distinct: the reviewer failed, not the harness
 # net-name collision, the exact failure this gate exists to prevent. So a match
 # needs a term from EVERY group, and must clear `excluded_severities`.
 #
-# Why this is the BTN nets and not the USB inrush case
-# ----------------------------------------------------
-# The original case was "880 uF of bulk capacitance on VBUS violates the USB-C
-# 10 uF inrush limit". Running this gate for real disproved it: VBUS carries a
-# single 100 nF 0603 (C53). The four 220 uF electrolytics sit on +5V, behind the
-# U5/U6 ideal-diode ORing. The reviewer reported nothing because there was
-# nothing there -- scoring it MISSED would have condemned a working tool on a
-# bad premise. (Unsettled, and not this file's business: whether charging that
-# +5V bulk through the ideal-diode FET violates inrush anyway.)
+# A calibration case must be a defect independently CONFIRMED to exist, and it
+# must be one nobody is about to fix. Two previous probes failed that second
+# test: the USB VBUS inrush case turned out not to exist at all (VBUS carries a
+# single 100 nF; the 220 uF bulk sits on +5V behind the ideal-diode ORing), and
+# the BTN1-4 single-pin nets were real but got repaired by U2.
 #
-# A calibration case must be a defect independently CONFIRMED to exist. This one
-# is: BTN1-4 are single-pin nets ending at R28.2-R31.2, because each pull-up net
-# was never joined to its switch's BTN*_SW net. Found by hand in the netlist,
-# then reproduced unprompted by analyze_schematic.py as NT-001.
+# Repointed 2026-07-27. The previous probe (BTN1-4 single-pin nets) was fixed by
+# U2, which is exactly the event `presence` now detects.
+#
+# This defect is independently confirmed, which is what a calibration case needs:
+# KiCad's own DRC reports ten copper_edge_clearance violations against USBC1's
+# polygon and pads, so the overhang exists whether or not kicad-happy sees it.
+# Two tools, two codebases, same conclusion.
 CALIBRATION = {
-    "name": "BTN1-4 single-pin nets (pull-up nets never joined to their switches)",
-    "needs": "schematic",
+    "name": "USBC1's courtyard overhangs the board edge (0.37 mm)",
+    "needs": "pcb",
     "all_groups": (
-        ("single-pin", "single pin", "one pin", "exactly one pin"),
-        ("btn1", "btn2", "btn3", "btn4"),
+        ("usbc1",),
+        ("courtyard", "board edge", "board outline"),
     ),
     "excluded_severities": ("info", "note", "debug"),
+    "presence": {
+        # Cheap, KiCad-free evidence that the defect is still in the design. If
+        # USBC1 is ever moved to fix the overhang, these strings stop matching
+        # and the verdict becomes STALE instead of blaming the reviewer.
+        "in": "board",
+        "contains": ["USB-C_SMD-TYPE-C-31-M-12_1", "(at 30 100 -90)"],
+        "confirmed_by": "KiCad DRC, 10 copper_edge_clearance violations at USBC1 "
+                        "(2026-07-27)",
+    },
+}
+
+# kicad-happy findings known to be wrong about THIS board, with the evidence.
+# Annotated rather than suppressed: a reviewer you silently edit is a reviewer
+# you have stopped reading.
+KNOWN_FALSE_POSITIVES = {
+    "PR-003": "Looks for a single ~120R part across CANH/CANL and cannot see split "
+              "termination. U8 and U9 both have 60.4+60.4R with a centre tap and an "
+              "independent jumper -- verified in the netlist by U3.",
+    "KO-001": "Tests vias against the keepout's BOUNDING BOX, not its outline. The "
+              "Inner2 rule areas are L-shaped; the three vias it flags are inside the "
+              "bbox and outside the polygon, and KiCad's DRC reports no keepout "
+              "violation (verified by point-in-polygon, 2026-07-27).",
+    "TV-001": "Its 'via(s) are not tented' clause cannot read KiCad 10's per-via "
+              "(tenting (front yes) (back yes)) block, which pcbnew confirms as "
+              "TENTING_MODE_TENTED. The via-count half of this rule is trustworthy.",
 }
 
 
@@ -169,8 +203,25 @@ def matches_calibration(finding: dict) -> bool:
     return all(any(term in blob for term in group) for group in CALIBRATION["all_groups"])
 
 
-def calibrate(findings: list[dict], schematic_present: bool) -> tuple[str, str]:
-    """Return (verdict, reason). See the module docstring for the three outcomes."""
+def defect_still_present(board: Path, schematic: Path | None) -> bool | None:
+    """Is the calibration defect still IN the design? None when unknowable.
+
+    Deliberately independent of the reviewer's output -- the whole point is to
+    tell "the reviewer missed it" apart from "somebody fixed it".
+    """
+    probe = CALIBRATION.get("presence")
+    if not probe:
+        return None
+    target = board if probe.get("in", "board") == "board" else schematic
+    if target is None or not target.is_file():
+        return None
+    text = target.read_text(encoding="utf-8", errors="ignore")
+    return all(token in text for token in probe["contains"])
+
+
+def calibrate(findings: list, schematic_present: bool,
+              still_present: bool | None) -> tuple:
+    """Return (verdict, reason). See the module docstring for the four outcomes."""
     hit = next((f for f in findings if matches_calibration(f)), None)
     if hit:
         return (
@@ -183,6 +234,13 @@ def calibrate(findings: list[dict], schematic_present: bool) -> tuple[str, str]:
             "UNREACHABLE",
             "the expected defect is a schematic-level fact and no schematic was "
             "analyzed; this is not evidence about the reviewer",
+        )
+    if still_present is False:
+        return (
+            "STALE",
+            f"the calibration defect is no longer in the design ({CALIBRATION['name']}) "
+            "-- the fixture needs repointing at a defect that still exists. This says "
+            "nothing about the reviewer.",
         )
     return "MISSED", f"reviewer did not report the known defect: {CALIBRATION['name']}"
 
@@ -214,7 +272,15 @@ def main() -> int:
         return EXIT_ERROR
 
     schematic_present = schematic is not None
-    verdict, reason = calibrate(findings, schematic_present)
+    still_present = defect_still_present(board, schematic)
+    verdict, reason = calibrate(findings, schematic_present, still_present)
+
+    flagged = 0
+    for f in findings:
+        note = KNOWN_FALSE_POSITIVES.get(f.get('rule_id'))
+        if note:
+            f['known_false_positive'] = note
+            flagged += 1
 
     by_sev: dict[str, int] = {}
     for f in findings:
@@ -235,7 +301,10 @@ def main() -> int:
             "verdict": verdict,
             "reason": reason,
             "expected": CALIBRATION["name"],
+            "defect_still_present": still_present,
+            "confirmed_by": CALIBRATION.get("presence", {}).get("confirmed_by"),
         },
+        "known_false_positives_annotated": flagged,
         "finding_count": len(findings),
         "by_severity": by_sev,
         "findings": findings,
@@ -253,9 +322,14 @@ def main() -> int:
     )
     print(f"calibration : {verdict}")
     print(f"              {reason}")
+    if flagged:
+        print(f"annotated   : {flagged} finding(s) matched a known false positive "
+              f"({', '.join(sorted(KNOWN_FALSE_POSITIVES))}) -- see the JSON report")
 
     if verdict == "MISSED":
         return EXIT_MISSED_CALIBRATION
+    if verdict == "STALE":
+        return EXIT_STALE_CALIBRATION
     return EXIT_OK
 
 

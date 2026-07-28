@@ -1,0 +1,46 @@
+{
+  "$comment": [
+    "U1.93's BTN1 via breached JLC's absolute minimum annular ring: 0.10 mm",
+    "against their published 0.15 mm floor (0.20 recommended). It came from U5,",
+    "which shrank the via to 0.5 mm to fit the 0.746 mm corridor between the",
+    "+3V3 and BTN2 pads -- solving a clearance problem by creating a ring problem.",
+    "",
+    "The via cannot leave the pad: it is a 0.28 x 2.0 mm QFP pad on 0.5 mm pitch,",
+    "walled by a +3V3 diagonal 1.6 mm east and a GND trace 0.295 mm west, and the",
+    "0.22 mm gap between adjacent pads is below the 0.457 mm a track needs. Nor",
+    "can the via grow: the neighbouring pads cap it at 0.517 mm.",
+    "",
+    "So shrink the DRILL instead. 0.5/0.2 gives exactly the 0.15 mm ring JLC",
+    "requires, and 0.2 mm is inside their 0.15-6.3 mm drill range -- though it is",
+    "below the 0.3 mm this project's rules file uses as its cost-neutral floor, so",
+    "expect it to be the one small-drill hit on the board.",
+    "",
+    "RESIDUAL, recorded not fixed: it is still a via in an SMD pad. Tenting the",
+    "back stops solder dripping through but not wicking in. If the assembler",
+    "flags it, the remedy is JLCPCB's plugged/filled via option, or re-planning",
+    "the BTN1-4 and +3V3 escape fan in that corner."
+  ],
+  "delete": [
+    {
+      "net": "/BTN1",
+      "bbox": [
+        139.18,
+        111.23,
+        139.22,
+        111.27
+      ]
+    }
+  ],
+  "add_vias": [
+    {
+      "net": "/BTN1",
+      "at": [
+        139.2,
+        111.25
+      ],
+      "diameter": 0.5,
+      "drill": 0.2,
+      "tented": true
+    }
+  ]
+}
