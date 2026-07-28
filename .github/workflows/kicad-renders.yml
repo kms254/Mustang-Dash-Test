@@ -1,0 +1,62 @@
+# Fail a PR that changes the board without refreshing its renders.
+#
+# Deliberately does NOT render anything. Rendering needs a real KiCad install
+# (~1 GB, minutes) and the result would have to be pushed back to the PR branch
+# -- a bot writing to a branch someone else is working in. Comparing changed
+# paths catches the same mistake for free.
+#
+# This exists because the pre-commit hook that normally refreshes renders is
+# opt-in per clone, so it is silently absent exactly when someone new touches
+# the board.
+name: KiCad renders current
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  renders:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need both sides of the PR to diff against the merge base.
+          fetch-depth: 0
+
+      - name: Board changed without refreshed renders
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${BASE:-}" ]; then
+            echo "not a pull request -- nothing to compare"
+            exit 0
+          fi
+
+          merge_base=$(git merge-base "$BASE" "$HEAD")
+          changed=$(git diff --name-only "$merge_base" "$HEAD")
+
+          echo "changed files:"
+          echo "$changed" | sed 's/^/  /'
+          echo
+
+          if ! echo "$changed" | grep -q '\.kicad_pcb$'; then
+            echo "board unchanged -- renders cannot be stale"
+            exit 0
+          fi
+
+          if echo "$changed" | grep -q '^kicad/board3/renders/'; then
+            echo "board changed and renders were refreshed"
+            exit 0
+          fi
+
+          echo "::error::The board changed but kicad/board3/renders/ was not updated."
+          echo
+          echo "Refresh them and amend or add a commit:"
+          echo "    python tools/kicad_render.py"
+          echo
+          echo "To have this happen automatically, install the hook once per clone:"
+          echo "    git config core.hooksPath .githooks"
+          exit 1

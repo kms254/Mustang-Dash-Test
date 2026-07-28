@@ -45,6 +45,12 @@ A tracked pre-commit hook keeps them honest. Install it once per clone:
 git config core.hooksPath .githooks
 ```
 
+The hook is convenience, not enforcement — it is opt-in per clone, so it is
+silently absent on a fresh clone or under `--no-verify`. CI is what actually
+holds the line: `.github/workflows/kicad-renders.yml` fails any PR that changes
+the board without refreshing the renders, and `kicad-parts.yml` runs the part
+audit on every PR.
+
 The hook only fires when a `.kicad_pcb` is actually staged — each refresh is
 ~360 KB of binary that lands in history permanently, so regenerating on every
 commit would bloat the repo to show a picture that did not change. If rendering

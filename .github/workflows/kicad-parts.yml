@@ -1,0 +1,27 @@
+# Every placed part must be an LCSC part with a 3D model.
+#
+# This is the enforcement half of that rule. The pre-commit hook in .githooks is
+# the convenience half, and it is opt-in per clone -- absent on a fresh clone, in
+# another agent's environment, or under --no-verify. Only CI actually holds the
+# line.
+#
+# Runs on a bare runner: `kicad_lcsc.py check` parses the schematic and board as
+# text and needs neither KiCad nor network access.
+name: KiCad parts audit
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Every placed part is LCSC-mapped and modelled
+        run: python tools/kicad_lcsc.py check

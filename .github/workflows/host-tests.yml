@@ -1,0 +1,30 @@
+# Host-side invariant tests.
+#
+# These pin the display profile, wiring pins, backlight wave, splash timeline,
+# dash math/sim/serial/odometer logic, font-format invariants, the splash
+# flash-pack layout, the trip/mode button gestures, and the ctags-shim contract
+# -- and until now they had no CI at all, running only when someone remembered
+# to invoke them locally. On Windows that means going through WSL, which is
+# exactly the kind of friction that turns a green suite into an unrun one.
+#
+# Needs only a host gcc, which ubuntu-latest already has. This does NOT build the
+# firmware: that needs the Teensy toolchain and is a separate concern.
+name: Host tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  invariants:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compiler version
+        run: gcc --version
+
+      - name: Invariant suite
+        run: ./tests/run-tests.sh
