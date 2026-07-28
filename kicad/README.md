@@ -5,6 +5,15 @@ Converted KiCad copies of boards whose authoritative source lives elsewhere.
 Today that is **Board3**, imported from EasyEDA Pro for the tooling evaluation in
 [docs/plans/2026-07-27-001-chore-kicad-evaluation-plan.md](../docs/plans/2026-07-27-001-chore-kicad-evaluation-plan.md).
 
+![Board3, angled](board3/renders/angled.png)
+
+| Top | Bottom |
+| --- | --- |
+| ![Top](board3/renders/top.png) | ![Bottom](board3/renders/bottom.png) |
+
+These are generated, not drawn — `.kicad_pcb` is the truth. See
+[Renders](#renders) for how they stay current.
+
 Three rules govern everything in this directory:
 
 - **EasyEDA stays authoritative.** Conversion is one-way. Nothing here is ever
@@ -18,6 +27,32 @@ Three rules govern everything in this directory:
 
 Toolchain resolution for anything operating on these files is
 [tools/kicad_env.py](../tools/kicad_env.py) — do not hardcode `kicad-cli` paths.
+
+## Renders
+
+`board3/renders/*.png` are committed so the board is visible in a diff, a PR, or
+a browser without installing KiCad. They are **build output, not source** — the
+board is the truth and these are regenerated from it:
+
+```sh
+python tools/kicad_render.py            # refresh all three views
+python tools/kicad_render.py --check    # exit 2 if older than the board
+```
+
+A tracked pre-commit hook keeps them honest. Install it once per clone:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The hook only fires when a `.kicad_pcb` is actually staged — each refresh is
+~360 KB of binary that lands in history permanently, so regenerating on every
+commit would bloat the repo to show a picture that did not change. If rendering
+fails (no KiCad on this machine) it warns and lets the commit through: refusing
+to commit firmware because a PCB picture could not be drawn is the wrong trade.
+
+Renders are 1200×750 on purpose. Enough to read placement and routing at a
+glance; open the board if you need detail.
 
 ## Adding a part
 

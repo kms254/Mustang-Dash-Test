@@ -1,0 +1,26 @@
+#!/bin/sh
+# Refresh the committed board renders whenever the board itself changes.
+#
+# Gated on a .kicad_pcb actually being staged. Each regeneration is ~400 KB of
+# binary that lands in history permanently, so refreshing on every commit would
+# bloat the repo to show a picture that did not change.
+#
+# Install (once per clone):  git config core.hooksPath .githooks
+#
+# A render failure warns but does not block the commit. KiCad is not installed
+# everywhere this repo gets cloned, and refusing to commit firmware changes
+# because a PCB picture could not be drawn is the wrong trade.
+
+if ! git diff --cached --name-only --diff-filter=ACM | grep -q '\.kicad_pcb$'; then
+    exit 0
+fi
+
+echo "pre-commit: board changed, refreshing renders"
+
+if ! python tools/kicad_render.py; then
+    echo "pre-commit: WARNING - render failed, committing with stale renders" >&2
+    echo "pre-commit: rerun 'python tools/kicad_render.py' and amend once fixed" >&2
+    exit 0
+fi
+
+git add kicad/board3/renders/
