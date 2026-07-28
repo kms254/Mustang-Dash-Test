@@ -80,8 +80,22 @@ schematic editor while being invisible to the BOM.
 `LCSC Part Name` is **not** the part number despite its name — it holds
 descriptive text. The C-number goes in `Supplier Part`.
 
-Run `check` before generating fab output. It exits non-zero if any placed part
-lacks an LCSC code or any referenced 3D model is missing from disk.
+Run `check` before generating fab output. It audits the **board**, not the
+library — the board is what gets fabricated, and each placed footprint carries
+its own copy of the model reference, so an instance placed before a library fix
+can be wrong while the library looks perfect. It fails on any of:
+
+- a placed part **not mapped to LCSC** (missing `Supplier Part`, or absent from
+  the schematic entirely)
+- a placed footprint with **no 3D model reference at all**
+- a model reference whose **file is missing from disk**
+- a schematic symbol with no LCSC code, placed or not
+
+Footprints that legitimately have no body — fiducials, free pads, mounting
+holes, test points — are exempt via the `BODILESS` table in the tool, and every
+exemption is **printed on every run**. An exemption you cannot see is one you
+cannot audit, and that table is the only path by which a real part could pass
+unnoticed. Board3 currently exempts 7: three fiducials and four free pads.
 
 3D models live in `board3/EASYEDA_MODELS/` and **are tracked** (~53 MB, ~9.5 MB
 in history). They are regenerable from the schematic's LCSC codes via

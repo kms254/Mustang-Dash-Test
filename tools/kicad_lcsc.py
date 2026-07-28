@@ -452,31 +452,143 @@ def cmd_add(args) -> int:
 # check
 
 
+def find_board(project: Path) -> Path | None:
+    boards = sorted(project.glob("*.kicad_pcb"))
+    return boards[0] if boards else None
+
+
+def board_footprints(pcb: Path) -> list[dict]:
+    """Every footprint placed on the board, with its reference and model refs.
+
+    Audits the board rather than the library on purpose: the board is what gets
+    fabricated, and each placed footprint carries its own copy of the model
+    reference. A library footprint can be perfect while an instance placed
+    before it was fixed is not.
+    """
+    text = pcb.read_text(encoding="utf-8", errors="replace")
+    out: list[dict] = []
+    for m in re.finditer(r"\n\t\(footprint ", text):
+        s, e = _span(text, m.start() + 1)
+        blk = text[s:e]
+        lib = re.search(r'\(footprint "([^"]+)"', blk)
+        ref = re.search(r'\(property "Reference" "([^"]*)"', blk)
+        out.append({
+            "ref": (ref.group(1) if ref else "").strip(),
+            "lib": lib.group(1) if lib else "?",
+            "models": re.findall(r'\(model\s+"([^"]+)"', blk),
+        })
+    return out
+
+
+# Footprints that legitimately have no 3D body and no LCSC part behind them.
+# Kept deliberately narrow, and every match is printed on every run: an
+# exemption you cannot see is an exemption you cannot audit, and this table is
+# the only route by which a real part could ever pass unnoticed.
+BODILESS = (
+    (re.compile(r"fiducial", re.I), "fiducial - copper and mask only"),
+    (re.compile(r"^pad_e\d+$", re.I), "free pad - bare copper, not a component"),
+    (re.compile(r"mountinghole|^hole[-_]", re.I), "mounting hole"),
+    (re.compile(r"^testpoint|^tp[-_]", re.I), "test point"),
+    (re.compile(r"^solderjumper|^jumper[-_]", re.I), "solder jumper"),
+    (re.compile(r"^logo|^graphic", re.I), "silkscreen graphic"),
+)
+
+
+def bodiless_reason(fp: dict) -> str:
+    """Why this footprint needs neither a 3D model nor an LCSC code, or ''."""
+    name = fp["lib"].split(":", 1)[-1]
+    for pattern, reason in BODILESS:
+        if pattern.search(name):
+            return reason
+    return ""
+
+
+def _short(fp: dict) -> str:
+    return fp["lib"].split(":", 1)[-1]
+
+
 def cmd_check(args) -> int:
     project = Path(args.project).resolve()
     schematic = find_schematic(project)
     parts = read_parts(schematic)
-
-    unsourced = [p for p in parts if not (p.get("Supplier Part") or "").strip()]
-    refs = model_refs(project)
-    missing_models = [p for p in refs if not Path(p).exists()]
+    by_ref = {p.get("Reference", ""): p for p in parts}
 
     print(f"schematic    : {schematic.name}")
-    print(f"components   : {len(parts)}  ({len(parts) - len(unsourced)} with an LCSC code)")
-    print(f"3D models    : {len(refs) - len(missing_models)}/{len(refs)} present")
 
-    if unsourced:
-        print(f"\nno LCSC code ({len(unsourced)}):")
-        for p in unsourced:
-            print(f"  {p.get('Reference', '?'):8s} {p.get('Value', '')}")
-        print("\n  every placed part must carry one: python tools/kicad_lcsc.py add C<n>")
-    if missing_models:
-        print(f"\nmissing 3D models ({len(missing_models)}):")
-        for m in sorted(missing_models):
-            print(f"  {Path(m).name}")
-        print("\n  run: python tools/kicad_lcsc.py models")
+    pcb = find_board(project)
+    if pcb is None:
+        print("board        : none found -- checking the schematic only")
+        placed: list[dict] = []
+    else:
+        print(f"board        : {pcb.name}")
+        placed = board_footprints(pcb)
 
-    return EXIT_INCOMPLETE if (unsourced or missing_models) else EXIT_OK
+    exempt = [(fp, bodiless_reason(fp)) for fp in placed]
+    exempt = [(fp, r) for fp, r in exempt if r]
+    exempt_ids = {id(fp) for fp, _ in exempt}
+    real = [fp for fp in placed if id(fp) not in exempt_ids]
+
+    no_lcsc: list[dict] = []
+    no_model: list[dict] = []
+    broken: list[tuple[dict, str]] = []
+    for fp in real:
+        sch = by_ref.get(fp["ref"], {})
+        if not (sch.get("Supplier Part") or "").strip():
+            no_lcsc.append(fp)
+        if not fp["models"]:
+            no_model.append(fp)
+        for raw in fp["models"]:
+            if not Path(raw.replace("${KIPRJMOD}", str(project))).exists():
+                broken.append((fp, raw))
+
+    # A symbol drawn but never placed is never fabricated, and a board-side
+    # audit alone would never notice it.
+    on_board = {f["ref"] for f in placed}
+    unplaced = [p for p in parts if p.get("Reference") and p["Reference"] not in on_board]
+    sch_unsourced = [p for p in parts if not (p.get("Supplier Part") or "").strip()]
+
+    print(f"placed       : {len(placed)}  ({len(real)} components, {len(exempt)} bodiless by design)")
+    print(f"LCSC mapped  : {len(real) - len(no_lcsc)}/{len(real)}")
+    print(f"3D modelled  : {len(real) - len(no_model)}/{len(real)}")
+
+    if exempt:
+        print(f"\nexempt, needing neither a model nor an LCSC code ({len(exempt)}):")
+        for fp, reason in sorted(exempt, key=lambda t: (t[1], t[0]["ref"])):
+            print(f"  {fp['ref'] or '(no ref)':10s} {_short(fp):32s} {reason}")
+
+    if no_lcsc:
+        print(f"\nNOT MAPPED TO LCSC ({len(no_lcsc)}):")
+        for fp in no_lcsc:
+            sch = by_ref.get(fp["ref"], {})
+            why = "not in schematic" if not sch else "no Supplier Part field"
+            print(f"  {fp['ref'] or '(no ref)':10s} {sch.get('Value', ''):22s} {_short(fp):30s} {why}")
+        print("  every placed part must carry one: python tools/kicad_lcsc.py add C<n>")
+
+    if no_model:
+        print(f"\nNO 3D MODEL REFERENCE ({len(no_model)}):")
+        for fp in no_model:
+            print(f"  {fp['ref'] or '(no ref)':10s} {_short(fp)}")
+        print("  re-import the part, or extend BODILESS if it genuinely has no body")
+
+    if broken:
+        print(f"\nMODEL FILE MISSING ON DISK ({len(broken)}):")
+        for fp, raw in sorted(broken, key=lambda t: t[1]):
+            print(f"  {fp['ref'] or '(no ref)':10s} {raw}")
+        print("  run: python tools/kicad_lcsc.py models")
+
+    if unplaced:
+        print(f"\nin the schematic but not on the board ({len(unplaced)}):")
+        for p in unplaced:
+            print(f"  {p.get('Reference', '?'):10s} {p.get('Value', '')}")
+
+    if sch_unsourced:
+        print(f"\nschematic symbols with no LCSC code ({len(sch_unsourced)}):")
+        for p in sch_unsourced:
+            print(f"  {p.get('Reference', '?'):10s} {p.get('Value', '')}")
+
+    failed = bool(no_lcsc or no_model or broken or sch_unsourced)
+    print(f"\n{'FAIL' if failed else 'PASS'}")
+    return EXIT_INCOMPLETE if failed else EXIT_OK
 
 
 def _relaunch_utf8() -> int | None:
