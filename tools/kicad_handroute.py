@@ -166,8 +166,30 @@ def apply_step(board, spec: dict, tracks: list, dry: bool):
         via.SetNet(netmap[rule["net"].lstrip("/")])
         via.SetLayerPair(layer_id(board, rule.get("top", "Top Layer")),
                          layer_id(board, rule.get("bottom", "Bottom Layer")))
+        # A via sitting in a thermal pad must be tented, or reflow wicks solder
+        # down the barrel and leaves a void under the pad.
+        if rule.get("tented"):
+            via.SetFrontTentingMode(pcbnew.TENTING_MODE_TENTED)
+            via.SetBackTentingMode(pcbnew.TENTING_MODE_TENTED)
         board.Add(via)
-        print(f"  + {rule['net']:<13} via           ({x:8.3f},{y:8.3f})")
+        print(f"  + {rule['net']:<13} via           ({x:8.3f},{y:8.3f})"
+              f"{'  tented' if rule.get('tented') else ''}")
+        added += 1
+
+    for rule in spec.get("add_footprints", []):
+        footprint = pcbnew.FootprintLoad(rule["lib"], rule["name"])
+        if footprint is None:
+            raise SystemExit(f"footprint {rule['name']!r} not in {rule['lib']!r}")
+        x, y = rule["at"]
+        board.Add(footprint)
+        footprint.SetPosition(pcbnew.VECTOR2I(to_nm(x), to_nm(y)))
+        footprint.SetReference(rule["ref"])
+        # board_only keeps "Update PCB from Schematic" from deleting a part that
+        # has no symbol; the other two keep it out of the BOM and the CPL.
+        footprint.SetAttributes(pcbnew.FP_SMD | pcbnew.FP_BOARD_ONLY
+                                | pcbnew.FP_EXCLUDE_FROM_BOM
+                                | pcbnew.FP_EXCLUDE_FROM_POS_FILES)
+        print(f"  + {rule['ref']:<13} {rule['name']:<24} ({x:8.3f},{y:8.3f})")
         added += 1
 
     return removed, added
