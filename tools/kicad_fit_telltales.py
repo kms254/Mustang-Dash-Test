@@ -19,6 +19,11 @@ MM = pcbnew.FromMM
 CLEAR = MM(0.15)          # 0.25 and 0.40 both scored worse; this is calibrated
 OVERRIDE = {}   # a per-LED override was tried and scored worse; keep it uniform
 LOCAL = MM(6.0)           # radius treated as "telltale-local" copper
+# Avoiding neighbour courtyards too sounds strictly better and is not: it leaves
+# LED8 unplaceable against R38, and the resulting NEW is 6 (2 shorts, 2
+# clearance, 2 mask bridges) versus 3 courtyard-overlap warnings with it off.
+# A courtyard overlap is an assembly-clearance warning; a short is a dead board.
+AVOID_COURTYARDS = False
 
 b = pcbnew.LoadBoard(BOARD)
 olds = {f.GetReference(): f for f in b.GetFootprints() if f.GetReference() in ASSIGN}
@@ -69,35 +74,67 @@ for r in sorted(ASSIGN):
     b.Remove(o); b.Add(n); news[r] = n
 
 # --- 3. foreign copper to avoid --------------------------------------------
-def shapes_near(pos, own_nets):
+def shapes_near(pos):
+    """Every F.Cu shape within reach, tagged with its net.
+
+    Tagged rather than pre-filtered because "own net" is a property of the PAD,
+    not the footprint: /+5V is LED6 pad 2's net, but a /+5V via touching pad 1
+    is a real short. Filtering per-footprint hid exactly that.
+    """
     out = []
     for t in b.GetTracks():
-        if t.GetNetname() in own_nets or not t.IsOnLayer(pcbnew.F_Cu):
+        if not t.IsOnLayer(pcbnew.F_Cu):
             continue
         if min(math.hypot(t.GetStart().x - pos.x, t.GetStart().y - pos.y),
                math.hypot(t.GetEnd().x - pos.x, t.GetEnd().y - pos.y)) > MM(12):
             continue
-        out.append(t.GetEffectiveShape(pcbnew.F_Cu))
+        out.append((t.GetEffectiveShape(pcbnew.F_Cu), t.GetNetname()))
     for f in b.GetFootprints():
         if f.GetReference() in ASSIGN:
             continue
         for p in f.Pads():
-            if p.GetNetname() in own_nets or not p.IsOnLayer(pcbnew.F_Cu):
+            if not p.IsOnLayer(pcbnew.F_Cu):
                 continue
             pp = p.GetPosition()
             if math.hypot(pp.x - pos.x, pp.y - pos.y) > MM(12):
                 continue
-            out.append(p.GetEffectiveShape(pcbnew.F_Cu))
+            out.append((p.GetEffectiveShape(pcbnew.F_Cu), p.GetNetname()))
     return out
 
 
-def hits(fp, obstacles, clear=None):
+def courtyards_near(pos):
+    """Neighbouring courtyards. Copper clearance alone is not enough -- the 3528
+    body is wider than the 0805 it replaces, so a placement can be electrically
+    clean and still overlap the telltale's own series resistor."""
+    out = []
+    for f in b.GetFootprints():
+        if f.GetReference() in ASSIGN:
+            continue
+        fp_pos = f.GetPosition()
+        if math.hypot(fp_pos.x - pos.x, fp_pos.y - pos.y) > MM(12):
+            continue
+        cy = f.GetCourtyard(pcbnew.F_CrtYd)
+        if cy.OutlineCount():
+            out.append(cy)
+    return out
+
+
+def hits(fp, obstacles, clear=None, courtyards=()):
     n = 0
     for p in fp.Pads():
         s = p.GetEffectiveShape(pcbnew.F_Cu)
-        for o in obstacles:
+        mynet = p.GetNetname()
+        for o, onet in obstacles:
+            if onet == mynet:
+                continue
             if s.Collide(o, clear or CLEAR):
                 n += 1
+    if courtyards:
+        cy = fp.GetCourtyard(pcbnew.F_CrtYd)
+        if cy.OutlineCount():
+            for ncy in courtyards:
+                if cy.Collide(ncy, 0):
+                    n += 1
     return n
 
 
@@ -107,8 +144,8 @@ placed = {}
 for r in sorted(ASSIGN):
     fp = news[r]
     pos, rot0 = home[r]
-    own = set(nets[r])
-    obs = shapes_near(pos, own)
+    obs = shapes_near(pos)
+    cys = courtyards_near(pos) if AVOID_COURTYARDS else ()
     best = None
     for k in range(0, 9):                        # rings of increasing offset
         for rot in (rot0, 0.0, 90.0, 180.0, 270.0):
@@ -118,7 +155,7 @@ for r in sorted(ASSIGN):
                         continue
                     np_ = pcbnew.VECTOR2I(pos.x + dx * STEP, pos.y + dy * STEP)
                     fp.SetOrientationDegrees(rot); fp.SetPosition(np_)
-                    if hits(fp, obs, OVERRIDE.get(r)) == 0:
+                    if hits(fp, obs, OVERRIDE.get(r), cys) == 0:
                         cost = (k, 0 if rot == rot0 else 1)
                         if best is None or cost < best[0]:
                             best = (cost, rot, np_)
