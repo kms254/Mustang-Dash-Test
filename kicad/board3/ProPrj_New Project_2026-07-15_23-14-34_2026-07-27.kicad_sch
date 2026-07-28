@@ -14209,6 +14209,505 @@
 			)
 			(embedded_fonts no)
 		)
+	
+		(symbol "JLCImport:HL-A-3528U51GC-S1-13HL"
+			(pin_names (offset 1.016))
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "LED" (at 0 2 0)
+			  (effects (font (size 1.27 1.27)))
+			)
+			(property "Value" "HL-A-3528U51GC-S1-13HL" (at 0 -2 0)
+			  (effects (font (size 1.27 1.27)))
+			)
+			(property "Footprint" "JLCImport:HL-A-3528U51GC-S1-13HL" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Datasheet" "https://item.szlcsc.com/251527.html" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Description" "HL-A-3528U51GC-S1-13HL; LED-SMD_L3.5-W2.8-LS3.6-RD; HONGLITRONIC" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "ki_keywords" "C516142 HL-A-3528U51GC-S1-13HL HONGLITRONIC LED-SMD_L3.5-W2.8-LS3.6-RD" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Supplier Part" "C516142" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Manufacturer" "HONGLITRONIC" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Manufacturer Part" "HL-A-3528U51GC-S1-13HL" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Supplier" "LCSC" (at 0 2 0)
+			  (effects (hide yes) (font (size 1.27 1.27)))
+			)
+			(property "LCSC Part Name" "HL-A-3528U51GC-S1-13HL" (at 0 2 0)
+			  (effects (hide yes) (font (size 1.27 1.27)))
+			)
+			(symbol "HL-A-3528U51GC-S1-13HL_0_1"
+			  (polyline
+			    (pts (xy 1.27 -1.524) (xy -1.27 0) (xy 1.27 1.778) (xy 1.27 -1.524))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type outline))
+			  )
+			  (polyline
+			    (pts (xy -1.27 2.032) (xy -1.27 -2.032))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -1.016 2.54) (xy -2.794 4.318))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -2.032 1.524) (xy -3.81 3.302))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -2.794 4.318) (xy -1.778 3.81) (xy -2.286 3.302) (xy -2.794 4.318))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type outline))
+			  )
+			  (polyline
+			    (pts (xy -3.81 3.302) (xy -2.794 2.794) (xy -3.302 2.286) (xy -3.81 3.302))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type outline))
+			  )
+			  (pin unspecified line (at 5.08 0 180) (length 3.81)
+			    (name "A" (effects (font (size 1.27 1.27)) hide))
+			    (number "2" (effects (font (size 1.27 1.27)) hide))
+			  )
+			  (pin unspecified line (at -5.08 0 0) (length 3.81)
+			    (name "C" (effects (font (size 1.27 1.27)) hide))
+			    (number "1" (effects (font (size 1.27 1.27)) hide))
+			  )
+			)
+			)
+		(symbol "JLCImport:HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K"
+			(pin_names (offset 1.016))
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "LED" (at 0 2 0)
+			  (effects (font (size 1.27 1.27)))
+			)
+			(property "Value" "HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K" (at 0 -2 0)
+			  (effects (font (size 1.27 1.27)))
+			)
+			(property "Footprint" "JLCImport:HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Datasheet" "https://item.szlcsc.com/439892.html" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Description" "HL-A-3528H343W-S1-13HL-HR3(SDCM 6)(6000K-7000K); LED-SMD_L3.2-W2.8-R-RD; HONGLITRONIC" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "ki_keywords" "C516299 HL-A-3528H343W-S1-13HL-HR3(SDCM 6)(6000K-7000K) HONGLITRONIC LED-SMD_L3.2-W2.8-R-RD" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Supplier Part" "C516299" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Manufacturer" "HONGLITRONIC" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Manufacturer Part" "HL-A-3528H343W-S1-13HL-HR3(SDCM 6)(6000K-7000K)" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Supplier" "LCSC" (at 0 2 0)
+			  (effects (hide yes) (font (size 1.27 1.27)))
+			)
+			(property "LCSC Part Name" "HL-A-3528H343W-S1-13HL-HR3(SDCM&amp;lt;6)(6000K-7000K)" (at 0 2 0)
+			  (effects (hide yes) (font (size 1.27 1.27)))
+			)
+			(symbol "HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K_0_1"
+			  (polyline
+			    (pts (xy 1.27 -1.524) (xy -1.27 0) (xy 1.27 1.778) (xy 1.27 -1.524))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type outline))
+			  )
+			  (polyline
+			    (pts (xy -1.27 2.032) (xy -1.27 -2.032))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -1.016 2.54) (xy -2.794 4.318))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -2.032 1.524) (xy -3.81 3.302))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -2.794 4.318) (xy -1.778 3.81) (xy -2.286 3.302) (xy -2.794 4.318))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type outline))
+			  )
+			  (polyline
+			    (pts (xy -3.81 3.302) (xy -2.794 2.794) (xy -3.302 2.286) (xy -3.81 3.302))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type outline))
+			  )
+			  (pin unspecified line (at 5.08 0 180) (length 3.81)
+			    (name "A" (effects (font (size 1.27 1.27)) hide))
+			    (number "2" (effects (font (size 1.27 1.27)) hide))
+			  )
+			  (pin unspecified line (at -5.08 0 0) (length 3.81)
+			    (name "C" (effects (font (size 1.27 1.27)) hide))
+			    (number "1" (effects (font (size 1.27 1.27)) hide))
+			  )
+			)
+			)
+		(symbol "JLCImport:HL-A-3528H203BC-S1-13HL"
+			(pin_names (offset 1.016))
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "LED" (at 0 2 0)
+			  (effects (font (size 1.27 1.27)))
+			)
+			(property "Value" "HL-A-3528H203BC-S1-13HL" (at 0 -2 0)
+			  (effects (font (size 1.27 1.27)))
+			)
+			(property "Footprint" "JLCImport:HL-A-3528H203BC-S1-13HL" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Datasheet" "https://item.szlcsc.com/datasheet/XL-SD3528SURC/6136393.html?spm=sc.gb.xds.a&lcsc_vid=T1JaVFcDQlRdUVQCQlhfU1JfQldbVVAFFFBeUVRRQAMxVlNSRFVYXlFSR1BYUTsOAxUeFF5JWA0NAgAHWQIASA%3D%3D" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Description" "HL-A-3528H203BC-S1-13HL; LED-SMD_L3.5-W2.8-FD_XL-SD3528SURC; HONGLITRONIC" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "ki_keywords" "C516143 HL-A-3528H203BC-S1-13HL HONGLITRONIC LED-SMD_L3.5-W2.8-FD_XL-SD3528SURC" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Supplier Part" "C516143" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Manufacturer" "HONGLITRONIC" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Manufacturer Part" "HL-A-3528H203BC-S1-13HL" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Supplier" "LCSC" (at 0 2 0)
+			  (effects (hide yes) (font (size 1.27 1.27)))
+			)
+			(property "LCSC Part Name" "HL-A-3528H203BC-S1-13HL" (at 0 2 0)
+			  (effects (hide yes) (font (size 1.27 1.27)))
+			)
+			(symbol "HL-A-3528H203BC-S1-13HL_0_1"
+			  (polyline
+			    (pts (xy 1.27 -1.524) (xy -1.27 0) (xy 1.27 1.778) (xy 1.27 -1.524))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type outline))
+			  )
+			  (polyline
+			    (pts (xy -1.27 2.032) (xy -1.27 -2.032))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -1.27 2.54) (xy -2.286 3.556))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -2.286 1.524) (xy -3.302 2.54))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -3.048 4.318) (xy -2.032 3.81) (xy -2.54 3.302) (xy -3.048 4.318))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type outline))
+			  )
+			  (polyline
+			    (pts (xy -4.064 3.302) (xy -3.048 2.794) (xy -3.556 2.286) (xy -4.064 3.302))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type outline))
+			  )
+			  (pin unspecified line (at 5.08 0 180) (length 3.81)
+			    (name "+" (effects (font (size 1.27 1.27)) hide))
+			    (number "2" (effects (font (size 1.27 1.27)) hide))
+			  )
+			  (pin unspecified line (at -5.08 0 0) (length 3.81)
+			    (name "-" (effects (font (size 1.27 1.27)) hide))
+			    (number "1" (effects (font (size 1.27 1.27)) hide))
+			  )
+			)
+			)
+		(symbol "JLCImport:HVO-3528CPXA"
+			(pin_names (offset 1.016))
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "LED" (at 0 2 0)
+			  (effects (font (size 1.27 1.27)))
+			)
+			(property "Value" "HVO-3528CPXA" (at 0 -2 0)
+			  (effects (font (size 1.27 1.27)))
+			)
+			(property "Footprint" "JLCImport:HVO-3528CPXA" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Datasheet" "https://atta.szlcsc.com/upload/public/pdf/source/20191227/C242256_B78C7B20B8988DD1E283272897F5E202.pdf" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Description" "HVO-3528CPXA; LED-SMD_L3.5-W2.8-LS3.6-RD-1; HONGLITRONIC" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "ki_keywords" "C5246349 HONGLITRONIC HVO-3528CPXA LED-SMD_L3.5-W2.8-LS3.6-RD-1" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Supplier Part" "C5246349" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Manufacturer" "HONGLITRONIC" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Manufacturer Part" "HVO-3528CPXA" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Supplier" "LCSC" (at 0 2 0)
+			  (effects (hide yes) (font (size 1.27 1.27)))
+			)
+			(property "LCSC Part Name" "HVO-3528CPXA" (at 0 2 0)
+			  (effects (hide yes) (font (size 1.27 1.27)))
+			)
+			(symbol "HVO-3528CPXA_0_1"
+			  (polyline
+			    (pts (xy -4.064 3.302) (xy -3.048 2.794) (xy -3.556 2.286) (xy -4.064 3.302))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -3.048 4.318) (xy -2.032 3.81) (xy -2.54 3.302) (xy -3.048 4.318))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -2.286 1.524) (xy -3.302 2.54))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -1.27 2.54) (xy -2.286 3.556))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -1.27 0) (xy -2.54 0))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy 2.54 0) (xy 1.27 0))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -1.27 1.778) (xy -1.27 -1.778))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy 1.27 1.778) (xy -1.27 0) (xy 1.27 -1.778) (xy 1.27 1.778))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (pin unspecified line (at -5.08 0 0) (length 2.54)
+			    (name "K" (effects (font (size 1.27 1.27)) hide))
+			    (number "1" (effects (font (size 1.27 1.27)) hide))
+			  )
+			  (pin unspecified line (at 5.08 0 180) (length 2.54)
+			    (name "A" (effects (font (size 1.27 1.27)) hide))
+			    (number "2" (effects (font (size 1.27 1.27)) hide))
+			  )
+			)
+			)
+		(symbol "JLCImport:HL-A-3528S35FC-S1-13HL"
+			(pin_names (offset 1.016))
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "LED" (at 0 2 0)
+			  (effects (font (size 1.27 1.27)))
+			)
+			(property "Value" "HL-A-3528S35FC-S1-13HL" (at 0 -2 0)
+			  (effects (font (size 1.27 1.27)))
+			)
+			(property "Footprint" "JLCImport:HL-A-3528S35FC-S1-13HL" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Datasheet" "https://atta.szlcsc.com/upload/public/pdf/source/20200417/C516141_7B217CCC4B8FFE9B0D31C294D78DF3D2.pdf" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Description" "HL-A-3528S35FC-S1-13HL; LED-SMD_L3.2-W2.8-LS3.5-RD_RED-1; HONGLITRONIC" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "ki_keywords" "C516141 HL-A-3528S35FC-S1-13HL HONGLITRONIC LED-SMD_L3.2-W2.8-LS3.5-RD_RED-1" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Supplier Part" "C516141" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Manufacturer" "HONGLITRONIC" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Manufacturer Part" "HL-A-3528S35FC-S1-13HL" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Supplier" "LCSC" (at 0 2 0)
+			  (effects (hide yes) (font (size 1.27 1.27)))
+			)
+			(property "LCSC Part Name" "HL-A-3528S35FC-S1-13HL" (at 0 2 0)
+			  (effects (hide yes) (font (size 1.27 1.27)))
+			)
+			(symbol "HL-A-3528S35FC-S1-13HL_0_1"
+			  (polyline
+			    (pts (xy 4.064 3.302) (xy 3.048 2.794) (xy 3.556 2.286) (xy 4.064 3.302))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy 3.048 4.318) (xy 2.032 3.81) (xy 2.54 3.302) (xy 3.048 4.318))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy 2.286 1.524) (xy 3.302 2.54))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy 1.27 2.54) (xy 2.286 3.556))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy 1.27 0) (xy 2.54 0))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -2.54 0) (xy -1.27 0))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy 1.27 1.778) (xy 1.27 -1.778))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -1.27 1.778) (xy 1.27 0) (xy -1.27 -1.778) (xy -1.27 1.778))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (pin unspecified line (at 5.08 0 180) (length 2.54)
+			    (name "K" (effects (font (size 1.27 1.27)) hide))
+			    (number "1" (effects (font (size 1.27 1.27)) hide))
+			  )
+			  (pin unspecified line (at -5.08 0 0) (length 2.54)
+			    (name "A" (effects (font (size 1.27 1.27)) hide))
+			    (number "2" (effects (font (size 1.27 1.27)) hide))
+			  )
+			)
+			)
+		(symbol "JLCImport:HL-A-3528S31YC-S1-13HL"
+			(pin_names (offset 1.016))
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "LED" (at 0 2 0)
+			  (effects (font (size 1.27 1.27)))
+			)
+			(property "Value" "HL-A-3528S31YC-S1-13HL" (at 0 -2 0)
+			  (effects (font (size 1.27 1.27)))
+			)
+			(property "Footprint" "JLCImport:HL-A-3528S31YC-S1-13HL" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Datasheet" "https://atta.szlcsc.com/upload/public/pdf/source/20200417/C516140_F0F8181DF1ECF12F01D4FEAE0D617960.pdf" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Description" "HL-A-3528S31YC-S1-13HL; LED-SMD_L3.2-W2.8-LS3.5-RD_YELLOW; HONGLITRONIC" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "ki_keywords" "C516140 HL-A-3528S31YC-S1-13HL HONGLITRONIC LED-SMD_L3.2-W2.8-LS3.5-RD_YELLOW" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Supplier Part" "C516140" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Manufacturer" "HONGLITRONIC" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Manufacturer Part" "HL-A-3528S31YC-S1-13HL" (at 0 0 0)
+			  (effects (font (size 1.27 1.27)) hide)
+			)
+			(property "Supplier" "LCSC" (at 0 2 0)
+			  (effects (hide yes) (font (size 1.27 1.27)))
+			)
+			(property "LCSC Part Name" "HL-A-3528S31YC-S1-13HL" (at 0 2 0)
+			  (effects (hide yes) (font (size 1.27 1.27)))
+			)
+			(symbol "HL-A-3528S31YC-S1-13HL_0_1"
+			  (polyline
+			    (pts (xy -4.064 3.302) (xy -3.048 2.794) (xy -3.556 2.286) (xy -4.064 3.302))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -3.048 4.318) (xy -2.032 3.81) (xy -2.54 3.302) (xy -3.048 4.318))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -2.286 1.524) (xy -3.302 2.54))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -1.27 2.54) (xy -2.286 3.556))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -1.27 0) (xy -2.54 0))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy 2.54 0) (xy 1.27 0))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy -1.27 1.778) (xy -1.27 -1.778))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (polyline
+			    (pts (xy 1.27 1.778) (xy -1.27 0) (xy 1.27 -1.778) (xy 1.27 1.778))
+			    (stroke (width 0.254) (type solid))
+			    (fill (type none))
+			  )
+			  (pin unspecified line (at -5.08 0 0) (length 2.54)
+			    (name "-" (effects (font (size 1.27 1.27)) hide))
+			    (number "1" (effects (font (size 1.27 1.27)) hide))
+			  )
+			  (pin unspecified line (at 5.08 0 180) (length 2.54)
+			    (name "+" (effects (font (size 1.27 1.27)) hide))
+			    (number "2" (effects (font (size 1.27 1.27)) hide))
+			  )
+			)
+			)
 	)
 	(text "J1: +5V IN (dedicated 5V/15A supply)"
 		(exclude_from_sim no)
@@ -25528,8 +26027,9 @@
 	)
 
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:FC-2012HRK-620D")
+		(lib_id "JLCImport:HL-A-3528S35FC-S1-13HL")
 		(at 210.82 104.14 0)
+		(mirror y)
 		(unit 1)
 		(body_style 0)
 		(exclude_from_sim no)
@@ -25549,7 +26049,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "NCD0805R1"
+		(property "Value" "HL-A-3528S35FC-S1-13HL"
 			(at 207.01 109.22 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -25560,7 +26060,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:LED0805-RD"
+		(property "Footprint" "JLCImport:HL-A-3528S35FC-S1-13HL"
 			(at 210.82 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -25571,7 +26071,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/NCD0805R1/85425.html"
+		(property "Datasheet" "https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2004251808_HONGLITRONIC-Hongli-Zhihui--HONGLITRONIC-HL-A-3528S35FC-S1-13HL_C516141.pdf"
 			(at 210.82 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -25583,7 +26083,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Description" "Lamp Holder Type:- Illumination Color:Red Voltage - Forward(Vf):1.6V~2.6V Voltage - Forward(Vf):1.6V~2.6V Power(Watts):65mW Forward Current:25mA Wavelength - Dominant:615nm~630nm Wavelength - Dominant:615nm~630nm Peak Wavelength:630nm Peak Wavelength:630n"
+		(property "Description" "Red Water Clear 270mcd 120° 20mA 2.4V SMD3528-2P LED Indication - Discrete"
 			(at 210.82 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -25595,7 +26095,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "NCD0805R1"
+		(property "Manufacturer Part" "HL-A-3528S35FC-S1-13HL"
 			(at 210.82 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -25607,7 +26107,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "国星光电"
+		(property "Manufacturer" "HONGLITRONIC(Hongli Zhihui (HONGLITRONIC))"
 			(at 210.82 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -25619,7 +26119,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C84256"
+		(property "Supplier Part" "C516141"
 			(at 210.82 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -25643,7 +26143,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "片式发光二极管"
+		(property "LCSC Part Name" "HL-A-3528S35FC-S1-13HL"
 			(at 210.82 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -25703,7 +26203,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Forward Current" "25mA"
+		(property "Forward Current" "20mA"
 			(at 210.82 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -25727,7 +26227,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Basic Part"
+		(property "JLCPCB Part Class" "Extended Part"
 			(at 210.82 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -25751,7 +26251,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Lens Color" "-"
+		(property "Lens Color" "Water Clear"
 			(at 210.82 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -25763,7 +26263,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Luminous Intensity" "195mcd"
+		(property "Luminous Intensity" "270mcd"
 			(at 210.82 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -25787,7 +26287,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Operating Temperature" "-30℃~+85℃"
+		(property "Operating Temperature" "-40℃~+85℃"
 			(at 210.82 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -25799,7 +26299,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Peak Wavelength" "630nm"
+		(property "Peak Wavelength" "-"
 			(at 210.82 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -25811,7 +26311,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Power(Watts)" "65mW"
+		(property "Power(Watts)" "72mW"
 			(at 210.82 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -25835,7 +26335,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Viewing Angle" "130°"
+		(property "Viewing Angle" "120°"
 			(at 210.82 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -25847,7 +26347,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Voltage - Forward(Vf)" "1.6V~2.6V"
+		(property "Voltage - Forward(Vf)" "2.4V"
 			(at 210.82 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -25859,7 +26359,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Wavelength - Dominant" "615nm~630nm"
+		(property "Wavelength - Dominant" "617nm~627nm"
 			(at 210.82 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -38156,8 +38656,8 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:FC-2012UGK-520D5")
-		(at 185.42 104.14 0)
+		(lib_id "JLCImport:HL-A-3528U51GC-S1-13HL")
+		(at 185.42 105.156 0)
 		(unit 1)
 		(body_style 0)
 		(exclude_from_sim no)
@@ -38177,7 +38677,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "NCD0805G1"
+		(property "Value" "HL-A-3528U51GC-S1-13HL"
 			(at 181.61 109.22 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -38188,7 +38688,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:LED0805-R-RD"
+		(property "Footprint" "JLCImport:HL-A-3528U51GC-S1-13HL"
 			(at 185.42 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -38199,7 +38699,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/NCD0805G1/85429.html"
+		(property "Datasheet" "https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2004260932_HONGLITRONIC-Hongli-Zhihui--HONGLITRONIC-HL-A-3528U51GC-S1-13HL_C516142.pdf"
 			(at 185.42 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -38211,7 +38711,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Description" "Lamp Holder Type:- Illumination Color:Green Voltage - Forward(Vf):2.5V~3.6V Voltage - Forward(Vf):2.5V~3.6V Power(Watts):72mW Forward Current:20mA Wavelength - Dominant:525nm~537.5nm Wavelength - Dominant:525nm~537.5nm Peak Wavelength:520nm Peak Wavelengt"
+		(property "Description" "Emerald Green Water Clear 1.3cd 120° 20mA 3.4V SMD3528-2P LED Indication - Discrete"
 			(at 185.42 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -38223,7 +38723,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "NCD0805G1"
+		(property "Manufacturer Part" "HL-A-3528U51GC-S1-13HL"
 			(at 185.42 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -38235,7 +38735,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "国星光电"
+		(property "Manufacturer" "HONGLITRONIC(Hongli Zhihui (HONGLITRONIC))"
 			(at 185.42 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -38247,7 +38747,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C84260"
+		(property "Supplier Part" "C516142"
 			(at 185.42 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -38271,7 +38771,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "片式发光二极管"
+		(property "LCSC Part Name" "HL-A-3528U51GC-S1-13HL"
 			(at 185.42 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -38343,7 +38843,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Illumination Color" "Green"
+		(property "Illumination Color" "Emerald Green"
 			(at 185.42 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -38379,7 +38879,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Lens Color" "-"
+		(property "Lens Color" "Water Clear"
 			(at 185.42 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -38391,7 +38891,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Luminous Intensity" "400mcd"
+		(property "Luminous Intensity" "1.3cd"
 			(at 185.42 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -38415,7 +38915,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Operating Temperature" "-30℃~+85℃"
+		(property "Operating Temperature" "-40℃~+85℃"
 			(at 185.42 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -38427,7 +38927,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Peak Wavelength" "520nm"
+		(property "Peak Wavelength" "-"
 			(at 185.42 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -38439,7 +38939,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Power(Watts)" "72mW"
+		(property "Power(Watts)" "102mW"
 			(at 185.42 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -38463,7 +38963,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Viewing Angle" "130°"
+		(property "Viewing Angle" "120°"
 			(at 185.42 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -38475,7 +38975,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Voltage - Forward(Vf)" "2.5V~3.6V"
+		(property "Voltage - Forward(Vf)" "3.4V"
 			(at 185.42 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -38487,7 +38987,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Wavelength - Dominant" "525nm~537.5nm"
+		(property "Wavelength - Dominant" "515nm~525nm"
 			(at 185.42 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -41663,8 +42163,8 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:FC-2012UGK-520D5")
-		(at 170.18 115.824 0)
+		(lib_id "JLCImport:HL-A-3528U51GC-S1-13HL")
+		(at 170.18 116.84 0)
 		(unit 1)
 		(body_style 0)
 		(exclude_from_sim no)
@@ -41684,7 +42184,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "NCD0805G1"
+		(property "Value" "HL-A-3528U51GC-S1-13HL"
 			(at 166.37 121.92 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -41695,7 +42195,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:LED0805-R-RD"
+		(property "Footprint" "JLCImport:HL-A-3528U51GC-S1-13HL"
 			(at 170.18 115.824 0)
 			(hide yes)
 			(show_name no)
@@ -41706,7 +42206,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/NCD0805G1/85429.html"
+		(property "Datasheet" "https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2004260932_HONGLITRONIC-Hongli-Zhihui--HONGLITRONIC-HL-A-3528U51GC-S1-13HL_C516142.pdf"
 			(at 170.18 115.824 0)
 			(hide yes)
 			(show_name no)
@@ -41718,7 +42218,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Description" "Lamp Holder Type:- Illumination Color:Green Voltage - Forward(Vf):2.5V~3.6V Voltage - Forward(Vf):2.5V~3.6V Power(Watts):72mW Forward Current:20mA Wavelength - Dominant:525nm~537.5nm Wavelength - Dominant:525nm~537.5nm Peak Wavelength:520nm Peak Wavelengt"
+		(property "Description" "Emerald Green Water Clear 1.3cd 120° 20mA 3.4V SMD3528-2P LED Indication - Discrete"
 			(at 170.18 115.824 0)
 			(hide yes)
 			(show_name no)
@@ -41730,7 +42230,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "NCD0805G1"
+		(property "Manufacturer Part" "HL-A-3528U51GC-S1-13HL"
 			(at 170.18 115.824 0)
 			(hide yes)
 			(show_name no)
@@ -41742,7 +42242,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "国星光电"
+		(property "Manufacturer" "HONGLITRONIC(Hongli Zhihui (HONGLITRONIC))"
 			(at 170.18 115.824 0)
 			(hide yes)
 			(show_name no)
@@ -41754,7 +42254,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C84260"
+		(property "Supplier Part" "C516142"
 			(at 170.18 115.824 0)
 			(hide yes)
 			(show_name no)
@@ -41778,7 +42278,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "片式发光二极管"
+		(property "LCSC Part Name" "HL-A-3528U51GC-S1-13HL"
 			(at 170.18 115.824 0)
 			(hide yes)
 			(show_name no)
@@ -41850,7 +42350,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Illumination Color" "Green"
+		(property "Illumination Color" "Emerald Green"
 			(at 170.18 115.824 0)
 			(hide yes)
 			(show_name no)
@@ -41886,7 +42386,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Lens Color" "-"
+		(property "Lens Color" "Water Clear"
 			(at 170.18 115.824 0)
 			(hide yes)
 			(show_name no)
@@ -41898,7 +42398,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Luminous Intensity" "400mcd"
+		(property "Luminous Intensity" "1.3cd"
 			(at 170.18 115.824 0)
 			(hide yes)
 			(show_name no)
@@ -41922,7 +42422,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Operating Temperature" "-30℃~+85℃"
+		(property "Operating Temperature" "-40℃~+85℃"
 			(at 170.18 115.824 0)
 			(hide yes)
 			(show_name no)
@@ -41934,7 +42434,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Peak Wavelength" "520nm"
+		(property "Peak Wavelength" "-"
 			(at 170.18 115.824 0)
 			(hide yes)
 			(show_name no)
@@ -41946,7 +42446,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Power(Watts)" "72mW"
+		(property "Power(Watts)" "102mW"
 			(at 170.18 115.824 0)
 			(hide yes)
 			(show_name no)
@@ -41970,7 +42470,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Viewing Angle" "130°"
+		(property "Viewing Angle" "120°"
 			(at 170.18 115.824 0)
 			(hide yes)
 			(show_name no)
@@ -41982,7 +42482,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Voltage - Forward(Vf)" "2.5V~3.6V"
+		(property "Voltage - Forward(Vf)" "3.4V"
 			(at 170.18 115.824 0)
 			(hide yes)
 			(show_name no)
@@ -41994,7 +42494,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Wavelength - Dominant" "525nm~537.5nm"
+		(property "Wavelength - Dominant" "515nm~525nm"
 			(at 170.18 115.824 0)
 			(hide yes)
 			(show_name no)
@@ -43617,8 +44117,8 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:whiteLEDSMD")
-		(at 200.66 116.84 0)
+		(lib_id "JLCImport:HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K")
+		(at 200.66 118.11 0)
 		(unit 1)
 		(body_style 0)
 		(exclude_from_sim no)
@@ -43638,7 +44138,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "KT-0805W"
+		(property "Value" "HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K"
 			(at 196.85 123.19 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -43649,7 +44149,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:LED0805-R-RD"
+		(property "Footprint" "JLCImport:HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K"
 			(at 200.66 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -43660,7 +44160,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/KT-0805W/35468.html"
+		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2410121258_HONGLITRONIC-Hongli-Zhihui--HONGLITRONIC-HL-A-3528H343W-S1-13HL-HR3-SDCM-6-6000K-7000K_C516299.pdf"
 			(at 200.66 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -43672,7 +44172,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Description" "Lamp Holder Type:2mm x 1.25mm square LED Illumination Color:White Voltage - Forward(Vf):2.6V~3.2V Voltage - Forward(Vf):2.6V~3.2V Power(Watts):80mW Forward Current:25mA Wavelength - Dominant:- Wavelength - Dominant:- Peak Wavelength:- Peak Wavelength:- Di"
+		(property "Description" "White Frosted Yellow Lens - 120° 20mA 3.2V SMD3528-2P LED Indication - Discrete"
 			(at 200.66 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -43684,7 +44184,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "KT-0805W"
+		(property "Manufacturer Part" "HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K"
 			(at 200.66 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -43696,7 +44196,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "KENTO"
+		(property "Manufacturer" "HONGLITRONIC(Hongli Zhihui (HONGLITRONIC))"
 			(at 200.66 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -43708,7 +44208,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C34499"
+		(property "Supplier Part" "C516299"
 			(at 200.66 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -43732,7 +44232,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "0805 白灯 高亮"
+		(property "LCSC Part Name" "HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K"
 			(at 200.66 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -43756,7 +44256,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Color Temperature" "13172K~100000K"
+		(property "Color Temperature" "6500K"
 			(at 200.66 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -43792,7 +44292,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Forward Current" "25mA"
+		(property "Forward Current" "20mA"
 			(at 200.66 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -43816,7 +44316,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Basic Part"
+		(property "JLCPCB Part Class" "Extended Part"
 			(at 200.66 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -43840,7 +44340,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Lens Color" "Yellow Lens"
+		(property "Lens Color" "Frosted Yellow Lens"
 			(at 200.66 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -43852,7 +44352,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Luminous Intensity" "350mcd"
+		(property "Luminous Intensity" "-"
 			(at 200.66 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -43876,7 +44376,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Operating Temperature" "-30℃~+85℃"
+		(property "Operating Temperature" "-40℃~+85℃"
 			(at 200.66 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -43900,7 +44400,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Power(Watts)" "80mW"
+		(property "Power(Watts)" "96mW"
 			(at 200.66 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -43936,7 +44436,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Voltage - Forward(Vf)" "2.6V~3.2V"
+		(property "Voltage - Forward(Vf)" "3.2V"
 			(at 200.66 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -45386,7 +45886,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:XL-2012UBC")
+		(lib_id "JLCImport:HL-A-3528H203BC-S1-13HL")
 		(at 218.44 118.11 0)
 		(unit 1)
 		(body_style 0)
@@ -45407,7 +45907,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "XL-2012UBC"
+		(property "Value" "HL-A-3528H203BC-S1-13HL"
 			(at 214.63 121.92 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -45418,7 +45918,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:LED0805-RD"
+		(property "Footprint" "JLCImport:HL-A-3528H203BC-S1-13HL"
 			(at 218.44 118.11 0)
 			(hide yes)
 			(show_name no)
@@ -45429,7 +45929,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/XL-2012UBC/1051426.html"
+		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2004251808_HONGLITRONIC-Hongli-Zhihui--HONGLITRONIC-HL-A-3528H203BC-S1-13HL_C516143.pdf"
 			(at 218.44 118.11 0)
 			(hide yes)
 			(show_name no)
@@ -45441,7 +45941,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Description" "Lamp Holder Type:2.0mm x 1.2mm square LED Illumination Color:Blue Voltage - Forward(Vf):3.2V Voltage - Forward(Vf):3.2V Power(Watts):70mW Forward Current:20mA Wavelength - Dominant:460nm~475nm Wavelength - Dominant:460nm~475nm Peak Wavelength:470nm Peak W"
+		(property "Description" "Blue Water Clear 350mcd 120° 20mA 3.4V SMD3528-2P LED Indication - Discrete"
 			(at 218.44 118.11 0)
 			(hide yes)
 			(show_name no)
@@ -45453,7 +45953,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "XL-2012UBC"
+		(property "Manufacturer Part" "HL-A-3528H203BC-S1-13HL"
 			(at 218.44 118.11 0)
 			(hide yes)
 			(show_name no)
@@ -45465,7 +45965,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "XINGLIGHT(成兴光)"
+		(property "Manufacturer" "HONGLITRONIC(Hongli Zhihui (HONGLITRONIC))"
 			(at 218.44 118.11 0)
 			(hide yes)
 			(show_name no)
@@ -45477,7 +45977,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C965817"
+		(property "Supplier Part" "C516143"
 			(at 218.44 118.11 0)
 			(hide yes)
 			(show_name no)
@@ -45501,7 +46001,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "0805蓝贴片式发光二极管"
+		(property "LCSC Part Name" "HL-A-3528H203BC-S1-13HL"
 			(at 218.44 118.11 0)
 			(hide yes)
 			(show_name no)
@@ -45621,7 +46121,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Luminous Intensity" "260mcd"
+		(property "Luminous Intensity" "350mcd"
 			(at 218.44 118.11 0)
 			(hide yes)
 			(show_name no)
@@ -45657,7 +46157,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Peak Wavelength" "470nm"
+		(property "Peak Wavelength" "-"
 			(at 218.44 118.11 0)
 			(hide yes)
 			(show_name no)
@@ -45669,7 +46169,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Power(Watts)" "70mW"
+		(property "Power(Watts)" "102mW"
 			(at 218.44 118.11 0)
 			(hide yes)
 			(show_name no)
@@ -45705,7 +46205,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Voltage - Forward(Vf)" "3.2V"
+		(property "Voltage - Forward(Vf)" "3.4V"
 			(at 218.44 118.11 0)
 			(hide yes)
 			(show_name no)
@@ -45717,7 +46217,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Wavelength - Dominant" "460nm~475nm"
+		(property "Wavelength - Dominant" "464nm~474nm"
 			(at 218.44 118.11 0)
 			(hide yes)
 			(show_name no)
@@ -46456,8 +46956,9 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:FC-2012HRK-620D")
+		(lib_id "JLCImport:HL-A-3528S35FC-S1-13HL")
 		(at 186.69 130.81 0)
+		(mirror y)
 		(unit 1)
 		(body_style 0)
 		(exclude_from_sim no)
@@ -46477,7 +46978,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "NCD0805R1"
+		(property "Value" "HL-A-3528S35FC-S1-13HL"
 			(at 182.88 135.89 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -46488,7 +46989,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:LED0805-RD"
+		(property "Footprint" "JLCImport:HL-A-3528S35FC-S1-13HL"
 			(at 186.69 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -46499,7 +47000,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/NCD0805R1/85425.html"
+		(property "Datasheet" "https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2004251808_HONGLITRONIC-Hongli-Zhihui--HONGLITRONIC-HL-A-3528S35FC-S1-13HL_C516141.pdf"
 			(at 186.69 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -46511,7 +47012,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Description" "Lamp Holder Type:- Illumination Color:Red Voltage - Forward(Vf):1.6V~2.6V Voltage - Forward(Vf):1.6V~2.6V Power(Watts):65mW Forward Current:25mA Wavelength - Dominant:615nm~630nm Wavelength - Dominant:615nm~630nm Peak Wavelength:630nm Peak Wavelength:630n"
+		(property "Description" "Red Water Clear 270mcd 120° 20mA 2.4V SMD3528-2P LED Indication - Discrete"
 			(at 186.69 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -46523,7 +47024,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "NCD0805R1"
+		(property "Manufacturer Part" "HL-A-3528S35FC-S1-13HL"
 			(at 186.69 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -46535,7 +47036,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "国星光电"
+		(property "Manufacturer" "HONGLITRONIC(Hongli Zhihui (HONGLITRONIC))"
 			(at 186.69 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -46547,7 +47048,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C84256"
+		(property "Supplier Part" "C516141"
 			(at 186.69 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -46571,7 +47072,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "片式发光二极管"
+		(property "LCSC Part Name" "HL-A-3528S35FC-S1-13HL"
 			(at 186.69 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -46631,7 +47132,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Forward Current" "25mA"
+		(property "Forward Current" "20mA"
 			(at 186.69 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -46655,7 +47156,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Basic Part"
+		(property "JLCPCB Part Class" "Extended Part"
 			(at 186.69 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -46679,7 +47180,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Lens Color" "-"
+		(property "Lens Color" "Water Clear"
 			(at 186.69 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -46691,7 +47192,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Luminous Intensity" "195mcd"
+		(property "Luminous Intensity" "270mcd"
 			(at 186.69 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -46715,7 +47216,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Operating Temperature" "-30℃~+85℃"
+		(property "Operating Temperature" "-40℃~+85℃"
 			(at 186.69 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -46727,7 +47228,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Peak Wavelength" "630nm"
+		(property "Peak Wavelength" "-"
 			(at 186.69 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -46739,7 +47240,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Power(Watts)" "65mW"
+		(property "Power(Watts)" "72mW"
 			(at 186.69 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -46763,7 +47264,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Viewing Angle" "130°"
+		(property "Viewing Angle" "120°"
 			(at 186.69 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -46775,7 +47276,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Voltage - Forward(Vf)" "1.6V~2.6V"
+		(property "Voltage - Forward(Vf)" "2.4V"
 			(at 186.69 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -46787,7 +47288,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Wavelength - Dominant" "615nm~630nm"
+		(property "Wavelength - Dominant" "617nm~627nm"
 			(at 186.69 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -50417,7 +50918,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:XL-2012UOC")
+		(lib_id "JLCImport:HVO-3528CPXA")
 		(at 170.18 130.81 0)
 		(unit 1)
 		(body_style 0)
@@ -50438,7 +50939,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "XL-2012UOC"
+		(property "Value" "HVO-3528CPXA"
 			(at 166.37 135.89 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -50449,7 +50950,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:LED0805-RD_ORANGE"
+		(property "Footprint" "JLCImport:HVO-3528CPXA"
 			(at 170.18 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -50460,7 +50961,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/XL-2012UOC/1051422.html"
+		(property "Datasheet" "https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2211031700_HONGLITRONIC-Hongli-Zhihui--HONGLITRONIC-HVO-3528CPXA_C5246349.pdf"
 			(at 170.18 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -50472,7 +50973,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Description" "Lamp Holder Type:- Illumination Color:Orange Voltage - Forward(Vf):2.3V Voltage - Forward(Vf):2.3V Power(Watts):50mW Forward Current:20mA Wavelength - Dominant:600nm~610nm Wavelength - Dominant:600nm~610nm Peak Wavelength:605nm Peak Wavelength:605nm Diode"
+		(property "Description" "Orange White Lens 1.8cd 120° 20mA 2.2V SMD3528-2P LED Indication - Discrete"
 			(at 170.18 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -50484,7 +50985,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "XL-2012UOC"
+		(property "Manufacturer Part" "HVO-3528CPXA"
 			(at 170.18 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -50496,7 +50997,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "XINGLIGHT(成兴光)"
+		(property "Manufacturer" "HONGLITRONIC(Hongli Zhihui (HONGLITRONIC))"
 			(at 170.18 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -50508,7 +51009,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C965813"
+		(property "Supplier Part" "C5246349"
 			(at 170.18 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -50532,7 +51033,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "0805橙贴片式发光二极管"
+		(property "LCSC Part Name" "HVO-3528CPXA"
 			(at 170.18 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -50640,7 +51141,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Lens Color" "Water Clear"
+		(property "Lens Color" "White Lens"
 			(at 170.18 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -50652,7 +51153,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Luminous Intensity" "330mcd"
+		(property "Luminous Intensity" "1.8cd"
 			(at 170.18 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -50676,7 +51177,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Operating Temperature" "-40℃~+85℃"
+		(property "Operating Temperature" "-40℃~+100℃"
 			(at 170.18 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -50688,7 +51189,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Peak Wavelength" "605nm"
+		(property "Peak Wavelength" "610nm"
 			(at 170.18 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -50700,7 +51201,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Power(Watts)" "50mW"
+		(property "Power(Watts)" "-"
 			(at 170.18 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -50736,7 +51237,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Voltage - Forward(Vf)" "2.3V"
+		(property "Voltage - Forward(Vf)" "2.2V"
 			(at 170.18 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -50748,7 +51249,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Wavelength - Dominant" "600nm~610nm"
+		(property "Wavelength - Dominant" "600nm~609nm"
 			(at 170.18 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -54339,7 +54840,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:17-21SUYC/TR8")
+		(lib_id "JLCImport:HL-A-3528S31YC-S1-13HL")
 		(at 170.18 144.78 0)
 		(unit 1)
 		(body_style 0)
@@ -54360,7 +54861,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "KT-0805Y"
+		(property "Value" "HL-A-3528S31YC-S1-13HL"
 			(at 166.37 149.86 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -54371,7 +54872,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:LED0805-R-RD"
+		(property "Footprint" "JLCImport:HL-A-3528S31YC-S1-13HL"
 			(at 170.18 144.78 0)
 			(hide yes)
 			(show_name no)
@@ -54382,7 +54883,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/KT-0805Y/2669.html"
+		(property "Datasheet" "https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2004260932_HONGLITRONIC-Hongli-Zhihui--HONGLITRONIC-HL-A-3528S31YC-S1-13HL_C516140.pdf"
 			(at 170.18 144.78 0)
 			(hide yes)
 			(show_name no)
@@ -54394,7 +54895,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Description" "Lamp Holder Type:- Illumination Color:Yellow Voltage - Forward(Vf):1.8V~2.4V Voltage - Forward(Vf):1.8V~2.4V Power(Watts):40mW Forward Current:- Wavelength - Dominant:584nm~594nm Wavelength - Dominant:584nm~594nm Peak Wavelength:596nm Peak Wavelength:596n"
+		(property "Description" "Yellow Water Clear 210mcd 120° 20mA 2.4V SMD3528-2P LED Indication - Discrete"
 			(at 170.18 144.78 0)
 			(hide yes)
 			(show_name no)
@@ -54406,7 +54907,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "KT-0805Y"
+		(property "Manufacturer Part" "HL-A-3528S31YC-S1-13HL"
 			(at 170.18 144.78 0)
 			(hide yes)
 			(show_name no)
@@ -54418,7 +54919,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "KENTO"
+		(property "Manufacturer" "HONGLITRONIC(Hongli Zhihui (HONGLITRONIC))"
 			(at 170.18 144.78 0)
 			(hide yes)
 			(show_name no)
@@ -54430,7 +54931,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C2296"
+		(property "Supplier Part" "C516140"
 			(at 170.18 144.78 0)
 			(hide yes)
 			(show_name no)
@@ -54454,7 +54955,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "0805 黄灯 高亮"
+		(property "LCSC Part Name" "HL-A-3528S31YC-S1-13HL"
 			(at 170.18 144.78 0)
 			(hide yes)
 			(show_name no)
@@ -54514,7 +55015,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Forward Current" "-"
+		(property "Forward Current" "20mA"
 			(at 170.18 144.78 0)
 			(hide yes)
 			(show_name no)
@@ -54538,7 +55039,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Basic Part"
+		(property "JLCPCB Part Class" "Extended Part"
 			(at 170.18 144.78 0)
 			(hide yes)
 			(show_name no)
@@ -54574,7 +55075,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Luminous Intensity" "175mcd"
+		(property "Luminous Intensity" "210mcd"
 			(at 170.18 144.78 0)
 			(hide yes)
 			(show_name no)
@@ -54610,7 +55111,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Peak Wavelength" "596nm"
+		(property "Peak Wavelength" "-"
 			(at 170.18 144.78 0)
 			(hide yes)
 			(show_name no)
@@ -54622,7 +55123,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Power(Watts)" "40mW"
+		(property "Power(Watts)" "72mW"
 			(at 170.18 144.78 0)
 			(hide yes)
 			(show_name no)
@@ -54658,7 +55159,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Voltage - Forward(Vf)" "1.8V~2.4V"
+		(property "Voltage - Forward(Vf)" "2.4V"
 			(at 170.18 144.78 0)
 			(hide yes)
 			(show_name no)
@@ -54670,7 +55171,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Wavelength - Dominant" "584nm~594nm"
+		(property "Wavelength - Dominant" "583nm~593nm"
 			(at 170.18 144.78 0)
 			(hide yes)
 			(show_name no)
