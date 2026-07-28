@@ -14265,7 +14265,7 @@
 		)
 		(uuid "79849649-6967-4d9b-a434-c70373828cd7")
 	)
-	(text "H1 telltale header - external LED + series resistor per channel (LEDs/resistors live off-board, wired to dash bezel):\nPin1 TT1 = GREEN (left turn) - 150R | Pin2 TT2 = WHITE (headlight) - 82R | Pin3 TT3 = BLUE (high beam) - 82R | Pin4 TT4 = GREEN (right turn) - 150R\nPin5 TT5 = ORANGE (MIL/CEL) - 180R | Pin6 TT6 = RED (parking brake) - 150R | Pin7 TT7 = RED (oil pressure) - 150R | Pin8 TT8 = YELLOW (fog lights) - 180R\nPin9 = +5V (LED anode supply, common) | Pin10 = GND\nWiring per LED: +5V -> series resistor (value above) -> LED anode; LED cathode -> this pin (ULN2803A sinks to GND when Teensy pin HIGH)."
+	(text "Telltale chain, all on-board: +5V -> LED anode; LED cathode -> series resistor -> U10 output, which sinks to GND when the H755 drives the matching input HIGH.\nTT1 LED1 GREEN (left turn) R25 390R | TT2 LED3 WHITE (headlight) R27 300R | TT3 LED4 BLUE (high beam) R39 200R | TT4 LED2 GREEN (right turn) R26 390R\nTT5 LED5 ORANGE (MIL/CEL) R40 470R | TT6 LED6 RED (parking brake) R44 270R | TT7 LED7 RED (oil pressure) R48 270R | TT8 LED8 YELLOW (fog lights) R38 300R\nDriver U10 = TBD62083AFWG DMOS array, ~5 mV on-state drop. The resistor values above predate that swap and are still to be re-derived for it; until then the row runs brighter and unmatched."
 		(exclude_from_sim no)
 		(at 222.25 249.174 0)
 		(effects
