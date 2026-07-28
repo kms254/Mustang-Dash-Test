@@ -77,8 +77,8 @@
 	(sheetfile "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27.kicad_sch")
 	(duplicate_pad_numbers_are_jumpers no)
 	(fp_line
-		(start -2 -2.1)
-		(end 2 -2.1)
+		(start -0.55 -2.1)
+		(end 0.55 -2.1)
 		(stroke
 			(width 0.203)
 			(type default)
@@ -87,8 +87,8 @@
 		(uuid "71a38d0b-d146-47dc-9a34-faae70ec9cfc")
 	)
 	(fp_line
-		(start -2 2.1)
-		(end 2 2.1)
+		(start -0.55 2.1)
+		(end 0.55 2.1)
 		(stroke
 			(width 0.203)
 			(type default)
