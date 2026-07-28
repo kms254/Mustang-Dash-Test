@@ -306,6 +306,45 @@ JLCImport's computed model transform agrees with the EasyEDA-authored one
 dropped in under the existing names without rewriting 30 footprints and 140
 board entries.
 
+### Schematic → board sync is GUI-only. Nothing automates it. (verified 2026-07-28)
+
+Editing a symbol as text is the easy half; getting it onto the board is the part
+with no CLI. All three candidate routes were tested on Board3 and all three fail:
+
+- **`kicad-cli pcb`** offers only `drc/export/import/render/upgrade`, and
+  `import` means *foreign format* (Eagle/Altium), not netlist.
+- **The `pcbnew` Python API exposes nothing** — no `netlist`, `updater`,
+  `synchronise` or `fromsch` symbol at all. `BOARD_NETLIST_UPDATER` is C++
+  internal and was never SWIG-wrapped.
+- **The KiCad MCP's `sync_schematic_to_board` returns `success: true` and does
+  nothing.** It reported "106 nets added" while assigning **0 pads**, listed
+  every pad as unmatched (`LED6/1`, `R39/1`, `C44/2`…), and never wrote the
+  file — byte-identical afterwards. It is built to populate an *empty* board
+  ("without this step, the board has no footprints"), not to reconcile one
+  already placed and routed. **Treat its success as meaningless on this board.**
+
+So KTD12 holds: **Kevin runs Update PCB from Schematic in the GUI**, with
+re-link-by-reference ticked, and KiCad must be **restarted first** after any
+out-of-editor schematic edit — it syncs from eeschema's cache, not the file, and
+otherwise silently reports no changes.
+
+**But check whether you need the sync at all.** It reconciles *footprints and
+nets*. A pure part swap onto an identical land pattern has neither, and the only
+stale artefact is the board footprint's own `Value` — which is visible on the
+Component Marking Layer, so leaving it means fabricating a board marked with the
+part that is not fitted. `fp.SetValue(...)` + `board.Save()` closes that with no
+sync and no geometry change (U10, 2026-07-28: DRC 36/0 unchanged, nets 216 and
+footprints 148 unchanged). A *footprint* change — 0805 → PLCC-2 — genuinely
+needs the GUI step, and new parts still go in via `kicad_lcsc.py add C<n>`
+(supplier metadata) and `kicad_lcsc.py models` (STEP backfill), never a
+hand-placed symbol.
+
+Related trap, same day: **`kicad_fab.py` must be launched under KiCad's own
+interpreter** (`C:/Program Files/KiCad/10.0/bin/python.exe`). It has no
+self-reexec, and under a bare `python` it silently skips gerber renaming and the
+rotation audit — the run still exits reporting a written fab package, just a
+degraded one whose layers are named `Top Layer.gbr` instead of `F_Cu.gbr`.
+
 ## Knowledge store
 
 - `docs/solutions/` — documented solutions to past problems (best practices,
