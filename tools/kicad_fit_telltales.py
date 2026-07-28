@@ -172,6 +172,46 @@ for r in sorted(ASSIGN):
     placed[r] = (rot, dxmm, dymm)
     print('  %-5s rot %7.1f -> %7.1f   offset (%+.2f, %+.2f) mm' % (r, rot0, rot, dxmm, dymm))
 
+# --- 4b. nudge the three crowded series resistors ---------------------------
+# R26/R38/R39 sit hard against LED2/LED8/LED4. They are the sole source of both
+# the courtyard overlaps and every telltale silk collision -- the same three
+# pairs in each case -- because the 3528 body is wider than the 0805 it
+# replaces. Moving the resistor is cheaper than shrinking the telltale's silk,
+# and it fixes both classes at once.
+NUDGE = {'R26': 'LED2', 'R38': 'LED8', 'R39': 'LED4'}
+byref = {f.GetReference(): f for f in b.GetFootprints()}
+for rref, ledref in NUDGE.items():
+    rfp = byref.get(rref)
+    if rfp is None:
+        continue
+    pos = rfp.GetPosition()
+    obs = shapes_near(pos)
+    lcy = news[ledref].GetCourtyard(pcbnew.F_CrtYd)
+    moved = None
+    for k in range(1, 13):
+        for dx in range(-k, k + 1):
+            for dy in range(-k, k + 1):
+                if max(abs(dx), abs(dy)) != k:
+                    continue
+                rfp.SetPosition(pcbnew.VECTOR2I(pos.x + dx * STEP, pos.y + dy * STEP))
+                if hits(rfp, obs):
+                    continue
+                rcy = rfp.GetCourtyard(pcbnew.F_CrtYd)
+                if rcy.OutlineCount() and lcy.OutlineCount() and rcy.Collide(lcy, 0):
+                    continue
+                moved = (dx, dy)
+                break
+            if moved:
+                break
+        if moved:
+            break
+    if moved is None:
+        rfp.SetPosition(pos)
+        print('  %-5s no clear nudge found -- left at home' % rref)
+    else:
+        print('  %-5s nudged (%+.2f, %+.2f) mm off %s'
+              % (rref, pcbnew.ToMM(moved[0] * STEP), pcbnew.ToMM(moved[1] * STEP), ledref))
+
 # --- 5. re-route each pad to its net ---------------------------------------
 # Pass "noroute" to leave the telltale pads unrouted for a real autorouter.
 # The naive nearest-endpoint connector below cannot re-establish the /+5V
