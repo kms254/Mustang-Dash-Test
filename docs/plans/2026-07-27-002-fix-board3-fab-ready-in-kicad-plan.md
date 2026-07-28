@@ -354,7 +354,7 @@ Expect the tail to need hand-routing. A router that stalls at 78% is usually blo
 
 **Verification:** Zero airwires, flagged nets untouched, DRC delta no worse than before the unit.
 
-### U6. Hand-route the four flagged nets
+### U6. Hand-route the four flagged nets — DONE 2026-07-27
 
 **Goal:** Fix the signal-integrity defects deliberately excluded from autorouting.
 
@@ -376,14 +376,31 @@ As each net is fixed, move it from `preserve_flagged` to `preserve` in the netcl
 **Execution note:** Deliberate routing against stated intent, not optimisation. Measure each net after routing and compare against the recorded defect rather than assuming the fix worked.
 
 **Test scenarios:**
-- Covers R6. `OSC_OUT` length is within a stated factor of `OSC_IN` and uses one copper layer.
-- Covers R7. `USB_DP_CONN` and `USB_DM_CONN` have equal via counts and the same layer set.
-- Covers R8. QSPI length spread is within a stated tolerance and every member shares a reference plane.
-- Covers R9. Each CAN pair has equal via counts, matching layer usage, and skew within tolerance for 1 Mbps.
-- `USB_DP` / `USB_DM` are unchanged — audited good at 0.22% skew with zero vias, and must not be disturbed.
-- Covers R13. DRC delta does not worsen.
+- Covers R6. `OSC_OUT` length is within a stated factor of `OSC_IN` and uses one copper layer. ✅ 8.340 mm / **0 vias / top layer only**, against `OSC_IN`'s 6.385 mm — 1.31x, down from 1.75x.
+- Covers R7. `USB_DP_CONN` and `USB_DM_CONN` have equal via counts and the same layer set. ✅ 2 vias each, `{Top, Bottom}` each, skew unchanged at 0.408 mm.
+- Covers R8. QSPI length spread is within a stated tolerance and every member shares a reference plane. ✅ all six on the Bottom layer with top stubs; CLK-to-data spread 14.684 mm ≈ 95 ps, **1.9% of the 5000 ps sampling window** at 100 MHz SDR. `QSPI_NCS` exempted with a recorded reason.
+- Covers R9. Each CAN pair has equal via counts, matching layer usage, and skew within tolerance for 1 Mbps. ⚠️ CAN1 ✅ (0 vias both legs, top only). CAN2_H keeps **one forced via** — see below.
+- `USB_DP` / `USB_DM` are unchanged. ✅ measured byte-identical: 118.739 / 118.481 mm, 0 vias, 437 / 448 segments.
+- Covers R13. DRC delta does not worsen. ✅ **35 violations, NEW = 0** against the 41-violation import baseline; airwires 0.
 
-**Verification:** Every `preserve_flagged` group is promoted to `preserve` with fresh measurements, or carries a recorded reason it could not be.
+**Verification:** All four `preserve_flagged` groups are promoted to `preserve` in `tools/kicad_netclass.json`, each carrying its fresh measurement and, where a defect survived, a `residual` field saying why. ✅ **U6 COMPLETE.**
+
+**As executed.** Copper was authored as coordinates rather than dragged, through a new `tools/kicad_handroute.py`, with every edit logged in `tools/handroutes/u6-flagged-nets.json` and measured by a new `tools/kicad_measure.py`. A net-level diff against HEAD shows **exactly 12 nets changed** — the four groups plus `GND` (+0.073 mm, the crystal's re-routed case-ground trace) — so the other ~95 nets are provably untouched.
+
+Three of the four defects had a **topologically forced** element, which the plan's defect list could not see:
+
+- **USB's crossing cannot be removed.** USB-C interleaves the pair at the receptacle (DP on A6/B6, DM on B7/A7) while D9 fixes DP on the west pad and DM on the east, so DM's lane leaves the connector west of DP's and must end east of it. Swapping the lanes only moves the crossing into the fanout. Per the unit's own wording — "match the transitions or remove them" — it was matched: DM's two compensating vias sit *on* its existing 45° approach, so both legs now present one identical discontinuity and the length is unchanged.
+- **CAN2_H's via cannot be removed.** U9 puts H south of L; P2 puts H on the near pin. One leg must cross, and the north band is fully occupied by `CAN2_RX` (y=127.333) and `CAN2_TX` (y=128.531). What *was* removable is the 8.53 mm the jumper stub cut through the Inner2 **+5V plane** — both its endpoints are through-hole, so the same path on the bottom layer costs zero vias.
+- **CAN1_H's two vias were removable, but not by rerouting CAN1_H.** The bottom hop avoided nothing; it existed because `CAN1_L`'s termination branch looped east and enclosed it. Moving L's branch to the free north corridor at y=128.6 left the south lane to H alone.
+
+**R6 needed a placement change, and the plan's scope explicitly allows one.** `X1`'s ground pad sat 0.243 mm from U1's pad wall where a 0.254 mm track needs 0.457, and the MCU's 0.5 mm pad pitch leaves 0.22 mm between pads — so *every* escape from U1.26 was a via, whatever the route. `X1` moved 0.5 mm east. That only became possible mid-unit: the crystal's east side was blocked by three QSPI vias at x=166.6–166.8 until the QSPI reroute removed them.
+
+**The QSPI defect was mis-framed, and the correction matters.** "Five layer strategies" reads as an anomaly; in fact this board routes **932 mm through Inner1 and 675 mm through Inner2** across ~40 nets, so signals in the planes are its normal construction, not a QSPI defect. The real requirement is that every bit line have the *same* cross-section, which is what putting all six on the Bottom layer achieves. It also removed 27.65 mm of cut from the GND plane and 36.24 mm from the +5V plane as a side effect.
+
+**Two findings for later units:**
+
+- **The tracked `.kicad_pro` still carries the importer's factory defaults** (clearance 0.2 mm against the board's real 0.1016). Zone fills are clearance-dependent, so *anyone who opens this project in the GUI and refills zones silently changes the copper* — a first attempt here did exactly that and invented two `starved_thermal` violations. `kicad_handroute.py` now stages the real rules before filling, but the landmine remains for GUI work. U9 should decide whether to write the real rules into the project file.
+- **`CAN1_TERM` (9.70 mm) and `SWDIO` (11.27 mm) still cut the Inner2 +5V plane.** Neither is in a flagged group, so both were left alone. `CAN1_TERM` is the twin of the CAN2 stub fixed here and is a one-line change if wanted.
 
 ### U7. Thermal vias and fiducials
 

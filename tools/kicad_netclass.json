@@ -12,8 +12,16 @@
     "both sides of the comparison, which keeps the comparison fair while leaving",
     "the board wrong. Each one names its defect so it can be fixed deliberately.",
     "",
+    "U6 (2026-07-27) fixed all four flagged groups, so every group is now",
+    "'preserve'. Each carries the measurement that earned the promotion, and where",
+    "a defect could NOT be removed it says why under 'residual' -- three of the",
+    "four had a topologically forced element no routing can remove. Re-measure with",
+    "  python tools/kicad_measure.py <board>",
+    "which reads its groups from this file, so the two cannot drift apart.",
+    "",
     "Measured against kicad/board3/ProPrj_*.kicad_pcb (144 footprints, 107 nets,",
-    "2435 segments, 0 airwires) on 2026-07-27."
+    "2677 track objects, 0 airwires, 35 DRC violations against the real rules) on",
+    "2026-07-27, after U6."
   ],
   "board": "kicad/board3/ProPrj_New Project_2026-07-15_23-14-34_2026-07-27.kicad_pcb",
   "measured_on": "2026-07-27",
@@ -27,17 +35,24 @@
     },
     {
       "group": "usb_differential_connector",
-      "status": "preserve_flagged",
+      "status": "preserve",
       "nets": ["USB_DP_CONN", "USB_DM_CONN"],
       "reason": "Same pair, connector segment.",
-      "defect": "Asymmetric layer transition: USB_DP_CONN takes 2 vias down to the bottom layer over 1.7 mm while USB_DM_CONN stays entirely on top with none. At 480 Mbps this causes impedance discontinuity and common-mode conversion, and matters more than the 0.39 mm length skew does."
+      "was": "Asymmetric layer transition: USB_DP_CONN took 2 vias down to the bottom layer over 1.7 mm while USB_DM_CONN stayed entirely on top with none. At 480 Mbps this causes impedance discontinuity and common-mode conversion, and matters more than the 0.39 mm length skew does.",
+      "fixed": "U6 2026-07-27. The crossing is FORCED, so it was matched rather than removed: DM now makes the same Top->Bottom->Top transition DP does, with its two vias placed ON its existing 45-degree approach to D9.3 so the path, the length and the skew are unchanged. Both legs now present one identical discontinuity instead of one leg carrying it alone.",
+      "measured": "USB_DP_CONN 13.448 mm / 2 vias / {Top 11.769, Bottom 1.680}; USB_DM_CONN 13.856 mm / 2 vias / {Top 13.092, Bottom 0.764}. Via counts and layer sets identical, skew 0.408 mm (~2.7 ps, 0.13% of a 2.08 ns UI).",
+      "residual": "The bottom excursions differ (1.68 vs 0.76 mm) because the Inner1 VBUS run at x=36.852 and D9.3's pad bracket DM's diagonal and leave only 0.8 mm of usable travel. Why the crossing is forced: USB-C interleaves the pair at the receptacle (DP on A6 y=99.75 and B6 y=100.75, DM on B7 y=99.25 and A7 y=100.25) while D9 fixes DP on the west pad and DM on the east, so DM's lane leaves the connector west of DP's and must end east of it. Swapping the lanes only moves the crossing into the fanout."
     },
     {
       "group": "qspi",
-      "status": "preserve_flagged",
+      "status": "preserve",
       "nets": ["QSPI_CLK", "QSPI_CLK_MCU", "QSPI_NCS", "QSPI_IO0", "QSPI_IO1", "QSPI_IO2", "QSPI_IO3"],
-      "reason": "Parallel bus to NOR flash; wants group length matching and a consistent reference plane.",
-      "defect": "29 mm length spread across the bus (IO3 10.14 mm to NCS 39.48 mm) and five different layer strategies -- CLK on Inner1, NCS on Inner2, IO1/IO3 on the bottom layer, IO2 entirely on top. Different reference planes means different impedance per bit line."
+      "reason": "Parallel bus to W25Q512JV NOR flash; wants a consistent reference plane, and length matching only to the extent the timing budget asks for.",
+      "was": "29 mm length spread across the bus (IO3 10.14 mm to NCS 39.48 mm) and five different layer strategies -- CLK on Inner1, NCS on Inner2, IO1/IO3 on the bottom layer, IO2 entirely on top. Different reference planes means different impedance per bit line.",
+      "fixed": "U6 2026-07-27. Every member now runs the Bottom layer with a short top stub at each pad, so all six bit lines have the same cross-section. Routed by KiCadRoutingTools with In1/In2 set obstacle-only (--layer-costs 20 -1 -1 1.0), which also removed 27.65 mm of cut from the Inner1 GND plane (CLK, IO0) and 36.24 mm from the Inner2 +5V plane (NCS).",
+      "measured": "CLK 24.798/4 vias, NCS 39.474/2, IO0 10.651/2, IO1 23.125/2, IO2 17.200/2, IO3 10.114/2, all {Bottom, Top}. CLK-to-data spread 14.684 mm ~ 95 ps at 6.5 ps/mm.",
+      "timing_budget": "The bus is not meaningfully length-sensitive at this speed and this is the number that says so. At 100 MHz SDR the sampling window is tCK/2 = 5000 ps; allocating the conventional 10% of it to board skew gives 500 ps ~ 77 mm of tolerance. The achieved 95 ps consumes 1.9% of the window, five times inside the allocation. Meandering the short lines to match would add coupling next to the flash and buy nothing measurable.",
+      "residual": "QSPI_NCS is deliberately unmatched at 39.474 mm. It is pin-placement-bound, not routing-bound -- U1.86 sits on the MCU's WEST edge, 36.4 mm from U2.1 in a straight line, so no route shortens it. Chip select is also not source-synchronous: its skew appears as transaction setup against tSLCH, where nanoseconds are the unit. QSPI_CLK carries 4 vias rather than 2 because a bottom-layer path from R9 to U2 must cross the CS_R run at y=103.496, and QSPI_CLK_MCU is the 1.79 mm R9->U1.51 series-resistor stub, not a bus member."
     },
     {
       "group": "swd",
@@ -47,17 +62,23 @@
     },
     {
       "group": "crystal",
-      "status": "preserve_flagged",
+      "status": "preserve",
       "nets": ["OSC_IN", "OSC_OUT"],
       "reason": "Oscillator loop. Loop area drives EMI and startup margin, so this is never an autorouter's job.",
-      "defect": "OSC_OUT is 11.17 mm against OSC_IN's 6.39 mm, with 2 vias and 5.3 mm on the bottom layer. A crystal loop wants to be short, single-layer, and tight against its load caps; this one leaves the layer and comes back."
+      "was": "OSC_OUT is 11.17 mm against OSC_IN's 6.39 mm, with 2 vias and 5.3 mm on the bottom layer. A crystal loop wants to be short, single-layer, and tight against its load caps; this one leaves the layer and comes back.",
+      "fixed": "U6 2026-07-27, and it needed a 0.5 mm PLACEMENT change, not just a route. X1's ground pad X1.4 sat 0.243 mm east of U1's pad wall while a 0.254 track needs 0.457, and the MCU's 0.5 mm pad pitch leaves only 0.22 mm between pads -- so every escape from U1.26 was a via, whatever the route. Moving X1 0.5 mm east opens a 0.743 mm corridor; OSC_OUT now escapes north through it and runs the whole way on the top layer. The crystal's case-ground trace was re-authored down x=166.45 to make room, and C42 is now tapped off the trunk rather than reached around the crystal pad.",
+      "measured": "OSC_IN 6.385 mm / 0 vias / Top only; OSC_OUT 8.340 mm / 0 vias / Top only. Ratio 1.31x, down from 1.75x.",
+      "residual": "OSC_OUT is still 1.3x OSC_IN because the crystal's terminals are diagonal (pins 1 and 3) while the MCU's are adjacent, so one leg always travels around the package. Length parity was never the objective -- loop area was, and the whole net now sits 0.2104 mm above solid Inner1 GND. The old 5.3 mm bottom run had NO plane beneath it: the Inner2 keepout voids the +5V plane over exactly this region, putting its nearest reference 1.28 mm away. Moving X1 east only became possible after this same unit rerouted QSPI off its three vias at x=166.6-166.8."
     },
     {
       "group": "can_differential",
-      "status": "preserve_flagged",
+      "status": "preserve",
       "nets": ["CAN1_H", "CAN1_L", "CAN2_H", "CAN2_L"],
       "reason": "Differential pairs. Electrically the mildest group here -- at CAN's ~1 Mbps, 2 mm of skew is roughly 13 ps and irrelevant -- but an autorouter would not route them as pairs at all.",
-      "defect": "Both _H legs carry vias and layer changes their _L partners do not, and CAN1 has 8.62% length skew (25.24 vs 23.06 mm). Evidence the pairs were not routed as pairs. Separately, kicad-happy reports neither transceiver (U8, U9) has 120R termination."
+      "was": "Both _H legs carry vias and layer changes their _L partners do not, and CAN1 has 8.62% length skew (25.24 vs 23.06 mm). Evidence the pairs were not routed as pairs. Separately, kicad-happy reports neither transceiver (U8, U9) has 120R termination -- U3 disproved that: both have split 60.4+60.4R termination with independent jumpers.",
+      "fixed": "U6 2026-07-27. CAN1_H's 2-via bottom hop avoided nothing measurable -- the top corridor from the pair lane to U8.7 is empty -- but it existed because CAN1_L's termination branch looped east and boxed it in. Re-topologised: L's R14.2 branch now takes the free north corridor at y=128.6 (between the +3V3 run at 128.095 and P1's pads at 129.0), leaving the south lane to H alone. CAN2_H's jumper stub was moved off the Inner2 +5V plane onto the Bottom layer, which both endpoints reach without a via because H3.1 and P2.1 are through-hole.",
+      "measured": "CAN1_H 24.896 mm / 0 vias / Top; CAN1_L 16.491 / 0 / Top; CAN2_H 23.912 / 1 via / {Top 12.433, Bottom 11.479}; CAN2_L 23.760 / 0 / Top. No CAN copper remains on either plane layer.",
+      "residual": "CAN2_H keeps ONE via, and it is forced: U9's pin order puts H south of L while P2 puts H on the near pin, so one leg must cross, and the north band is fully occupied by CAN2_RX (y=127.333) and CAN2_TX (y=128.531) so L cannot detour around. One via is the minimum, and at 1 Mbps its discontinuity is not measurable. Neither CAN pair is tightly coupled between transceiver and terminal block -- H lands on the far connector pin, so the legs pass on opposite sides of it. Only moving parts would change that, and per U1's rules note CAN wants a LOOSE pair (>=0.5 mm gap) for 120R anyway."
     }
   ],
 

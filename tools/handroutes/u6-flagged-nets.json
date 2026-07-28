@@ -1,0 +1,469 @@
+{
+  "$comment": [
+    "U6: every copper edit made by hand to the four flagged signal-integrity groups,",
+    "in the order applied. This is a LOG, not a replay script -- the QSPI bus was",
+    "re-routed by KiCadRoutingTools between the 'qspi-strip' and 'crystal' steps:",
+    "",
+    "  python route.py in.kicad_pcb out.kicad_pcb \\",
+    "      --nets /QSPI_CLK /QSPI_NCS /QSPI_IO0 /QSPI_IO1 /QSPI_IO2 /QSPI_IO3 \\",
+    "      --layers F.Cu In1.Cu In2.Cu B.Cu --layer-costs 20 -1 -1 1.0 \\",
+    "      --track-width 0.254 --via-size 0.6 --via-drill 0.3 \\",
+    "      --no-fix-drc-settings --overwrite",
+    "",
+    "The negative layer costs are load-bearing: they make In1/In2 obstacle-only, so",
+    "the router keeps signal copper out of the two plane layers AND still treats",
+    "their copper as something a via must clear. Under Git Bash, export",
+    "MSYS_NO_PATHCONV=1 first or every /NET argument is rewritten into a Windows path",
+    "and the router silently reports 'no valid nets to route'.",
+    "",
+    "Re-applying these steps to the HEAD board will NOT reproduce the result on its",
+    "own. They are here so every hand-placed coordinate is reviewable as text."
+  ],
+  "board": "kicad/board3/ProPrj_New Project_2026-07-15_23-14-34_2026-07-27.kicad_pcb",
+  "applied_on": "2026-07-27",
+  "steps": [
+    {
+      "step": "can",
+      "$comment": [
+        "U6 CAN group (R9).",
+        "CAN1_H: the 2-via bottom hop between the pair lane and U8.7 avoids nothing --",
+        "the top corridor x177-186 / y126-135 is empty except the +3V3 run at y=128.095.",
+        "Replaced with one straight top segment. 2 vias -> 0, matching CAN1_L.",
+        "CAN2_H: the H3.1->P2.1 jumper stub ran 8.53 mm THROUGH the Inner2 +5V plane.",
+        "Both endpoints are PTH pads, so the same path on the Bottom layer costs zero",
+        "vias and cuts no plane. The remaining single via at (122.460,132.953) is a",
+        "FORCED crossing -- U9's pin order (H south of L) is opposite P2's (H on the",
+        "near pin), and the north band is occupied by CAN2_RX (y=127.333) and CAN2_TX",
+        "(y=128.531), so L cannot detour. One via is the minimum, not a defect."
+      ],
+      "delete": [
+        {
+          "net": "CAN1_H",
+          "bbox": [
+            178.6,
+            130.5,
+            182.5,
+            131.5
+          ]
+        },
+        {
+          "net": "CAN2_H",
+          "layers": [
+            "Inner2"
+          ],
+          "vias": false
+        }
+      ],
+      "add": [
+        {
+          "net": "CAN1_H",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              178.691,
+              131.398
+            ],
+            [
+              182.4,
+              130.635
+            ]
+          ]
+        },
+        {
+          "net": "CAN2_H",
+          "layer": "Bottom Layer",
+          "width": 0.254,
+          "points": [
+            [
+              123.73,
+              122.0
+            ],
+            [
+              123.73,
+              128.73
+            ],
+            [
+              122.46,
+              130.0
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "step": "can1-retop",
+      "$comment": [
+        "U6 CAN1, second pass. Removing CAN1_H's via hop exposed why it existed:",
+        "CAN1_L's termination branch (R14.2 -> P1.2) runs the south lane and then",
+        "LOOPS east and back north-west into P1.2, enclosing the pocket H had to",
+        "escape from. With the loop in place any top-layer H route crosses it.",
+        "",
+        "Fix the topology instead of dodging it: give L's termination branch the free",
+        "north corridor (y=128.6, between the +3V3 run at 128.095 and P1's pads at",
+        "129.0 -- verified empty from x166.5 to 179), leaving the south lane to H",
+        "alone. Then H runs P1.1 -> lane -> U8.7 with no crossing and no vias, and",
+        "L runs U8.6 -> P1.2 -> north corridor -> R14.2, also with none.",
+        "",
+        "Note what this does NOT claim: H and L are not a coupled pair between U8 and",
+        "P1. They sit on opposite sides of the terminal block because H lands on the",
+        "far pin, and no routing fixes that -- only moving parts would."
+      ],
+      "delete": [
+        {
+          "net": "CAN1_L",
+          "bbox": [
+            167.7,
+            129.9,
+            180.5,
+            133.0
+          ]
+        },
+        {
+          "net": "CAN1_H",
+          "bbox": [
+            178.4,
+            130.5,
+            182.5,
+            131.6
+          ]
+        }
+      ],
+      "add": [
+        {
+          "net": "CAN1_L",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              167.754,
+              130.0
+            ],
+            [
+              168.6,
+              128.6
+            ],
+            [
+              176.7,
+              128.6
+            ],
+            [
+              177.54,
+              130.0
+            ]
+          ]
+        },
+        {
+          "net": "CAN1_H",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              178.438,
+              131.525
+            ],
+            [
+              182.4,
+              130.635
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "step": "usb",
+      "$comment": [
+        "U6 USB, third pass. Pass 2 put via A at x=37.100, which shorted the Inner1",
+        "VBUS run at x=36.852 -- a reminder that a through via is checked against ALL",
+        "four layers, not the two you are routing on. Clearing that trace requires",
+        "|x - 36.852| >= 0.534 (via radius 0.305 + track half-width 0.127 + 0.1016).",
+        "Both vias move east to x >= 37.42, still on DM's original 45-degree approach,",
+        "so the path length and the 0.390 mm pair skew are unchanged.",
+        "The bottom excursion is 0.76 mm against DP's 1.68 mm: the via count and layer",
+        "set match exactly, the excursion length does not, because the Inner1 VBUS run",
+        "and D9.3's pad bracket the diagonal and leave only 0.8 mm of usable travel."
+      ],
+      "delete": [
+        {
+          "net": "USB_DM_CONN",
+          "bbox": [
+            36.9,
+            92.0,
+            38.2,
+            94.1
+          ]
+        }
+      ],
+      "add": [
+        {
+          "net": "USB_DM_CONN",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              36.978,
+              94.04
+            ],
+            [
+              37.42,
+              93.598
+            ]
+          ]
+        },
+        {
+          "net": "USB_DM_CONN",
+          "layer": "Bottom Layer",
+          "width": 0.254,
+          "points": [
+            [
+              37.42,
+              93.598
+            ],
+            [
+              37.96,
+              93.058
+            ]
+          ]
+        },
+        {
+          "net": "USB_DM_CONN",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              37.96,
+              93.058
+            ],
+            [
+              37.92,
+              92.099
+            ]
+          ]
+        }
+      ],
+      "add_vias": [
+        {
+          "net": "USB_DM_CONN",
+          "at": [
+            37.42,
+            93.598
+          ],
+          "diameter": 0.6,
+          "drill": 0.3
+        },
+        {
+          "net": "USB_DM_CONN",
+          "at": [
+            37.96,
+            93.058
+          ],
+          "diameter": 0.6,
+          "drill": 0.3
+        }
+      ]
+    },
+    {
+      "step": "qspi-strip",
+      "$comment": [
+        "U6 QSPI: strip the six bus members whole so the bus can be re-routed",
+        "onto one layer. QSPI_CLK_MCU (the R9->U1.51 stub) is deliberately kept."
+      ],
+      "delete": [
+        {
+          "net": "QSPI_CLK"
+        },
+        {
+          "net": "QSPI_NCS"
+        },
+        {
+          "net": "QSPI_IO0"
+        },
+        {
+          "net": "QSPI_IO1"
+        },
+        {
+          "net": "QSPI_IO2"
+        },
+        {
+          "net": "QSPI_IO3"
+        }
+      ]
+    },
+    {
+      "step": "crystal",
+      "$comment": [
+        "U6 crystal (R6). OSC_OUT could not be single-layer at the imported placement:",
+        "X1's ground pad X1.4 sits 0.243 mm east of U1's pad wall, and the MCU's 0.5 mm",
+        "pad pitch leaves 0.22 mm between pads -- both below the 0.457 mm a 0.254 track",
+        "needs. Every escape from U1.26 was therefore a via, which is why the import ran",
+        "5.3 mm of OSC_OUT on the bottom layer.",
+        "",
+        "That bottom run is the worst place it could be: the Inner2 keepout voids the",
+        "+5V plane over exactly this region, so the nearest reference to those 5.3 mm is",
+        "Inner1, 1.28 mm away -- roughly six times the loop height of a top-layer route",
+        "over the same plane. On an oscillator that is the one net where it matters.",
+        "",
+        "Moving X1 0.5 mm east opens a 0.743 mm corridor, enough to escape U1.26 north",
+        "and run the whole net on the top layer 0.21 mm above solid Inner1 GND. East was",
+        "blocked until this unit rerouted QSPI off its three vias at x=166.6-166.8; with",
+        "those gone the only thing in the way is the crystal's own case-ground trace,",
+        "re-authored here to run down x=166.45 instead of x=165.959."
+      ],
+      "move_footprints": [
+        {
+          "ref": "X1",
+          "by": [
+            0.5,
+            0.0
+          ]
+        }
+      ],
+      "delete": [
+        {
+          "net": "OSC_OUT"
+        },
+        {
+          "net": "GND",
+          "bbox": [
+            162.6,
+            104.7,
+            166.3,
+            107.5
+          ]
+        }
+      ],
+      "add": [
+        {
+          "net": "OSC_OUT",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              160.8,
+              106.25
+            ],
+            [
+              162.17,
+              106.25
+            ],
+            [
+              162.17,
+              104.45
+            ],
+            [
+              165.4,
+              104.45
+            ],
+            [
+              165.4,
+              105.696
+            ]
+          ]
+        },
+        {
+          "net": "OSC_OUT",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              165.4,
+              105.696
+            ],
+            [
+              165.943,
+              105.696
+            ],
+            [
+              166.129,
+              103.969
+            ]
+          ]
+        },
+        {
+          "net": "GND",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              166.721,
+              104.856
+            ],
+            [
+              166.45,
+              105.127
+            ],
+            [
+              166.45,
+              106.6
+            ],
+            [
+              165.443,
+              107.395
+            ],
+            [
+              164.943,
+              107.395
+            ],
+            [
+              163.243,
+              105.695
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "step": "crystal-c42",
+      "$comment": [
+        "U6 crystal, correction. The C42 leg ran from X1.3's pad north-east and passed",
+        "0.178 mm from the surviving GND stub at (166.213..166.721, 104.856) -- closer",
+        "than the two half-widths, so the copper actually touched (DRC: shorting_items).",
+        "Tap the load cap off the trunk at (165.400,104.450) instead, which keeps 0.51 mm",
+        "to that stub and puts C42 0.7 mm from the T rather than 1.9 mm around the pad."
+      ],
+      "delete": [
+        {
+          "net": "OSC_OUT",
+          "bbox": [
+            165.3,
+            103.9,
+            166.2,
+            105.8
+          ]
+        }
+      ],
+      "add": [
+        {
+          "net": "OSC_OUT",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              165.4,
+              104.45
+            ],
+            [
+              165.4,
+              105.696
+            ]
+          ]
+        },
+        {
+          "net": "OSC_OUT",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              165.4,
+              104.45
+            ],
+            [
+              165.9,
+              103.969
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}
