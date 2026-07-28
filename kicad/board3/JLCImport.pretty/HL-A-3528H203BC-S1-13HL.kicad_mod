@@ -34,4 +34,10 @@
   (pad "2" smd rect (at 1.55 0) (size 1.5 2.6) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "820b676c-8a49-46db-9eb7-64923700193f"))
   (pad "1" smd rect (at -1.55 0) (size 1.5 2.6) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "eda543c0-be1a-49a4-8215-634393a48ad5"))
   (embedded_fonts no)
+
+  (model "${KIPRJMOD}/JLCImport.3dshapes/HL-A-3528H203BC-S1-13HL.wrl"
+    (offset (xyz 0 0 -0.05))
+    (scale (xyz 1 1 1))
+    (rotate (xyz 0 0 0))
+  )
 )
