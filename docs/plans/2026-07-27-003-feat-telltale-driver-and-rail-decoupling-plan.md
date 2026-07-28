@@ -328,7 +328,29 @@ The alternative — preserving the board's existing per-position polarity — wa
 
 Refilling zones first (per `docs/solutions/developer-experience/refill-zones-before-measuring-a-headlessly-routed-board.md`) fixed most of the clearance and mask-bridge noise and **did not touch the shorts**, so the fill was not the cause.
 
-**The shorts point at a board anomaly, not at the swap.** A representative one is `Items shorting two nets (nets /TT6_LED_K and /+5V)` — LED6's own two pads bridging. The 3528 land pattern puts 1.2 × 2.5 mm pads at ±1.35 mm, a 1.5 mm edge-to-edge gap, so they cannot bridge each other. Something else carrying copper across them must be doing it, and the likeliest candidate is the same anomaly noted below: **all six copper zones parse with no net**. Netless filled copper touching both pads shorts them by definition, and the smaller 0805 pads evidently sat clear of it where the 3528 pads do not.
+**Second attempt, with placement search and re-routing. Also reverted, but it produced the recipe.** DRC went 194 → 286 → 258 → **231** across three passes. Still +37, so it did not ship; what it bought is a diagnosis specific enough to act on.
+
+The earlier "all six zones are netless" reading was **wrong** — a text-parsing error, the third this session on this file. Read through `pcbnew`, the zones are healthy: `/GND` pours on Top, Bottom and Inner1 (all filled), a `/+5V` pour on Inner2, and two Inner2 keepout rule areas that are netless *by definition*. Nothing anomalous. Use `pcbnew` for board facts, never regex.
+
+**The conflicts are ordinary and there are two kinds:**
+
+1. **Stale stubs.** The old copper was routed to the old pad positions. Normalisation swapped pad 1 and pad 2, so a `/+5V` stub now lands on LED6's cathode and a `/TT7` stub on LED7's anode. 32 segments, all short.
+2. **Bigger pads reaching foreign nets.** `/USB_DP` at LED3 (13 violations — the USB pair runs right past it), `/CS_R` at LED8, `/PD_R` at LED2 and LED6, `/GND` at LED8. Rerouting USB is forbidden by the origin plan's R37, so the telltales move, not the pair.
+
+**A collision-free placement exists and is cheap.** Searching rotation × offset against every foreign-net shape on F.Cu (via `GetEffectiveShape(F_Cu).Collide`) finds zero-collision positions for all eight within 1.5 mm, keeping rot −90 throughout, so the icon grid survives:
+
+| | LED1 | LED2 | LED3 | LED4 | LED5 | LED6 | LED7 | LED8 |
+|---|---|---|---|---|---|---|---|---|
+| Δx mm | 0 | −0.25 | −0.25 | 0 | 0 | −0.25 | 0 | **−1.50** |
+| Δy mm | 0 | −0.25 | +0.25 | 0 | 0 | +0.50 | 0 | +0.50 |
+
+Only LED8 moves visibly, and only to clear `/CS_R`.
+
+**What actually blocks the scripted route, and it is topology not geometry: `/+5V` daisy-chains *through* the telltale pads.** `C30`'s supply path runs pad-to-pad through a telltale, so deleting a stale stub at an LED pad breaks the chain onward to `C30` — which is why `C30` pad 1 shows unconnected after an otherwise correct edit. A nearest-endpoint connector reconnects the near side and cannot know it has orphaned the far side; that also produced the 2 `tracks_crossing` against `/PD_R` and 3 `track_dangling`. Re-routing this area means re-establishing a chain, not drawing eight independent stubs, and that wants a real router or the GUI.
+
+**So the board half stays with the GUI, and it is now a short job:** apply the offsets above, then re-route the eight telltale pairs while keeping the `/+5V` chain through to `C30` intact.
+
+**The original shorts, for the record.** A representative one is `Items shorting two nets (nets /TT6_LED_K and /+5V)` — LED6's own two pads bridging. The 3528 land pattern puts 1.2 × 2.5 mm pads at ±1.35 mm, a 1.5 mm edge-to-edge gap, so they cannot bridge each other. Something else carrying copper across them must be doing it, and the likeliest candidate is the same anomaly noted below: **all six copper zones parse with no net**. Netless filled copper touching both pads shorts them by definition, and the smaller 0805 pads evidently sat clear of it where the 3528 pads do not.
 
 So the conclusion is narrower and more useful than "the API cannot do it": **the API can place the footprints; the board is not ready to receive them until the netless-zone question is answered.** That is layout work with a real design question inside it, not a scripting gap. Do not re-attempt the scripted swap before the zones are understood — it will reproduce the same 25 shorts.
 

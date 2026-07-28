@@ -334,13 +334,24 @@ directly.** `FootprintLoad`, `board.Add`/`Remove`, `SetPosition`/
 `SetOrientationDegrees`, `board.FindNet` and `pad.SetNet` are all exposed and all
 work — U11 swapped all eight telltales this way, preserving position, rotation
 and field layers, assigning every pad from the netlist. **It still had to be
-reverted:** DRC went 194 → 258 with **25 `shorting_items`**, and refilling zones
-first fixed the clearance/mask noise but not one short. The cause is a board
-anomaly, not the method — **all six copper zones parse with no net**, and netless
-fill touching both pads of a part shorts them; the larger 3528 pads reach into it
-where the 0805 pads did not. So: the API can place footprints, but do not use it
-to dodge the GUI step on a board whose copper is not ready for the new land
-pattern. Details in the U11 section of the telltale plan.
+reverted:** DRC went 194 → 286 → 258 → 231 across three passes, never reaching
+baseline. The blocker is **routing topology, not geometry**: a collision-free
+placement for all eight exists within 1.5 mm of home (found by searching
+rotation × offset against `GetEffectiveShape(F_Cu).Collide`), but **`/+5V`
+daisy-chains *through* the telltale pads** — deleting a stale stub at an LED pad
+orphans `C30` further down the chain. Re-routing here means re-establishing a
+chain, not drawing independent stubs, which wants a real router or the GUI. So:
+the API can place footprints; do not use it to dodge the GUI step on an area
+whose net topology runs through the parts you are replacing. Recipe and the
+per-part offsets are in the U11 section of the telltale plan.
+
+**Read board facts through `pcbnew`, never regex.** Three separate wrong
+conclusions in one session came from parsing `.kicad_pcb` as text: "the board has
+no tracks" (the file writes `(segment` followed by a newline, so a `\(segment `
+pattern matches nothing of 2,487), "no track lands on any telltale pad", and "all
+six copper zones are netless" (they are `/GND` ×3 filled, `/+5V` ×1, plus two
+Inner2 keepout rule areas that are netless by definition). Each looked like a
+real finding and each was a parser bug.
 
 So KTD12 holds: **Kevin runs Update PCB from Schematic in the GUI**, with
 re-link-by-reference ticked, and KiCad must be **restarted first** after any
