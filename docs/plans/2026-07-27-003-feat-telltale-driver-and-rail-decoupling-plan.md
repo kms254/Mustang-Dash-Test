@@ -348,7 +348,30 @@ Only LED8 moves visibly, and only to clear `/CS_R`.
 
 **What actually blocks the scripted route, and it is topology not geometry: `/+5V` daisy-chains *through* the telltale pads.** `C30`'s supply path runs pad-to-pad through a telltale, so deleting a stale stub at an LED pad breaks the chain onward to `C30` — which is why `C30` pad 1 shows unconnected after an otherwise correct edit. A nearest-endpoint connector reconnects the near side and cannot know it has orphaned the far side; that also produced the 2 `tracks_crossing` against `/PD_R` and 3 `track_dangling`. Re-routing this area means re-establishing a chain, not drawing eight independent stubs, and that wants a real router or the GUI.
 
-**So the board half stays with the GUI, and it is now a short job:** apply the offsets above, then re-route the eight telltale pairs while keeping the `/+5V` chain through to `C30` intact.
+**Third attempt: a real autorouter, and it very nearly lands it.** `tools/kicad_route.py` (KiCadRoutingTools, cloned beside the repo) does what the hand-rolled connector could not — handed a board that is complete *except* the telltale pads, it re-establishes the `/+5V` chain through to `C30` and closes **14 airwires → 0**.
+
+Reproduce with `tools/kicad_fit_telltales.py`, which swaps the footprints, deletes only the stubs that actually land on an old telltale pad, and solves placement:
+
+```
+python.exe tools/kicad_fit_telltales.py <out>.kicad_pcb noroute   # KiCad's interpreter
+cp <board>.kicad_pro <out>.kicad_pro                              # router reads sibling rules
+python.exe tools/kicad_route.py <out>.kicad_pcb --out <routed>.kicad_pcb
+```
+
+**Result: DRC 194 → 221 (+27), unconnected 0, crossings 0.** Twenty of the +27 are silkscreen (`silk_overlap` +11, `silk_over_copper` +9) — the 3528 silk is larger than the 0805 silk and the board already carried 150 such warnings. The electrical residue is **four**: one `shorting_items` (`/+5V` against `/TT6_LED_K`, the router's own feed passing its other pad), one `solder_mask_bridge`, one `hole_clearance`, one `track_dangling`.
+
+**It is not committed, because one short is a hard fail.** Four calibration passes were run and 0.15 mm is the optimum — the numbers are worth keeping so nobody re-derives them:
+
+| pad-to-foreign-copper margin | result |
+|---|---|
+| **0.15 mm** | **all 8 placed, DRC 221, 1 short** |
+| 0.25 mm | LED3 unplaceable, DRC 382 |
+| 0.40 mm | LED3 + LED8 unplaceable, DRC 382 |
+| 0.15 mm, LED6 relaxed to 0.35 | DRC 354 |
+
+Loosening is counter-productive: a larger margin pushes parts further from home, and the extra displacement costs more than the clearance buys.
+
+**What is left is one trace.** Run the two commands above, then in the GUI delete and re-draw the single `/+5V` segment that passes LED6's cathode pad. That also clears the mask bridge, which is the same copper. Everything else — placement, polarity, the `/+5V` chain, zero airwires — is already correct in the generated board.
 
 **The original shorts, for the record.** A representative one is `Items shorting two nets (nets /TT6_LED_K and /+5V)` — LED6's own two pads bridging. The 3528 land pattern puts 1.2 × 2.5 mm pads at ±1.35 mm, a 1.5 mm edge-to-edge gap, so they cannot bridge each other. Something else carrying copper across them must be doing it, and the likeliest candidate is the same anomaly noted below: **all six copper zones parse with no net**. Netless filled copper touching both pads shorts them by definition, and the smaller 0805 pads evidently sat clear of it where the 3528 pads do not.
 
