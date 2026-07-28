@@ -1,0 +1,357 @@
+{
+  "$comment": [
+    "U16: push U2 (W25Q512JV NOR flash) 1.000 mm east to open the crystal lane.",
+    "",
+    "DISPLACEMENT IS CONSTRAINED TO A BAND, AND THIS IS THE WHOLE DESIGN INPUT.",
+    "/GND stitching vias sit at x = 169.565 and do not move. U2's west pad column",
+    "moves to 167.590 + dx, so legal clearance requires dx <= 1.075 OR dx >= 2.875.",
+    "A first attempt at 2.500 mm landed inside that forbidden band and produced 33",
+    "violations -- pads on stitching vias, the exposed pad over /+3V3, /+5V shorting",
+    "IO1. Anything in 1.075 < dx < 2.875 collides by construction.",
+    "",
+    "1.000 mm is the low-churn choice: it clears every existing via and track with no",
+    "collateral, and still takes the U2-to-X1 courtyard gap from 0.86 to 1.86 mm --",
+    "roughly double the 0.96 mm lane that the crystal guard and the QSPI escape vias",
+    "were competing for, which is what forced both walk-backs in kicad_netclass.json.",
+    "Going to >= 2.875 mm would need 31 segments of /GND, /+3V3, /+5V and /CS_R ripped",
+    "and re-routed through the flash's neighbourhood; that buys 2 mm more lane for a",
+    "great deal more risk, and /CS_R is already the net plan 002 wants left alone.",
+    "",
+    "WHY THIS IS ELECTRICALLY FREE. Plan 002 measured the QSPI budget: at 100 MHz SDR",
+    "the window is tCK/2 = 5000 ps and a 10% skew allocation is 500 ps ~ 77 mm.",
+    "Translating U2 moves every pad equally, so added length is COMMON MODE, not skew",
+    "-- skew moves 22 um across 7 mm of travel. 1 mm costs ~6.5 ps of flight time on",
+    "CLK and data alike, shifting the sampling window rather than eating it.",
+    "",
+    "WHY NOT ROTATE. All four orientations evaluated: 180 deg (current) is best at",
+    "63.15 mm total; 0 deg 70.22, 90 deg 69.60, 270 deg 69.35, and both quarter-turns",
+    "fail courtyard clearance. The 8 mm column split is fixed by the WSON package and",
+    "180 deg already faces 3 of 5 signals (IO0, CLK, IO3) toward U1.",
+    "",
+    "WHY NOT REMAP IN FIRMWARE. QUADSPI BK1_IO2 has exactly two alternates on this",
+    "package, PF7 (pin 21) and PE2 (pin 1), and BOTH are on the east edge. IO0/IO1/IO3",
+    "could move to PD11/PD12/PD13 on the west side but IO2 cannot follow, splitting a",
+    "parallel bus across opposite sides of the package. No firmware change helps.",
+    "",
+    "METHOD: TRANSLATE, DO NOT RE-AUTHOR. Every U2-side via and stub moves exactly",
+    "+1.000 mm and its feeding run extends by the same 1.000 mm, so existing clearances",
+    "are preserved by construction rather than re-derived.",
+    "",
+    "ALL EIGHT SIGNAL PADS ARE HANDLED. The first draft rerouted only IO0-3 and CLK and",
+    "left /QSPI_NCS behind, shorting to the exposed pad. NCS is in the held qspi group",
+    "so it is hand-routed here too. Pads 4 (/GND) and 8 (/+3V3) reach the pours and need",
+    "no track work.",
+    "",
+    "U2 pad 9 is a 4.65 x 5.20 mm /GND thermal land; after the move it spans",
+    "x 170.265-174.915, y 104.606-109.806. No QSPI top copper in this spec enters it.",
+    "",
+    "VERIFY AFTER APPLYING: kicad_measure --against (only the six QSPI nets and U2",
+    "should differ), and analyze_pcb.py --full --compact asserting zero VP-001 -- the",
+    "QSPI walk-back was six escape vias inside U2's pads and DRC never said a word.",
+    "",
+    "REVISION 2. Only IO1 and NCS move their vias -- their old ones (174.405, 174.454)",
+    "fall INSIDE the enlarged exposed pad after the move and must clear it. IO0, CLK and",
+    "IO3 keep their vias where they are and extend only the top-layer stub to the pad.",
+    "Moving those three created new via-to-via conflicts and one via-in-pad (VP-001 went",
+    "1 -> 2), and extending IO3 on the BOTTOM layer put it 0.091 mm from IO1's existing",
+    "bottom run at y=107.750 -- a direct short. The top layer west of the pads is free",
+    "because U2's old pad column vacated it, so the stubs go there instead.",
+    "",
+    "/+3V3's diagonal now crosses U2 pad 4, so it is ripped here and left for the router;",
+    "+3V3 is not in the held set.",
+    "",
+    "REVISION 3 -- FULL CLEARANCE AT +2.500 mm. Threading around the existing copper was",
+    "tried at three displacements and failed three different ways, so the destination is",
+    "cleared instead: /GND, /+3V3 and /+5V are ripped inside x 169.0-179.2, y 103.6-110.8",
+    "and re-established by tools/kicad_route.py afterwards -- none of them is held.",
+    "/CS_R runs at y=103.496, outside that window, and is deliberately left alone.",
+    "With the blocking copper gone the displacement band no longer applies, so this takes",
+    "+2.500 mm: the knee of the original sweep, where the U2-to-X1 gap reaches 3.36 mm",
+    "(3.5x the contested lane) and bus coverage over solid Inner1 GND peaks at 86%."
+  ],
+  "move_footprints": [
+    {
+      "ref": "U2",
+      "by": [
+        2.5,
+        0.0
+      ]
+    }
+  ],
+  "delete": [
+    {
+      "net": "QSPI_IO0",
+      "bbox": [
+        166.4,
+        105.15,
+        167.75,
+        105.65
+      ],
+      "layers": [
+        "Top Layer"
+      ],
+      "vias": false
+    },
+    {
+      "net": "QSPI_CLK",
+      "bbox": [
+        166.5,
+        106.2,
+        167.75,
+        106.7
+      ],
+      "layers": [
+        "Top Layer"
+      ],
+      "vias": false
+    },
+    {
+      "net": "QSPI_IO3",
+      "bbox": [
+        166.4,
+        107.7,
+        167.75,
+        107.99
+      ],
+      "layers": [
+        "Top Layer"
+      ],
+      "vias": false
+    },
+    {
+      "net": "QSPI_IO1",
+      "bbox": [
+        174.2,
+        107.6,
+        175.75,
+        107.99
+      ],
+      "layers": [
+        "Top Layer"
+      ],
+      "vias": true
+    },
+    {
+      "net": "QSPI_NCS",
+      "bbox": [
+        174.3,
+        108.95,
+        175.75,
+        109.3
+      ],
+      "layers": [
+        "Top Layer"
+      ],
+      "vias": true
+    },
+    {
+      "net": "QSPI_IO2",
+      "bbox": [
+        175.3,
+        106.4,
+        176.6,
+        110.65
+      ],
+      "layers": [
+        "Top Layer"
+      ],
+      "vias": false
+    },
+    {
+      "net": "GND",
+      "bbox": [
+        169.0,
+        103.6,
+        179.2,
+        110.8
+      ],
+      "vias": true
+    },
+    {
+      "net": "+3V3",
+      "bbox": [
+        169.0,
+        103.6,
+        179.2,
+        110.8
+      ],
+      "vias": true
+    },
+    {
+      "net": "+5V",
+      "bbox": [
+        169.0,
+        103.6,
+        179.2,
+        110.8
+      ],
+      "vias": true
+    }
+  ],
+  "add": [
+    {
+      "net": "QSPI_IO0",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          166.642,
+          105.456
+        ],
+        [
+          169.935,
+          105.456
+        ],
+        [
+          170.09,
+          105.301
+        ]
+      ]
+    },
+    {
+      "net": "QSPI_CLK",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          166.764,
+          106.326
+        ],
+        [
+          169.845,
+          106.326
+        ],
+        [
+          170.09,
+          106.571
+        ]
+      ]
+    },
+    {
+      "net": "QSPI_IO3",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          166.67,
+          107.841
+        ],
+        [
+          170.09,
+          107.841
+        ]
+      ]
+    },
+    {
+      "net": "QSPI_IO1",
+      "layer": "Bottom Layer",
+      "width": 0.254,
+      "points": [
+        [
+          174.405,
+          107.75
+        ],
+        [
+          176.905,
+          107.75
+        ]
+      ]
+    },
+    {
+      "net": "QSPI_IO1",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          176.905,
+          107.75
+        ],
+        [
+          177.999,
+          107.75
+        ],
+        [
+          178.09,
+          107.841
+        ]
+      ]
+    },
+    {
+      "net": "QSPI_IO2",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          175.443,
+          110.528
+        ],
+        [
+          177.943,
+          110.528
+        ],
+        [
+          178.959,
+          109.512
+        ],
+        [
+          178.959,
+          107.44
+        ],
+        [
+          178.09,
+          106.571
+        ]
+      ]
+    },
+    {
+      "net": "QSPI_NCS",
+      "layer": "Inner2",
+      "width": 0.254,
+      "points": [
+        [
+          174.454,
+          109.111
+        ],
+        [
+          176.954,
+          109.111
+        ]
+      ]
+    },
+    {
+      "net": "QSPI_NCS",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          176.954,
+          109.111
+        ],
+        [
+          178.09,
+          109.111
+        ]
+      ]
+    }
+  ],
+  "add_vias": [
+    {
+      "net": "QSPI_IO1",
+      "at": [
+        176.905,
+        107.75
+      ],
+      "diameter": 0.6,
+      "drill": 0.3
+    },
+    {
+      "net": "QSPI_NCS",
+      "at": [
+        176.954,
+        109.111
+      ],
+      "diameter": 0.6,
+      "drill": 0.3
+    }
+  ]
+}
