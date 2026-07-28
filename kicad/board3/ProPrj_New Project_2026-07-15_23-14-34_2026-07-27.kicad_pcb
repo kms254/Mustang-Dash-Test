@@ -8318,7 +8318,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "ULN2803A"
+		(property "Value" "TBD62083AFWG"
 			(at 0 0 270)
 			(layer "F.Fab")
 			(uuid "dfea4a6e-0bff-4918-b250-cf78863d5a20")
