@@ -503,7 +503,7 @@ Run the full gate last: DRC against real rules with baseline attribution, a fres
 
 **Test scenarios:**
 - Covers R15. BOM carries designator, MPN and quantity; CPL carries designator, mid X, mid Y, rotation and layer in JLC's column order. ✅ `fab/bom.csv` 51 lines, **51 of 51 sourced**; `fab/bom-jlcpcb.csv` and `fab/cpl-jlcpcb.csv` re-emit both under JLC's own column names (`Comment,Designator,Footprint,LCSC Part #` and `Designator,Mid X,Mid Y,Layer,Rotation`). CPL is 140 rows after dropping 4 free pads that are board features, not parts.
-- Covers R15. At least one known-orientation part's rotation is verified against its datasheet pin 1. ✅ **`D9` verified** — SOT-23-6 at 0°, pad 1 south-west of centre, which is JEDEC's pin-1-bottom-left. ⚠️ **But the audit found the library is not self-consistent — see below.**
+- Covers R15. At least one known-orientation part's rotation is verified against its datasheet pin 1. ✅ **`D9` verified** — SOT-23-6 at 0°, pad 1 south-west of centre, which is JEDEC's pin-1-bottom-left. Then verified for the whole board against the JLCPCB-tools correction table: **zero correction needed** — see below.
 - Covers R16. Gerbers generate and the layer set matches the 4-layer stackup. ✅ 14 files: 4 copper, 2 mask, 2 silk, 2 paste, edge cuts, drill map, job file, Excellon `.drl`. Zipped to `fab/gerbers-jlcpcb.zip`.
 - Covers R13. DRC reports no new violations over the 41-violation import baseline. ✅ **36 violations, NEW = 0.**
 - Covers R4. Airwire count is zero. ✅
@@ -517,16 +517,23 @@ Run the full gate last: DRC against real rules with baseline attribution, a fres
 
 **Stale gerbers used to survive a re-export.** Files are named per layer, so a run that renamed or dropped a layer left the previous file sitting in the package. The export now clears `*.gbr`/`*.drl`/`*.gbrjob` first — a fab reads what is in the folder, not what you meant.
 
-**⚠️ OPEN — rotation convention, and this one needs a human.** The audit de-rotates pad 1 into each footprint's own zero, which is the number that has to agree with JLCPCB's library. This library does **not** use one convention:
+**✅ RESOLVED — rotation convention: no correction needed, and applying one would break the board.**
 
-| Part | Package | Pad 1 at the footprint's 0° | Against the standard |
-|---|---|---|---|
-| `D9` | SOT-23-6 | south-west | ✅ JEDEC |
-| `U2` | WSON-8 | north-west | ✅ standard |
-| `U1` | LQFP-144 | **south-west** | ❌ IPC says north-west — 180° out |
-| `U8` | SOIC-8 | **south-west** | ❌ IPC says north-west — 180° out |
+The first pass flagged this as open, because the audit showed the library is not internally consistent — `D9` (SOT-23-6) and `U2` (WSON-8) match the IPC convention while `U1` (LQFP-144) and `U8` (SOIC-8) put pin 1 at the south-west, a quarter turn from it. Resolved by measuring against the reference implementation rather than guessing.
 
-So a blanket correction would be wrong, and the parts most at risk are the MCU and both CAN transceivers. These footprints came from EasyEDA/LCSC — the same ecosystem that assembles the board — so their zero may well match JLC's, but "may well" is not verification, and this is the failure mode that produces a board of backwards parts with no warning anywhere. **Before ordering assembly, confirm `U1` and `U8` in JLCPCB's placement preview at upload, or against LCSC's own footprint for the same part numbers.** `tools/kicad_fab.py` prints the table on every run.
+The `kicad-jlcpcb-tools` plugin (installed here) ships the community's rotation-correction table: `^LQFP- → +270`, `^SOIC- → +270`, `^SOT-23 → −90`, applied as `jlc_rotation = kicad_rotation + C`. Those constants encode *(JLC's zero) − (KiCad **official library** zero)*. Board3's footprints are EasyEDA's, so the constants only transfer if both libraries draw the package alike. Comparing pin-1 datums directly:
+
+| Part | Package | EasyEDA pin 1 | KiCad stock pin 1 | plugin `C` | **`C` for this board** |
+|---|---|---|---|---|---|
+| `U1` | LQFP-144 | south-west | north-west | +270 | **0** |
+| `U8` | SOIC-8 | south-west | north-west | +270 | **0** |
+| `D9` | SOT-23-6 | south-west | north-west | −90 | **0** |
+
+Three package families, two different plugin constants, all resolving to **zero correction** — a coincidence that would not survive a sign error. EasyEDA/LCSC footprints are already drawn to JLC's own datum, which is what you would expect from the ecosystem that assembles the board. The plugin's own documentation agrees: its rules target KiCad's official libraries, and EasyEDA-derived footprints need per-footprint overrides "so the over-correction does not apply."
+
+**So `fab/cpl-jlcpcb.csv` is correct as exported, and the real hazard is the opposite of the one first suspected.** The plugin matches on footprint *name*, and Board3's names still begin `LQFP-`, `SOIC-`, `SOT-23`. Running its fabrication export against this project would match those rules and rotate the ICs a quarter turn they do not need — a board of backwards parts produced by the tool you reached for to prevent exactly that. `tools/kicad_fab.py` now carries the derivation in its docstring and prints the warning on every run.
+
+Not resolvable by this method, and not needing to be: `USBC1`. The two libraries name that receptacle's pads differently (`A1` versus numeric), so no single pad is a shared datum — the comparison returns a meaningless 73°. Its orientation is mechanically constrained by the board edge, so a rotation error would be obvious in the placement preview.
 
 ---
 
