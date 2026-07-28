@@ -85,9 +85,25 @@ right response is either per-channel PWM trim at runtime or accepting the
 tolerance — not more decimal places in the arithmetic.
 
 For Board3 this decided the part set: holding HONGLITRONIC's HL-A series at
-20 mA and 120 deg across all six colours is what made the intensity figures
-usable at all, and it is why a 350 mcd single-value part was chosen over a
-`72-180 mcd` one that was otherwise equivalent.
+20 mA and 120 deg across **five of the six** colours is what made the intensity
+figures usable at all, and it is why a 350 mcd single-value blue was chosen over
+a `72-180 mcd` one that was otherwise equivalent.
+
+**Orange is the exception, and the exception is the more useful half of the
+lesson.** There is no HL-A 3528 orange at LCSC, so that position takes
+`HVO-3528CPXA` (`C5246349`) from a different series -- and it arrives with a
+white diffusing lens where the other five are water clear. Its 1.8 cd is
+therefore not comparable to the five HL-A figures in the way those are
+comparable to each other, and no arithmetic fixes that. The practical rule when
+a row cannot be held in one series: **match within the series, then treat the
+outlier as a bench-trim position** rather than pretending its catalogue number
+sits on the same axis.
+
+A second gap worth expecting: the white (`C516299`) publishes **no luminous
+intensity at all** -- the field is `-`, with a 6500 K colour temperature in its
+place. White LEDs are routinely specified by luminous flux or chromaticity bin
+instead, so a row containing white will usually have one position whose figure
+has to come from the datasheet's bin table or from the bench, not the catalogue.
 
 ## When to Apply
 

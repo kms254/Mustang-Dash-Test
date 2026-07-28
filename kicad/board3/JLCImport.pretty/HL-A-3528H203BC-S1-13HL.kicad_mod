@@ -32,6 +32,10 @@
   (fp_poly (pts (xy -1.181227 -0.1) (xy -1.970329 -0.1) (xy -1.970329 0.066) (xy -1.17917 0.066) (xy -1.17917 0.045593)) (stroke (width 0) (type solid)) (fill solid) (layer "F.Fab") (uuid "c91dd673-871b-4590-9384-cc6d28e0f9cc"))
   (fp_poly (pts (xy -2.032 -1.397) (xy -2.032 -1.905) (xy -1.524 -1.905)) (stroke (width 0) (type solid)) (fill solid) (layer "F.Fab") (uuid "5126c3dd-2d2c-440e-b4ef-bee52d50a8fd"))
   (pad "2" smd rect (at 1.55 0) (size 1.5 2.6) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "820b676c-8a49-46db-9eb7-64923700193f"))
+  (fp_line (start -2.55 -1.65) (end 2.55 -1.65) (stroke (width 0.05) (type solid)) (layer "F.CrtYd") (uuid "e9b033b2-336c-416c-838e-0c1ec6e2d521"))
+  (fp_line (start 2.55 -1.65) (end 2.55 1.65) (stroke (width 0.05) (type solid)) (layer "F.CrtYd") (uuid "9f2a8d18-dc38-4356-b68d-73f2bfbce955"))
+  (fp_line (start 2.55 1.65) (end -2.55 1.65) (stroke (width 0.05) (type solid)) (layer "F.CrtYd") (uuid "5d680d5b-7c4f-43f4-aa8b-7c93c3aad1aa"))
+  (fp_line (start -2.55 1.65) (end -2.55 -1.65) (stroke (width 0.05) (type solid)) (layer "F.CrtYd") (uuid "b6f3af37-e43f-4748-b054-702dbc250aeb"))
   (pad "1" smd rect (at -1.55 0) (size 1.5 2.6) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "eda543c0-be1a-49a4-8215-634393a48ad5"))
   (embedded_fonts no)
 
