@@ -11,6 +11,8 @@ name: KiCad parts audit
 
 on:
   pull_request:
+    paths-ignore:
+      - "**/*.md"
   workflow_dispatch:
 
 jobs:

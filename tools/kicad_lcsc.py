@@ -612,6 +612,77 @@ def _relaunch_utf8() -> int | None:
     return subprocess.run(argv, env=env).returncode
 
 
+def _annotate(level: str, msg: str) -> None:
+    """Emit a GitHub Actions annotation when running in CI, plain text otherwise."""
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        print(f"::{level}::{msg}")
+    else:
+        print(f"  {msg}")
+
+
+def cmd_duplicates(args) -> int:
+    """Report parts that are the same thing bought twice, or two things bought once.
+
+    Two directions, and only one of them is a defect:
+
+      - one value+footprint mapped to several LCSC codes is legal but wasteful --
+        every extra code is another reel and another feeder at assembly. Board3
+        ships two different 100nF 0603 parts and two different 10k 0603 parts.
+      - one LCSC code mapped to several values is almost always a mistake: the
+        schematic says 10k and the BOM orders something else. Nothing downstream
+        catches this, because both fields are individually well-formed.
+    """
+    project = Path(args.project).resolve()
+    parts = read_parts(find_schematic(project))
+
+    by_value: dict[tuple[str, str], dict[str, list[str]]] = {}
+    by_code: dict[str, dict[str, list[str]]] = {}
+    for p in parts:
+        code = (p.get("Supplier Part") or "").strip()
+        if not code:
+            continue
+        ref = p.get("Reference", "?")
+        value = (p.get("Value") or "").strip()
+        fp = footprint_name(p.get("Footprint", ""))
+        by_value.setdefault((value, fp), {}).setdefault(code, []).append(ref)
+        by_code.setdefault(code, {}).setdefault(value, []).append(ref)
+
+    split = {k: v for k, v in by_value.items() if len(v) > 1}
+    mixed = {k: v for k, v in by_code.items() if len(v) > 1}
+
+    print(f"distinct LCSC codes : {len(by_code)}")
+    print(f"value+footprint keys: {len(by_value)}")
+
+    if split:
+        print(f"\none value+footprint, several LCSC codes ({len(split)}):")
+        for (value, fp), codes in sorted(split.items()):
+            print(f"  {value or '(no value)'} / {fp}")
+            for code, refs in sorted(codes.items()):
+                print(f"      {code:12s} x{len(refs):<3d} {','.join(sorted(refs))}")
+            _annotate("warning",
+                      f"{value} / {fp} is sourced as {len(codes)} different LCSC parts "
+                      f"({', '.join(sorted(codes))}) - each is an extra reel and feeder")
+
+    if mixed:
+        print(f"\nONE LCSC CODE, SEVERAL VALUES ({len(mixed)}) - likely a mismapping:")
+        for code, values in sorted(mixed.items()):
+            print(f"  {code}")
+            for value, refs in sorted(values.items()):
+                print(f"      {value or '(no value)':24s} {','.join(sorted(refs))}")
+            _annotate("error",
+                      f"LCSC {code} is mapped to {len(values)} different values "
+                      f"({', '.join(sorted(values))}) - the BOM may order the wrong part")
+
+    if not split and not mixed:
+        print("\nno duplicate or conflicting LCSC mappings")
+
+    # Only the mismapping direction is a defect. Consolidation is a judgement
+    # call, and failing a PR over it would just teach people to ignore the check.
+    if mixed:
+        return EXIT_INCOMPLETE
+    return EXIT_INCOMPLETE if (split and args.strict) else EXIT_OK
+
+
 def main() -> int:
     relaunched = _relaunch_utf8()
     if relaunched is not None:
@@ -637,6 +708,11 @@ def main() -> int:
 
     c = sub.add_parser("check", help="audit LCSC metadata and 3D model coverage")
     c.set_defaults(func=cmd_check)
+
+    d = sub.add_parser("duplicates", help="find duplicate or conflicting LCSC mappings")
+    d.add_argument("--strict", action="store_true",
+                   help="also fail when one value is sourced as several LCSC parts")
+    d.set_defaults(func=cmd_duplicates)
 
     args = ap.parse_args()
     return args.func(args)

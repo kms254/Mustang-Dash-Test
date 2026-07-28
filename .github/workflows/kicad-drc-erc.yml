@@ -1,0 +1,74 @@
+# Design rule and electrical rule checks.
+#
+# The only workflow here that needs a real KiCad, so it runs in the official
+# image pinned to the same version as the workstation (10.0.5). Pinned rather
+# than floating: a KiCad upgrade that changes rule behaviour should be a visible
+# commit, not a Tuesday where CI starts failing on an unchanged board.
+#
+# Board3 was routed to zero airwires and a DRC below its conversion baseline.
+# That state is easy to lose and expensive to notice late -- a DRC regression is
+# a scrapped board, not a code review comment.
+#
+# Severity is errors-only. A converted EasyEDA board carries warnings that are
+# noise, and a check that cries wolf is a check people learn to merge past.
+name: KiCad DRC and ERC
+
+on:
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+  workflow_dispatch:
+
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    container:
+      image: kicad/kicad:10.0.5
+      # The image runs as the 'kicad' user; actions/checkout needs to own the
+      # workspace it writes into.
+      options: --user root
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: KiCad version
+        run: kicad-cli version
+
+      - name: Locate project
+        id: find
+        run: |
+          set -euo pipefail
+          echo "pcb=$(ls kicad/board3/*.kicad_pcb | head -1)" >> "$GITHUB_OUTPUT"
+          echo "sch=$(ls kicad/board3/*.kicad_sch | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: DRC
+        run: |
+          kicad-cli pcb drc \
+            --severity-error \
+            --exit-code-violations \
+            --format json \
+            -o drc.json \
+            "${{ steps.find.outputs.pcb }}"
+
+      - name: ERC
+        if: always()
+        run: |
+          kicad-cli sch erc \
+            --severity-error \
+            --exit-code-violations \
+            --format json \
+            -o erc.json \
+            "${{ steps.find.outputs.sch }}"
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rule-reports
+          path: |
+            drc.json
+            erc.json
+          if-no-files-found: warn

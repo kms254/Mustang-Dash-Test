@@ -1,0 +1,34 @@
+# JLCPCB stock and lifecycle for every part on the board.
+#
+# Scheduled, never a pull-request gate. Stock is a property of the world rather
+# than of the change under review, so failing someone's PR because a capacitor
+# sold out overnight punishes the wrong person at the wrong moment. The useful
+# signal is "something you depend on became unavailable", and the useful time to
+# learn it is before ordering.
+#
+# Reaches the JLCPCB parts API, so it is the one workflow here that can fail for
+# reasons that have nothing to do with the repository -- rate limiting, a shape
+# change, an outage. The tool treats a failed query as unknown rather than
+# healthy, which is the safe direction, but expect the occasional red night that
+# means nothing.
+name: JLCPCB stock
+
+on:
+  schedule:
+    # 07:00 UTC daily. Results are waiting before the workday rather than
+    # landing in the middle of it.
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+jobs:
+  stock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Stock and lifecycle
+        run: python tools/kicad_stock.py
