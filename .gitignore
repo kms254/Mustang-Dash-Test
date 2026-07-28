@@ -46,3 +46,7 @@ __pycache__/
 # Regenerable per run; the committed evidence is the report tools/kicad_review.py
 # writes, not this.
 /analysis/
+
+# Fab package: the zip and the CSVs are the orderable artifact and are tracked
+# for provenance. The loose gerber folder is the same bytes uncompressed.
+fab/gerbers/

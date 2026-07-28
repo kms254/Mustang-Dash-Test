@@ -487,7 +487,7 @@ Measure the per-part cost while working. If recovery is scriptable from the sour
 
 **Verification:** MPN coverage reaches 48 of 48, or the shortfall is enumerated with reasons.
 
-### U9. Fab outputs and final gate
+### U9. Fab outputs and final gate — DONE 2026-07-27
 
 **Goal:** Produce the files JLCPCB needs, and prove the board is ready.
 
@@ -502,14 +502,31 @@ Measure the per-part cost while working. If recovery is scriptable from the sour
 Run the full gate last: DRC against real rules with baseline attribution, a fresh review pass, and zero airwires. This is where R13 is finally judged.
 
 **Test scenarios:**
-- Covers R15. BOM carries designator, MPN and quantity; CPL carries designator, mid X, mid Y, rotation and layer in JLC's column order.
-- Covers R15. At least one known-orientation part's rotation is verified against its datasheet pin 1.
-- Covers R16. Gerbers generate and the layer set matches the 4-layer stackup.
-- Covers R13. DRC reports no new violations over the 41-violation import baseline.
-- Covers R4. Airwire count is zero.
-- A fresh `tools/kicad_review.py` run reports `CALIBRATED` with no `error`-severity findings that were absent at import.
+- Covers R15. BOM carries designator, MPN and quantity; CPL carries designator, mid X, mid Y, rotation and layer in JLC's column order. ✅ `fab/bom.csv` 51 lines, **51 of 51 sourced**; `fab/bom-jlcpcb.csv` and `fab/cpl-jlcpcb.csv` re-emit both under JLC's own column names (`Comment,Designator,Footprint,LCSC Part #` and `Designator,Mid X,Mid Y,Layer,Rotation`). CPL is 140 rows after dropping 4 free pads that are board features, not parts.
+- Covers R15. At least one known-orientation part's rotation is verified against its datasheet pin 1. ✅ **`D9` verified** — SOT-23-6 at 0°, pad 1 south-west of centre, which is JEDEC's pin-1-bottom-left. ⚠️ **But the audit found the library is not self-consistent — see below.**
+- Covers R16. Gerbers generate and the layer set matches the 4-layer stackup. ✅ 14 files: 4 copper, 2 mask, 2 silk, 2 paste, edge cuts, drill map, job file, Excellon `.drl`. Zipped to `fab/gerbers-jlcpcb.zip`.
+- Covers R13. DRC reports no new violations over the 41-violation import baseline. ✅ **36 violations, NEW = 0.**
+- Covers R4. Airwire count is zero. ✅
+- A fresh `tools/kicad_review.py` run reports `CALIBRATED` with no `error`-severity findings that were absent at import. ✅ **CALIBRATED**, and an error-by-error diff against the imported board gives **0 introduced** (`FD-001` fiducials 1 → 0; everything else unchanged).
 
-**Verification:** A complete fab package exists and the final gate passes on every criterion above.
+**Verification:** The fab package exists and every gate criterion passes. ✅ **U9 COMPLETE** — with one open item the board cannot self-certify, below.
+
+**Two things the export had to fix before the package was safe.**
+
+**The board outline was shipping under a name that means something else.** KiCad names each gerber after the layer's *user* name, and the EasyEDA importer had renamed `Edge.Cuts` to **"Multi-Layer"** — so the outline exported as `…-Multi-Layer.gbr`. In Altium and EasyEDA vocabulary "multi-layer" describes copper present on every layer, a pad property, so a fab reading that filename learns the opposite of the truth and the package appears to have no outline at all. `kicad_fab.py` now renames every exported gerber to KiCad's canonical layer name (`Edge_Cuts.gbr`, `In1_Cu.gbr`, …) from the board's own layer table, and `check_gerber_layers()` says so loudly if a required layer is absent. Renaming the *outputs* is safe in a way renaming the board's layers would not be.
+
+**Stale gerbers used to survive a re-export.** Files are named per layer, so a run that renamed or dropped a layer left the previous file sitting in the package. The export now clears `*.gbr`/`*.drl`/`*.gbrjob` first — a fab reads what is in the folder, not what you meant.
+
+**⚠️ OPEN — rotation convention, and this one needs a human.** The audit de-rotates pad 1 into each footprint's own zero, which is the number that has to agree with JLCPCB's library. This library does **not** use one convention:
+
+| Part | Package | Pad 1 at the footprint's 0° | Against the standard |
+|---|---|---|---|
+| `D9` | SOT-23-6 | south-west | ✅ JEDEC |
+| `U2` | WSON-8 | north-west | ✅ standard |
+| `U1` | LQFP-144 | **south-west** | ❌ IPC says north-west — 180° out |
+| `U8` | SOIC-8 | **south-west** | ❌ IPC says north-west — 180° out |
+
+So a blanket correction would be wrong, and the parts most at risk are the MCU and both CAN transceivers. These footprints came from EasyEDA/LCSC — the same ecosystem that assembles the board — so their zero may well match JLC's, but "may well" is not verification, and this is the failure mode that produces a board of backwards parts with no warning anywhere. **Before ordering assembly, confirm `U1` and `U8` in JLCPCB's placement preview at upload, or against LCSC's own footprint for the same part numbers.** `tools/kicad_fab.py` prints the table on every run.
 
 ---
 
