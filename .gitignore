@@ -58,3 +58,4 @@ __pycache__/
 # workflow, which uploads it with 90-day retention.
 fab/gerbers/
 fab/gerbers-jlcpcb.zip
+fab/*-gerbers.zip
