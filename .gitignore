@@ -47,6 +47,14 @@ __pycache__/
 # writes, not this.
 /analysis/
 
-# Fab package: the zip and the CSVs are the orderable artifact and are tracked
-# for provenance. The loose gerber folder is the same bytes uncompressed.
+# Fab package. The CSVs stay tracked: they are small, they are text, and a BOM
+# diff in a pull request is genuinely reviewable -- you can see a part change.
+#
+# The gerber zip does not. It is ~400 KB of incompressible binary regenerated on
+# every board change, and tracking it does not actually buy provenance: a file
+# that silently follows HEAD only ever tells you about the latest build, not
+# about the bytes you ordered. Provenance needs an immutable marker -- tag the
+# commit you order from, or take the archive off that run of the release
+# workflow, which uploads it with 90-day retention.
 fab/gerbers/
+fab/gerbers-jlcpcb.zip
