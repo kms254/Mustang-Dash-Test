@@ -303,7 +303,17 @@ Two independent hazards, only one of which any gate catches:
 
 So each position needs its anode pin landed on `/+5V` and its cathode on `/TT*_LED_K` individually, by choosing the symbol instance's mirror/rotation per LED — not by rewriting `lib_id` and the property block.
 
-**The design question this raises is Kevin's, not the plan's.** Preserve the board's existing per-position polarity (smaller diff, no netlist change, keeps a latent trap for whoever touches these next), or normalise all eight to one convention (cleaner, but moves nets and needs re-routing)? U11 stops here until that is answered — guessing costs a board spin, and the goal capsule already reserves design decisions.
+**Resolved 2026-07-28 (Kevin): normalise, and the geometry allows it.**
+
+**KTD14. Every telltale is wired pad 1 = cathode, pad 2 = anode.** Three things make this cheap rather than the re-routing exercise it first looked like:
+
+- **All six replacements already agree electrically.** Pin/pad 1 is the cathode on every one — `C`, `K` or `−` depending on how the vendor labelled it. The red `HL-A-3528S35FC` is *geometrically* mirrored (pad 1 at local x +1.35 where its five siblings put it at −1.35), but it is internally self-consistent, so it needs no special handling in net assignment. Only its physical approach side differs.
+- **Only four positions move.** LED4/5/6/7 already carry the cathode on pad 1. LED1, LED2, LED3 and LED8 are the swap set.
+- **No copper is in the way.** No track segment terminates on any of the sixteen telltale pads — checked against all 2,487 segments on the board, not a sample. There is nothing to rip up at the LED end, and the land pattern is changing anyway (0805 pads at ±1.10 to 3528 pads at ±1.35/1.49/1.55), so that copper is being remade regardless.
+
+The alternative — preserving the board's existing per-position polarity — was rejected as a preference: it is the smaller diff but it carries an inconsistency that exists only because six imported symbols disagreed, and it leaves the next person to rediscover this the hard way.
+
+**Unresolved and worth one look during the sync:** DRC reports **0 unconnected** on the current board, which does not square with sixteen pads carrying no track. All three large copper zones (`F.Cu`, `B.Cu`, `In1.Cu`) parse as netless, so what is satisfying connectivity there is not identified. It does not change this decision — nothing needs re-routing either way — but the ratsnest will show the truth the moment Update PCB from Schematic runs, and a surprise there should stop the unit rather than be routed around.
 
 **Retire the superseded imports.** Three parts were imported during selection and lost: `67-21_BHC-FQ1R2F_2T` (`C264601`), `HVT-3528CPX` (`C5246350`), `HVY-3528CPX` (`C2843418`). Each carries a ~1.3-1.7 MB STEP plus a WRL. Remove their symbols, footprints and models rather than leaving three unreferenced parts a future reader has to disprove — git history keeps them if the decision is ever revisited.
 
