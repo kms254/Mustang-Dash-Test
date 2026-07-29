@@ -1,0 +1,150 @@
+# Cut an immutable fab release: tag the commit, attach the package you order from.
+#
+# This is the provenance mechanism. The gerber zip is not tracked in git, because
+# a file that follows HEAD only ever describes the latest build. A tag plus a
+# release describes the bytes you actually sent to JLCPCB, and keeps describing
+# them after the board moves on.
+#
+# Manual dispatch only. Ordering a board is a decision, not something that should
+# happen because a merge landed.
+#
+# Gated on the checks that matter before money is spent: every part LCSC-mapped
+# and modelled, and a clean DRC. A release that fails those is not a release, it
+# is a scrapped panel.
+name: Fab release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to create (blank = fab-YYYYMMDD-HHMM, UTC)"
+        required: false
+        default: ""
+      notes:
+        description: "What this revision is for"
+        required: false
+        default: ""
+      draft:
+        description: "Create as a draft release"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: kicad/kicad:10.0.5
+      options: --user root
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: KiCad version
+        run: kicad-cli version
+
+      # Gate before build, so a bad board fails fast and cheap.
+      - name: Every part LCSC-mapped and modelled
+        run: python3 tools/kicad_lcsc.py check
+
+      - name: DRC
+        run: |
+          set -euo pipefail
+          pcb=$(ls kicad/board3/*.kicad_pcb | head -1)
+          kicad-cli pcb drc --severity-error --exit-code-violations \
+            --format json -o drc.json "$pcb"
+
+      - name: Build the package
+        run: python3 tools/kicad_fab.py kicad/board3/ --out fab
+
+      - name: Verify the archive is orderable
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import zipfile
+          names = sorted(zipfile.ZipFile("fab/gerbers-jlcpcb.zip").namelist())
+          for n in names:
+              print("  " + n)
+          low = [n.lower() for n in names]
+          assert any(n.endswith((".gm1", "edge_cuts.gbr")) for n in low), "no board outline in archive"
+          assert any(n.endswith(".drl") for n in low), "no drill file in archive"
+          print(f"  {len(names)} files, outline and drill present")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fab-package
+          path: |
+            fab/gerbers-jlcpcb.zip
+            fab/bom-jlcpcb.csv
+            fab/cpl-jlcpcb.csv
+            fab/bom.csv
+            fab/cpl.csv
+            drc.json
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      # gh is preinstalled on the runner but not in the KiCad image, which is why
+      # this is a separate job rather than one more step above.
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: fab-package
+          path: fab
+
+      - name: Resolve the tag
+        id: tag
+        env:
+          REQUESTED: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          tag="$REQUESTED"
+          if [ -z "$tag" ]; then
+            tag="fab-$(date -u +%Y%m%d-%H%M)"
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "::error::tag $tag already exists - a fab release is immutable, pick another"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "resolved tag: $tag"
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          NOTES: ${{ inputs.notes }}
+          DRAFT: ${{ inputs.draft }}
+        run: |
+          set -euo pipefail
+          {
+            echo "Fabrication package for \`${GITHUB_SHA}\`."
+            echo
+            if [ -n "$NOTES" ]; then echo "$NOTES"; echo; fi
+            echo "Upload to JLCPCB:"
+            echo "- \`gerbers-jlcpcb.zip\` - PCB order"
+            echo "- \`bom-jlcpcb.csv\` - assembly, BOM tab"
+            echo "- \`cpl-jlcpcb.csv\` - assembly, CPL tab"
+            echo
+            echo "Gated on a clean DRC and on every placed part being LCSC-mapped"
+            echo "and 3D-modelled. Rotation is KiCad's value unmodified, which is"
+            echo "correct for this board - see tools/kicad_fab.py."
+          } > notes.md
+
+          args=(--target "$GITHUB_SHA" --title "$TAG" --notes-file notes.md)
+          if [ "$DRAFT" = "true" ]; then args+=(--draft); fi
+
+          gh release create "$TAG" "${args[@]}" \
+            fab/gerbers-jlcpcb.zip \
+            fab/bom-jlcpcb.csv \
+            fab/cpl-jlcpcb.csv \
+            fab/bom.csv \
+            fab/cpl.csv
+
+          echo "released $TAG at $GITHUB_SHA"

@@ -1,0 +1,73 @@
+# Build the JLCPCB upload package on every merge to main.
+#
+# Three uploads, matching what JLCPCB asks for: the gerber archive for the PCB
+# order, and the BOM and CPL for assembly.
+#
+# The work is done by tools/kicad_fab.py, which already owns the parts of this
+# that are easy to get wrong -- the EasyEDA-to-JLCPCB field mapping, the explicit
+# layer list, and canonicalise_gerber_names(), which renames Board3's
+# EasyEDA-nicknamed layers (Edge.Cuts is called "Multi-Layer") to the canonical
+# ones. This workflow only runs it and checks the result.
+#
+# The fab/ artifacts are also tracked in the repo for provenance. CI regenerating
+# them here is a check that they can still be built from the current sources, and
+# gives a downloadable copy per run without anyone needing KiCad installed.
+#
+# Needs a real KiCad, pinned to the workstation version so a toolchain upgrade is
+# a visible commit rather than a surprise.
+name: JLCPCB release package
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    container:
+      image: kicad/kicad:10.0.5
+      options: --user root
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: KiCad version
+        run: kicad-cli version
+
+      # The image ships Python; setup-python would fight the container.
+      - name: Build the package
+        run: python3 tools/kicad_fab.py kicad/board3/ --out fab
+
+      - name: Sanity-check the archive
+        run: |
+          set -euo pipefail
+          test -s fab/gerbers-jlcpcb.zip
+          test -s fab/bom-jlcpcb.csv
+          test -s fab/cpl-jlcpcb.csv
+          python3 - <<'PY'
+          import zipfile
+          names = sorted(zipfile.ZipFile("fab/gerbers-jlcpcb.zip").namelist())
+          for n in names:
+              print("  " + n)
+          # An archive missing the outline or the drill file is one JLCPCB
+          # rejects, and both are easy to lose to a layer-naming change.
+          low = [n.lower() for n in names]
+          assert any(n.endswith((".gm1", "edge_cuts.gbr")) for n in low), "no board outline in archive"
+          assert any(n.endswith(".drl") for n in low), "no drill file in archive"
+          print(f"  {len(names)} files, outline and drill present")
+          PY
+
+      - name: Upload JLCPCB package
+        uses: actions/upload-artifact@v4
+        with:
+          name: jlcpcb-package
+          path: |
+            fab/gerbers-jlcpcb.zip
+            fab/bom-jlcpcb.csv
+            fab/cpl-jlcpcb.csv
+            fab/bom.csv
+            fab/cpl.csv
+          if-no-files-found: error
+          retention-days: 90

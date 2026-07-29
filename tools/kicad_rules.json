@@ -1,0 +1,65 @@
+{
+  "$comment": [
+    "Board3's real design rules. This file exists because KiCad's EasyEDA Pro",
+    "importer does NOT translate design rules -- it brings geometry, nets and the",
+    "schematic faithfully, then writes KiCad's stock factory defaults into the",
+    "netclass (clearance 0.2, track_width 0.2, via_diameter 0.6, via_drill 0.3).",
+    "",
+    "That substitution is silent and expensive. Measured against those invented",
+    "rules, an untouched Board3 reports 544 DRC violations, 503 of them clearance",
+    "-- every one a false positive, all sitting in a 0.117-0.197 mm band just under",
+    "a 0.2 mm rule the board was never drawn to. Against the real rules below the",
+    "same board reports 41. EasyEDA's own DRC was right all along.",
+    "",
+    "Anyone migrating a board here who trusts the imported .kicad_pro will chase",
+    "hundreds of phantom violations and route to constraints their fab never agreed",
+    "to. Apply these instead."
+  ],
+  "process": "JLCPCB 4-layer, standard (not advanced)",
+  "source": "https://jlcpcb.com/capabilities/pcb-capabilities",
+  "verified_on": "2026-07-27",
+  "rules_mm": {
+    "min_clearance": 0.1016,
+    "min_track_width": 0.1016,
+    "min_via_diameter": 0.45,
+    "min_through_hole_diameter": 0.2,
+    "min_hole_clearance": 0.1016,
+    "min_hole_to_hole": 0.5,
+    "min_via_annular_width": 0.15
+  },
+  "default_netclass_mm": {
+    "clearance": 0.1016,
+    "track_width": 0.254,
+    "via_diameter": 0.6,
+    "via_drill": 0.3
+  },
+  "$notes": {
+    "track_width": "0.254 mm (10 mil) is what every track on Board3 actually is, so it is the design's working width rather than the process floor. The 0.1016 mm minimum is JLC's standard limit; 0.09 mm (3.5 mil) is reachable on their ADVANCED process at extra cost, which is what an autorouter necks down to at fine-pitch pads if it is not constrained.",
+    "annular_ring": "JLC wants 0.15 mm minimum, 0.2 mm preferred (re-verified against jlcpcb.com/capabilities/pcb-capabilities on 2026-07-27: 'recommended 0.20 mm or above; absolute minimum 0.15 mm' for multilayer 1oz). It IS expressible -- min_via_annular_width, added above on 2026-07-27. Leaving it out cost real money in attention: the importer's .kicad_pro carries 0.1, so for four units every DRC run in this plan measured annular rings against a rule the board was never designed to, and a 0.5/0.3 via with a 0.10 mm ring that U5 introduced went unreported until kicad-happy's DFM check found it. A rule you do not encode is a rule you are not checking.",
+    "min_hole_size": "min_through_hole_diameter is 0.3 mm here as a COST floor, not a capability floor -- JLC's published range is 0.15-6.3 mm, but drills under 0.3 mm can attract a surcharge. One deliberate exception exists on Board3: the BTN1 via at U1.93 is 0.5/0.2 because its pad neighbours cap the diameter at 0.517 mm and the ring rule has to win."
+  },
+  "differential_pairs": {
+    "$resolved": "2026-07-27. Resolved by MEASUREMENT of the board rather than recovery from EasyEDA, because the measurement made recovery moot: ALL 2435 tracks on Board3 are 0.254 mm. There is exactly one track width on this board and no differential-pair geometry was ever applied in copper. Whatever the EasyEDA net-class panel said, it did not shape this board -- so these are decisions to make, not values to recover. The '10mm' memory is 10 mil = 0.254 mm, i.e. the board-wide default, which is consistent with no pair-specific rule having reached copper.",
+    "$stackup_assumption": "The importer carried NO stackup block, so impedance is computed against JLCPCB's standard 4-layer 1.6 mm stackup (JLC04161H-7628): Top 1oz / prepreg 7628 0.2104 mm Er~4.4 / Inner1 / core 1.065 mm / Inner2 / prepreg 0.2104 mm / Bottom 1oz. Figures below are closed-form edge-coupled microstrip for a top-layer pair over a SOLID Inner1 ground. CONFIRM against JLCPCB's own impedance calculator before fabrication, and confirm the reference plane is actually continuous under each pair -- an impedance number over a split plane is fiction.",
+    "$as_drawn": "0.254 mm trace over 0.2104 mm prepreg gives Zo ~60 ohm single-ended. At the board's 0.254 mm spacing that is Zdiff ~102 ohm -- inside USB's 90 ohm +/-15% window (76.5-103.5) but sitting at its top edge, and low for CAN's 120 ohm.",
+    "USB": {
+      "target_impedance_ohm": 90,
+      "tolerance_pct": 15,
+      "track_width": 0.254,
+      "gap": 0.15,
+      "computed_zdiff_ohm": 91,
+      "note": "Keep the board-wide 0.254 mm width and TIGHTEN THE GAP to 0.15 mm. This is the minimal-change option: it preserves the single-width virtue of the board, and it matches the lost action item's wording -- 'narrow it' meant narrow the gap, not the trace. Narrowing the TRACE would raise impedance away from 90 ohm, which is the trap in that note. Alternative if a 0.15 mm gap is uncomfortable: 0.30 mm width with 0.21 mm gap, also ~90 ohm."
+    },
+    "CAN": {
+      "target_impedance_ohm": 120,
+      "track_width": 0.254,
+      "gap_min": 0.5,
+      "computed_zdiff_ohm": "114 at 0.5 mm gap, 118 at 0.75 mm gap",
+      "note": "CAN wants the OPPOSITE treatment to USB: loosely coupled. With 0.254 mm traces, Zdiff asymptotically approaches 2*Zo = ~120 ohm as the gap grows, so a WIDE gap (>=0.5 mm) is what reaches 120 ohm. Tightening a CAN pair the way you tighten USB drives it away from target. In practice this matters little at 1 Mbps over 23-25 mm of track -- symmetry, equal via counts and the split termination dominate -- so treat the gap as a target, not a constraint to contort the layout around."
+    }
+  },
+  "cost_floors_mm": {
+    "$comment": "Not capability limits -- price breaks. DRC must not fail on these or the gate stops meaning anything, so tools/kicad_verify.py reports them as an advisory line instead. Anything listed here needs a recorded reason, the way U1.93's 0.2 mm drill has one.",
+    "through_hole_diameter": 0.3
+  }
+}

@@ -1,0 +1,35 @@
+# Duplicate and conflicting LCSC mappings.
+#
+# Two directions, only one of which is a defect, so this runs without --strict:
+#
+#   one value sourced as several LCSC parts  -> warning. Legal but wasteful;
+#       every extra code is another reel and another feeder at assembly. Board3
+#       ships two different 100nF 0603 parts and two different 10k 0603 parts.
+#       Failing a PR over a judgement call just teaches people to ignore CI.
+#
+#   one LCSC code mapped to several values   -> error, and the tool exits
+#       non-zero on its own. The schematic says one thing and the BOM orders
+#       another, and nothing else in the pipeline notices because both fields
+#       are individually well-formed.
+#
+# Needs no KiCad and no network -- it reads the schematic as text.
+name: LCSC duplicates
+
+on:
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+  workflow_dispatch:
+
+jobs:
+  duplicates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Duplicate and conflicting LCSC mappings
+        run: python tools/kicad_lcsc.py duplicates

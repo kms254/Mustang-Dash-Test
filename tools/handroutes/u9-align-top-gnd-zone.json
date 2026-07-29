@@ -1,0 +1,31 @@
+{
+  "$comment": [
+    "Align the Top GND pour with the board, and with the other three zones.",
+    "",
+    "Spotted by eye in the PCB editor and confirmed to predate all of this work --",
+    "the offset is byte-identical in 52586d4, the original EasyEDA import. The",
+    "Bottom GND, Inner1 GND and Inner2 +5V zones are all the same 76-point rounded",
+    "rectangle inset 0.13 mm from the board edge on every side. The Top GND zone is",
+    "that same shape translated by (+0.867, -2.539) mm, which is not a clearance",
+    "and not a shape difference -- just a displacement.",
+    "",
+    "What it costs: the pour overhangs the top and right edges, where the fill",
+    "clips it away harmlessly, and falls SHORT along the bottom by 2.67 mm and the",
+    "left by 0.99 mm -- strips of board with no top-layer ground. Inner1 still",
+    "covers the whole board, so this is shielding and copper balance rather than",
+    "connectivity, which is why nothing flagged it: DRC has no opinion about where",
+    "a pour chooses to stop.",
+    "",
+    "Moving it by the inverse puts all four zones on the same rectangle."
+  ],
+  "move_zones": [
+    {
+      "net": "/GND",
+      "layer": "Top Layer",
+      "by": [
+        -0.867,
+        2.539
+      ]
+    }
+  ]
+}

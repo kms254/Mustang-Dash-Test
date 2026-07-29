@@ -1,0 +1,177 @@
+{
+  "$comment": [
+    "U17: slide the three QSPI escape vias east, vacating the crystal guard lane.",
+    "",
+    "U16 moved U2 2.5 mm east but deliberately left these vias at x 166.642/166.670/",
+    "166.764. The crystal guard has to reach x = 166.450 for X1's 0.5 mm eastward move",
+    "(the fix plan 002 walked back), and a 0.254 guard there has its east edge at",
+    "166.577 -- overlapping all three via west edges. So the lane is still blocked and",
+    "U16 alone does not enable the crystal fix.",
+    "",
+    "What U16 DID buy is room east of them: U2's west pads went 167.590 -> 170.090, so",
+    "the corridor that plan 002 measured at 0.96 mm (keepout edge 166.129 to pads",
+    "167.090) is now 3.46 mm. These vias move into that space.",
+    "",
+    "IO3 IS THE AWKWARD ONE. /QSPI_IO1 runs the bottom layer at y = 107.750 and IO3's",
+    "via sits at y = 107.841, 0.091 mm away. Sliding IO3 east along its own y drives it",
+    "into IO1 -- the exact short that revision 2 of U16 hit. So IO3 escapes NORTH-east",
+    "to y = 108.480 instead, threading between IO1's run below and the /+3V3 via above.",
+    "That gap is genuinely tight (0.303 mm to IO1, 0.174 mm to the +3V3 via), so the",
+    "+3V3 via and its local stub are ripped here and left for the router; +3V3 is not",
+    "held and re-routing it is cheaper than threading a 0.17 mm gap.",
+    "",
+    "After this the guard lane is clear from 166.129 east to 167.700, and the crystal",
+    "fix recorded under the crystal group in kicad_netclass.json becomes attemptable",
+    "for the first time since it was walked back.",
+    "",
+    "REVISION 2: IO0 IS DROPPED AND ITS VIA STAYS AT x=166.642.",
+    "Extending IO0 east on Inner1 crosses QSPI_CLK's existing Inner1 wall -- the",
+    "vertical at x=167.272 spanning y 105.055-105.817 -- and routing south around it",
+    "runs into the /GND Inner1 diagonal from (164.943,102.031) to (168.753,105.841)",
+    "instead. Inner1 is full through that window.",
+    "",
+    "CONSEQUENCE, STATED PLAINLY: the guard lane is NOT fully cleared. A 0.254 guard at",
+    "x=166.450 has its east edge at 166.577 and IO0's via west edge is 166.342, so they",
+    "still overlap. CLK and IO3 moving east is real progress but it does not on its own",
+    "enable the crystal fix. Finishing this needs U1's east escape re-planned as a whole",
+    "rather than more incremental via moves -- pins 20-26 all escape into a ~2 mm gap",
+    "between U1 and X1, and that congestion is the actual root cause."
+  ],
+  "delete": [
+    {
+      "net": "QSPI_CLK",
+      "bbox": [
+        166.4,
+        106.1,
+        170.2,
+        106.7
+      ],
+      "layers": [
+        "Top Layer"
+      ],
+      "vias": true
+    },
+    {
+      "net": "QSPI_IO3",
+      "bbox": [
+        166.3,
+        107.6,
+        170.2,
+        108.0
+      ],
+      "layers": [
+        "Top Layer"
+      ],
+      "vias": true
+    },
+    {
+      "net": "QSPI_IO3",
+      "bbox": [
+        165.0,
+        107.6,
+        167.0,
+        109.4
+      ],
+      "layers": [
+        "Bottom Layer"
+      ],
+      "vias": false
+    },
+    {
+      "net": "+3V3",
+      "bbox": [
+        168.2,
+        108.3,
+        170.3,
+        109.4
+      ],
+      "vias": true
+    }
+  ],
+  "add": [
+    {
+      "net": "QSPI_CLK",
+      "layer": "Inner1",
+      "width": 0.254,
+      "points": [
+        [
+          166.764,
+          106.326
+        ],
+        [
+          167.9,
+          106.326
+        ]
+      ]
+    },
+    {
+      "net": "QSPI_CLK",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          167.9,
+          106.326
+        ],
+        [
+          169.845,
+          106.326
+        ],
+        [
+          170.09,
+          106.571
+        ]
+      ]
+    },
+    {
+      "net": "QSPI_IO3",
+      "layer": "Bottom Layer",
+      "width": 0.254,
+      "points": [
+        [
+          165.261,
+          109.25
+        ],
+        [
+          168.2,
+          108.48
+        ]
+      ]
+    },
+    {
+      "net": "QSPI_IO3",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          168.2,
+          108.48
+        ],
+        [
+          170.09,
+          107.841
+        ]
+      ]
+    }
+  ],
+  "add_vias": [
+    {
+      "net": "QSPI_CLK",
+      "at": [
+        167.9,
+        106.326
+      ],
+      "diameter": 0.6,
+      "drill": 0.3
+    },
+    {
+      "net": "QSPI_IO3",
+      "at": [
+        168.2,
+        108.48
+      ],
+      "diameter": 0.6,
+      "drill": 0.3
+    }
+  ]
+}

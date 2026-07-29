@@ -9,6 +9,19 @@
 # The ctags shim is installed into the arduino-cli platform and exec'd there.
 tools/teensy-avr-platform/ctags-shim.sh text eol=lf
 
+# Git hooks are shell scripts without a .sh suffix, so the rule above misses
+# them. A CRLF hook fails the same way a CRLF script does.
+.githooks/* text eol=lf
+
 # EasyEDA Pro project files are binary containers -- never CRLF-convert or diff.
 *.eprj2 binary
 *.epro2 binary
+
+# 3D models. STEP is ASCII, so git classifies it as text and core.autocrlf=true
+# would check the same model out CRLF on Windows and LF on mac/linux -- identical
+# geometry, different bytes, per platform. Mark them binary so they round-trip
+# unchanged everywhere. Losing the diff costs nothing: nobody reads a diff of
+# 14,000 lines of B-spline control points.
+*.step binary
+*.stp binary
+*.wrl binary

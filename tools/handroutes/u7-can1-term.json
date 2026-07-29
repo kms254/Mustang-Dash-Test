@@ -1,0 +1,75 @@
+{
+  "$comment": [
+    "CAN1_TERM: shrink the +5V plane cut from 9.699 mm to 1.508 mm.",
+    "",
+    "This is NOT the same fix CAN2's stub got. That one moved wholesale to the",
+    "bottom layer because both endpoints were through-hole and the corridor was",
+    "empty. Here R10.1 and H1.2 are separated by two full-width barriers at almost",
+    "the same latitude -- +3V3 on the top at y=128.095 and CAN1_RX on the bottom at",
+    "y=128.023 -- so neither outer layer can carry the crossing, which is exactly",
+    "why the import used an inner layer. Going around costs either a 20 mm detour",
+    "east of U8 or a squeeze through a 0.51 mm gap between CAN1_RX's via and the",
+    "GND bus at (155.7,122.3). Neither is worth it on a fab-bound board.",
+    "",
+    "What IS worth it: only the crossing itself needs to be on the plane. The stub",
+    "now runs bottom-layer from H1.2 down to a new via at (166.872,127.350), hops",
+    "1.508 mm north-to-south on Inner2 past both barriers, and rejoins the existing",
+    "via at (166.872,128.858). Cost is one extra via on a DC termination jumper leg.",
+    "",
+    "Via clearances, all against the 0.534 mm a 0.6 via needs from a 0.254 track:",
+    "new via to +3V3 0.745, to CAN1_RX 0.673, to CAN1_L's corridor far. The bottom",
+    "swath x164-174 / y121.5-127.5 was verified empty on all four layers."
+  ],
+  "delete": [
+    {
+      "net": "CAN1_TERM",
+      "layers": [
+        "Inner2"
+      ],
+      "vias": false
+    }
+  ],
+  "add": [
+    {
+      "net": "CAN1_TERM",
+      "layer": "Inner2",
+      "width": 0.254,
+      "points": [
+        [
+          166.872,
+          128.858
+        ],
+        [
+          166.872,
+          127.35
+        ]
+      ]
+    },
+    {
+      "net": "CAN1_TERM",
+      "layer": "Bottom Layer",
+      "width": 0.254,
+      "points": [
+        [
+          166.872,
+          127.35
+        ],
+        [
+          173.73,
+          122.0
+        ]
+      ]
+    }
+  ],
+  "add_vias": [
+    {
+      "net": "CAN1_TERM",
+      "at": [
+        166.872,
+        127.35
+      ],
+      "diameter": 0.6,
+      "drill": 0.3
+    }
+  ]
+}

@@ -20,3 +20,42 @@
 
 # Scratch log dropped in the repo root by tooling; never a build input.
 /debug.log
+
+# KiCad per-user churn. The board and schematic files under kicad/ ARE tracked --
+# git diff is how the evaluation verifies that a write landed, so the design
+# itself must be in the repo. These four are per-machine or regenerable and would
+# otherwise produce diff noise on every open.
+/kicad/**/*-backups/
+*.kicad_prl
+fp-info-cache
+_autosave-*
+~*.lck
+/kicad/**/.history/
+
+# Import staging. Only the export that actually produced the tracked board is
+# kept -- it is the provenance of everything downstream, so the conversion stays
+# reproducible from the repo alone. Extracted trees and rejected-format exports
+# are regenerable and stay out.
+/kicad/_import/*
+!/kicad/_import/ProPrj_*.epro
+!/kicad/_import/PADS_*.zip
+
+__pycache__/
+
+# kicad-happy drops an analysis cache in whatever directory it runs from.
+# Regenerable per run; the committed evidence is the report tools/kicad_review.py
+# writes, not this.
+/analysis/
+
+# Fab package. The CSVs stay tracked: they are small, they are text, and a BOM
+# diff in a pull request is genuinely reviewable -- you can see a part change.
+#
+# The gerber zip does not. It is ~400 KB of incompressible binary regenerated on
+# every board change, and tracking it does not actually buy provenance: a file
+# that silently follows HEAD only ever tells you about the latest build, not
+# about the bytes you ordered. Provenance needs an immutable marker -- tag the
+# commit you order from, or take the archive off that run of the release
+# workflow, which uploads it with 90-day retention.
+fab/gerbers/
+fab/gerbers-jlcpcb.zip
+fab/*-gerbers.zip

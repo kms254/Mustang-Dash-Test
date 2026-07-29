@@ -1,0 +1,1090 @@
+{
+  "$comment": [
+    "Walk back U6's crystal move and QSPI bottom-layer reroute.",
+    "",
+    "Both fixes needed the same 0.96 mm lane between the Inner2 keepout edge",
+    "(x=166.129) and U2's west pads (x=167.090). Moving X1 0.5 mm east to open",
+    "OSC_OUT's escape pushed the crystal's case-ground guard from x=165.959 to",
+    "166.45, which is where the QSPI escape vias have to sit; and routing the bus",
+    "bottom-side left the router no room to escape U2's pads at all, so it dropped",
+    "six vias INSIDE them. An unplugged via in an SMD pad wicks solder off the",
+    "joint during reflow -- on the flash's six signal pins that is a dead board.",
+    "",
+    "Assembly beats EMI margin, and the two cannot coexist here, so the crystal",
+    "goes back to its imported position and 2-via route, and QSPI goes back to the",
+    "imported escape geometry, which is the only arrangement where both fit.",
+    "The guard restore is bounded to the crystal's own region so the rest of GND",
+    "is untouched.",
+    "",
+    "Kept from U6: the CAN and USB fixes, which are independent of this lane."
+  ],
+  "steps": [
+    {
+      "step": "move-x1-back",
+      "move_footprints": [
+        {
+          "ref": "X1",
+          "by": [
+            -0.5,
+            0.0
+          ]
+        }
+      ]
+    },
+    {
+      "step": "restore-qspi-and-osc",
+      "delete": [
+        {
+          "net": "QSPI_CLK"
+        },
+        {
+          "net": "QSPI_NCS"
+        },
+        {
+          "net": "QSPI_IO0"
+        },
+        {
+          "net": "QSPI_IO1"
+        },
+        {
+          "net": "QSPI_IO2"
+        },
+        {
+          "net": "QSPI_IO3"
+        },
+        {
+          "net": "OSC_OUT"
+        }
+      ],
+      "add": [
+        {
+          "net": "QSPI_CLK",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              167.3445,
+              106.3255
+            ],
+            [
+              167.59,
+              106.571
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_CLK",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              153.048,
+              95.9115
+            ],
+            [
+              153.81,
+              96.6735
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_CLK",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              151.778,
+              95.9115
+            ],
+            [
+              153.048,
+              95.9115
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_CLK",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              166.764,
+              106.3255
+            ],
+            [
+              167.3445,
+              106.3255
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_CLK",
+          "layer": "Inner1",
+          "width": 0.254,
+          "points": [
+            [
+              153.81,
+              96.6735
+            ],
+            [
+              161.9645,
+              104.8285
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_CLK",
+          "layer": "Inner1",
+          "width": 0.254,
+          "points": [
+            [
+              161.9645,
+              104.8285
+            ],
+            [
+              167.0445,
+              104.8285
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_CLK",
+          "layer": "Inner1",
+          "width": 0.254,
+          "points": [
+            [
+              167.0445,
+              104.8285
+            ],
+            [
+              167.272,
+              105.0555
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_CLK",
+          "layer": "Inner1",
+          "width": 0.254,
+          "points": [
+            [
+              167.272,
+              105.8175
+            ],
+            [
+              166.764,
+              106.3255
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_CLK",
+          "layer": "Inner1",
+          "width": 0.254,
+          "points": [
+            [
+              167.272,
+              105.0555
+            ],
+            [
+              167.272,
+              105.8175
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO3",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              160.8,
+              109.25
+            ],
+            [
+              159.419,
+              109.25
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO3",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              166.67,
+              107.841
+            ],
+            [
+              167.59,
+              107.841
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO3",
+          "layer": "Bottom Layer",
+          "width": 0.254,
+          "points": [
+            [
+              159.419,
+              109.25
+            ],
+            [
+              165.261,
+              109.25
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO3",
+          "layer": "Bottom Layer",
+          "width": 0.254,
+          "points": [
+            [
+              165.261,
+              109.25
+            ],
+            [
+              166.67,
+              107.841
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO2",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              168.531,
+              110.528
+            ],
+            [
+              175.443,
+              110.528
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO2",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              160.8,
+              108.75
+            ],
+            [
+              163.705,
+              108.75
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO2",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              165.483,
+              110.02
+            ],
+            [
+              168.023,
+              110.02
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO2",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              168.023,
+              110.02
+            ],
+            [
+              168.531,
+              110.528
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO2",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              163.705,
+              108.75
+            ],
+            [
+              163.959,
+              109.004
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO2",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              175.443,
+              110.528
+            ],
+            [
+              176.459,
+              109.512
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO2",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              176.459,
+              107.44
+            ],
+            [
+              175.59,
+              106.571
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO2",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              163.959,
+              109.004
+            ],
+            [
+              164.467,
+              109.004
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO2",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              164.467,
+              109.004
+            ],
+            [
+              165.483,
+              110.02
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO2",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              176.459,
+              109.512
+            ],
+            [
+              176.459,
+              107.44
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO0",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              167.435,
+              105.456
+            ],
+            [
+              167.59,
+              105.301
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO0",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              159.53,
+              108.504
+            ],
+            [
+              159.022,
+              108.504
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO0",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              159.022,
+              108.504
+            ],
+            [
+              158.768,
+              108.25
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO0",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              166.642,
+              105.456
+            ],
+            [
+              167.435,
+              105.456
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO0",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              160.8,
+              108.25
+            ],
+            [
+              159.784,
+              108.25
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO0",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              159.784,
+              108.25
+            ],
+            [
+              159.53,
+              108.504
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO0",
+          "layer": "Inner1",
+          "width": 0.254,
+          "points": [
+            [
+              158.768,
+              108.25
+            ],
+            [
+              159.022,
+              108.504
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO0",
+          "layer": "Inner1",
+          "width": 0.254,
+          "points": [
+            [
+              159.022,
+              108.504
+            ],
+            [
+              163.594,
+              108.504
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO0",
+          "layer": "Inner1",
+          "width": 0.254,
+          "points": [
+            [
+              163.594,
+              108.504
+            ],
+            [
+              166.642,
+              105.456
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO1",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              175.499,
+              107.75
+            ],
+            [
+              175.59,
+              107.841
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO1",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              174.405,
+              107.75
+            ],
+            [
+              175.499,
+              107.75
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO1",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              160.8,
+              107.75
+            ],
+            [
+              159.419,
+              107.75
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO1",
+          "layer": "Bottom Layer",
+          "width": 0.254,
+          "points": [
+            [
+              167.039,
+              107.242
+            ],
+            [
+              167.547,
+              107.75
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO1",
+          "layer": "Bottom Layer",
+          "width": 0.254,
+          "points": [
+            [
+              167.547,
+              107.75
+            ],
+            [
+              174.405,
+              107.75
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO1",
+          "layer": "Bottom Layer",
+          "width": 0.254,
+          "points": [
+            [
+              159.927,
+              107.242
+            ],
+            [
+              167.039,
+              107.242
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_IO1",
+          "layer": "Bottom Layer",
+          "width": 0.254,
+          "points": [
+            [
+              159.419,
+              107.75
+            ],
+            [
+              159.927,
+              107.242
+            ]
+          ]
+        },
+        {
+          "net": "OSC_OUT",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              159.419,
+              106.25
+            ],
+            [
+              159.165,
+              106.504
+            ]
+          ]
+        },
+        {
+          "net": "OSC_OUT",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              163.483,
+              104.218
+            ],
+            [
+              164.753,
+              105.488
+            ]
+          ]
+        },
+        {
+          "net": "OSC_OUT",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              160.8,
+              106.25
+            ],
+            [
+              159.419,
+              106.25
+            ]
+          ]
+        },
+        {
+          "net": "OSC_OUT",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              164.753,
+              105.345
+            ],
+            [
+              166.129,
+              103.969
+            ]
+          ]
+        },
+        {
+          "net": "OSC_OUT",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              164.753,
+              105.488
+            ],
+            [
+              164.943,
+              105.6955
+            ]
+          ]
+        },
+        {
+          "net": "OSC_OUT",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              164.753,
+              105.488
+            ],
+            [
+              164.753,
+              105.345
+            ]
+          ]
+        },
+        {
+          "net": "OSC_OUT",
+          "layer": "Bottom Layer",
+          "width": 0.254,
+          "points": [
+            [
+              161.197,
+              106.504
+            ],
+            [
+              163.483,
+              104.218
+            ]
+          ]
+        },
+        {
+          "net": "OSC_OUT",
+          "layer": "Bottom Layer",
+          "width": 0.254,
+          "points": [
+            [
+              159.165,
+              106.504
+            ],
+            [
+              161.197,
+              106.504
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_NCS",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              140.581,
+              107.75
+            ],
+            [
+              141.089,
+              108.258
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_NCS",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              139.2,
+              107.75
+            ],
+            [
+              140.581,
+              107.75
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_NCS",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              174.454,
+              109.111
+            ],
+            [
+              175.59,
+              109.111
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_NCS",
+          "layer": "Inner2",
+          "width": 0.254,
+          "points": [
+            [
+              144.99,
+              112.159
+            ],
+            [
+              171.406,
+              112.159
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_NCS",
+          "layer": "Inner2",
+          "width": 0.254,
+          "points": [
+            [
+              171.406,
+              112.159
+            ],
+            [
+              174.454,
+              109.111
+            ]
+          ]
+        },
+        {
+          "net": "QSPI_NCS",
+          "layer": "Inner2",
+          "width": 0.254,
+          "points": [
+            [
+              141.089,
+              108.258
+            ],
+            [
+              144.99,
+              112.159
+            ]
+          ]
+        }
+      ],
+      "add_vias": [
+        {
+          "net": "QSPI_CLK",
+          "at": [
+            153.81,
+            96.6735
+          ],
+          "diameter": 0.61,
+          "drill": 0.305
+        },
+        {
+          "net": "QSPI_CLK",
+          "at": [
+            166.764,
+            106.3255
+          ],
+          "diameter": 0.61,
+          "drill": 0.305
+        },
+        {
+          "net": "QSPI_IO3",
+          "at": [
+            159.419,
+            109.25
+          ],
+          "diameter": 0.61,
+          "drill": 0.305
+        },
+        {
+          "net": "QSPI_IO3",
+          "at": [
+            166.67,
+            107.841
+          ],
+          "diameter": 0.61,
+          "drill": 0.305
+        },
+        {
+          "net": "QSPI_IO0",
+          "at": [
+            166.642,
+            105.456
+          ],
+          "diameter": 0.61,
+          "drill": 0.305
+        },
+        {
+          "net": "QSPI_IO0",
+          "at": [
+            158.768,
+            108.25
+          ],
+          "diameter": 0.61,
+          "drill": 0.305
+        },
+        {
+          "net": "QSPI_IO1",
+          "at": [
+            174.405,
+            107.75
+          ],
+          "diameter": 0.61,
+          "drill": 0.305
+        },
+        {
+          "net": "QSPI_IO1",
+          "at": [
+            159.419,
+            107.75
+          ],
+          "diameter": 0.61,
+          "drill": 0.305
+        },
+        {
+          "net": "OSC_OUT",
+          "at": [
+            159.165,
+            106.504
+          ],
+          "diameter": 0.61,
+          "drill": 0.305
+        },
+        {
+          "net": "OSC_OUT",
+          "at": [
+            163.483,
+            104.218
+          ],
+          "diameter": 0.61,
+          "drill": 0.305
+        },
+        {
+          "net": "QSPI_NCS",
+          "at": [
+            141.089,
+            108.258
+          ],
+          "diameter": 0.61,
+          "drill": 0.305
+        },
+        {
+          "net": "QSPI_NCS",
+          "at": [
+            174.454,
+            109.111
+          ],
+          "diameter": 0.61,
+          "drill": 0.305
+        }
+      ]
+    },
+    {
+      "step": "restore-crystal-ground-guard",
+      "delete": [
+        {
+          "net": "GND",
+          "bbox": [
+            162.6,
+            104.5,
+            167.0,
+            107.6
+          ]
+        }
+      ],
+      "add": [
+        {
+          "net": "GND",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              166.975,
+              104.6015
+            ],
+            [
+              166.721,
+              104.8555
+            ]
+          ]
+        },
+        {
+          "net": "GND",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              165.959,
+              106.3795
+            ],
+            [
+              164.943,
+              107.3955
+            ]
+          ]
+        },
+        {
+          "net": "GND",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              166.213,
+              104.8555
+            ],
+            [
+              165.959,
+              105.1095
+            ]
+          ]
+        },
+        {
+          "net": "GND",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              164.443,
+              107.3955
+            ],
+            [
+              162.743,
+              105.6955
+            ]
+          ]
+        },
+        {
+          "net": "GND",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              164.943,
+              107.3955
+            ],
+            [
+              164.443,
+              107.3955
+            ]
+          ]
+        },
+        {
+          "net": "GND",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              166.721,
+              104.8555
+            ],
+            [
+              166.213,
+              104.8555
+            ]
+          ]
+        },
+        {
+          "net": "GND",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              165.959,
+              105.1095
+            ],
+            [
+              165.959,
+              106.3795
+            ]
+          ]
+        }
+      ],
+      "add_vias": []
+    }
+  ]
+}

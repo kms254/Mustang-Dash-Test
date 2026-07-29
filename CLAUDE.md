@@ -273,6 +273,108 @@ to positively identify the backlight end (17-20) before applying 5 V; the FFC
 is down-side contact at the panel; the panel survives being driven with no
 5 V on BLVDD (renders, just dark).
 
+## KiCad parts rule (Board3)
+
+**Every part placed on a KiCad board must be an LCSC part with matching supplier
+metadata and a 3D model.** Add them with `python tools/kicad_lcsc.py add C<n>` —
+never by dragging a generic symbol from the stock libraries. `check` audits and
+exits non-zero on any gap; `models` backfills missing 3D models. See
+`kicad/README.md`.
+
+Why it is a build dependency, not a preference: `tools/kicad_fab.py` builds the
+JLCPCB BOM from the schematic's supplier fields, so an un-sourced part does not
+warn — it silently vanishes from the BOM.
+
+**Searching for the part is itself a trap.** LCSC indexes `package` as the
+vendor filed it, so a JEDEC-name query hides the metric-name half of the
+catalogue (`PLCC-2` 98 parts vs `3528` 194; orange stock 79 vs 14,654). Always
+search a package **both ways** before calling a part scarce —
+`docs/solutions/developer-experience/search-a-package-by-both-its-jedec-and-metric-names.md`.
+
+Field-name traps, both load-bearing and both already paid for:
+
+- The LCSC code lives in **`Supplier Part`**. The JLCImport plugin writes it to a
+  property named `LCSC`, so `kicad_lcsc.py add` remaps it; skip the remap and the
+  part looks sourced on screen while being invisible to the BOM.
+- **`LCSC Part Name` is not the part number** — it holds descriptive text, often
+  Chinese. Mapping the obvious-looking field yields a BOM of garbage.
+- JLCImport opens files without an explicit encoding, so on a Windows cp1252
+  console any part with a `℃` or a Chinese character dies with a
+  UnicodeEncodeError. `kicad_lcsc.py` relaunches itself under `-X utf8` to dodge
+  this — via `subprocess`, **not** `os.execv`, which on Windows does not replace
+  the process and loses the child's output and exit code.
+
+3D models are `kicad/board3/EASYEDA_MODELS/*.step`, tracked (~53 MB), referenced
+as `${KIPRJMOD}/EASYEDA_MODELS/…`. The EasyEDA import wrote those refs but never
+the files, so the 3D view was empty until they were backfilled 2026-07-27.
+JLCImport's computed model transform agrees with the EasyEDA-authored one
+(checked on SOT-23-6: both `rotate 0 0 -180`), which is why the files could be
+dropped in under the existing names without rewriting 30 footprints and 140
+board entries.
+
+### Schematic → board sync is GUI-only. Nothing automates it. (verified 2026-07-28)
+
+Editing a symbol as text is the easy half; getting it onto the board is the part
+with no CLI. All three candidate routes were tested on Board3 and all three fail:
+
+- **`kicad-cli pcb`** offers only `drc/export/import/render/upgrade`, and
+  `import` means *foreign format* (Eagle/Altium), not netlist.
+- **The `pcbnew` Python API exposes nothing** — no `netlist`, `updater`,
+  `synchronise` or `fromsch` symbol at all. `BOARD_NETLIST_UPDATER` is C++
+  internal and was never SWIG-wrapped.
+- **The KiCad MCP's `sync_schematic_to_board` returns `success: true` and does
+  nothing.** It reported "106 nets added" while assigning **0 pads**, listed
+  every pad as unmatched (`LED6/1`, `R39/1`, `C44/2`…), and never wrote the
+  file — byte-identical afterwards. It is built to populate an *empty* board
+  ("without this step, the board has no footprints"), not to reconcile one
+  already placed and routed. **Treat its success as meaningless on this board.**
+
+**A fourth route exists and is not a netlist sync: `pcbnew` can replace footprints
+directly.** `FootprintLoad`, `board.Add`/`Remove`, `SetPosition`/
+`SetOrientationDegrees`, `board.FindNet` and `pad.SetNet` are all exposed and all
+work — U11 swapped all eight telltales this way, preserving position, rotation
+and field layers, assigning every pad from the netlist. **It still had to be
+reverted:** DRC went 194 → 286 → 258 → 231 across three passes, never reaching
+baseline. The blocker is **routing topology, not geometry**: a collision-free
+placement for all eight exists within 1.5 mm of home (found by searching
+rotation × offset against `GetEffectiveShape(F_Cu).Collide`), but **`/+5V`
+daisy-chains *through* the telltale pads** — deleting a stale stub at an LED pad
+orphans `C30` further down the chain. Re-routing here means re-establishing a
+chain, not drawing independent stubs, which wants a real router or the GUI. So:
+the API can place footprints; do not use it to dodge the GUI step on an area
+whose net topology runs through the parts you are replacing. Recipe and the
+per-part offsets are in the U11 section of the telltale plan.
+
+**Read board facts through `pcbnew`, never regex.** Three separate wrong
+conclusions in one session came from parsing `.kicad_pcb` as text: "the board has
+no tracks" (the file writes `(segment` followed by a newline, so a `\(segment `
+pattern matches nothing of 2,487), "no track lands on any telltale pad", and "all
+six copper zones are netless" (they are `/GND` ×3 filled, `/+5V` ×1, plus two
+Inner2 keepout rule areas that are netless by definition). Each looked like a
+real finding and each was a parser bug.
+
+So KTD12 holds: **Kevin runs Update PCB from Schematic in the GUI**, with
+re-link-by-reference ticked, and KiCad must be **restarted first** after any
+out-of-editor schematic edit — it syncs from eeschema's cache, not the file, and
+otherwise silently reports no changes.
+
+**But check whether you need the sync at all.** It reconciles *footprints and
+nets*. A pure part swap onto an identical land pattern has neither, and the only
+stale artefact is the board footprint's own `Value` — which is visible on the
+Component Marking Layer, so leaving it means fabricating a board marked with the
+part that is not fitted. `fp.SetValue(...)` + `board.Save()` closes that with no
+sync and no geometry change (U10, 2026-07-28: DRC 36/0 unchanged, nets 216 and
+footprints 148 unchanged). A *footprint* change — 0805 → PLCC-2 — genuinely
+needs the GUI step, and new parts still go in via `kicad_lcsc.py add C<n>`
+(supplier metadata) and `kicad_lcsc.py models` (STEP backfill), never a
+hand-placed symbol.
+
+Related trap, same day: **`kicad_fab.py` must be launched under KiCad's own
+interpreter** (`C:/Program Files/KiCad/10.0/bin/python.exe`). It has no
+self-reexec, and under a bare `python` it silently skips gerber renaming and the
+rotation audit — the run still exits reporting a written fab package, just a
+degraded one whose layers are named `Top Layer.gbr` instead of `F_Cu.gbr`.
+
 ## Knowledge store
 
 - `docs/solutions/` — documented solutions to past problems (best practices,

@@ -1,0 +1,78 @@
+{
+  "delete": [
+    {
+      "net": "/BTN1",
+      "bbox": [
+        34.98,
+        129.2265,
+        35.02,
+        129.2665
+      ]
+    },
+    {
+      "net": "/BTN1",
+      "layers": [
+        "Inner1"
+      ],
+      "bbox": [
+        34.98,
+        118.98,
+        45.220000000000006,
+        129.22
+      ]
+    }
+  ],
+  "add": [
+    {
+      "net": "/BTN1",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          35.0,
+          129.246
+        ],
+        [
+          35.205,
+          128.473
+        ]
+      ]
+    },
+    {
+      "net": "/BTN1",
+      "layer": "Inner1",
+      "width": 0.254,
+      "points": [
+        [
+          45.2,
+          119.0
+        ],
+        [
+          35.205,
+          128.473
+        ]
+      ]
+    }
+  ],
+  "add_vias": [
+    {
+      "net": "/BTN1",
+      "at": [
+        35.205,
+        128.473
+      ],
+      "diameter": 0.6,
+      "drill": 0.3
+    }
+  ],
+  "$comment": [
+    "Move R28's via out of its pad. An unplugged via inside an SMD pad drains",
+    "solder down the barrel during reflow; a 0.3 mm barrel can swallow more volume",
+    "than a small pad's entire paste deposit, which is how you get a joint that",
+    "looks fine and is not. R28.2 escapes 0.8 mm north-west to open copper.",
+    "",
+    "U1.93 (the other BTN1 via) could NOT be fixed and is left as-is -- see the",
+    "plan. It sits in a 0.28 x 2.0 mm QFP pad on 0.5 mm pitch, with a +3V3 diagonal",
+    "1.6 mm east and a GND trace 0.295 mm west, so there is nowhere to escape to."
+  ]
+}

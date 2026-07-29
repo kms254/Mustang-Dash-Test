@@ -1,0 +1,197 @@
+{
+  "$comment": [
+    "U7: thermal vias (R11) and fiducials (R12).",
+    "",
+    "U2 (W25Q512JV, WSON-8) had 0 vias in its 4.65 x 5.20 mm thermal pad and needs",
+    "9; U4 (CH224K, ESSOP-10) had 0 in its 3.30 x 2.10 mm pad and needs 5. Both",
+    "pads are on /GND, and both were reachable only after checking every layer:",
+    "U2's pad has QSPI_IO2 and QSPI_IO1 running under it on the bottom (put there",
+    "by U6) and MOSI_R_MCU crossing Inner1 corner to corner, so a plain 3x3 grid",
+    "would short three vias. Positions come from a clearance-aware grid search",
+    "(scratch place_thermal.py) against all four layers, then greedy max-spread.",
+    "",
+    "All 14 are 0.6/0.3 -- 0.15 mm annular ring, which is JLC's minimum. The 0.45",
+    "via that would also have fitted U4 leaves 0.075 mm and was rejected. All are",
+    "TENTED both sides: an untented via in a thermal pad wicks solder during",
+    "reflow and leaves a void under the pad, which is the half of TV-001 that is",
+    "easy to miss.",
+    "",
+    "Fiducials: 3 on F.Cu for 122 SMD components, placed at the clearest points",
+    "found by scanning the top layer -- west-north (r=2.33 mm of bare space),",
+    "centre-south (4.51) and east-south (9.13). The triangle is deliberately",
+    "asymmetric so a vision system can tell a 180-degree flip. They are marked",
+    "board_only so 'Update PCB from Schematic' will not delete parts that have no",
+    "symbol, and excluded from BOM and CPL."
+  ],
+  "add_vias": [
+    {
+      "net": "/GND",
+      "at": [
+        169.565,
+        104.906
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        173.065,
+        109.506
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        173.265,
+        104.906
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        169.565,
+        108.606
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        171.365,
+        106.706
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        173.565,
+        107.306
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        171.465,
+        108.606
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        171.365,
+        104.906
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        169.565,
+        106.706
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        36.65,
+        104.25
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        39.35,
+        105.75
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        38.45,
+        104.25
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        37.55,
+        105.75
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    },
+    {
+      "net": "/GND",
+      "at": [
+        37.55,
+        104.75
+      ],
+      "diameter": 0.6,
+      "drill": 0.3,
+      "tented": true
+    }
+  ],
+  "add_footprints": [
+    {
+      "lib": "C:/Program Files/KiCad/10.0/share/kicad/footprints/Fiducial.pretty",
+      "name": "Fiducial_1mm_Mask2mm",
+      "ref": "FID1",
+      "at": [
+        40.5,
+        93.75
+      ]
+    },
+    {
+      "lib": "C:/Program Files/KiCad/10.0/share/kicad/footprints/Fiducial.pretty",
+      "name": "Fiducial_1mm_Mask2mm",
+      "ref": "FID2",
+      "at": [
+        153.25,
+        130.5
+      ]
+    },
+    {
+      "lib": "C:/Program Files/KiCad/10.0/share/kicad/footprints/Fiducial.pretty",
+      "name": "Fiducial_1mm_Mask2mm",
+      "ref": "FID3",
+      "at": [
+        259.0,
+        126.0
+      ]
+    }
+  ]
+}

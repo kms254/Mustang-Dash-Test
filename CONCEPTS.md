@@ -52,6 +52,11 @@ The left 5" side panel: engine vitals sourced from engine-side CAN (oil pressure
 ### Timing Screen
 The right 5" side panel: TIMING in TRACK mode (lap number, position, last/best/predicted times, throttle and brake bars) and ROAD in STREET mode (fuel gauge, trip, range, ambient, clock). Sourced from RaceCapture-side data once CAN lands.
 
+### Laps Left
+How many more laps the remaining fuel will actually complete — a range estimate, not a count of laps driven. Deliberately excludes an unusable reserve at the bottom of the tank, because sustained cornering starves the pickup well before the tank is dry, so laps promised out of that last fuel are laps the car will not finish.
+
+It therefore reaches zero while the fuel gauge still shows fuel, and that divergence is the concept working rather than a defect. It is also the one figure permitted to disagree with the simulator's own tank, which runs to empty because it models fuel quantity and not pickup behavior; the per-lap burn *rate* behind the estimate must still match what the car actually consumes. Being one word away from a live lap number on the same screen, it is easy to misread as a lap counter — its label has to carry the distinction.
+
 ### SPI Operating Point
 The bus clock the dash runs at after every panel has initialized — distinct from the slower init clock the display controller's datasheet mandates during bring-up, which is why chip identity can read healthy while the operating point is still unproven. The raise happens once, bus-wide, and the value is owned by bench evidence from the actual wiring, not the chip's rated ceiling. When the physical link changes — bench loom to Carrier Board — the prior operating point becomes historical evidence, and a Clock Walk re-owns the value on the new wiring.
 
@@ -72,20 +77,41 @@ The purpose-built PCB that replaces the bench wiring loom as the dash's physical
 ### Data Channel
 One live value the dash consumes (RPM, oil pressure, lap delta…), carried in a single shared structure with a per-channel validity flag. Producers fill channels — the built-in simulator today, CAN decoders later — and renderers only read them; the source is invisible to rendering. An invalid channel displays `--` and can never assert an alarm, which is what makes "no stale alarms" a structural guarantee rather than a convention.
 
+## Board Design
+
+### Airwire
+One unrouted pad-to-pad connection on a PCB — the thin line a layout tool draws between two pads the netlist says belong together and that no copper yet joins. A single net produces as many airwires as it has connections still to make, so airwires and nets count entirely different things and are not interchangeable.
+
+The distinction is load-bearing here because this project has already confused them once: a routing task recorded as "~274 unrouted nets" was in fact ~274 airwires across roughly a hundred nets, 93 of which already carried copper. Scoped against nets the work looked like most of the board; scoped correctly it was a nearly-complete board. Any statement about how much routing remains is ambiguous unless it names which unit it counts.
+
+### Design Rules
+The manufacturing constraints a board is drawn to — minimum clearance, track width, via diameter and drill, hole spacing — held as project metadata alongside the board rather than inside its geometry. Because they live outside the design objects, they travel separately: a tool can carry every footprint, net, and trace faithfully and still lose the rules entirely.
+
+That separation is why rules are verified rather than assumed after any import or handoff. Measured against the wrong rules a correct board reports hundreds of violations, and a router reading those rules will produce copper the fab never agreed to — with nothing in either output indicating the constraints themselves are fiction. The tell is a violation set clustered just under a round number: real sloppiness scatters, a mismatched rule produces a band.
+
 ## Track Simulation
 
 ### Circuit
 The driving model TRACK mode runs behind the screen: the real racetrack lap, or a range-sweep bench fixture whose only job is walking every gauge through its full display range. Distinct from Dash Mode, which chooses *which* screen is shown — Circuit chooses what the simulator is doing behind it. Selecting a circuit abandons the lap in progress rather than resuming it, because a half-driven lap would commit a fabricated time to the lap book.
 
 ### Segment
-One entry in the distance-keyed table that defines a lap: a length, a speed limit, whether that limit is a real corner constraint or merely a descriptive annotation, and how far the car's heading swings through it. Lap position is a distance along this table rather than a fraction of elapsed time, which is what makes lap time an output of the simulation instead of an input to it. A limit binds at its segment's entry boundary only — within a segment the car accelerates freely until it must brake for the next limit.
+One entry in the distance-keyed table that defines a lap: a length, a speed limit, whether that limit is a real corner constraint or merely a descriptive annotation, and how far the car's heading swings through it. Lap position is a distance along this table rather than a fraction of elapsed time, which is what makes lap time an output of the simulation instead of an input to it. A limit binds at its segment's entry boundary and across the Corner Arc beyond it; past the arc the car accelerates freely until it must brake for the next limit.
 
 ### Corner Arc
-The stretch of a Segment over which the car is lateral-grip-limited and holds roughly its corner speed before accelerating out. Derived from the segment's *authored* limit and the car's lateral grip — never from the speed the driver actually carries.
+The stretch of a Segment over which the car is lateral-grip-limited: it holds roughly its corner speed to the apex, then releases progressively as the driver unwinds the wheel. Derived from the segment's *authored* limit and the car's lateral grip — never from the speed the driver actually carries.
 
 That distinction is load-bearing rather than stylistic. A corner is a fixed length of road, so deriving its geometry from live speed makes a slower driver drive a physically shorter corner, which gives back most of the time the lower speed cost and silently cancels Driver Skill's effect on lap time.
+
+An arc **ends by release, not by expiry**, and the difference is visible on the glass. Past the apex, lateral demand tapers toward zero: the speed the corner permits rises as the effective radius opens, and the grip freed up becomes available for acceleration, so by the arc's end the corner has become a straight and crossing that boundary is a non-event. An arc that simply stopped would hand the car its whole lateral budget between two simulation steps — which reads as a throttle slamming open, and in the real car is a spin. Where the apex falls within the arc is calibrated against lap time, because releasing earlier hands the car a share of every corner on the lap.
 
 ### Driver Skill
 A single scalar standing in for how close to the car's limit the driver operates, scaling corner limits and widening lap-to-lap variation. Segments whose limit is an annotation rather than a real constraint are exempt from it, and it must never reach Corner Arc geometry.
 
 It is calibrated last and held to a defensible range, because it is the only constant tuned directly against lap time and will otherwise absorb error from every upstream constant — at which point it stops meaning "driver" and starts meaning "whatever makes the number come out." A fit that lands outside the defensible range is evidence that an upstream constant is wrong, not a value to accept.
+
+### Roll-on
+The bounded rate at which the modelled driver opens the throttle, and the reason a Corner Arc exit is a squeeze rather than a stab: the pedal is a state that may only rise so fast, and it closes fully whenever the car is braking, so every exit builds from nothing.
+
+The pedal is the *input* to the acceleration model, not a smoothing of its output — thrust is computed from the pedal, so the bar on the screen and the car's behavior cannot disagree. Modelling it the other way, as a filter on the displayed value, would show a gentle bar while the car still took its full acceleration instantly. It also costs real lap time, which is the honest consequence of a driver who squeezes: a model without it laps quicker than the car can.
+
+A Corner Arc's release and the Roll-on are separate limits and both are needed. Making the release progressive removes the discontinuity but bounds nothing, because the freed grip can still arrive faster than any driver could use it.
