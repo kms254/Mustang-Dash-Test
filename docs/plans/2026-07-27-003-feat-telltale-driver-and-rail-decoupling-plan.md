@@ -125,7 +125,15 @@ On the blue telltale the Darlington takes 0.8 V of the 1.8 V that remains after 
 
 **New, blocking for U12 only**
 
-- White (`C516299`) has no published mcd, so it cannot be put on the same intensity axis as the other five from catalogue data. Three ways out, in preference order: read the bin table out of the datasheet PDF (the part is `SDCM 6` binned, so a table likely exists); fall back to luminous flux if the datasheet gives lm rather than mcd, converting at the part's 120° beam; or set white by eye on the bench against the matched five and trim in firmware PWM. Do not quietly pick a number — U12's whole value is that its inputs are traceable.
+- ~~White (`C516299`) has no published mcd, so it cannot be put on the same intensity axis as the other five from catalogue data.~~ **Answered 2026-07-28, by the second of the three listed routes** (the datasheet specifies flux, not intensity — there is no mcd bin table to read). From the manufacturer datasheet (SPEC NO B-17-A-1257, REV A/3, 2019-06-17, via LCSC):
+
+  | CCT row | Φ min | Φ typ | conditions |
+  |---|---|---|---|
+  | 6500 K *(our 6000–7000 K variant)* | 7.5 lm | 8.5 lm | I<sub>F</sub> = 20 mA, tolerance ±10% |
+
+  Also: V<sub>f</sub> 2.6–3.2 V at 20 mA, viewing angle 120°, Ra ≥ 80, SDCM ≤ 3.
+
+  **Conversion to the row's axis:** a 120° part is Lambertian by definition (half-intensity at 60° *is* the cosine pattern), so I₀ = Φ/π: **typ ≈ 2 700 mcd, min ≈ 2 390 mcd**. Sanity: 8.5 lm ÷ (20 mA × ~3.0 V) ≈ 142 lm/W — right for a modern mid-grade white, so the conversion hides no error. The white is therefore the **brightest** position on the row's axis (green 1 300, orange ~1 800 loose, blue 350, red 270, yellow 210 mcd) — U12's matching target is set by the dim end, and the white takes a large resistor, not a guess. Use the **min** figure for worst-case matching; the ±10% flux tolerance and the Lambertian idealisation are the stated error bars.
 
 ---
 
@@ -152,7 +160,7 @@ Product Contract authored here (`ce-plan-bootstrap`) from the design review disc
 | Position | Colour | LCSC | MPN | V<sub>f</sub> | mcd @ 20 mA | Lens | Stock |
 |---|---|---|---|---|---|---|---|
 | LED1, LED2 | emerald green | `C516142` | HL-A-3528U51GC-S1-13HL | 3.4 V | 1300 | water clear | 65,431 |
-| LED3 | white 6500 K | `C516299` | HL-A-3528H343W-S1-13HL-HR3 | 3.2 V | **not published** | frosted yellow | 100,134 |
+| LED3 | white 6500 K | `C516299` | HL-A-3528H343W-S1-13HL-HR3 | 3.2 V | ≈2 700 (from 8.5 lm typ, Lambertian; min ≈2 390 — see Open Questions) | frosted yellow | 100,134 |
 | LED4 | blue | `C516143` | HL-A-3528H203BC-S1-13HL | 3.4 V | 350 | water clear | 21,061 |
 | LED5 | orange | `C5246349` | HVO-3528CPXA | 2.2 V | 1800 | white lens | 2,000 |
 | LED6, LED7 | red | `C516141` | HL-A-3528S35FC-S1-13HL | 2.4 V | 270 | water clear | 26,687 |
@@ -378,6 +386,8 @@ Loosening is counter-productive: a larger margin pushes parts further from home,
 So the conclusion is narrower and more useful than "the API cannot do it": **the API can place the footprints; the board is not ready to receive them until the netless-zone question is answered.** That is layout work with a real design question inside it, not a scripting gap. Do not re-attempt the scripted swap before the zones are understood — it will reproduce the same 25 shorts.
 
 **Unresolved, and now load-bearing rather than a curiosity:** DRC reports **0 unconnected** on the current board, which does not square with sixteen pads carrying no track. All three large copper zones (`F.Cu`, `B.Cu`, `In1.Cu`) parse as netless, so what is satisfying connectivity there is not identified. It does not change this decision — nothing needs re-routing either way — but the ratsnest will show the truth the moment Update PCB from Schematic runs, and a surprise there should stop the unit rather than be routed around.
+
+**Cross-reference:** the board-layout consequences of this working session were carried forward as **U16–U18 in plan 002** (`2026-07-27-002-fix-board3-fab-ready-in-kicad-plan.md`) — U2 pushed east for the crystal lane, the QSPI escape vias slid east, and `/CS_R`/`/PD_R` re-pinned and rerouted — which owns that stretch of the shared U-ID space (KTD8).
 
 **Retire the superseded imports.** Three parts were imported during selection and lost: `67-21_BHC-FQ1R2F_2T` (`C264601`), `HVT-3528CPX` (`C5246350`), `HVY-3528CPX` (`C2843418`). Each carries a ~1.3-1.7 MB STEP plus a WRL. Remove their symbols, footprints and models rather than leaving three unreferenced parts a future reader has to disprove — git history keeps them if the decision is ever revisited.
 
