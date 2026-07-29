@@ -154,8 +154,11 @@ static SPIClass *const DASH_SPI_BUSES[DASH_PANEL_COUNT] = { &g_spi_center, &g_sp
  * uSD pins. The descriptor table stays host-pure (canonical Teensy data); the
  * STM32 build remaps the roles here, clear of USB (PA11/12), lamps (PD0-7),
  * FDCAN (PB5/6/8/9), I2C2 (PB10/11), K1 (PC13), and the SPI pins above.
- * TODO(U2): the carrier schematic owns the final assignment. */
-static const uint8_t DASH_CS_PINS[DASH_PANEL_COUNT] = { PD8, PD9, PD10 };
+ * The carrier schematic now owns the assignment (docs/hardware/
+ * board3-h755-pin-map.md): right CS moved PD10 -> PE3 at layout (U18,
+ * 2026-07-28) so the net escapes the east edge beside its own SPI bus
+ * instead of crossing the whole package. */
+static const uint8_t DASH_CS_PINS[DASH_PANEL_COUNT] = { PD8, PD9, PE3 };
 static const uint8_t DASH_PD_PINS[DASH_PANEL_COUNT] = { PD11, PD12, PD13 };
 #endif
 #endif

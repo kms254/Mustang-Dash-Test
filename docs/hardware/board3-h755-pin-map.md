@@ -21,7 +21,7 @@ Part: STM32H755ZIT6, LQFP-144 (JLC C730212). Pin numbers verified against DS1292
 | Right SCLK (SPI4_SCK) | PE2 | 1 | AF5 |
 | Right MISO (SPI4_MISO) | PE5 | 4 | AF5 |
 | Right MOSI (SPI4_MOSI) | PE6 | 5 | AF5 |
-| Right CS | PD10 | 78 | GPIO |
+| Right CS | PE3 | 2 | GPIO — **moved from PD10 at layout (U18, 2026-07-28)**: PD10 exits the west edge and crossed the entire package to reach FPC3; PE3 is free, full-speed, and sits inside the right-panel SPI escape group on the east edge. PD10 is now unassigned. |
 | Right PD-reset | PD13 | 83 | GPIO |
 
 Rules: no `_C` dual-pad pins on any SPI net (PC2_C pin 30 exists but is analog-only — unused); no pull-down on PB15 (a low PB15 blocks all non-USB ROM-bootloader interfaces, AN2606 §52).
@@ -37,7 +37,7 @@ Rules: no `_C` dual-pad pins on any SPI net (PC2_C pin 30 exists but is analog-o
 | IO2 | PF7 | 21 | BK1_IO2 |
 | IO3 | PF6 | 20 | AF9 BK1_IO3 |
 
-IO3 on PF6 (verified bonded with the AF) keeps PD13 as the right panel's reset — the generic-carrier pin table runs verbatim, zero pin-constant edits. PF6–PF9 form a contiguous cluster (pins 20–23) for tight layout. ES0445 note for firmware: memory-mapped read of the region's last byte returns 0x00 and can stall AXI — pad `FSIZE`.
+IO3 on PF6 (verified bonded with the AF) keeps PD13 as the right panel's reset. The generic-carrier pin table ran verbatim until U18 (2026-07-28) moved Right CS to PE3 — one pin-constant edit, sanctioned by the DRAFT clause above and recorded in the firmware-edits list below. PF6–PF9 form a contiguous cluster (pins 20–23) for tight layout. ES0445 note for firmware: memory-mapped read of the region's last byte returns 0x00 and can stall AXI — pad `FSIZE`.
 
 ## Peripherals
 
@@ -62,6 +62,7 @@ Power strapping (DS12923 §3.5.1): VDDSMPS ties to VDD (hard sequencing rule); V
 ## Enumerated firmware edits (complete list)
 
 1. FRAM I2C: the sketch's `Wire.begin()` uses the variant default (collides with FDCAN1 on PB8/PB9) — add the Wire pin selection to PB11/PB10 (SDA/SCL) in the Board3 build glue.
+2. Right CS is **PE3**, not PD10 (`DASH_CS_PINS[right]` in the sketch — applied 2026-07-28 with U18; see the panel-SPI table note).
 
 Plus whatever pin reassignments U8's layout earns (recorded here at freeze). The generic-carrier branch's tables apply verbatim *as drafted*; the final firmware pin table is written from this doc after layout. Board-glue items (clock/PWR LDO flag, build env, CM4 park, `DASH_SPI_RUN_HZ` walk values) are tracked in the plan's Dependencies.
 
