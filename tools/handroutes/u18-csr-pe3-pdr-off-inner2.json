@@ -1,0 +1,266 @@
+{
+  "$comment": [
+    "U18: move CS_R off the west edge (PD10 pin 78 -> PE3 pin 2) and take PD_R off Inner2.",
+    "",
+    "WHY. CS_R exited U1's west edge and crossed the entire package to reach FPC3 at",
+    "(250,90): a bottom-layer run at y=103.496 under the crystal/QSPI corner (x 143.8-172.5)",
+    "plus 57 mm on top. PE3 is a free full-speed GPIO on the east edge, in the middle of the",
+    "right-panel SPI escape group -- the aligned edge. PD_R stays on PD13: its problem was",
+    "never the pin but the ROUTE -- 71 mm cut through the Inner2 +5V plane (a diagonal",
+    "through the crystal region plus a y=93.5 lane to x=222.8). It inherits CS_R's vacated",
+    "corridor instead: same bottom lane, same top lane, clear by construction because the",
+    "geometry was DRC-clean under its previous owner.",
+    "",
+    "WHY PD_R DID NOT GET A NEW PIN TOO. The PE3/PE4 escape pocket is fenced by a GND",
+    "corner stitch and already holds the three SPI_R vias; exhaustive candidate placement",
+    "shows it fits exactly ONE more via (CS_R's, at 162.23,117.92 -- every second position",
+    "violates via-via 0.7016 or via-track 0.5286 against V_S/V_M/the MISO horizontal).",
+    "North-edge pins (PA0/PA4) are walled in by a +3V3 L at y=97.797 and a GND diagonal.",
+    "",
+    "RESIDUAL, STATED PLAINLY: the y=103.496 bottom crossing under the corner still exists",
+    "-- it just belongs to PD_R now. The QSPI_CLK 4-via constraint from plan 002 therefore",
+    "remains. The wins are: no net crosses the package west-to-east any more, and the +5V",
+    "plane under the right-panel bus is whole again.",
+    "",
+    "CS_R's new east run rides the Bottom layer at y=118.9 (empty, verified by via+track",
+    "scan x 161-231) and lands by 45-degree diagonal on a new via at (229.150,103.496) --",
+    "the exact start of CS_R's kept tail to FPC3/R47. PD_R leaves the lane at x=210 and",
+    "diagonals to y=93.024, joining its kept tail at (223.350,93.024) north of the +5V",
+    "diagonal whose (222.1,93.8) endpoint blocks the direct line to the old via.",
+    "",
+    "Schematic half already applied and gated: netlist diff shows exactly /CS_R",
+    "-[U1,78] +[U1,2]; ERC 171, zero delta. Firmware note for the carrier code (not yet",
+    "written): right-panel chip select is PE3.",
+    "",
+    "REVISION 2, after DRC on the first application (NEW = 4, all mine):",
+    "",
+    "CS_R's join via cannot sit at the tail start (229.150,103.496): a 19 mm GND top",
+    "diagonal runs parallel to the tail at 0.494 mm -- legal for the 0.254 track, illegal",
+    "for a 0.6 via. The via retreats along the same 45-degree line to (227.5,105.146),",
+    "west of the GND segment's endpoint at (228.424,104.920), clearing it by 0.951 mm;",
+    "a top jog along the tail line covers the last 2.3 mm at the track-legal 0.494.",
+    "",
+    "PD_R cannot join its tail on the top layer at all. The +5V at FPC3 forms a",
+    "continuous wall -- diagonal down to (222.1,93.8), stub to y=93.2, diagonal to",
+    "(223.7,91.6), east -- and the tail start (223.350,93.024) sits in a pocket behind",
+    "it. That is WHY the original route arrived on Inner2. The fix keeps the old via at",
+    "(222.842,93.532) -- a through-via serves the bottom as well as Inner2 did -- and",
+    "feeds it from the bottom layer, which is empty here: the descent diagonal now",
+    "continues to (220.896,92.6), dives, and hops 2.2 mm on the bottom into the pocket.",
+    "The tiny top seg (222.842,93.532)-(223.350,93.024) is likewise kept, not re-drawn.",
+    "",
+    "REVISION 3. The rev-2 retreat via at (227.5,105.146) sat 0.226 mm from the GND",
+    "HORIZONTAL at y=104.920 that feeds the diagonal -- the L was only half-mapped. The",
+    "corridor into the tail is BELOW that horizontal: the vacated y=103.496 lane east of",
+    "x=210, which PD_R no longer occupies. CS_R's bottom diagonal now ends at",
+    "(222.23,103.496) -- verified clean on every copper layer at 1.424 mm -- and the last",
+    "6.9 mm to the tail start runs on top along the old lane, 1.424 under the GND",
+    "horizontal and 0.494 from the diagonal at its closest, both track-legal."
+  ],
+  "delete": [
+    {
+      "net": "CS_R",
+      "bbox": [
+        138.5,
+        103.3,
+        141.0,
+        104.0
+      ],
+      "layers": [
+        "Top Layer"
+      ],
+      "vias": false
+    },
+    {
+      "net": "CS_R",
+      "bbox": [
+        172.3,
+        103.3,
+        229.4,
+        103.7
+      ],
+      "layers": [
+        "Top Layer"
+      ],
+      "vias": false
+    },
+    {
+      "net": "CS_R",
+      "layers": [
+        "Bottom Layer"
+      ],
+      "vias": false
+    },
+    {
+      "net": "CS_R",
+      "bbox": [
+        140.4,
+        103.2,
+        173.0,
+        103.9
+      ],
+      "vias": true
+    },
+    {
+      "net": "PD_R",
+      "layers": [
+        "Inner2"
+      ],
+      "vias": false
+    }
+  ],
+  "add": [
+    {
+      "net": "CS_R",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          160.8,
+          118.25
+        ],
+        [
+          162.0,
+          118.25
+        ],
+        [
+          162.23,
+          117.92
+        ]
+      ]
+    },
+    {
+      "net": "CS_R",
+      "layer": "Bottom Layer",
+      "width": 0.254,
+      "points": [
+        [
+          162.23,
+          117.92
+        ],
+        [
+          162.23,
+          118.9
+        ],
+        [
+          206.826,
+          118.9
+        ],
+        [
+          222.23,
+          103.496
+        ]
+      ]
+    },
+    {
+      "net": "CS_R",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          222.23,
+          103.496
+        ],
+        [
+          229.15,
+          103.496
+        ]
+      ]
+    },
+    {
+      "net": "PD_R",
+      "layer": "Bottom Layer",
+      "width": 0.254,
+      "points": [
+        [
+          140.8,
+          106.994
+        ],
+        [
+          140.978,
+          106.29
+        ],
+        [
+          143.772,
+          103.496
+        ],
+        [
+          172.508,
+          103.496
+        ]
+      ]
+    },
+    {
+      "net": "PD_R",
+      "layer": "Top Layer",
+      "width": 0.254,
+      "points": [
+        [
+          172.508,
+          103.496
+        ],
+        [
+          210.0,
+          103.496
+        ],
+        [
+          220.896,
+          92.6
+        ]
+      ]
+    },
+    {
+      "net": "PD_R",
+      "layer": "Bottom Layer",
+      "width": 0.254,
+      "points": [
+        [
+          220.896,
+          92.6
+        ],
+        [
+          222.842,
+          93.532
+        ]
+      ]
+    }
+  ],
+  "add_vias": [
+    {
+      "net": "CS_R",
+      "at": [
+        162.23,
+        117.92
+      ],
+      "diameter": 0.6,
+      "drill": 0.3
+    },
+    {
+      "net": "CS_R",
+      "at": [
+        222.23,
+        103.496
+      ],
+      "diameter": 0.6,
+      "drill": 0.3
+    },
+    {
+      "net": "PD_R",
+      "at": [
+        172.508,
+        103.496
+      ],
+      "diameter": 0.6,
+      "drill": 0.3
+    },
+    {
+      "net": "PD_R",
+      "at": [
+        220.896,
+        92.6
+      ],
+      "diameter": 0.6,
+      "drill": 0.3
+    }
+  ]
+}

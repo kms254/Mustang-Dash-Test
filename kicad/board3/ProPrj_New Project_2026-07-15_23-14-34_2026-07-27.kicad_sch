@@ -16735,13 +16735,13 @@
 	)
 	(wire
 		(pts
-			(xy 50.8 254) (xy 48.26 254)
+			(xy 1.27 88.9) (xy 2.54 88.9)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "6792ed99-aa79-46ca-9a1d-6781d4918ccb")
+		(uuid "24756cef-f9cd-4e65-890b-46e2a373795a")
 	)
 	(wire
 		(pts
@@ -22384,14 +22384,14 @@
 		(uuid "8c42e65d-9de0-4713-97d1-0404274dd312")
 	)
 	(label "CS_R"
-		(at 49.53 254 0)
+		(at 1.27 88.9 180)
 		(effects
 			(font
 				(size 1.2446 1.2446)
 			)
-			(justify left bottom)
+			(justify right bottom)
 		)
-		(uuid "8c584b05-2257-48a2-b917-71ce4699235b")
+		(uuid "be1de7e4-dbb8-4eb5-aa2d-abfa85d985f2")
 	)
 	(label "GND"
 		(at 113.03 57.15 0)
