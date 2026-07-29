@@ -125,6 +125,15 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("board")
     ap.add_argument("--baseline", help="Board to attribute pre-existing violations to")
+    ap.add_argument("--contract", choices=("identity", "count"), default="identity",
+                    help="Exit-code semantics. 'identity' (default) fails on any "
+                         "violation instance not present in the baseline -- right "
+                         "for adjacent-state gates, where a fixed+introduced swap "
+                         "must not hide. 'count' fails only when a type's count "
+                         "exceeds the baseline -- right for a distant baseline "
+                         "(e.g. the import), where deliberate placement changes "
+                         "lawfully relocate violations. Identity detail and SWAP "
+                         "lines are printed in both modes.")
     args = ap.parse_args()
 
     board = Path(args.board)
@@ -156,7 +165,15 @@ def main() -> int:
     if args.baseline:
         appeared = idents - base_idents          # by identity, so a swap cannot hide
         resolved = base_idents - idents
-        new = collections.Counter(k[0] for k, n in appeared.items() for _ in range(n))
+        if args.contract == "count":
+            # Far-baseline contract: "no worse than the baseline", per type.
+            # Identity churn between distant states is lawful (parts move);
+            # only a count exceedance fails. SWAP lines below stay informative.
+            new = collections.Counter({k: counts[k] - base_counts.get(k, 0)
+                                       for k in counts
+                                       if counts[k] > base_counts.get(k, 0)})
+        else:
+            new = collections.Counter(k[0] for k, n in appeared.items() for _ in range(n))
         print(f"baseline     : {sum(base_counts.values())} violations "
               f"({Path(args.baseline).name})")
         print(f"NEW          : {sum(new.values())}")
