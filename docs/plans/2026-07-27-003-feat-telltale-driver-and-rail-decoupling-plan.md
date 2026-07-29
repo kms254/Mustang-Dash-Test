@@ -147,7 +147,7 @@ Product Contract authored here (`ce-plan-bootstrap`) from the design review disc
 
 **KTD8. The LED package changes before the resistors are calculated, not after.** Both inputs to the resistor derivation — V<sub>f</sub> and mcd — are properties of the LED. Calculating resistors for the 0805s and then swapping the package throws the calculation away. U11 therefore precedes U12, and U12 consumes U11's chosen parts.
 
-**KTD9. Resistors are derived for equal PERCEIVED brightness, not equal current.** The eye's photopic response peaks near 555 nm, so equal current across six colours produces visibly unequal telltales. The derivation is: for each part, read luminous intensity at its test current, pick a target perceived output achievable by every colour within its continuous rating, then solve `R = (5 − V_f − I·R_DS(on)) / I` per colour. Equal-current is the starting point and the wrong answer.
+**KTD9 [superseded 2026-07-29 — the perceived-brightness principle survives as the calibration table's seed math; the resistor mechanism died with U12's supersession, see plan 2026-07-28-001 KTD17]. Resistors are derived for equal PERCEIVED brightness, not equal current.** The eye's photopic response peaks near 555 nm, so equal current across six colours produces visibly unequal telltales. The derivation is: for each part, read luminous intensity at its test current, pick a target perceived output achievable by every colour within its continuous rating, then solve `R = (5 − V_f − I·R_DS(on)) / I` per colour. Equal-current is the starting point and the wrong answer.
 
 **KTD10. Mixed-grade BOM, tracked per part.** AEC-Q102 where a colour is stocked in it, commercial otherwise. This maximises availability without silently downgrading the whole row, and the grade is recorded per part so a future production run can close the gaps deliberately.
 
@@ -406,6 +406,14 @@ So the conclusion is narrower and more useful than "the API cannot do it": **the
 **Verification:** Schematic half — eight 3528 telltales specified, pitch measured and reported, every part sourced, netlist and ERC unchanged, retired imports gone. Board half — synced, placed and fab-ready at the standing bar.
 
 ### U12. Re-derive the series resistors for matched perceived brightness
+
+> **SUPERSEDED unfabbed, 2026-07-29** by the I2C revision
+> ([2026-07-28-001](2026-07-28-001-feat-i2c-peripheral-consolidation-plan.md),
+> KTD17): the TBD62083 and all eight series resistors left the board before
+> any resistor was ever fitted; brightness matching became the firmware
+> calibration table in `MustangDash/dash_calibration.h`, seeded from KTD13's
+> photometry (this unit's own inputs — the measurement work was not wasted).
+> The derivation below is retained as the record of the superseded approach.
 
 **Goal:** Set each telltale's current so the row looks even at full brightness, with firmware PWM as the global dimmer.
 

@@ -45,12 +45,12 @@ IO3 on PF6 (verified bonded with the AF) keeps PD13 as the right panel's reset. 
 |---|---|---|---|
 | FDCAN1 RX / TX (CAN A) | PB8 / PB9 | 136 / 137 | AF9 |
 | FDCAN2 RX / TX (CAN B) | PB5 / PB6 | 132 / 133 | AF9 |
-| I2C2 SCL / SDA (FRAM 0x50) | PB10 / PB11 | 66 / 67 | AF4 |
+| I2C2 SCL / SDA (FRAM 0x50, AW9523B west 0x5B, AW9523B east 0x5A) | PB10 / PB11 | 66 / 67 | AF4 — trunk taps forward from the FRAM (U7) per the I2C revision plan (2026-07-28-001); ~200 mm with four device loads, well inside 400 pF at 400 kHz |
 | USB OTG_FS DM / DP | PA11 / PA12 | 100 / 101 | AF10 |
 | USB VBUS sense | PA9 | 98 | additional fn OTG_FS_VBUS — wired to VBUS via removable link (Nucleo SB21 analog) |
 | SWDIO / SWCLK | PA13 / PA14 | 102 / 107 | AF0 |
 | SWO (test point only; header stays 5-pin) | PB3 | 130 | AF0 |
-| Lamps (ULN2803 inputs) | PD0–PD7 | 112–117, 120, 121 | GPIO |
+| ~~Lamps (ULN2803 inputs)~~ **superseded 2026-07-29** | ~~PD0–PD7~~ **unassigned** | 112–117, 120, 121 | The telltales left the MCU in the I2C revision (plan 2026-07-28-001): two AW9523B expanders on I2C2 drive them. West IC **U11** at 0x5B (AD1=AD0=+5V — every port POR-safe), east IC **U12** at 0x5A (AD1=+5V, AD0=GND — LEDs on its POR-safe P1_4–P1_7). Both ICs run **VCC=+5V** (power-on "high" equals the anode rail, LEDs hard off; all pins rated 6 V abs max, I2C VIH fixed 1.4 V so the 3.3 V trunk is legal). RSTN strapped to +5V (internal 100 kΩ pull-DOWN). INT unused — `dash_button.h` polls; the AW9523B's anti-jitter stacks harmlessly. Firmware: ISEL ×2/4 range (~18.5 mA full-scale), DIM registers 0x2C–0x2F both ICs, 5 ms post-POR wait, ID reg 0x10 reads 0x23. PD0–PD7 are free for future use. |
 | Mode/trip button (active-LOW, internal pull-up, pressed→GND) | PC13 | 9 | GPIO |
 | HSE crystal 25 MHz | PH0 / PH1 | 25 / 26 | OSC_IN / OSC_OUT |
 | NRST (button + 100 nF) | NRST | 27 | — |
@@ -61,8 +61,9 @@ Power strapping (DS12923 §3.5.1): VDDSMPS ties to VDD (hard sequencing rule); V
 
 ## Enumerated firmware edits (complete list)
 
-1. FRAM I2C: the sketch's `Wire.begin()` uses the variant default (collides with FDCAN1 on PB8/PB9) — add the Wire pin selection to PB11/PB10 (SDA/SCL) in the Board3 build glue.
+1. ~~FRAM I2C: the sketch's `Wire.begin()` uses the variant default (collides with FDCAN1 on PB8/PB9) — add the Wire pin selection to PB11/PB10 (SDA/SCL) in the Board3 build glue.~~ **Closed 2026-07-29 (U21):** `dash_lamps_init()` sets `Wire.setSDA(PB11); Wire.setSCL(PB10)` before any `Wire.begin()`; the FRAM inherits the corrected pins.
 2. Right CS is **PE3**, not PD10 (`DASH_CS_PINS[right]` in the sketch — applied 2026-07-28 with U18; see the panel-SPI table note).
+3. **Applied 2026-07-29 (U21):** the carrier branch drives lamps through the two AW9523Bs (addresses/registers per the Lamps row above); `DASH_LAMP_PINS` no longer exists on the carrier. Teensy and F767 branches unchanged.
 
 Plus whatever pin reassignments U8's layout earns (recorded here at freeze). The generic-carrier branch's tables apply verbatim *as drafted*; the final firmware pin table is written from this doc after layout. Board-glue items (clock/PWR LDO flag, build env, CM4 park, `DASH_SPI_RUN_HZ` walk values) are tracked in the plan's Dependencies.
 

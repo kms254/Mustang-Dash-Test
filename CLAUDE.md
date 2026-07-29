@@ -345,6 +345,41 @@ the API can place footprints; do not use it to dodge the GUI step on an area
 whose net topology runs through the parts you are replacing. Recipe and the
 per-part offsets are in the U11 section of the telltale plan.
 
+**Telltale/button architecture (I2C revision, 2026-07-29, plan 2026-07-28-001):**
+the eight telltales are driven by two AW9523B expanders on I2C2 (trunk taps
+forward from the FRAM U7): west U11 at 0x5B (AD both +5V — every port
+POR-safe), east U12 at 0x5A (AD1 +5V/AD0 GND — LEDs on POR-safe P1_4–P1_7).
+Both VCC=+5V (POR "high" = anode rail = LEDs off; pins are 6 V-rated, I2C
+VIH is a fixed 1.4 V so the 3.3 V trunk is legal); RSTN strapped +5V
+(internal pull-DOWN); 5 ms post-POR before I2C; ID reg 0x10 = 0x23.
+Brightness matching is the host-tested calibration table
+(`dash_calibration.h`, ISEL ×2/4 range) — the resistor derivation (plan 003
+U12) was superseded unfabbed. **Buttons stayed on MCU GPIO (KTD20)** — no
+firmware consumer, CAN is the real input; R28–R31 are 1 kΩ series parts.
+PD0–PD7 are freed. Lamp bit l drives TT(l+1); DIM regs 0x2C–0x2F on both ICs.
+
+**pcbnew scripting lessons (KiCad 10, all bisected the hard way, 2026-07-29):**
+- After `board.Remove(item)`, keep the Python proxy alive (a named list)
+  until `SaveBoard` — letting removed items be GC'd frees the C++ objects
+  and corrupts the SWIG session (unrelated proxies turn into raw
+  SwigPyObjects). The "memory leak … no destructor" warnings are this
+  safety working, not a problem.
+- One board per process: a second `LoadBoard` invalidates the first
+  board's wrappers.
+- `PCB_VIA.GetWidth()` needs a layer argument now (asserts without).
+- Do NOT trust `GetEffectiveShape().Collide()` for clearance work: it
+  under-covers segment midpoints between sampled probe points and
+  misreports via shapes on inner layers. Exact point-segment /
+  segment-segment math from raw endpoints converges; the shape oracle
+  does not. `tools/kicad_verify.py` (staged rules) is the only judge.
+- KiCadRoutingTools' route.py: `--rip-existing-nets` enables coordinated
+  reroutes; it necks below process minimums at fine-pitch pads (repair by
+  widening in place — 0.254 fits ON a 0.28 QFN pad) and its micro-vias
+  (0.15/0.18 drill) need replacing. Route order matters: route the most
+  boxed-in pad FIRST so fanouts nest (the last of three nets sharing one
+  escape mouth always loses — a QFN mouth between a pad column and a wall
+  fits exactly two 0.254 tracks).
+
 **Read board facts through `pcbnew`, never regex.** Three separate wrong
 conclusions in one session came from parsing `.kicad_pcb` as text: "the board has
 no tracks" (the file writes `(segment` followed by a newline, so a `\(segment `
