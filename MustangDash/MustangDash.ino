@@ -70,6 +70,7 @@
 #include "dash_fonts.h"
 #include "dash_panels.h" /* per-panel pins + timings (host-tested); mapped to EVE_panel_t in setup() */
 #include "dash_telltales.h" /* 8-lamp warning mask (host-tested); pins + lamp test live below */
+#include "dash_calibration.h" /* per-position telltale dim codes (host-tested, plan 2026-07-28-001 U21) */
 #include "dash_can.h" /* FDCAN bring-up to loopback (U7); Teensy compiles stubs */
 #if !defined(ARDUINO_TEENSY41)
 #include <Wire.h> /* FM24CL64B I2C FRAM odometer backend (migration plan U6) */
@@ -157,7 +158,9 @@ static SPIClass *const DASH_SPI_BUSES[DASH_PANEL_COUNT] = { &g_spi_center, &g_sp
  * The carrier schematic now owns the assignment (docs/hardware/
  * board3-h755-pin-map.md): right CS moved PD10 -> PE3 at layout (U18,
  * 2026-07-28) so the net escapes the east edge beside its own SPI bus
- * instead of crossing the whole package. */
+ * instead of crossing the whole package. Lamps left the MCU entirely in
+ * the I2C revision (plan 2026-07-28-001): PD0-PD7 are freed, the
+ * telltales ride two AW9523B expanders on I2C2. */
 static const uint8_t DASH_CS_PINS[DASH_PANEL_COUNT] = { PD8, PD9, PE3 };
 static const uint8_t DASH_PD_PINS[DASH_PANEL_COUNT] = { PD11, PD12, PD13 };
 #endif
@@ -189,13 +192,168 @@ static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* Nucleo USER button B1 */
 #define DASH_SWITCH_TRIP_PINMODE INPUT
 #define DASH_SWITCH_TRIP_PRESSED HIGH
 #else
-static const uint8_t DASH_LAMP_PINS[DASH_LAMP_COUNT] = { PD0, PD1, PD2, PD3, PD4, PD5, PD6, PD7 };
+/* Board3 carrier: the telltales left the MCU -- two AW9523B expanders on
+ * I2C2 drive them (plan 2026-07-28-001 U21) and PD0-PD7 are freed. Lamp
+ * bit l still drives TT(l+1); device/register tables live in the lamp
+ * glue below. Buttons stay on GPIO (KTD20). */
+#define DASH_LAMPS_I2C 1
 static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* WeAct user button K1 */
 #endif
 /* default trip-switch electrical contract: active-LOW on internal pull-up */
 #if !defined(DASH_SWITCH_TRIP_PINMODE)
 #define DASH_SWITCH_TRIP_PINMODE INPUT_PULLUP
 #define DASH_SWITCH_TRIP_PRESSED LOW
+#endif
+
+/* ---- lamp drive glue (plan 2026-07-28-001 U21) ----
+ * dash_telltales.h stays the only authority on WHICH lamps are lit; these
+ * helpers own only how a mask bit reaches its LED. GPIO boards write
+ * DASH_LAMP_PINS; the carrier writes AW9523B DIM registers over I2C2. */
+#if defined(DASH_LAMPS_I2C)
+/* West U11 at 0x5B (AD1=AD0=+5V, every port POR-safe); east U12 at 0x5A
+ * (AD1=+5V, AD0=GND -- its POR-safe bank P1_4..P1_7 carries the LEDs, and
+ * the west IC uses the same four pins so both sides share one register
+ * map). VCC=+5V: a power-on "high" sits at the anode rail, LEDs hard off.
+ * AW9523B V2.4 facts the code leans on: ID reg 0x10 reads 0x23; GCR 0x11
+ * ISEL=10 caps full-scale at IMAX*2/4 (~18.5 mA) -- inside every LED's
+ * 20 mA rating at code 255, with double the code resolution where the
+ * calibrated row lives; LED-mode switch 0x13=0x0F puts only P1_4..P1_7 in
+ * LED (current-DAC) mode; DIM regs 0x2C..0x2F; the chip wants 5 ms after
+ * power before I2C. RSTN is strapped to +5V on the board (internal 100k
+ * pull-DOWN would otherwise hold it in reset). */
+#define AW_ADDR_WEST   0x5BU
+#define AW_ADDR_EAST   0x5AU
+#define AW_REG_ID      0x10U
+#define AW_ID_VALUE    0x23U
+#define AW_REG_GCR     0x11U
+#define AW_GCR_ISEL_2Q 0x02U /* ISEL=10 -> 0..IMAX*2/4; D7..5,D3..2 must stay 0 */
+#define AW_REG_MODE_P1 0x13U
+#define AW_MODE_P1_LED 0x0FU /* P1_7..4 LED mode (0), P1_3..0 GPIO (1) */
+/* lamp bit l -> TT(l+1) -> device + DIM register (U19 netlist: TT1/2/5/7
+ * west, TT3/4/6/8 east; P1_4..P1_7 = 0x2C..0x2F on both) */
+static const uint8_t DASH_LAMP_AW_ADDR[DASH_LAMP_COUNT] = {
+    AW_ADDR_WEST, AW_ADDR_WEST, AW_ADDR_EAST, AW_ADDR_EAST,
+    AW_ADDR_WEST, AW_ADDR_EAST, AW_ADDR_WEST, AW_ADDR_EAST
+};
+static const uint8_t DASH_LAMP_AW_DIM[DASH_LAMP_COUNT] = {
+    0x2CU, 0x2DU, 0x2DU, 0x2CU, 0x2EU, 0x2EU, 0x2FU, 0x2FU
+};
+static uint8_t g_cal_codes[DASH_CAL_POSITIONS];
+static uint16_t g_lamp_code_now[DASH_LAMP_COUNT]; /* 0x100 = unknown -> force next write */
+static bool g_aw_ok[2];                           /* [0] west, [1] east */
+static uint8_t g_aw_fail_streak = 0U;
+static uint32_t g_aw_last_recover_ms = 0UL;
+
+static bool aw_write(uint8_t addr, uint8_t reg, uint8_t val)
+{
+    Wire.beginTransmission(addr);
+    Wire.write(reg);
+    Wire.write(val);
+    return 0U == Wire.endTransmission();
+}
+
+static bool aw_config(uint8_t addr)
+{
+    /* ID first: a wrong or absent chip must not get register writes */
+    Wire.beginTransmission(addr);
+    Wire.write(AW_REG_ID);
+    if (0U != Wire.endTransmission(false))
+    {
+        return false;
+    }
+    if ((1U != Wire.requestFrom(addr, (uint8_t)1U)) || (AW_ID_VALUE != (uint8_t)Wire.read()))
+    {
+        return false;
+    }
+    return aw_write(addr, AW_REG_GCR, AW_GCR_ISEL_2Q)
+           && aw_write(addr, AW_REG_MODE_P1, AW_MODE_P1_LED);
+}
+
+static void dash_lamps_init(void)
+{
+    /* I2C2 pin selection is load-bearing: the variant default collides
+     * with FDCAN1 on PB8/PB9 (pin-map known issue #1); the FRAM shares
+     * this bus and its later Wire.begin() inherits these pins. */
+    Wire.setSDA(PB11);
+    Wire.setSCL(PB10);
+    Wire.begin();
+    while (millis() < 6UL) { } /* AW9523B wants 5 ms after power before I2C */
+    dash_cal_codes(g_cal_codes);
+    g_aw_ok[0] = aw_config(AW_ADDR_WEST);
+    g_aw_ok[1] = aw_config(AW_ADDR_EAST);
+    for (uint8_t l = 0U; l < DASH_LAMP_COUNT; l++)
+    {
+        g_lamp_code_now[l] = 0x100U;
+    }
+    Serial.printf("Telltales: AW9523B west %s, east %s\r\n",
+                  g_aw_ok[0] ? "ok" : "FAIL", g_aw_ok[1] ? "ok" : "FAIL");
+}
+
+static void aw_bus_recover(uint32_t now)
+{
+    if ((now - g_aw_last_recover_ms) < 1000UL)
+    {
+        return;
+    }
+    g_aw_last_recover_ms = now;
+    /* KTD19: clock-out-9 frees a slave holding SDA mid-bit, then re-init
+     * and reconfigure both devices; shadows reset so every lamp rewrites */
+    Wire.end();
+    pinMode(PB10, OUTPUT_OPEN_DRAIN);
+    for (uint8_t i = 0U; i < 9U; i++)
+    {
+        digitalWrite(PB10, LOW);
+        delayMicroseconds(5);
+        digitalWrite(PB10, HIGH);
+        delayMicroseconds(5);
+    }
+    Wire.setSDA(PB11);
+    Wire.setSCL(PB10);
+    Wire.begin();
+    g_aw_ok[0] = aw_config(AW_ADDR_WEST);
+    g_aw_ok[1] = aw_config(AW_ADDR_EAST);
+    for (uint8_t l = 0U; l < DASH_LAMP_COUNT; l++)
+    {
+        g_lamp_code_now[l] = 0x100U;
+    }
+    g_aw_fail_streak = 0U;
+}
+
+static void dash_lamp_set(uint8_t l, bool on)
+{
+    const uint8_t dev = (DASH_LAMP_AW_ADDR[l] == AW_ADDR_WEST) ? 0U : 1U;
+    const uint8_t code = on ? g_cal_codes[l] : 0U;
+    if (g_lamp_code_now[l] == (uint16_t)code)
+    {
+        return; /* 60 fps loop, but writes only on change */
+    }
+    if (!g_aw_ok[dev])
+    {
+        return; /* a dead expander stays dark, never blocks the loop (R9's rule) */
+    }
+    if (aw_write(DASH_LAMP_AW_ADDR[l], DASH_LAMP_AW_DIM[l], code))
+    {
+        g_lamp_code_now[l] = (uint16_t)code;
+        g_aw_fail_streak = 0U;
+    }
+    else if (++g_aw_fail_streak >= 8U)
+    {
+        aw_bus_recover(millis());
+    }
+}
+#else
+static void dash_lamps_init(void)
+{
+    for (uint8_t l = 0U; l < DASH_LAMP_COUNT; l++)
+    {
+        pinMode(DASH_LAMP_PINS[l], OUTPUT);
+    }
+}
+
+static void dash_lamp_set(uint8_t l, bool on)
+{
+    digitalWrite(DASH_LAMP_PINS[l], on ? HIGH : LOW);
+}
 #endif
 /* Gesture state for that one button (U11). Short press toggles TRACK/STREET,
  * long press resets the trip; the debounce + one-fire-per-press latch live in
@@ -422,15 +580,17 @@ void setup(void)
     dash_sim_init(&g_sim);
     dash_lap_flash_reset(&g_lap_flash);
     dash_odo_init(&g_odo);
-    /* telltales: pins out + full-mask bulb check; the lamps hold ALL through
-     * the splash (a visible ~2.4 s lamp test) until loop()'s first live
-     * update. Trip/mode switch: board-specific pin mode (pull-up on most
-     * boards, plain INPUT on the Nucleo's active-HIGH B1), debounced and
-     * gesture-decoded in loop() via dash_button.h. */
+    /* telltales: drive init + full-row bulb check; the lamps hold ALL
+     * through the splash (a visible ~2.4 s lamp test) until loop()'s first
+     * live update. On the carrier the bulb check runs at the calibrated
+     * codes, so it is also a first look at the matched row. Trip/mode
+     * switch: board-specific pin mode (pull-up on most boards, plain INPUT
+     * on the Nucleo's active-HIGH B1), debounced and gesture-decoded in
+     * loop() via dash_button.h. */
+    dash_lamps_init();
     for (uint8_t l = 0U; l < DASH_LAMP_COUNT; l++)
     {
-        pinMode(DASH_LAMP_PINS[l], OUTPUT);
-        digitalWrite(DASH_LAMP_PINS[l], HIGH);
+        dash_lamp_set(l, true);
     }
     pinMode(DASH_SWITCH_TRIP_PIN, DASH_SWITCH_TRIP_PINMODE);
     dash_button_init(&g_trip_btn);
@@ -573,7 +733,7 @@ void loop(void)
 #endif
         for (uint8_t l = first_live; l < DASH_LAMP_COUNT; l++)
         {
-            digitalWrite(DASH_LAMP_PINS[l], ((lamp_mask >> l) & 1U) ? HIGH : LOW);
+            dash_lamp_set(l, 0U != ((lamp_mask >> l) & 1U));
         }
     }
 
