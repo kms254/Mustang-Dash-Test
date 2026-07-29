@@ -73,6 +73,19 @@ None of this was visible before the board reached a tool that could be analyzed 
 
 - R17. The EasyEDA Board3 project is not modified. KiCad is the authoritative source for this board from this plan forward.
 
+**Buck-block layout (U15)**
+
+*R18–R32 are claimed by the telltale/rail plan; this group continues at R33 because the two plans share one ID space.*
+
+*Amended 2026-07-28: R33 and R36 are **blocked, not dropped** — an adversarial pass proved both are geometrically unreachable while `/CS_L` runs on Inner1 under the buck. R35 is deferred as disproportionate. See the U15 amendment.*
+
+- R33. The buck's input commutation loop is closed by a high-frequency ceramic across the `VIN` and `GND` pins, not by a bulk capacitor millimetres away.
+- R34. The `+5V` branch feeding `VIN` is sized to the copper table in `docs/hardware/board3-pcb-layout-guide.md`, and `U3`'s ground return reaches a plane via without a multi-millimetre top-layer detour.
+- R35. The bootstrap capacitor sits adjacent to `VBST`, and no switching-node copper exists solely to reach it.
+- R36. The feedback divider sits at the IC beside `VFB`, only a sense line returns from an output-capacitor terminal, and the feedback node runs neither under the inductor nor alongside the switching node.
+- R37. No SPI, USB or crystal net moves, and none ends up closer to the switching node than it is today.
+- R38. The fabrication package is regenerated from the amended board under KiCad's own interpreter, with `fab/gerbers/` emptied first.
+
 ### Scope Boundaries
 
 - No comparison against EasyEDA. The evaluation that produced this plan is closed; its head-to-head was never run and is not wanted.
@@ -132,6 +145,10 @@ KTD5. **The four flagged nets are hand-routed, never autorouted.** They are held
 
 KTD6. **Fix connectivity before layout.** U2 and U3 change the netlist by adding components and joining nets, which changes what needs routing. Routing first would mean routing twice.
 
+KTD7. **The buck's input loop is closed with a new 0603 at the pins, not by relocating `C51`.** Moving the existing 10 µF looks cheaper — no schematic edit, no GUI sync — and it cannot work. `C51` is a `C0805` at rot -90 with its pads offset in Y, so translation can never straddle a north-row pin pair; its verified headroom is +0.275 mm with `C52` in place, and even with `C52` gone the ground leg only falls 4.287 → 2.849 mm. Rotating it would work electrically but `kicad_handroute.py` has no rotate op, and a `C0805`'s 3.91 mm courtyard overlaps `U3` or `L2` at every legal y. `C0603` is the only package on this board that straddles the 1.900 mm pin span with zero courtyard overlap, and cloning `C14663` — already placed 24 times, `C52` among them — makes it a no-new-symbol, no-new-footprint, no-new-BOM-line change. The cheap option was evaluated and is geometrically impossible, not merely worse.
+
+KTD8. **This plan and the telltale/rail plan share one U-ID and R-ID space.** `docs/plans/2026-07-27-003-feat-telltale-driver-and-rail-decoupling-plan.md` continues from this plan's U9/R17 with U10–U14 and R18–R32, so U15 and R33 are where this plan resumes. Both documents describe the same board and are read together; duplicate IDs across them would be ambiguous in a way duplicate IDs across unrelated plans are not. Check both files before claiming an ID.
+
 ### High-Level Technical Design
 
 Three phases with a hard boundary between them: the netlist must be final before copper is finished, and copper must be final before fab outputs mean anything.
@@ -173,6 +190,10 @@ U8 runs independently of copper — it is a data problem, not a layout one — b
 | U7 | Thermal vias and fiducials | `kicad/board3/*.kicad_pcb` | U6 |
 | U8 | BOM MPN coverage | `tools/kicad_fab.py` | — |
 | U9 | Fab outputs and final gate | `tools/kicad_fab.py` | U7, U8 |
+| U15 | Buck block to TI's layout guidelines | `kicad/board3/*.kicad_sch`, `*.kicad_pcb`, `tools/handroutes/u15-buck-block.json` | U9 |
+| U16 | Push U2 2.5 mm east to open the crystal lane | `kicad/board3/*.kicad_pcb`, `tools/handroutes/u16-qspi-u2-east.json` | U9 |
+| U17 | Slide the QSPI escape vias east (partial) | `kicad/board3/*.kicad_pcb`, `tools/handroutes/u17-qspi-escape-vias-east.json` | U16 |
+| U18 | CS_R to PE3, PD_R off the +5V plane | `kicad/board3/*.kicad_sch`, `*.kicad_pcb`, `tools/handroutes/u18-csr-pe3-pdr-off-inner2.json`, `docs/hardware/board3-h755-pin-map.md` | — *(landed after U17)* |
 
 ### U0. Give the project a footprint library — DONE 2026-07-27
 
@@ -537,6 +558,132 @@ Not resolvable by this method, and not needing to be: `USBC1`. The two libraries
 
 ---
 
+### U15. Buck block to TI's layout guidelines
+
+**Goal:** Close the TPS563201's input commutation loop at the pins, get the switching node off the feedback trace and out from under the inductor, and put the bootstrap capacitor where its pin is — without moving an SPI or USB net.
+
+**Requirements:** R33, R34, R35, R36, R37, R38.
+
+**Dependencies:** U9. This reopens copper on a board whose fab package is already exported, so U9's gate re-runs at the end.
+
+**Files:** `kicad/board3/ProPrj_New Project_2026-07-15_23-14-34_2026-07-27.kicad_sch`, `kicad/board3/ProPrj_New Project_2026-07-15_23-14-34_2026-07-27.kicad_pcb`, `tools/handroutes/u15-buck-block.json`, `fab/`
+
+**What is wrong, measured.** The buck was imported, not laid out to the guide, and it violates six of TI's ten layout rules:
+
+| Defect | Measured |
+|---|---|
+| No HF bypass at `VIN` | Only input cap is `C51` (10 µF 0805), its `+5V` pad 3.51 mm from the pin through 3.64 mm of 0.254 mm trace |
+| Ground return is a trace, not a plane bond | `U3.1` → 5.723 mm of 0.254 mm copper → the only via, at (105.253, 103.890). Nearest via of any net to `U3.1` is 5.145 mm |
+| Commutation loop | 21.73 mm² — the return detours to the Bottom layer and back, which is why it is larger than a top-layer bbox suggests |
+| Bootstrap cap on the wrong side | `C52` at x=106.820; its `VBST` pin is at x=110.310. `/BUCK_VBST` wraps 5.540 mm; `/BUCK_SW` is 8.010 mm when the IC-to-inductor leg alone is 4.2 mm |
+| Feedback node | 15.920 mm, 0.1410 mm from the SW trace (0.039 mm above the DRC floor), 43.1% inside `L2`'s courtyard, 3.795 mm under the inductor body |
+| Feedback crosses a plane split | 1.9577 mm of `S6` has no Inner1 GND beneath it, and inside that void it passes over the SPI chip-select `/CS_L` at **0.0000 mm** plan separation |
+
+The `VFB` node is a 7.674 kΩ source with a ±19 mV total window. At 1 V/ns on SW, 0.01 pF of coupling injects 77 mV — four times the entire window. That is the quantitative reason the feedback work is not cosmetic.
+
+**Authority.** TI SLVSD90B §7.4.1 (Sept 2024 revision, which hardened every item from "should" to "must") requires the input capacitor at the device, sufficient vias for it, the SW trace short and narrow, the feedback loop away from the switching trace, the `VFB` node as small as possible, and a Kelvin connection to the `GND` pin. §7.2.2.4 explicitly sanctions "an additional 0.1-µF capacitor from pin 3 to ground"; TI's own EVM populates exactly that, a 0603, nearest the IC with bulk outboard. Two deliberate departures: TI's Figure 7-18 suggests pouring SW on an inner layer, which is refused here because TI's own SLVAER0B says a large SW plane "will cause severe radiated emissions" and there is no thermal need at 0.8 A; and no ripple-injection network is added, because D-CAP2 supplies its own internal ramp.
+
+**Ordered steps.** The order is forced, and getting it wrong shorts the board.
+
+1. **Feedback first.** Delete all 9 `/BUCK_FB` segments. Move the tap from `C49.1` to `C48.1` — the `C49` spur is 8.85 mm and runs 1.36 mm from `/USB_DP` while crossing `/VBUS_SENSE`; `C48` is the near cap and pulls the sense line out of the USB band entirely. Route the sense line in the verified y ≈ 103.0 lane (probed clean at 0.763 mm minimum clearance over 11.286 mm). Relocate `R3`/`R2` — both are rot 0, so this is a pure translation — to sit beside `VFB` on the south side, per TI guidelines 6 and 9: divider at the IC, only the sense line travels. Cross `/CS_L` and `/PD_L` with the low-impedance sense line, perpendicular, never with the high-impedance `VFB` node (today `S6` runs near-collinear with `/PD_L` at 0.0057 mm lateral).
+2. **Floorplan east**, which only becomes legal once the feedback trace is gone. `C52` +5.170 → (111.990, 106.444); `L2` +2.000 → (115.170, 106.190); `C48` +0.600 → (118.596, 106.190). `C52` is already rot 90 with pad 1 (`VBST`) south and pad 2 (`SW`) north, which is the sense the new lane wants — no rotation needed, and `kicad_handroute.py` has no rotate op. Delete the `/GND` via at (116.982, 106.684), which would otherwise sit 0.206 mm from the moved `L2.2` pad, and re-stitch at (117.600, 109.600). Result: `/BUCK_SW` 8.010 → 4.892 mm, `/BUCK_VBST` 5.540 → 1.844 mm, bootstrap gate loop 9.792 → 3.204 mm², SW copper west of the IC 1.239 → 0.000 mm². The `U3`↔`L2` courtyard overlap that exists today disappears, so `courtyards_overlap` should fall 25 → 24.
+3. **Add C61**, a 100 nF 0603 straddling `VIN` and `GND` from the north at (109.360, 103.200). Clone the existing `C14663` symbol block in the schematic per the R49 recipe — 24 are already placed, `C52` is this exact part — so there is no new symbol, no new footprint, no new BOM line, only a quantity bump 24 → 25. `C0603` is the only package that straddles the 1.900 mm pin span with zero courtyard overlap anywhere on the board; there is no 0402 land pattern in this project, and a `C0805`'s 3.91 mm courtyard collides with `U3` or `L2` at every legal y. Kevin runs Update PCB from Schematic (re-link by reference designator **ticked**, delete-footprints-with-no-symbols **unticked** — the mounting holes and fiducials are board-only).
+4. **Rebuild the input feed.** Land `C61`, delete the old `+5V` run and the `y=103.890` `/GND` trace, and re-feed at 0.600/0.800 mm rather than 0.254 mm — the first non-0.254 mm copper on this board, which is what the project's own table asks for at 0.6 A. Widen `C51`'s legs in the same change: a lone small cap anti-resonates with distant bulk, which Richtek AN045 measured at 25 MHz. Hot loop 21.73 → 3.12 mm²; loop inductance ~21.7 → ~2.60 nH.
+
+**The unresolved part, stated plainly.** Steps 1–4 come from three independent design passes that were each measured against the board file, but the adversarial verification stage and the cross-proposal compatibility critic **did not run** — the workflow was stopped early. Two conflicts are already visible and are not yet settled:
+
+- **The ground-stitching approach is contested.** One pass says delete the Inner2 rule area (a 14-vertex comb, 15.025 mm², not its 24.741 mm² bbox) because Inner1 GND is solid under 100% of the SW node — 571/571 sample points — so the Inner2 cutout shields nothing while being the sole blocker for a via anywhere along the buck's ground return; that unlocks two `/GND` vias at (107.800, 103.890) and (106.900, 103.890) and cuts the return 5.723 → 3.176 mm. The other pass says the rule area is doing real work and routes the return the long way instead. The first argument is the stronger one — Inner1 sits between SW and Inner2, so Inner2 genuinely cannot see the switching node — but it is unadjudicated, and the two are mutually exclusive because step 4 deletes the very trace those vias land on. Settle this before writing the spec. Note there is no tooling to delete a zone: `move_zones` translates only, and it cannot even discriminate between the two netless Inner2 rule areas, so this is a GUI step or a new `delete_zones` op.
+- **The north lane is oversubscribed.** `C61` claims x[108.010, 110.710] y[102.500, 103.905] and the rebuilt ground return claims y[101.980, 102.580]. Both feedback-divider relocation sites the recon verified in that lane are destroyed by it. This is why step 1 puts the divider south instead — but the southern approach to pin 4 is itself blocked today by the `+5V` `EN` feed at y=108.492, so that feed has to move. Confirm the divider lands before committing `C61`'s position.
+
+**Execution note:** one atomic multi-step handroute spec, in the order above, `--dry-run` first — but do not trust dry-run: `add` and `add_vias` call `board.Add()` unconditionally regardless of the flag, so it reports coordinates and never legality. `add_vias` performs no pad, keepout, annular or inner-layer checking at all.
+
+**Test scenarios:**
+
+- Covers R33. Hot-loop area from the applied board measures ≤ 3.5 mm² against 21.73 mm² today, computed over the real commutation path including the plane return, not a top-layer bbox.
+- Covers R34. `/BUCK_SW` and `/BUCK_VBST` measure 4.892 ± 0.010 and 1.844 ± 0.010 mm with zero vias and layer set `{Top Layer}`; the graph-walk from `U3` pad 1 to the nearest `/GND` via returns ≤ 3.20 mm, down from 5.723 mm.
+- Covers R35. `C52` pad 1 sits within 2.0 mm of `U3` pad 6, and no `/BUCK_SW` copper exists west of x=109.060.
+- Covers R36. `/BUCK_FB` clears `/BUCK_SW`, `L2`'s pads and `/BUCK_VBST` by ≥ 0.30 mm everywhere (0.1410 mm today), routes 0 mm inside `L2`'s courtyard (6.862 mm today), and has solid Inner1 GND beneath 100% of its length, sampled against the filled polygon.
+- Covers R37. Recompute minimum edge-to-edge distance from `/BUCK_SW` to every victim net and assert each is unchanged or larger: `/CS_L` 0.513, `/PD_L` 0.925, `/VBUS_SENSE` 2.354, `/SCLK_L_MCU` 5.307, `/USB_DP` 6.479, `/USB_DM` 6.885, `/OSC_OUT` 43.75. Any decrease means a sibling change moved copper the wrong way.
+- **Via-in-pad audit — the check this repo cannot currently perform.** `tools/kicad_review.py` invokes kicad-happy with `--compact` only, and the `VP-001` detector is gated behind `--full`, so it has never run. Invoke `analyze_pcb.py "<board>" --full --compact` explicitly and assert zero `VP-001`. Separately assert by point-in-rect that no proposed via centre lies within 0.305 mm of any pad. `U3` is a SOT-23-6 with no thermal pad, so it is inside `VP-001`'s coverage — unlike `U2` and `U4`, which it skips outright.
+- Covers R32-class safety. `python tools/kicad_verify.py <board> --baseline <52586d4 extract>` reports NEW = 0 and unconnected = 0, with the carried-type breakdown unchanged except `courtyards_overlap` 25 → 24. An `items_not_allowed` of 2 means something entered an Inner2 rule area.
+- Schematic side. `kicad-cli sch export netlist` shows `/+5V` and `/GND` each gaining exactly one node; ERC delta is +6, matching the R49 signature. Measure it with both schematics in the **same** directory or `${KIPRJMOD}` misresolves and invents a ~140-violation improvement.
+- Covers R38. `python tools/kicad_lcsc.py check` exits 0 with `C61` sourced. Empty `fab/gerbers/` first — the tool only unlinks `.gbr`/`.gbrjob`/`.drl`, and a stale protel-extension set is currently doubling the zip — then run `kicad_fab.py` under `C:/Program Files/KiCad/10.0/bin/python.exe` (it has no self-reexec, and without pcbnew the gerber renaming and rotation audit silently skip). BOM stays 51 rows with `C14663` going 24 → 25; CPL gains one row.
+- Bench, the actual goal. With the buck at 0.8 A, probe SW at `U3` pin 2 with a ground-spring tip and assert undershoot stays above the −2.0 V absolute maximum. Then capture `/CS_L` and `/SCLK_L_MCU` at FPC1 before and after. Expect a residual: this unit does **not** move `/CS_L` off Inner1, which remains the highest-value SPI action available and is out of scope here.
+
+**Verification:** The buck block satisfies TI's ten layout rules except the two deliberate departures recorded above, DRC delta is no worse, no via sits in a pad, no victim net moved, and the fab package regenerates clean.
+
+---
+
+#### Amendment, 2026-07-28: the adversarial pass ran, and three of the four changes are dropped
+
+Four skeptics attacked the proposals above and a critic cross-checked them. **Three of four failed. The unit shrinks to two vias and a 2.2 mm² zone reshape.** The analysis above is kept, per the U6 precedent — it is the recipe if this corner is re-planned once the prerequisite below is met.
+
+**Two baseline corrections first, because everything downstream mis-scores without them.** Live DRC on the current board is `courtyards_overlap 25 + copper_edge_clearance 10 + starved_thermal 1 = 36`, and **`items_not_allowed` is 0**. The `14 / 25 / 1 / 1 = 41` table elsewhere in this plan describes the *import baseline*, not the current state. That zero also settles a question three reviewers left open: an Inner2-only rule area does **not** flag F.Cu pads or tracks — only vias, which physically cross Inner2. `L2.1` sits fully inside the comb today and is not flagged.
+
+**Why `C61` is dropped, and it is not a process objection.** Sweeping every courtyard-legal position for a 0603 straddling `VIN` and `GND`, the best achievable image-plane coverage is **52.6%** — half of `C61`'s copper would sit over the `/CS_L` plane void on Inner1. It cannot be nudged out: the solid Inner1 ground strip between the `/PD_L` void (y 102.1025–102.5565) and the `/CS_L` void (y 103.0230–103.4770) is **0.4665 mm** tall and a 0603 pad is 0.900 mm. A low-inductance input loop cannot be built there at all. The proposal's headline 21.73 → 3.12 mm² was computed for a loop whose return image is half missing, and it would have laid the board's highest-di/dt copper directly on top of the SPI chip-select this unit exists to protect.
+
+**The pairwise checks found shorts nobody's own review caught** — the exact failure mode that forced the U6 revert. `T4` (`/+5V`, w 0.800 at x=108.410) overlaps stitch's via V1 copper by **−0.095 mm**. The feedback sense lane shorts to `C61` pad 2 (−0.127), `T5` (−0.327) and `T6a` (−0.427), and clears `T4` by 0.0022 mm once the track's **round end cap** is modelled — rectangle-only math says 0.116 mm and passes. `sw-node`'s delete list leaves three `/+3V3`-to-`/GND` overlaps and a retained `/+3V3` diagonal crossing the moved `L2.1` switch pad.
+
+**The Inner2 comb: both earlier readings were wrong, in opposite directions.** Resampling at 0.05 mm across all three SW pads and all 8 SW segments including edges gives **4064/4064 points over solid Inner1 GND — 100%, zero gaps**. So the comb shields nothing; Inner1 already does it, and In2 is behind Inner1. But the comb is still load-bearing through a mechanism neither proposal named: its `vias not_allowed` flag is what has stopped anyone slotting the SW node's image plane, since a through via punches Inner1 too. It is byte-identical back to the original EasyEDA import and its shape follows the SW *pads* (100% coverage) rather than the SW copper (49.7%). **Reshape it, do not delete it:** drop only the ~0.22 mm connective bar below y=103.905 — 2.212 mm², with zero switch-node copper above it — and keep the three lobes.
+
+**What U15 actually is now.** Two `/GND` vias, 0.610/0.305, tented, at **(110.310, 103.870)** and **≈(109.300, 103.855)**, plus that bar reshape. The first sits **0.970 mm** from `U3.1`, against 2.684 mm for the position originally proposed and 5.145 mm today. Predicted DRC: 36, NEW = 0.
+
+Three corrections to claims made above, all of which overstated the problem:
+
+- **"`U3.1`'s only return is the 5.723 mm trace" is false.** The pad is 45/121 covered by the Top `/GND` pour and its centre sits over solid Inner1. The "before" is a pour, not a wire, so the improvement ratios and every nH figure in this unit are withdrawn — and with no `(stackup)` block in the file, no mm² converts to nH anyway.
+- **`sw-node`'s only DRC-visible gain is the `U3`↔`L2` courtyard overlap**, which is the single one of the board's 36 errors in this region. Everything else it moves is uncosted churn, and its central justification — Inner2 plane shadow — is shielding Inner1 already provides.
+- **Zone reshaping has no operation in `tools/kicad_handroute.py`** and no scripted inverse. This is a GUI edit; record before/after DRC against `tools/kicad_rules.json` in the commit.
+
+**One genuinely new risk, which none of the four addressed.** The DDC package has no thermal pad — heat leaves through the leads. At 0.8 A, Pdiss 0.23–0.36 W into θJA 140–220 °C/W gives ΔT 41–79 °C, so Tj at 85 °C ambient is **126–164 °C against a 150 °C maximum**. Marginal in a dash enclosure. `U3.1` is the main heat exit and has no via within 5.145 mm, which makes the two vias a thermal fix as much as an electrical one.
+
+**The honest bottom line: the buck is fine.** Inner1 is solid under 100% of the switch node — the single most important layout property of a synchronous buck, and this board already has it. The part runs at 0.8 A against a 3 A rating. One of the board's 36 errors is in the region and it is a drawing artifact. There is no measured victim.
+
+**The real prerequisite, and it is out of this unit's scope: get `/CS_L` off Inner1 under the buck.** It is what makes the input-capacitor fix geometrically impossible, what makes the feedback lane impossible, and the only place on this board where the buck can plausibly hurt something else. Until that moves, `C61` and the feedback reroute should not be re-attempted — they are competing for a lane neither can have.
+
+### U16. Push U2 2.5 mm east to open the crystal lane — DONE 2026-07-28
+
+**Goal:** End the contention between X1's case-ground guard and the QSPI escape vias over the 0.96 mm lane — the contention that forced both of U6's walk-backs.
+
+**Requirements:** No new R-ID. The intent is the shared R32-class fab-ready bar (DRC delta NEW = 0, zero airwires, no via-in-pad) plus the `crystal` and `qspi` `preserve_flagged` groups in `tools/kicad_netclass.json` — this is the first move of the re-plan their `$walked_back` records call for.
+
+**Dependencies:** U9 (reopens copper on a board whose fab package is exported, like U15).
+
+**Files:** `kicad/board3/ProPrj_New Project_2026-07-15_23-14-34_2026-07-27.kicad_pcb`, `tools/handroutes/u16-qspi-u2-east.json`
+
+**What shipped** (commit `3959beb`): U2, the NOR flash, translated **+2.500 mm east**. Electrically near-free — translation is common mode, not skew (22 µm shift across 7 mm of travel, ~16 ps of flight time against a 5000 ps sampling window), and bus coverage over solid Inner1 GND improves 76% → 86%. X1, R9 and C41/C42 do not move: all four were swept at 0.1 mm over ±2.5 mm and are already optimal, and R9 must stay at the driver. Rotation was evaluated and rejected (180° already best; both quarter-turns fail courtyard), as was a firmware pin remap (both BK1_IO2 alternates are on the east edge, so the bus cannot leave the crystal's side). Threading around the existing copper failed at three displacements in three different ways, so the destination window was cleared and re-established by `tools/kicad_route.py` instead. The spec's `$comment` carries the full failure history, the forbidden displacement band, and the two edits *not* captured in the spec (a ripped `/GND` top track; U2 pads 4/9 set to solid zone connection) that would need redoing by hand on replay.
+
+**Verification:** DRC NEW = 0 against the pre-move board, unconnected 0, via-in-pad unchanged (only the pre-existing `U1.93`); nine nets changed and no others (the six QSPI nets plus `/GND`, `/+3V3`, `/+5V` — `/CS_R` explicitly excluded and unmoved). **U2→X1 courtyard gap 0.86 → 3.36 mm.**
+
+### U17. Slide the QSPI escape vias east — PARTIAL 2026-07-28 (CLK + IO3 moved; IO0 blocked)
+
+**Goal:** Vacate the crystal guard lane that U16 widened, so the walked-back X1 move becomes attemptable.
+
+**Requirements:** No new R-ID — same R32-class bar and `preserve_flagged` groups as U16.
+
+**Dependencies:** U16 (the corridor these vias move into is the one U16 opened).
+
+**Files:** `kicad/board3/ProPrj_New Project_2026-07-15_23-14-34_2026-07-27.kicad_pcb`, `tools/handroutes/u17-qspi-escape-vias-east.json`
+
+**What shipped** (commit `5a66579`): `QSPI_CLK`'s escape via moved **166.764 → 167.900** and `QSPI_IO3`'s **166.670 → 168.200**. IO3 could not slide along its own y — `/QSPI_IO1` runs the bottom layer 0.091 mm away, the exact short U16's revision 2 hit — so it escapes north-east to y=108.480, and the `/+3V3` via blocking that thread (0.174 mm gap) was ripped for the router. **IO0 is dropped and its via stays at x=166.642**: Inner1 is full through its window (CLK's Inner1 wall at x=167.272, the `/GND` diagonal south of it). Consequence, stated plainly: a 0.254 mm guard at x=166.450 has its east edge at 166.577 against IO0's via west edge at 166.342 — **the guard lane is still blocked and the crystal fix is still not enabled**. Root cause is upstream: U1 pins 20–26 (four QSPI data lines plus both oscillator pins) all escape into the ~2 mm gap between U1 and X1, and finishing this wants that escape region re-planned as a whole rather than more incremental via moves. The spec's `$comment` records the geometry.
+
+**Verification:** DRC NEW = 0, unconnected 0. Two of three vias moved — real progress, not sufficient.
+
+### U18. CS_R to PE3, PD_R off the +5V plane — DONE 2026-07-28
+
+**Goal:** Fix the two pin-assignment artifacts the U1 placement review found: `/CS_R` crossing the entire package from the west edge, and `/PD_R`'s 71 mm Inner2 run cutting the +5V plane diagonally through the crystal region.
+
+**Requirements:** No new R-ID; R32-class fab-ready bar. Independent of the QSPI/crystal chain.
+
+**Dependencies:** None (independent; landed after U17).
+
+**Files:** `kicad/board3/ProPrj_New Project_2026-07-15_23-14-34_2026-07-27.kicad_sch`, `*.kicad_pcb`, `tools/handroutes/u18-csr-pe3-pdr-off-inner2.json`, `docs/hardware/board3-h755-pin-map.md`, `MustangDash/MustangDash.ino`
+
+**What shipped** (commits `58fb2dc`, `7062811`): `CS_R` moved **PD10 (pin 78, west edge) → PE3 (pin 2, east edge)** — a free full-speed GPIO in the middle of the right-panel SPI escape group — and now escapes east, riding the empty bottom layer at y=118.9 to its kept FPC3 tail. `PD_R` keeps PD13 (its defect was the route, not the pin — the PE3/PE4 escape pocket fits exactly one more via, which CS_R took) and inherits CS_R's vacated corridor, rejoining its tail through the kept through-via at (222.842, 93.532); the +5V wall at FPC3 makes a top-layer approach impossible by construction, which is why the original route was on Inner2. Follow-on `7062811` landed the move in the pin map and in the sketch's `DASH_CS_PINS` — the STM32 pin table was wired the whole time, so the commit's "carrier firmware doesn't exist yet" assumption was wrong. Residual, stated plainly: the y=103.496 bottom crossing under the crystal corner still exists — it belongs to `PD_R` now — so the note that `QSPI_CLK` carries 4 vias to cross it still stands. Three revisions to land it, each driven by a measured failure; the spec records all three.
+
+**Verification:** DRC NEW = 0 against the pre-change board, unconnected 0, **exactly two nets changed** (`CS_R`, `PD_R`), ERC delta 0, netlist diff exactly `/CS_R −(U1,78) +(U1,2)`. **The +5V plane under the right-panel bus is whole again.** Firmware edit verified by `pio run -e h743` SUCCESS.
+
+---
+
 ## Verification Contract
 
 | Gate | Command | Applies to |
@@ -545,10 +692,13 @@ Not resolvable by this method, and not needing to be: `USBC1`. The two libraries
 | Automated review | `python tools/kicad_review.py kicad/board3/` | U2, U3, U7, U8, U9 |
 | Routing pipeline | `python tools/kicad_route.py <board> --out <out>` | U5 |
 | DRC with baseline attribution | `python tools/kicad_verify.py <board> --baseline <imported>` | U4–U9 |
+| Via-in-pad audit | `python <kicad-happy>/skills/kicad/scripts/analyze_pcb.py <board> --full --compact` | any unit adding a via |
 | Fab outputs | `python tools/kicad_fab.py kicad/board3/` | U9 |
 | Firmware suite | `wsl -- bash -lc "./tests/run-tests.sh"` | any unit touching `tools/` |
 
 `kicad_verify.py` stages `tools/kicad_rules.json` before every DRC run; never measure against the board's own `.kicad_pro`. The firmware suite must stay at 14/14 — this plan changes no firmware, so any movement is a regression.
+
+The via-in-pad gate is listed separately because `tools/kicad_review.py` cannot reach it: it invokes kicad-happy with `--compact` only, and the `VP-001` detector is gated behind `--full`, so it has never run on this board. That is the blind spot U6 fell into. `VP-001` also skips every pad on a footprint that owns a thermal pad, which exempts `U2` and `U4` — the two parts whose pads swallowed vias — so a manual point-in-rect pass is still required for those.
 
 ---
 
@@ -560,6 +710,8 @@ Global:
 - DRC against JLCPCB 4-layer standard rules shows no violations beyond the 41 present at import.
 - Every `preserve_flagged` group in `tools/kicad_netclass.json` is resolved, or carries a recorded reason it was not.
 - Automated review reports `CALIBRATED` with no new `error`-severity findings.
+- No via sits inside an SMD pad, proved by an explicit `--full` run rather than inferred from a clean DRC.
+- The buck block satisfies TI SLVSD90B §7.4.1 except the two departures U15 records, and no SPI, USB or crystal net is closer to the switching node than it was at the start of U15.
 - BOM and CPL generate in JLCPCB format with full MPN coverage and verified rotation.
 - The EasyEDA Board3 project is byte-identical to its state at the start of this plan.
 - Scratch scripts and abandoned attempts are removed; a dead-end does not ship in the diff.
