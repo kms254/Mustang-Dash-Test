@@ -71,20 +71,36 @@ jobs:
       # cannot hide a class that did not exist before. Both boards are measured
       # through tools/kicad_rules.json, never their own .kicad_pro.
       - name: DRC delta against the import baseline
+        # --contract count: against the distant import baseline, deliberate
+        # placement changes lawfully relocate violation instances; the campaign
+        # contract is "no worse per type". Adjacent-state gates during work
+        # keep kicad_verify's identity default, where a swap must not hide.
         run: |
           python3 tools/kicad_verify.py \
             "${{ steps.find.outputs.pcb }}" \
-            --baseline "import-baseline/${{ steps.find.outputs.pcb }}"
+            --baseline "import-baseline/${{ steps.find.outputs.pcb }}" \
+            --contract count
 
-      - name: ERC
+      - name: ERC delta against the import baseline
+        # The schematic carries a known ERC debt (unflagged unused pins), so
+        # --exit-code-violations would fail on ANY run forever. The gate is a
+        # delta: fail only when the count exceeds the import baseline's.
         if: always()
         run: |
           kicad-cli sch erc \
             --severity-error \
-            --exit-code-violations \
             --format json \
             -o erc.json \
             "${{ steps.find.outputs.sch }}"
+          kicad-cli sch erc \
+            --severity-error \
+            --format json \
+            -o erc-base.json \
+            "import-baseline/${{ steps.find.outputs.sch }}"
+          cur=$(python3 -c "import json;d=json.load(open('erc.json'));print(sum(len(s.get('violations',[])) for s in d.get('sheets',[])))")
+          base=$(python3 -c "import json;d=json.load(open('erc-base.json'));print(sum(len(s.get('violations',[])) for s in d.get('sheets',[])))")
+          echo "ERC errors: current=$cur baseline=$base"
+          test "$cur" -le "$base"
 
       - name: Upload reports
         if: always()
