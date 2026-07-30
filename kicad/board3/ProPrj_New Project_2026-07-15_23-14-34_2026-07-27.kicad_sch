@@ -27224,232 +27224,7 @@
 			)
 		)
 	)
-	(symbol
-		(lib_id "ProPrj_New-easyedapro:CAPACITOR_THT{colon}CP_RADIAL_D8.0MM_P2.50MM")
-		(at 130.81 355.6 0)
-		(unit 1)
-		(body_style 0)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "176e9cc0-6e19-4972-8652-c422b613505e")
-		(property "Reference" "C12"
-			(at 128.27 353.06 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Value" "ERS1EM221F12OT"
-			(at 128.27 360.68 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Footprint" "ProPrj_New-easyedapro:CAP-TH_BD8.0-P3.50-D0.6-FD"
-			(at 130.81 355.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 130.81 355.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 130.81 355.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Manufacturer Part" "ERS1EM221F12OT"
-			(at 130.81 355.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Part" "C160162"
-			(at 130.81 355.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier" "LCSC"
-			(at 130.81 355.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "LCSC Part Name" "Capacitor_THT:CP_Radial_D8.0mm_P2.50mm"
-			(at 130.81 355.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Manufacturer" "AISHI(Aihua Group)"
-			(at 130.81 355.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "3D Model" "26f37486632942dc87f6308ee91e8f40|0819f05c4eef4c71ace90d822a990e87"
-			(at 130.81 355.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "3D Model Title" "CAP-TH_D8.0-H8.0-P3.50"
-			(at 130.81 355.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "3D Model Transform" "314.96,314.862,0,180,0,0,0,0,-137.795"
-			(at 130.81 355.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Add into BOM" "yes"
-			(at 130.81 355.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Convert to PCB" "yes"
-			(at 130.81 355.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "JLCPCB Part Class" "Extended Part"
-			(at 130.81 355.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Footprint" "470uF_25V"
-			(at 130.81 355.6 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(pin "1"
-			(uuid "d318ecb4-958a-444b-b6e4-82153bea2ca5")
-		)
-		(pin "2"
-			(uuid "0dd10c14-4df5-4fa0-8cc9-f31119e8cc67")
-		)
-		(instances
-			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
-				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
-					(reference "C12")
-					(unit 1)
-				)
-			)
-		)
-	)
+	
 	(symbol
 		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 88.9 57.15 0)
@@ -35531,7 +35306,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "10uF"
+		(property "Value" "22uF"
 			(at 295.91 115.57 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -35553,7 +35328,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL21A106KAYNNNE/16532.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL21A226MAQNNNE/45783.html"
 			(at 298.45 110.49 0)
 			(hide yes)
 			(show_name no)
@@ -35577,7 +35352,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL21A106KAYNNNE"
+		(property "Manufacturer Part" "CL21A226MAQNNNE"
 			(at 298.45 110.49 0)
 			(hide yes)
 			(show_name no)
@@ -35589,7 +35364,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "SAMSUNG"
 			(at 298.45 110.49 0)
 			(hide yes)
 			(show_name no)
@@ -35601,7 +35376,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C15850"
+		(property "Supplier Part" "C45783"
 			(at 298.45 110.49 0)
 			(hide yes)
 			(show_name no)
@@ -35625,7 +35400,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "10uF ±10% 25V"
+		(property "LCSC Part Name" "22uF ±20% 25V"
 			(at 298.45 110.49 0)
 			(hide yes)
 			(show_name no)
@@ -40042,232 +39817,7 @@
 			)
 		)
 	)
-	(symbol
-		(lib_id "ProPrj_New-easyedapro:CAPACITOR_THT{colon}CP_RADIAL_D8.0MM_P2.50MM")
-		(at 167.64 344.17 0)
-		(unit 1)
-		(body_style 0)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "897169b1-706c-467c-ab00-5afd047aa7ae")
-		(property "Reference" "C13"
-			(at 165.1 341.63 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Value" "ERS1EM221F12OT"
-			(at 165.1 349.25 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Footprint" "ProPrj_New-easyedapro:CAP-TH_BD8.0-P3.50-D0.6-FD"
-			(at 167.64 344.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 167.64 344.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 167.64 344.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Manufacturer Part" "ERS1EM221F12OT"
-			(at 167.64 344.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Part" "C160162"
-			(at 167.64 344.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier" "LCSC"
-			(at 167.64 344.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "LCSC Part Name" "Capacitor_THT:CP_Radial_D8.0mm_P2.50mm"
-			(at 167.64 344.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Manufacturer" "AISHI(Aihua Group)"
-			(at 167.64 344.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "3D Model" "26f37486632942dc87f6308ee91e8f40|0819f05c4eef4c71ace90d822a990e87"
-			(at 167.64 344.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "3D Model Title" "CAP-TH_D8.0-H8.0-P3.50"
-			(at 167.64 344.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "3D Model Transform" "314.96,314.862,0,180,0,0,0,0,-137.795"
-			(at 167.64 344.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Add into BOM" "yes"
-			(at 167.64 344.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Convert to PCB" "yes"
-			(at 167.64 344.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "JLCPCB Part Class" "Extended Part"
-			(at 167.64 344.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Footprint" "470uF_25V"
-			(at 167.64 344.17 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(pin "1"
-			(uuid "aff146ef-586a-4772-a451-1e2d07d46f2f")
-		)
-		(pin "2"
-			(uuid "2ced36e7-96dc-40fe-9ba0-08217afeae1c")
-		)
-		(instances
-			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
-				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
-					(reference "C13")
-					(unit 1)
-				)
-			)
-		)
-	)
+	
 	(symbol
 		(lib_id "JLCImport:HL-A-3528U51GC-S1-13HL")
 		(at 170.18 116.84 0)
@@ -41996,232 +41546,7 @@
 			)
 		)
 	)
-	(symbol
-		(lib_id "ProPrj_New-easyedapro:CAPACITOR_THT{colon}CP_RADIAL_D8.0MM_P2.50MM")
-		(at 111.76 342.9 0)
-		(unit 1)
-		(body_style 0)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "90645f1d-fc6f-421e-a7f9-15ea635087fb")
-		(property "Reference" "C14"
-			(at 109.22 340.36 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Value" "ERS1EM221F12OT"
-			(at 109.22 347.98 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Footprint" "ProPrj_New-easyedapro:CAP-TH_BD8.0-P3.50-D0.6-FD"
-			(at 111.76 342.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 111.76 342.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 111.76 342.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Manufacturer Part" "ERS1EM221F12OT"
-			(at 111.76 342.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Part" "C160162"
-			(at 111.76 342.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier" "LCSC"
-			(at 111.76 342.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "LCSC Part Name" "Capacitor_THT:CP_Radial_D8.0mm_P2.50mm"
-			(at 111.76 342.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Manufacturer" "AISHI(Aihua Group)"
-			(at 111.76 342.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "3D Model" "26f37486632942dc87f6308ee91e8f40|0819f05c4eef4c71ace90d822a990e87"
-			(at 111.76 342.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "3D Model Title" "CAP-TH_D8.0-H8.0-P3.50"
-			(at 111.76 342.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "3D Model Transform" "314.96,314.862,0,180,0,0,0,0,-137.795"
-			(at 111.76 342.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Add into BOM" "yes"
-			(at 111.76 342.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Convert to PCB" "yes"
-			(at 111.76 342.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "JLCPCB Part Class" "Extended Part"
-			(at 111.76 342.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Footprint" "470uF_25V"
-			(at 111.76 342.9 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(pin "2"
-			(uuid "5a76146c-b6f7-4724-a5e6-81ba7f2b9595")
-		)
-		(pin "1"
-			(uuid "0c0ca9db-1b7c-40cf-bab2-50a869b7644a")
-		)
-		(instances
-			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
-				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
-					(reference "C14")
-					(unit 1)
-				)
-			)
-		)
-	)
+	
 	(symbol
 		(lib_id "JLCImport:HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K")
 		(at 200.66 118.11 0)
@@ -45572,7 +44897,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "10uF"
+		(property "Value" "22uF"
 			(at 354.33 125.73 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -45594,7 +44919,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL21A106KAYNNNE/16532.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL21A226MAQNNNE/45783.html"
 			(at 356.87 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -45618,7 +44943,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL21A106KAYNNNE"
+		(property "Manufacturer Part" "CL21A226MAQNNNE"
 			(at 356.87 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -45630,7 +44955,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "SAMSUNG"
 			(at 356.87 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -45642,7 +44967,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C15850"
+		(property "Supplier Part" "C45783"
 			(at 356.87 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -45666,7 +44991,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "10uF ±10% 25V"
+		(property "LCSC Part Name" "22uF ±20% 25V"
 			(at 356.87 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -49119,196 +48444,7 @@
 			)
 		)
 	)
-	(symbol
-		(lib_id "ProPrj_New-easyedapro:CAPACITOR_THT{colon}CP_RADIAL_D8.0MM_P2.50MM")
-		(at 132.08 317.5 0)
-		(unit 1)
-		(body_style 0)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "c06ffb0c-e3b0-48aa-ae5f-840b2e2ab1e2")
-		(property "Reference" "C1"
-			(at 129.54 314.96 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Value" "ERS1EM221F12OT"
-			(at 129.54 322.58 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Footprint" "ProPrj_New-easyedapro:CAP-TH_BD8.0-P3.50-D0.6-FD"
-			(at 132.08 317.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 132.08 317.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 132.08 317.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Manufacturer Part" "ERS1EM221F12OT"
-			(at 132.08 317.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Part" "C160162"
-			(at 132.08 317.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier" "LCSC"
-			(at 132.08 317.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "LCSC Part Name" "Capacitor_THT:CP_Radial_D8.0mm_P2.50mm"
-			(at 132.08 317.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Manufacturer" "AISHI(Aihua Group)"
-			(at 132.08 317.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Add into BOM" "yes"
-			(at 132.08 317.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Convert to PCB" "yes"
-			(at 132.08 317.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "JLCPCB Part Class" "Extended Part"
-			(at 132.08 317.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Footprint" "470uF_25V"
-			(at 132.08 317.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(pin "2"
-			(uuid "518c5180-9bf6-40ec-8b83-1d8ab3dca42f")
-		)
-		(pin "1"
-			(uuid "df1c4073-9a15-4d0a-88ef-57d7f5ed517a")
-		)
-		(instances
-			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
-				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
-					(reference "C1")
-					(unit 1)
-				)
-			)
-		)
-	)
+	
 	(symbol
 		(lib_id "ProPrj_New-easyedapro:0603WAF1001T5E")
 		(at 356.87 189.23 0)
@@ -50452,196 +49588,7 @@
 			)
 		)
 	)
-	(symbol
-		(lib_id "ProPrj_New-easyedapro:CAPACITOR_THT{colon}CP_RADIAL_D8.0MM_P2.50MM")
-		(at 110.49 299.72 0)
-		(unit 1)
-		(body_style 0)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "d2ee4515-addf-4ad5-b9aa-461077ea12d1")
-		(property "Reference" "C2"
-			(at 107.95 297.18 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Value" "ERS1EM221F12OT"
-			(at 107.95 304.8 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Footprint" "ProPrj_New-easyedapro:CAP-TH_BD8.0-P3.50-D0.6-FD"
-			(at 110.49 299.72 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 110.49 299.72 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 110.49 299.72 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Manufacturer Part" "ERS1EM221F12OT"
-			(at 110.49 299.72 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Part" "C160162"
-			(at 110.49 299.72 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier" "LCSC"
-			(at 110.49 299.72 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "LCSC Part Name" "Capacitor_THT:CP_Radial_D8.0mm_P2.50mm"
-			(at 110.49 299.72 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Manufacturer" "AISHI(Aihua Group)"
-			(at 110.49 299.72 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Add into BOM" "yes"
-			(at 110.49 299.72 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Convert to PCB" "yes"
-			(at 110.49 299.72 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "JLCPCB Part Class" "Extended Part"
-			(at 110.49 299.72 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Footprint" "470uF_25V"
-			(at 110.49 299.72 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(pin "1"
-			(uuid "f85ffc67-d95f-4813-8197-f808aa885bc9")
-		)
-		(pin "2"
-			(uuid "ae2715ec-a0fb-4b49-8eb5-b209d5b59c58")
-		)
-		(instances
-			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
-				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
-					(reference "C2")
-					(unit 1)
-				)
-			)
-		)
-	)
+	
 	(symbol
 		(lib_id "ProPrj_New-easyedapro:FRC0603F60R4TS")
 		(at 134.62 199.39 0)
@@ -54668,7 +53615,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "10uF"
+		(property "Value" "22uF"
 			(at 367.03 114.3 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -54690,7 +53637,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL21A106KAYNNNE/16532.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL21A226MAQNNNE/45783.html"
 			(at 369.57 109.22 0)
 			(hide yes)
 			(show_name no)
@@ -54714,7 +53661,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL21A106KAYNNNE"
+		(property "Manufacturer Part" "CL21A226MAQNNNE"
 			(at 369.57 109.22 0)
 			(hide yes)
 			(show_name no)
@@ -54726,7 +53673,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "SAMSUNG"
 			(at 369.57 109.22 0)
 			(hide yes)
 			(show_name no)
@@ -54738,7 +53685,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C15850"
+		(property "Supplier Part" "C45783"
 			(at 369.57 109.22 0)
 			(hide yes)
 			(show_name no)
@@ -54762,7 +53709,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "10uF ±10% 25V"
+		(property "LCSC Part Name" "22uF ±20% 25V"
 			(at 369.57 109.22 0)
 			(hide yes)
 			(show_name no)
@@ -57266,232 +56213,7 @@
 			)
 		)
 	)
-	(symbol
-		(lib_id "ProPrj_New-easyedapro:CAPACITOR_THT{colon}CP_RADIAL_D8.0MM_P2.50MM")
-		(at 91.44 360.68 0)
-		(unit 1)
-		(body_style 0)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "ff7f6eca-8222-40de-a660-9de88c03a590")
-		(property "Reference" "C16"
-			(at 88.9 358.14 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Value" "ERS1EM221F12OT"
-			(at 88.9 365.76 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Footprint" "ProPrj_New-easyedapro:CAP-TH_BD8.0-P3.50-D0.6-FD"
-			(at 91.44 360.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 91.44 360.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 91.44 360.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Manufacturer Part" "ERS1EM221F12OT"
-			(at 91.44 360.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Part" "C160162"
-			(at 91.44 360.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier" "LCSC"
-			(at 91.44 360.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "LCSC Part Name" "Capacitor_THT:CP_Radial_D8.0mm_P2.50mm"
-			(at 91.44 360.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Manufacturer" "AISHI(Aihua Group)"
-			(at 91.44 360.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "3D Model" "26f37486632942dc87f6308ee91e8f40|0819f05c4eef4c71ace90d822a990e87"
-			(at 91.44 360.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "3D Model Title" "CAP-TH_D8.0-H8.0-P3.50"
-			(at 91.44 360.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "3D Model Transform" "314.96,314.862,0,180,0,0,0,0,-137.795"
-			(at 91.44 360.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Add into BOM" "yes"
-			(at 91.44 360.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Convert to PCB" "yes"
-			(at 91.44 360.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "JLCPCB Part Class" "Extended Part"
-			(at 91.44 360.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Footprint" "470uF_25V"
-			(at 91.44 360.68 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(pin "1"
-			(uuid "e0e3914a-da8d-460f-b736-c2c83a7d49a0")
-		)
-		(pin "2"
-			(uuid "fd7bcaba-3828-4575-8872-e993d37406f4")
-		)
-		(instances
-			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
-				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
-					(reference "C16")
-					(unit 1)
-				)
-			)
-		)
-	)
+	
 	(embedded_fonts no)
 
 	(symbol
@@ -58901,5 +57623,1703 @@
 			(justify left bottom)
 		)
 		(uuid "d8f4d871-7ddb-46ff-9ca4-476bf56b371e")
+	)
+(symbol
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
+		(at 60.96 287.02 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "9d859dde-44d8-4c08-8f05-c57b33aa8efc")
+		(property "Reference" "C63"
+			(at 58.42 284.48 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Value" "100nF"
+			(at 58.42 292.1 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "ProPrj_New-easyedapro:C0603"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Description" "Capacitance:100nF Tolerance:±10% Tolerance:±10% Voltage Rating:50V Temperature Coefficient:X7R"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Manufacturer" "YAGEO(国巨)"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier Part" "C14663"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier" "LCSC"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "LCSC Part Name" "100nF ±10% 50V"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "3D Model" "624118aa3cc7497086c383c2d72e0852|0819f05c4eef4c71ace90d822a990e87"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "3D Model Title" "C0603_L1.6-W0.8-H0.8"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "3D Model Transform" "62.992,31.496,0,0,0,0,0,0,0"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Add into BOM" "yes"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Convert to PCB" "yes"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier Footprint" "0603"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Temperature Coefficient" "X7R"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Tolerance" "±10%"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Voltage Rating" "50V"
+			(at 60.96 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(pin "1"
+			(uuid "b686a9ae-db8a-469b-a458-16882c9605ee")
+		)
+		(pin "2"
+			(uuid "53e8ef9d-6361-402e-8f4c-a6dbe91ef76c")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "C63")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(wire
+		(pts
+			(xy 55.88 287.02) (xy 53.34 287.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fb9da3a0-ab46-4c13-8f05-ff1b0beb6f58")
+	)
+	(label "+5V"
+		(at 53.34 287.02 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "ef650307-e630-4078-8bb6-2a6317e658fe")
+	)
+	(wire
+		(pts
+			(xy 66.04 287.02) (xy 68.58 287.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1a65ee91-c2ff-4fab-aa32-9689f4d96ad5")
+	)
+	(label "GND"
+		(at 68.58 287.02 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "c0f301da-08f5-42e3-bbad-841923b3f422")
+	)
+(symbol
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
+		(at 78.74 287.02 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "67c08a4f-ab03-4406-8d0e-0da34164026f")
+		(property "Reference" "C64"
+			(at 76.2 284.48 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Value" "100nF"
+			(at 76.2 292.1 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "ProPrj_New-easyedapro:C0603"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Description" "Capacitance:100nF Tolerance:±10% Tolerance:±10% Voltage Rating:50V Temperature Coefficient:X7R"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Manufacturer" "YAGEO(国巨)"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier Part" "C14663"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier" "LCSC"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "LCSC Part Name" "100nF ±10% 50V"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "3D Model" "624118aa3cc7497086c383c2d72e0852|0819f05c4eef4c71ace90d822a990e87"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "3D Model Title" "C0603_L1.6-W0.8-H0.8"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "3D Model Transform" "62.992,31.496,0,0,0,0,0,0,0"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Add into BOM" "yes"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Convert to PCB" "yes"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier Footprint" "0603"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Temperature Coefficient" "X7R"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Tolerance" "±10%"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Voltage Rating" "50V"
+			(at 78.74 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(pin "1"
+			(uuid "0f3113af-5859-45be-84e3-15ceb9dbad2d")
+		)
+		(pin "2"
+			(uuid "24f01e56-58cd-4819-9d71-c543369d2aa6")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "C64")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(wire
+		(pts
+			(xy 73.66 287.02) (xy 71.12 287.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9a4fb725-4442-4735-b9ab-e9a371ce4ad3")
+	)
+	(label "+5V"
+		(at 71.12 287.02 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "a0c11ec2-1427-4b89-94aa-dc09cef01211")
+	)
+	(wire
+		(pts
+			(xy 83.82 287.02) (xy 86.36 287.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a97fa444-6362-40a6-9ba8-393abf04a313")
+	)
+	(label "GND"
+		(at 86.36 287.02 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "82450831-58e2-41bd-bfe3-6305ada941fa")
+	)
+(symbol
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
+		(at 96.52 287.02 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a1573011-c5b4-4481-beb5-63fea0ba7f02")
+		(property "Reference" "C65"
+			(at 93.98 284.48 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Value" "100nF"
+			(at 93.98 292.1 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "ProPrj_New-easyedapro:C0603"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Description" "Capacitance:100nF Tolerance:±10% Tolerance:±10% Voltage Rating:50V Temperature Coefficient:X7R"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Manufacturer" "YAGEO(国巨)"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier Part" "C14663"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier" "LCSC"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "LCSC Part Name" "100nF ±10% 50V"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "3D Model" "624118aa3cc7497086c383c2d72e0852|0819f05c4eef4c71ace90d822a990e87"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "3D Model Title" "C0603_L1.6-W0.8-H0.8"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "3D Model Transform" "62.992,31.496,0,0,0,0,0,0,0"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Add into BOM" "yes"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Convert to PCB" "yes"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier Footprint" "0603"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Temperature Coefficient" "X7R"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Tolerance" "±10%"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Voltage Rating" "50V"
+			(at 96.52 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(pin "1"
+			(uuid "04020448-c9d0-496f-a710-b3de039a3334")
+		)
+		(pin "2"
+			(uuid "cbf1b382-c133-488d-944f-6b46612c7a4f")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "C65")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(wire
+		(pts
+			(xy 91.44 287.02) (xy 88.9 287.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b670bc33-e0db-4823-8e66-a2268de0b188")
+	)
+	(label "+5V"
+		(at 88.9 287.02 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "986ba4ab-8879-4233-b141-b98121e53ea0")
+	)
+	(wire
+		(pts
+			(xy 101.6 287.02) (xy 104.14 287.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5c09b16d-1d0c-4a3b-b86d-76d5cbcd60bf")
+	)
+	(label "GND"
+		(at 104.14 287.02 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "2f4272c8-b239-4005-bcba-657e6f432295")
+	)
+(symbol
+		(lib_id "ProPrj_New-easyedapro:CL21A106KAYNNNE")
+		(at 114.3 287.02 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "79827e91-83fc-45cc-863d-cff44c99413b")
+		(property "Reference" "C66"
+			(at 111.76 284.48 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Value" "22uF"
+			(at 111.76 292.1 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "ProPrj_New-easyedapro:C0805"
+			(at 114.3 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL21A226MAQNNNE/45783.html"
+			(at 114.3 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Description" "Capacitance:10uF Tolerance:±10% Tolerance:±10% Voltage Rating:25V Temperature Coefficient:X5R"
+			(at 114.3 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Manufacturer Part" "CL21A226MAQNNNE"
+			(at 114.3 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Manufacturer" "SAMSUNG"
+			(at 114.3 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier Part" "C45783"
+			(at 114.3 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier" "LCSC"
+			(at 114.3 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "LCSC Part Name" "22uF ±20% 25V"
+			(at 114.3 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Add into BOM" "yes"
+			(at 114.3 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Convert to PCB" "yes"
+			(at 114.3 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 114.3 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier Footprint" "0805"
+			(at 114.3 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Temperature Coefficient" "X5R"
+			(at 114.3 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Tolerance" "±10%"
+			(at 114.3 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Voltage Rating" "25V"
+			(at 114.3 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(pin "1"
+			(uuid "c8d2f7bd-f8db-4f44-8731-68e44175ead7")
+		)
+		(pin "2"
+			(uuid "4ce85dff-637a-4dce-914e-0b03603208ba")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "C66")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(wire
+		(pts
+			(xy 109.22 287.02) (xy 106.68 287.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "218d1c65-38cb-4dd3-9827-20f087935c61")
+	)
+	(label "+3V3"
+		(at 106.68 287.02 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "6c774f96-7c8c-4727-8982-4c160c5202ad")
+	)
+	(wire
+		(pts
+			(xy 119.38 287.02) (xy 121.92 287.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "88b317d0-b1ac-4e87-961f-017a7ae34a30")
+	)
+	(label "GND"
+		(at 121.92 287.02 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "f4442041-0866-41cf-a86f-766879215592")
+	)
+(symbol
+		(lib_id "ProPrj_New-easyedapro:CL21A106KAYNNNE")
+		(at 132.08 287.02 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "c0d8b734-0911-4ffd-b25d-370e4093be27")
+		(property "Reference" "C67"
+			(at 129.54 284.48 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Value" "22uF"
+			(at 129.54 292.1 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "ProPrj_New-easyedapro:C0603"
+			(at 132.08 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10A106KP8NNNC/19702.html"
+			(at 132.08 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Description" "Capacitance:10uF Tolerance:±10% Tolerance:±10% Voltage Rating:25V Temperature Coefficient:X5R"
+			(at 132.08 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Manufacturer Part" "CL10A106KP8NNNC"
+			(at 132.08 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Manufacturer" "SAMSUNG"
+			(at 132.08 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier Part" "C19702"
+			(at 132.08 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier" "LCSC"
+			(at 132.08 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "LCSC Part Name" "10uF ±10% 10V"
+			(at 132.08 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Add into BOM" "yes"
+			(at 132.08 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Convert to PCB" "yes"
+			(at 132.08 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 132.08 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier Footprint" "0805"
+			(at 132.08 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Temperature Coefficient" "X5R"
+			(at 132.08 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Tolerance" "±10%"
+			(at 132.08 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Voltage Rating" "25V"
+			(at 132.08 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(pin "1"
+			(uuid "e0f32f0b-2aaf-4855-a9d5-ba9c2d511ffa")
+		)
+		(pin "2"
+			(uuid "d1cc87b7-f329-4bf7-a355-e5de59a964d2")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "C67")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(wire
+		(pts
+			(xy 127.0 287.02) (xy 124.46 287.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ccade0ec-c855-4fa7-90c8-a49775b49dbf")
+	)
+	(label "+3V3"
+		(at 124.46 287.02 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "0aa8a71e-c82b-497c-9790-8c9c419cf1c1")
+	)
+	(wire
+		(pts
+			(xy 137.16 287.02) (xy 139.7 287.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "196482b4-8748-42c6-8755-55127cb89723")
+	)
+	(label "GND"
+		(at 139.7 287.02 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "f4bb39f0-ec66-4eab-9232-1214cc6eaffc")
+	)
+(symbol
+		(lib_id "ProPrj_New-easyedapro:CL21A106KAYNNNE")
+		(at 149.86 287.02 0)
+		(unit 1)
+		(body_style 0)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "d81bcc8a-1157-4ae3-92cc-fdde99f5a356")
+		(property "Reference" "C68"
+			(at 147.32 284.48 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Value" "22uF"
+			(at 147.32 292.1 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "ProPrj_New-easyedapro:C0805"
+			(at 149.86 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL21A226MAQNNNE/45783.html"
+			(at 149.86 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Description" "Capacitance:10uF Tolerance:±10% Tolerance:±10% Voltage Rating:25V Temperature Coefficient:X5R"
+			(at 149.86 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Manufacturer Part" "CL21A226MAQNNNE"
+			(at 149.86 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Manufacturer" "SAMSUNG"
+			(at 149.86 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier Part" "C45783"
+			(at 149.86 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier" "LCSC"
+			(at 149.86 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "LCSC Part Name" "22uF ±20% 25V"
+			(at 149.86 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Add into BOM" "yes"
+			(at 149.86 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Convert to PCB" "yes"
+			(at 149.86 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 149.86 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Supplier Footprint" "0805"
+			(at 149.86 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Temperature Coefficient" "X5R"
+			(at 149.86 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Tolerance" "±10%"
+			(at 149.86 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Voltage Rating" "25V"
+			(at 149.86 287.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.2446 1.2446)
+				)
+				(justify left bottom)
+			)
+		)
+		(pin "1"
+			(uuid "d577eb79-532f-4c21-b7f9-a420160f8bd0")
+		)
+		(pin "2"
+			(uuid "0c4cf08f-d4a6-4bab-947e-6f74c2ce1813")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "C68")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(wire
+		(pts
+			(xy 144.78 287.02) (xy 142.24 287.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8dc46b33-8bca-412f-bace-bd7d55430ac2")
+	)
+	(label "+3V3"
+		(at 142.24 287.02 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "14bafda7-78d9-4105-8f65-0e9518742caa")
+	)
+	(wire
+		(pts
+			(xy 154.94 287.02) (xy 157.48 287.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b2c2aefe-91a6-4f9a-8a99-d70002ef7f74")
+	)
+	(label "GND"
+		(at 157.48 287.02 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "b3351b5d-364e-4b27-b539-8866bc42e70c")
 	)
 )
