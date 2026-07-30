@@ -81578,6 +81578,37 @@
 		)
 	)
 	(zone
+		(layers "F.Cu" "B.Cu" "In1.Cu" "In2.Cu")
+		(uuid "8245433d-c414-452f-8e97-98538505f28a")
+		(name "usbc_slots")
+		(hatch edge 0.5)
+		(connect_pads
+			(clearance 0)
+		)
+		(min_thickness 0.25)
+		(keepout
+			(tracks allowed)
+			(vias allowed)
+			(pads allowed)
+			(copperpour allowed)
+			(footprints allowed)
+		)
+		(placement
+			(enabled no)
+			(sheetname "")
+		)
+		(fill
+			(thermal_gap 0.5)
+			(thermal_bridge_width 0.5)
+			(island_removal_mode 0)
+		)
+		(polygon
+			(pts
+				(xy 28.5 91) (xy 34 91) (xy 34 106) (xy 28.5 106)
+			)
+		)
+	)
+	(zone
 		(net "/GND")
 		(layer "B.Cu")
 		(uuid "f19a0d69-1e79-4853-8c85-f6b04d2aab57")

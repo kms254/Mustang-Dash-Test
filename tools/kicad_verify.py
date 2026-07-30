@@ -60,6 +60,13 @@ def _rules_project(board: Path, workdir: Path) -> Path:
         if c.get("name") == "Default":
             c.update(spec["default_netclass_mm"])
     staged.with_suffix(".kicad_pro").write_text(json.dumps(pro, indent=2), encoding="utf-8")
+
+    # Custom DRC rules (.kicad_dru) are part of the design's rule set --
+    # scoped exceptions like courtyard allowances live there. Stage the
+    # sibling file too or kicad-cli judges without them.
+    dru = board.with_suffix(".kicad_dru")
+    if dru.is_file():
+        staged.with_suffix(".kicad_dru").write_bytes(dru.read_bytes())
     return staged
 
 
