@@ -12,6 +12,13 @@ origin: docs/plans/2026-07-27-001-chore-kicad-evaluation-plan.md
 
 # Board3 Fab-Ready in KiCad - Plan
 
+> **Successor note (2026-07-29):** the telltale/button architecture this
+> plan's board carried was revised by the I2C consolidation plan
+> ([2026-07-28-001](2026-07-28-001-feat-i2c-peripheral-consolidation-plan.md)):
+> the DMOS driver, its eight series resistors, and the lamp home-runs are
+> gone; two AW9523B expanders on I2C2 drive the telltales. This plan's
+> fab-ready bar, gates, and toolchain remain the standing reference.
+
 ## Goal Capsule
 
 - **Objective:** Take Board3 from its imported KiCad state to a board that can be ordered from JLCPCB — connectivity complete, DRC clean against real rules, signal-integrity defects fixed deliberately, and a BOM that can actually be assembled.

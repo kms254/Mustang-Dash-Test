@@ -345,6 +345,64 @@ the API can place footprints; do not use it to dodge the GUI step on an area
 whose net topology runs through the parts you are replacing. Recipe and the
 per-part offsets are in the U11 section of the telltale plan.
 
+**Telltale/button architecture (I2C revision, 2026-07-29, plan 2026-07-28-001):**
+the eight telltales are driven by two AW9523B expanders on I2C2 (trunk taps
+forward from the FRAM U7): west U11 at 0x5B (AD both +5V — every port
+POR-safe), east U12 at 0x5A (AD1 +5V/AD0 GND — LEDs on POR-safe P1_4–P1_7).
+Both VCC=+5V (POR "high" = anode rail = LEDs off; pins are 6 V-rated, I2C
+VIH is a fixed 1.4 V so the 3.3 V trunk is legal); RSTN strapped +5V
+(internal pull-DOWN); 5 ms post-POR before I2C; ID reg 0x10 = 0x23.
+Brightness matching is the host-tested calibration table
+(`dash_calibration.h`, ISEL ×2/4 range) — the resistor derivation (plan 003
+U12) was superseded unfabbed. **Buttons stayed on MCU GPIO (KTD20)** — no
+firmware consumer, CAN is the real input; R28–R31 are 1 kΩ series parts.
+PD0–PD7 are freed. Lamp bit l drives TT(l+1); DIM regs 0x2C–0x2F on both ICs.
+
+**pcbnew scripting lessons (KiCad 10, all bisected the hard way, 2026-07-29):**
+- After `board.Remove(item)`, keep the Python proxy alive (a named list)
+  until `SaveBoard` — letting removed items be GC'd frees the C++ objects
+  and corrupts the SWIG session (unrelated proxies turn into raw
+  SwigPyObjects). The "memory leak … no destructor" warnings are this
+  safety working, not a problem.
+- One board per process: a second `LoadBoard` invalidates the first
+  board's wrappers.
+- `PCB_VIA.GetWidth()` needs a layer argument now (asserts without).
+- Do NOT trust `GetEffectiveShape().Collide()` for clearance work: it
+  under-covers segment midpoints between sampled probe points and
+  misreports via shapes on inner layers. Exact point-segment /
+  segment-segment math from raw endpoints converges; the shape oracle
+  does not. `tools/kicad_verify.py` (staged rules) is the only judge.
+- KiCadRoutingTools' route.py: `--rip-existing-nets` enables coordinated
+  reroutes; it necks below process minimums at fine-pitch pads (repair by
+  widening in place — 0.254 fits ON a 0.28 QFN pad) and its micro-vias
+  (0.15/0.18 drill) need replacing. Route order matters: route the most
+  boxed-in pad FIRST so fanouts nest (the last of three nets sharing one
+  escape mouth always loses — a QFN mouth between a pad column and a wall
+  fits exactly two 0.254 tracks).
+
+**Autorouting Board3 (2026-07-29, all paid for):** `tools/kicad_freeroute.py`
+wraps freerouting headless (portable JRE + jars in `C:\Users\kevin\Tools`).
+Facts it encodes: freerouting **2.2.4 infinite-loops** in
+`PolylineTrace.combine()` on this board's DSN — use **1.9.0**; KiCad's DSN
+export **returns False silently** for footprints with empty reference
+designators (Board3's four EasyEDA corner pads) — synthesize refs; the DSN
+reader pops a **modal warning dialog on any non-ASCII byte** (Ω in resistor
+values) even in batch mode and `-dct` does not dismiss it — strip to ASCII;
+KiCad's **SES import wipes and rebuilds every net named in the session**, so
+locked copper is lost wholesale (276 airwires) — session import is unusable
+for surgical work on a routed board. Bottom line: with all existing copper
+locked (KiCad does export locks as `fix` wires, all 2,801 honored),
+freerouting **could not route TT2 at all** — the mouth needed copper moved,
+and the final TT2/TT5/TT7 restack was laid by hand from complete window
+dumps with exact clearance math (track-track 0.3556, track-via 0.5286,
+via-via 0.7016 center-to-center at 0.254 mm/0.1016 mm rules).
+
+**Never window-filter board dumps by endpoint containment.** A track whose
+endpoints both lie outside the window is invisible even though it crosses it
+— that hid the full-width `VBUS_SENSE` Inner1 river (y95.014, x54–110) twice
+in one session and cost three routing iterations. Clip the segment against
+the window (Liang-Barsky) instead. Same family as the rule below.
+
 **Read board facts through `pcbnew`, never regex.** Three separate wrong
 conclusions in one session came from parsing `.kicad_pcb` as text: "the board has
 no tracks" (the file writes `(segment` followed by a newline, so a `\(segment `
