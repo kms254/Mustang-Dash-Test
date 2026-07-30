@@ -58825,7 +58825,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:C0805"
+		(property "Footprint" "ProPrj_New-easyedapro:C0603"
 			(at 132.08 287.02 0)
 			(hide yes)
 			(show_name no)
@@ -58836,7 +58836,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL21A226MAQNNNE/45783.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10A106KP8NNNC/19702.html"
 			(at 132.08 287.02 0)
 			(hide yes)
 			(show_name no)
@@ -58860,7 +58860,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL21A226MAQNNNE"
+		(property "Manufacturer Part" "CL10A106KP8NNNC"
 			(at 132.08 287.02 0)
 			(hide yes)
 			(show_name no)
@@ -58884,7 +58884,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C45783"
+		(property "Supplier Part" "C19702"
 			(at 132.08 287.02 0)
 			(hide yes)
 			(show_name no)
@@ -58908,7 +58908,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "22uF ±20% 25V"
+		(property "LCSC Part Name" "10uF ±10% 10V"
 			(at 132.08 287.02 0)
 			(hide yes)
 			(show_name no)

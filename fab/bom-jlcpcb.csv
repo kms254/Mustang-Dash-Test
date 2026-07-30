@@ -2,12 +2,13 @@ Comment,Designator,Footprint,LCSC Part #
 2.2uF,C3-C5,ProPrj_New-easyedapro:C0603,C23630
 100nF,"C6-C11,C15,C32-C37,C43-C46,C52-C56,C59-C65",ProPrj_New-easyedapro:C0603,C14663
 100nF,C17-C28,ProPrj_New-easyedapro:C0603,C1591
-22uF,"C29-C31,C48,C49,C66-C68",ProPrj_New-easyedapro:C0805,C45783
+22uF,"C29-C31,C48,C49,C66,C68",ProPrj_New-easyedapro:C0805,C45783
 4.7uF,"C38,C39",ProPrj_New-easyedapro:C0805,C1779
 1uF,"C40,C47,C50",ProPrj_New-easyedapro:C0603,C15849
 18pF,"C41,C42",ProPrj_New-easyedapro:C0603,C527046
 10uF,C51,ProPrj_New-easyedapro:C0805,C15850
 4.7nF,"C57,C58",ProPrj_New-easyedapro:C0603,C53987
+22uF,C67,ProPrj_New-easyedapro:C0603,C19702
 USBLC6-2SC6,D9,ProPrj_New-easyedapro:SOT-23-6_L2.9-W1.6-P0.95-LS2.8-BL,C7519
 DC-005-A250,DC1,ProPrj_New-easyedapro:DC-IN-TH_DC-005-2,C720558
 5034802000,FPC1-FPC3,ProPrj_New-easyedapro:FPC-SMD_5034802000,C234192
