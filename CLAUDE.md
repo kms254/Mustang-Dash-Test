@@ -380,6 +380,29 @@ PD0–PD7 are freed. Lamp bit l drives TT(l+1); DIM regs 0x2C–0x2F on both ICs
   escape mouth always loses — a QFN mouth between a pad column and a wall
   fits exactly two 0.254 tracks).
 
+**Autorouting Board3 (2026-07-29, all paid for):** `tools/kicad_freeroute.py`
+wraps freerouting headless (portable JRE + jars in `C:\Users\kevin\Tools`).
+Facts it encodes: freerouting **2.2.4 infinite-loops** in
+`PolylineTrace.combine()` on this board's DSN — use **1.9.0**; KiCad's DSN
+export **returns False silently** for footprints with empty reference
+designators (Board3's four EasyEDA corner pads) — synthesize refs; the DSN
+reader pops a **modal warning dialog on any non-ASCII byte** (Ω in resistor
+values) even in batch mode and `-dct` does not dismiss it — strip to ASCII;
+KiCad's **SES import wipes and rebuilds every net named in the session**, so
+locked copper is lost wholesale (276 airwires) — session import is unusable
+for surgical work on a routed board. Bottom line: with all existing copper
+locked (KiCad does export locks as `fix` wires, all 2,801 honored),
+freerouting **could not route TT2 at all** — the mouth needed copper moved,
+and the final TT2/TT5/TT7 restack was laid by hand from complete window
+dumps with exact clearance math (track-track 0.3556, track-via 0.5286,
+via-via 0.7016 center-to-center at 0.254 mm/0.1016 mm rules).
+
+**Never window-filter board dumps by endpoint containment.** A track whose
+endpoints both lie outside the window is invisible even though it crosses it
+— that hid the full-width `VBUS_SENSE` Inner1 river (y95.014, x54–110) twice
+in one session and cost three routing iterations. Clip the segment against
+the window (Liang-Barsky) instead. Same family as the rule below.
+
 **Read board facts through `pcbnew`, never regex.** Three separate wrong
 conclusions in one session came from parsing `.kicad_pcb` as text: "the board has
 no tracks" (the file writes `(segment` followed by a newline, so a `\(segment `
