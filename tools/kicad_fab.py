@@ -111,9 +111,14 @@ def find_project(target: Path) -> tuple[Path, Path]:
 
 
 def export_bom(schematic: Path, out: Path) -> list[dict]:
+    # --ref-range-delimiter "" disables reference ranges. The default collapses
+    # consecutive refs into "C3-C5", which JLCPCB's upload parser treats as one
+    # literal designator that matches nothing in the CPL -- the site rejects the
+    # pair outright ("The BOM file doesn't match the CPL file").
     proc = _run("sch", "export", "bom",
                 "--fields", BOM_FIELDS, "--labels", BOM_LABELS,
                 "--group-by", BOM_GROUP_BY, "--exclude-dnp",
+                "--ref-range-delimiter", "",
                 "-o", str(out), str(schematic))
     # kicad-cli reports annotation problems on stdout rather than failing. An
     # unannotated symbol reaches the BOM as designator "?" and cannot be ordered.
