@@ -379,6 +379,23 @@ PD0–PD7 are freed. Lamp bit l drives TT(l+1); DIM regs 0x2C–0x2F on both ICs
   boxed-in pad FIRST so fanouts nest (the last of three nets sharing one
   escape mouth always loses — a QFN mouth between a pad column and a wall
   fits exactly two 0.254 tracks).
+- Call `board.BuildConnectivity()` after every `ZONE_FILLER.Fill()` and
+  before every `GetUnconnectedCount()` — `GetConnectivity()` alone can
+  read pre-fill state and lies in BOTH directions (accepted a trim that
+  orphaned LED7's +5V; then vetoed eight legal removals against the
+  baked-in airwire). Details:
+  `docs/solutions/developer-experience/build-connectivity-before-counting-airwires.md`.
+- `t is v` NEVER matches across two `GetTracks()` enumerations — every
+  call mints fresh SWIG proxies, so identity-based self-exclusion lets an
+  item collide with itself ("no feasible spot" that looks like tight
+  geometry). Exclude by coordinates/value. Mutation through any proxy
+  still works; only identity breaks.
+- Headless DRC on a staged board copy needs the FULL sidecar set:
+  `.kicad_pro`, `.kicad_dru`, **`fp-lib-table` + the `.pretty` dirs** —
+  without the last two, kicad-cli reports mass `lib_footprint_issues`
+  "library not found" phantoms (120 on Board3) that also mask the real
+  mismatches. `tools/kicad_verify.py` stages only pro+dru (fine for its
+  error gate; not for `--severity-all` audits).
 
 **Autorouting Board3 (2026-07-29, all paid for):** `tools/kicad_freeroute.py`
 wraps freerouting headless (portable JRE + jars in `C:\Users\kevin\Tools`).
