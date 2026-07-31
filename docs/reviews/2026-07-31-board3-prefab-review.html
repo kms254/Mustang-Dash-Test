@@ -1,0 +1,473 @@
+<title>Board3 Pre-Fab Review — NO-GO</title>
+<style>
+  :root {
+    --paper: #FAFAF8;
+    --ink: #1B2320;
+    --ink-soft: #4A554F;
+    --ink-faint: #79847D;
+    --line: #DFE3DE;
+    --card: #FFFFFF;
+    --copper: #A8622B;
+    --copper-soft: #F3E8DD;
+    --crit: #BE3B2B;
+    --crit-bg: #FAECE9;
+    --high: #B27A14;
+    --high-bg: #F9F1DD;
+    --med: #5B6BAE;
+    --med-bg: #ECEFF8;
+    --low: #79847D;
+    --low-bg: #F0F2EF;
+    --good: #2E7D4F;
+    --good-bg: #E7F2EB;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", system-ui, Roboto, "Helvetica Neue", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #10160F;
+      --ink: #E4E9E2;
+      --ink-soft: #A9B4AB;
+      --ink-faint: #6E7A70;
+      --line: #26302A;
+      --card: #171F16;
+      --copper: #D08A4B;
+      --copper-soft: #2A2118;
+      --crit: #E06152;
+      --crit-bg: #2D1A16;
+      --high: #D9A742;
+      --high-bg: #2B2312;
+      --med: #8E9CD8;
+      --med-bg: #1B2030;
+      --low: #8B968D;
+      --low-bg: #1C231D;
+      --good: #5CAE7F;
+      --good-bg: #14251B;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #10160F; --ink: #E4E9E2; --ink-soft: #A9B4AB; --ink-faint: #6E7A70;
+    --line: #26302A; --card: #171F16; --copper: #D08A4B; --copper-soft: #2A2118;
+    --crit: #E06152; --crit-bg: #2D1A16; --high: #D9A742; --high-bg: #2B2312;
+    --med: #8E9CD8; --med-bg: #1B2030; --low: #8B968D; --low-bg: #1C231D;
+    --good: #5CAE7F; --good-bg: #14251B;
+  }
+  :root[data-theme="light"] {
+    --paper: #FAFAF8; --ink: #1B2320; --ink-soft: #4A554F; --ink-faint: #79847D;
+    --line: #DFE3DE; --card: #FFFFFF; --copper: #A8622B; --copper-soft: #F3E8DD;
+    --crit: #BE3B2B; --crit-bg: #FAECE9; --high: #B27A14; --high-bg: #F9F1DD;
+    --med: #5B6BAE; --med-bg: #ECEFF8; --low: #79847D; --low-bg: #F0F2EF;
+    --good: #2E7D4F; --good-bg: #E7F2EB;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+    margin: 0;
+    padding: 0 20px 80px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 74ch; margin: 0 auto; }
+
+  code, .mono { font-family: var(--mono); font-size: 0.88em; }
+  code {
+    background: var(--low-bg);
+    padding: 0.08em 0.35em;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- header ---------- */
+  header { padding-top: 44px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--copper);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(26px, 4.4vw, 38px);
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    margin: 0 0 6px;
+    text-wrap: balance;
+    font-weight: 700;
+  }
+  .meta {
+    color: var(--ink-faint);
+    font-size: 14px;
+    margin: 0 0 28px;
+  }
+  .meta code { background: none; padding: 0; color: var(--ink-soft); white-space: normal; }
+
+  /* ---------- verdict banner ---------- */
+  .verdict {
+    border: 1.5px solid var(--crit);
+    border-left-width: 6px;
+    background: var(--crit-bg);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 0 0 14px;
+  }
+  .verdict .v-label {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.06em;
+    color: var(--crit);
+  }
+  .verdict p { margin: 6px 0 0; color: var(--ink-soft); font-size: 15px; }
+  .verdict strong { color: var(--ink); }
+
+  /* ---------- lens strip ---------- */
+  .lenses {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+    margin: 22px 0 40px;
+  }
+  .lens {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .lens .l-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 4px;
+  }
+  .lens .l-verdict { font-size: 13px; font-weight: 600; line-height: 1.3; }
+  .lens .ok { color: var(--good); }
+  .lens .warn { color: var(--high); }
+  .lens .bad { color: var(--crit); }
+
+  /* ---------- sections ---------- */
+  h2 {
+    font-size: 21px;
+    letter-spacing: -0.01em;
+    margin: 48px 0 6px;
+    text-wrap: balance;
+  }
+  .h2-sub { color: var(--ink-faint); font-size: 14px; margin: 0 0 20px; }
+
+  /* ---------- finding cards ---------- */
+  .finding {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin: 0 0 14px;
+    overflow: hidden;
+  }
+  .finding.sev-crit { border-left: 5px solid var(--crit); }
+  .finding.sev-high { border-left: 5px solid var(--high); }
+  .f-body { padding: 15px 18px 13px; }
+  .f-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 7px; }
+  .chip {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .chip-crit { background: var(--crit); color: var(--paper); }
+  .chip-high { background: var(--high-bg); color: var(--high); border: 1px solid var(--high); }
+  .chip-verified { background: var(--good-bg); color: var(--good); border: 1px solid var(--good); }
+  .chip-lens { background: var(--low-bg); color: var(--ink-soft); font-weight: 500; letter-spacing: 0.04em; }
+  .f-title { font-size: 16px; font-weight: 650; margin: 0 0 6px; line-height: 1.35; text-wrap: balance; }
+  .f-text { font-size: 14.5px; color: var(--ink-soft); margin: 0; }
+  .f-text strong { color: var(--ink); }
+  .f-fix {
+    margin: 10px 0 0;
+    font-size: 14px;
+    padding: 9px 12px;
+    background: var(--copper-soft);
+    border-radius: 6px;
+    color: var(--ink);
+  }
+  .f-fix::before {
+    content: "FIX";
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--copper);
+    display: inline-block;
+    margin-right: 8px;
+  }
+  details { border-top: 1px solid var(--line); }
+  summary {
+    cursor: pointer;
+    padding: 9px 18px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+    user-select: none;
+  }
+  summary:hover, summary:focus-visible { color: var(--copper); }
+  summary:focus-visible { outline: 2px solid var(--copper); outline-offset: -2px; }
+  .evidence {
+    padding: 4px 18px 15px;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    border-top: 1px dashed var(--line);
+  }
+  .evidence p { margin: 8px 0 0; }
+
+  /* ---------- ranked table ---------- */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    text-align: left;
+    font-weight: 600;
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  td { padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.sev { white-space: nowrap; }
+  .pill {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 1.5px 7px;
+    border-radius: 999px;
+  }
+  .pill-med { background: var(--med-bg); color: var(--med); }
+  .pill-low { background: var(--low-bg); color: var(--low); }
+  td .src { color: var(--ink-faint); font-size: 12px; font-family: var(--mono); }
+
+  /* ---------- solid / caveats ---------- */
+  .solid {
+    border: 1.5px solid var(--good);
+    border-left-width: 6px;
+    background: var(--good-bg);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 0;
+    font-size: 14.5px;
+  }
+  .solid ul { margin: 8px 0 0; padding-left: 20px; }
+  .solid li { margin: 4px 0; }
+  .callout {
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--med);
+    background: var(--card);
+    border-radius: 6px;
+    padding: 13px 17px;
+    margin: 0 0 12px;
+    font-size: 14px;
+    color: var(--ink-soft);
+  }
+  .callout strong { color: var(--ink); }
+
+  /* ---------- checklist ---------- */
+  ol.blockers { padding-left: 24px; margin: 12px 0 0; }
+  ol.blockers li { margin: 8px 0; font-size: 15px; }
+
+  .method { font-size: 13.5px; color: var(--ink-faint); }
+  .method p { margin: 8px 0; }
+  footer {
+    margin-top: 56px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    font-family: var(--mono);
+  }
+</style>
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">Pre-Fabrication Design Review · Mustang Dash</p>
+  <h1>Board3 — H755 three-panel carrier</h1>
+  <p class="meta num">2026-07-31 · branch <code>fix/board3-warning-inbox</code> · <code>kicad/board3/…2026-07-27.kicad_pcb</code> · 250.254 × 50.254&nbsp;mm · 4-layer · 144 footprints</p>
+</header>
+
+<div class="verdict">
+  <span class="v-label">■ NO-GO — do not submit to fabrication yet</span>
+  <p>One <strong>CONFIRMED CRITICAL</strong> and five <strong>CONFIRMED HIGH</strong> findings stand. Every one survived two independent adversarial refutation attempts (0 of 12 votes refuted). All are footprint-library, schematic, or single-part fixes — <strong>days of work, not a redesign</strong>. The copper itself is clean.</p>
+</div>
+
+<div class="lenses">
+  <div class="lens"><div class="l-name">fab-readiness</div><div class="l-verdict warn">Ready, with warnings</div></div>
+  <div class="lens"><div class="l-name">drc-routing</div><div class="l-verdict ok">DRC-clean · 0 violations</div></div>
+  <div class="lens"><div class="l-name">adversarial-ee</div><div class="l-verdict bad">2 subsystems FAIL</div></div>
+  <div class="lens"><div class="l-name">simplicity</div><div class="l-verdict ok">Earns its place</div></div>
+  <div class="lens"><div class="l-name">dfm</div><div class="l-verdict ok">Within capability</div></div>
+  <div class="lens"><div class="l-name">dfa</div><div class="l-verdict bad">Assembly risk</div></div>
+</div>
+
+<h2>Confirmed blockers</h2>
+<p class="h2-sub">Each verified by two independent agents instructed to refute it. None were refuted.</p>
+
+<div class="finding sev-crit">
+  <div class="f-body">
+    <div class="f-top">
+      <span class="chip chip-crit">CRITICAL</span>
+      <span class="chip chip-verified">✓ 2/2 verified</span>
+      <span class="chip chip-lens">adversarial-ee</span>
+    </div>
+    <p class="f-title">AW9523B reset sequencing violated on both telltale drivers (U11, U12)</p>
+    <p class="f-text"><code>RSTN</code> (pin 23) is hard-tied to <code>/+5V</code> on both ICs. The datasheet mandates RSTN held low ~100&nbsp;µs after VCC rises — "otherwise, the device may work incorrectly." Since the series resistors and DMOS driver were deliberately removed (KTD17), the POR-default-safe GPIO state is the <strong>only passive protection for all eight telltale LEDs</strong>, and that argument depends on the very POR logic this sequencing rule guards. A vehicle 5&nbsp;V rail will brownout-cycle in exactly the way that breaks it.</p>
+    <p class="f-fix">RC delay or reset supervisor between <code>/+5V</code> and <code>RSTN</code> on both U11 and U12 — or a documented brownout-soak acceptance across many power cycles.</p>
+  </div>
+  <details><summary>evidence</summary><div class="evidence">
+    <p>Netlist proof (<code>kicad-cli sch export netlist</code>): net <code>/+5V</code> contains both <code>U11 pin 23 RSTN</code> and <code>U12 pin 23 RSTN</code> as members of the same net as VCC — zero series impedance, not a separate RSTN net joined by a resistor.</p>
+    <p>AWINIC AW9523B datasheet (Mar&nbsp;2024 V2.4), POWER ON section: "After power-up, about 100us delay is required before RSTN set to high" (Figure&nbsp;6 shows RSTN as a distinct signal held low after VBAT establishes). Internal R_RSTN pull-down is 100&nbsp;kΩ typ — the chip's own default is low; the hard tie overrides it. AD-strapping is separately verified POR-safe (both ICs land on Table&nbsp;1's row driving P1_4–P1_7 HIGH = zero LED differential at POR) — but only if POR completes correctly.</p>
+  </div></details>
+</div>
+
+<div class="finding sev-high">
+  <div class="f-body">
+    <div class="f-top">
+      <span class="chip chip-high">HIGH</span>
+      <span class="chip chip-verified">✓ 2/2 verified</span>
+      <span class="chip chip-lens">adversarial-ee</span>
+    </div>
+    <p class="f-title">No overcurrent protection anywhere on the board</p>
+    <p class="f-text">The full BOM contains no fuse, PTC, or polyfuse of any kind. The barrel jack (DC1) feeds straight through the ideal-diode path (Q2 + U6 LM74700 — reverse polarity: covered) with <strong>no current-limiting element</strong>. A stale schematic note says the intended supply is "dedicated 5V/15A" — if that's real, a board fault is destructive, not just inconvenient.</p>
+    <p class="f-fix">Resettable PTC sized to actual load, between DC1 and Q2/U6. Confirm or delete the "5V/15A" annotation while there.</p>
+  </div>
+  <details><summary>evidence</summary><div class="evidence">
+    <p><code>fab_audit/bom.csv</code> (51 lines): only L1 (ferrite bead) and L2 (buck inductor) — no fuse part class. Netlist confirms DC1 → Q2 (AO4406A) gated by U6 onto <code>/+5V_BARREL</code> with no current-sense or limit element. Stale annotation at <code>.kicad_sch</code> line ~14897.</p>
+  </div></details>
+</div>
+
+<div class="finding sev-high">
+  <div class="f-body">
+    <div class="f-top">
+      <span class="chip chip-high">HIGH</span>
+      <span class="chip chip-verified">✓ 2/2 verified</span>
+      <span class="chip chip-lens">fab-readiness</span>
+    </div>
+    <p class="f-title">U2 QSPI flash: 4 units of live JLCPCB stock</p>
+    <p class="f-text"><code>W25Q512JVEIQ</code> (LCSC <code>C7389628</code>, WSON-8, Extended part, qty&nbsp;1 required) showed <span class="num"><strong>stock = 4</strong></span> at review time. Other package variants of the same MPN: 3, 0, and 0. One other customer's order between quote and submission stalls the whole PCBA run. Related: U1 (STM32H755ZIT6, <code>C730212</code>) sits at <span class="num">37</span> — survivable, but thin.</p>
+    <p class="f-fix">Re-verify live stock at the moment of order; qualify a pin-compatible alternative (different W25Q512JV package/reel) beforehand. Re-check U1 too.</p>
+  </div>
+  <details><summary>evidence</summary><div class="evidence">
+    <p>Live <code>jlc_stock_check</code> query, verified 2026-07-31: C7389628 stock=4; C2986165 stock=3; C3034691 and C2895611 both stock=0.</p>
+  </div></details>
+</div>
+
+<div class="finding sev-high">
+  <div class="f-body">
+    <div class="f-top">
+      <span class="chip chip-high">HIGH</span>
+      <span class="chip chip-verified">✓ 2/2 verified</span>
+      <span class="chip chip-lens">dfa</span>
+    </div>
+    <p class="f-title">AW9523B footprint has no courtyard — every courtyard check silently passed U11/U12 by testing nothing</p>
+    <p class="f-text">The AW9523BTQR footprint contains zero <code>F.CrtYd</code>/<code>B.CrtYd</code> geometry (confirmed by reading both placed instances end-to-end and grepping the whole file). Courtyard-overlap tooling reports "clean" for these two ICs because there is nothing to test — a hard blind spot on exactly the two parts with the highest field-diagnosis risk. Manual reconstruction puts U12's body within <span class="num">~0.4–0.55&nbsp;mm</span> of LED6's body, never checked by any tool.</p>
+    <p class="f-fix">Add an F.CrtYd rectangle (~4.3 × 4.3&nbsp;mm) to the AW9523BTQR footprint in <code>JLCImport.pretty</code>, re-run the courtyard check, and eyeball U12 vs LED6 in the 2D view.</p>
+  </div>
+</div>
+
+<div class="finding sev-high">
+  <div class="f-body">
+    <div class="f-top">
+      <span class="chip chip-high">HIGH</span>
+      <span class="chip chip-verified">✓ 2/2 verified</span>
+      <span class="chip chip-lens">dfa</span>
+    </div>
+    <p class="f-title">LED4, LED6, LED7 have no polarity mark on printed silkscreen</p>
+    <p class="f-text">Three of the eight telltale LEDs carry their polarity triangle only on <strong>F.Fab — which is never printed</strong>. Actual silkscreen is two symmetric lines: nothing distinguishes anode from cathode on the assembled board. A reversed telltale LED fails as <em>wrong indicator lit</em> — the hardest field symptom to trace back to a placement error. The other five LED footprints on this board all carry a proper silk mark.</p>
+    <p class="f-fix">Add a visible cathode mark on F.SilkS to the <code>HL-A-3528H203BC</code> and <code>HL-A-3528S35FC</code> footprints, matching the pattern the other LED footprints already use.</p>
+  </div>
+  <details><summary>evidence</summary><div class="evidence">
+    <p>Verified two ways: direct read of both board instances (2 plain symmetric <code>fp_line</code> on F.SilkS each), and F.SilkS element counts across the master <code>JLCImport.pretty</code> library — affected footprints: 3 (2 lines + hidden ref text); unaffected LED footprints: 6–19 elements including asymmetric marks.</p>
+  </div></details>
+</div>
+
+<div class="finding sev-high">
+  <div class="f-body">
+    <div class="f-top">
+      <span class="chip chip-high">HIGH</span>
+      <span class="chip chip-verified">✓ 2/2 verified</span>
+      <span class="chip chip-lens">dfa</span>
+    </div>
+    <p class="f-title">Solid 100% paste apertures under all three exposed-pad parts (U11, U12, U2)</p>
+    <p class="f-text">Both AW9523B QFN-24s (EP <span class="num">2.8 × 2.8&nbsp;mm</span>) and the W25Q512 WSON-8 (EP <span class="num">5.2 × 4.65&nbsp;mm</span>) print a single unwindowed paste deposit covering the entire exposed pad. Whole-board grep: zero <code>solder_paste_margin</code> anywhere. A solid deposit that size traps flux outgassing during reflow — the standard cause of voiding, part float, and tombstoning under EPs (IPC-7093 calls for ~50–80% windowed coverage).</p>
+    <p class="f-fix">Segment the EP paste apertures to ~50–70% checkerboard coverage in both footprints before the stencil is ordered.</p>
+  </div>
+</div>
+
+<h2>Fix in the same pass</h2>
+<p class="h2-sub">Not blocking on their own, but cheap now and expensive after gerbers ship. MEDIUM/LOW items were reported by one lens each and not independently re-verified.</p>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Sev</th><th>Finding</th><th>Lens</th></tr></thead>
+  <tbody>
+    <tr><td class="sev"><span class="pill pill-med">MED</span></td><td>C67 sourced to a <strong>10&nbsp;µF</strong> part (<code>C19702</code>) but schematic Value says "22uF" — and the board footprint already says "10uF". Three artifacts, two answers. Make them agree.</td><td><span class="src">fab-readiness</span></td></tr>
+    <tr><td class="sev"><span class="pill pill-med">MED</span></td><td><span class="num">~198 of 199</span> vias sit within 0.0025&nbsp;mm of JLCPCB's absolute 0.15&nbsp;mm annular-ring floor. Passes DRC with zero registration margin. Bump the default via to 0.7/0.35&nbsp;mm.</td><td><span class="src">dfm</span></td></tr>
+    <tr><td class="sev"><span class="pill pill-med">MED</span></td><td>Via-in-pad on U1 pin 93 (<code>BTN1</code>) — known residual, invisible to DRC; solder-wicking risk on a live MCU I/O. Use JLCPCB's plugged/tented option or re-fan the escape.</td><td><span class="src">dfm</span></td></tr>
+    <tr><td class="sev"><span class="pill pill-med">MED</span></td><td>P1/P2 terminal blocks <span class="num">~0.195&nbsp;mm</span> and DC1 <span class="num">~0.224&nbsp;mm</span> from the board edge — inside typical ±0.1–0.2&nbsp;mm depaneling tolerance. Nudge inward 0.3–0.5&nbsp;mm.</td><td><span class="src">dfa</span></td></tr>
+    <tr><td class="sev"><span class="pill pill-med">MED</span></td><td>No <code>(stackup)</code> block recorded — every impedance number rests on an assumed (currently-correct) JLC04161H-7628 template nothing enforces. Select explicitly at order time and write the block.</td><td><span class="src">dfm</span></td></tr>
+    <tr><td class="sev"><span class="pill pill-med">MED</span></td><td>CAN2 routed at <span class="num">~0.15&nbsp;mm</span> edge gap — USB's 90&nbsp;Ω coupling, the opposite of CAN's 120&nbsp;Ω target; CAN1 legs uncoupled for most of their run. Decide if 120&nbsp;Ω matters at 1&nbsp;Mbps, then fix or retire the target.</td><td><span class="src">dfm</span></td></tr>
+    <tr><td class="sev"><span class="pill pill-med">MED</span></td><td>+3V3 bulk (C2+C16 = <span class="num">440&nbsp;µF</span>) is ~6.5× above the TPS563201's D-CAP2 stability window (20–68&nbsp;µF). Independent of the backlight-current gate that's been blocking it — fix on its own merits.</td><td><span class="src">adversarial-ee</span></td></tr>
+    <tr><td class="sev"><span class="pill pill-med">MED</span></td><td>AW9523B VCC decoupling (C61/C62) at 100&nbsp;nF — the datasheet's floor, 10× under both typical application circuits (1&nbsp;µF), sited 4.5–5.5&nbsp;mm out. Move to 1&nbsp;µF or bench-verify droop.</td><td><span class="src">adversarial-ee</span></td></tr>
+    <tr><td class="sev"><span class="pill pill-med">MED</span></td><td>I2C pull-ups (R5/R8 = 4.7&nbsp;kΩ to +3V3) unverified against real bus capacitance; estimate puts Fast-mode rise time at/over the 300&nbsp;ns budget. Only bites at 400&nbsp;kHz — confirm firmware SCL rate.</td><td><span class="src">adversarial-ee</span></td></tr>
+    <tr><td class="sev"><span class="pill pill-med">MED</span></td><td>Three-independent-SPI topology (SPI1/2/4, 33&nbsp;Ω series each) structurally removes the shared-bus crosstalk mechanism — but has zero bench data. No CLAUDE.md clock number transfers. Plan a clock-walk on assembled hardware.</td><td><span class="src">adversarial-ee</span></td></tr>
+    <tr><td class="sev"><span class="pill pill-med">MED</span></td><td>U3/L2 courtyard overlap (0.254 × 4.3&nbsp;mm) with a body-height mismatch — likely normal tight buck layout; worth a GUI look or a 0.3&nbsp;mm nudge.</td><td><span class="src">dfa</span></td></tr>
+    <tr><td class="sev"><span class="pill pill-med">MED</span></td><td>USBC1 courtyard overhangs the left board edge by <span class="num">~0.37&nbsp;mm</span> (real pads are &gt;3&nbsp;mm clear). Nudge, or record an explicit edge-launch exception.</td><td><span class="src">dfa</span></td></tr>
+    <tr><td class="sev"><span class="pill pill-med">MED</span></td><td>U4 (CH224K) is a 100&nbsp;W/20&nbsp;V PD trigger on a board that only ever uses 5&nbsp;V, legacy protocols wired inert, no documented rationale. CH221K does the actually-used job — but the package differs, so a swap needs the full KTD12 GUI sync. Optional; needs Kevin's call.</td><td><span class="src">simplicity</span></td></tr>
+    <tr><td class="sev"><span class="pill pill-low">LOW</span></td><td>Stale schematic annotations describe deleted architecture: a "U10" driver, resistors R25–R48, external SN65HVD230 breakouts, and the "5V/15A" supply note. Delete or mark SUPERSEDED.</td><td><span class="src">adversarial-ee</span></td></tr>
+    <tr><td class="sev"><span class="pill pill-low">LOW</span></td><td>Silk-over-pad checking is structurally disabled (<code>min_silk_clearance = 0.0</code>). Set to 0.15&nbsp;mm and re-run, or visually pass U1/U11/U12. Possible U12-refdes/C62 overlap (estimate only).</td><td><span class="src">dfm · dfa</span></td></tr>
+    <tr><td class="sev"><span class="pill pill-low">LOW</span></td><td>No local fiducials near the 0.5&nbsp;mm-pitch U11/U12, each 32–45&nbsp;mm from the nearest global fiducial on an unusually long board. Optional local pairs.</td><td><span class="src">dfa</span></td></tr>
+    <tr><td class="sev"><span class="pill pill-low">LOW</span></td><td>Commit <code>a995349</code> tracked ~2.9&nbsp;MB of JLCImport footprint/model files nothing references — the bulk caps use the generic easyedapro footprints. Check whether an intended swap silently didn't happen.</td><td><span class="src">fab-readiness</span></td></tr>
+    <tr><td class="sev"><span class="pill pill-low">LOW</span></td><td>Drill aspect-ratio ceiling for JLC's standard process couldn't be confirmed live — the 0.2&nbsp;mm via-in-pad implies 8:1 against 1.6&nbsp;mm thickness. Unverified, not passing.</td><td><span class="src">dfm</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>What's genuinely solid</h2>
+<div class="solid">
+  The copper is in the best state this board has been in — and that's double-verified, not self-reported:
+  <ul>
+    <li><strong>0 DRC violations at all severities</strong>, confirmed by two independent tool paths. This branch resolved all <span class="num">150</span> baseline violations, identity-diffed — nothing was traded for a new violation.</li>
+    <li>Every multi-pad net fully connected, including the historically fragile <code>/+5V</code> telltale daisy-chain (re-derived via standalone pcbnew connectivity graph, not regex).</li>
+    <li>Zone topology correct: 3× <code>/GND</code> filled, 1× <code>/+5V</code>, keepouts netless by definition.</li>
+    <li>All measured geometry inside every JLCPCB capability limit that could be live-verified; staged rules match JLC's published 4-layer/1&nbsp;oz numbers.</li>
+    <li>Reverse-polarity and ESD protection verified sound (LM74700 ideal-diode ORing, USBLC6-2SC6, TJA1051's rated ±8&nbsp;kV on the CAN terminals).</li>
+  </ul>
+</div>
+
+<h2>Caveats on the review itself</h2>
+<div class="callout"><strong>The EasyEDA bridge was down all session</strong> — the entire electrical review ran against the KiCad copy, and conversion is one-way. EasyEDA is the authoritative source: re-run ERC / power-tree / operating-point through the bridge before final sign-off.</div>
+<div class="callout"><strong>Two <code>kicad_interface.py</code> processes</strong> (PIDs 8264, 33472) were observed running concurrently. One may be a stale orphan — confirm before killing either; they may be shared across agent sessions like the EasyEDA bridge.</div>
+
+<h2>Path to GO</h2>
+<ol class="blockers">
+  <li>RC delay or supervisor on U11/U12 <code>RSTN</code> — or a documented brownout-soak acceptance.</li>
+  <li>PTC on the barrel input, sized to actual load.</li>
+  <li>Footprint-library pass: AW9523B courtyard · LED4/6/7 silk polarity marks · windowed EP paste apertures. All pre-stencil, all scriptable.</li>
+  <li>Re-verify U2 (and U1) stock at the moment of order, alternative qualified.</li>
+</ol>
+<p style="font-size:14.5px; color:var(--ink-soft); margin-top:14px;">Strongly recommended in the same pass: C67 reconciliation, via-margin bump, via-in-pad plugging, edge-clearance nudges, explicit stackup selection, and the EasyEDA-side ERC re-run. Once the four blockers close, the copper-level state supports a GO.</p>
+
+<h2>Method</h2>
+<div class="method">
+  <p>Six specialist review lenses ran in parallel against the full current board state (not the branch diff): fab-readiness / sourcing, DRC &amp; routing topology, adversarial electrical engineering, complexity reduction, DFM fab-capability, and DFA assembly. <span class="num">637</span> tool calls across <span class="num">19</span> agents; live JLCPCB stock and capability lookups; DRC re-run from scratch both via the KiCad MCP and via <code>kicad_verify.py</code> under KiCad's own interpreter.</p>
+  <p>Every CRITICAL/HIGH finding was then handed to two independent verification agents instructed to refute it using their own tool access. All six findings survived <span class="num">12/12</span> votes. MEDIUM/LOW findings passed through unverified and are labeled as such.</p>
+</div>
+
+<footer>Board3 pre-fab review · run wf_1e7192de-cff · 2026-07-31 · Mustang-Dash-Test</footer>
+</div>
