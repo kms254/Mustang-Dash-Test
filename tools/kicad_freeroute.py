@@ -117,7 +117,7 @@ def main():
     if not args.no_lock:
         for t in board.GetTracks():
             t.SetLocked(True)
-        print("locked %d existing tracks/vias as fixed" % board.GetTracks().size())
+        print("locked %d existing tracks/vias as fixed" % len(board.GetTracks()))
 
     tmpdir = tempfile.mkdtemp(prefix="freeroute-")
     dsn = os.path.join(tmpdir, "board.dsn")
