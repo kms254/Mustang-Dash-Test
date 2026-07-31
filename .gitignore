@@ -59,3 +59,9 @@ __pycache__/
 fab/gerbers/
 fab/gerbers-jlcpcb.zip
 fab/*-gerbers.zip
+
+# KiCanvas bundle, cached on first run of tools/kicad_live_view.py. Half a
+# megabyte of third-party build output for a viewer -- not source, and nothing
+# in the build or the fab package depends on it. Delete it to re-fetch, or pass
+# --refresh-viewer.
+tools/vendor/

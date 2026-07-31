@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KiCad — live view</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex; flex-direction: column;
+    background: #14161a; color: #d8dde5;
+    font: 13px/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 7px 12px; border-bottom: 1px solid #2a2f38; background: #1b1e24;
+    flex: 0 0 auto; white-space: nowrap; overflow: hidden;
+  }
+  #dot { width: 9px; height: 9px; border-radius: 50%; background: #3f8; flex: 0 0 auto; }
+  #dot.writing { background: #fb3; }
+  #dot.error   { background: #f55; }
+  #dot.paused  { background: #667; }
+  #name { color: #fff; font-weight: 600; overflow: hidden; text-overflow: ellipsis; max-width: 30ch; }
+  .meta { color: #8b93a1; overflow: hidden; text-overflow: ellipsis; }
+  .grow { flex: 1 1 auto; }
+  button, label {
+    background: #262b33; color: #d8dde5; border: 1px solid #39404b;
+    border-radius: 5px; padding: 4px 9px; font: inherit; cursor: pointer;
+  }
+  button:hover, label:hover { background: #2f3641; }
+  button.on { background: #2d5fa8; border-color: #4d84d6; color: #fff; }
+  label { display: flex; align-items: center; gap: 6px; }
+  .group { display: flex; gap: 4px; align-items: center; }
+  .group.hide { display: none; }
+  #stage { flex: 1 1 auto; position: relative; min-height: 0; }
+  kicanvas-embed, model-viewer { display: block; width: 100%; height: 100%; }
+  model-viewer { --poster-color: transparent; background: #1a1d22; }
+  #shot { width: 100%; height: 100%; object-fit: contain; background: #23262b; }
+  .pane { position: absolute; inset: 0; }
+  .pane[hidden] { display: none; }
+  #flash {
+    position: absolute; inset: 0; pointer-events: none;
+    box-shadow: inset 0 0 0 0 #4ea1ff; transition: box-shadow .5s ease-out;
+  }
+  #flash.hit { box-shadow: inset 0 0 0 3px #4ea1ff; transition: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <span id="dot"></span>
+  <span id="name">loading…</span>
+
+  <span class="group">
+    <button id="tab2d" class="on">2D</button>
+    <button id="tab3d">3D</button>
+  </span>
+
+  <span class="group hide" id="modes">
+    <button data-kind="snapshot" class="on">snapshot ~3s</button>
+    <button data-kind="model">model ~30s</button>
+  </span>
+
+  <span class="group hide" id="views">
+    <button data-view="iso" class="on">iso</button>
+    <button data-view="top">top</button>
+    <button data-view="front">front</button>
+    <button data-view="right">right</button>
+    <button data-view="iso-bot">iso ↓</button>
+    <button data-view="bottom">bottom</button>
+  </span>
+
+  <label class="hide" id="detailWrap"><input type="checkbox" id="detail"> copper</label>
+
+  <span class="meta" id="stat"></span>
+  <span class="grow"></span>
+  <label><input type="checkbox" id="follow" checked> auto-reload</label>
+  <button id="now">reload now</button>
+</header>
+
+<div id="stage">
+  <div class="pane" id="pane2d"></div>
+  <div class="pane" id="pane3d" hidden><img id="shot" alt="3D render"></div>
+  <div id="flash"></div>
+</div>
+
+<script type="module" src="/kicanvas.js"></script>
+<script type="module" src="/model-viewer.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const pane2d = $("pane2d"), pane3d = $("pane3d"), flash = $("flash");
+const follow = $("follow"), detail = $("detail");
+
+const ui = { tab: "2d", kind: "snapshot", view: "iso", detail: false };
+let shown2d = -1;       // board rev rendered in the 2D pane
+let shown3d = "";       // artefact key rendered in the 3D pane
+let latest = null;      // most recent /rev payload
+
+/* ---------------------------------------------------------------- 2D pane */
+/* KiCanvas exposes no reload API, so a new revision means a fresh
+   <kicanvas-embed>. That resets the camera, which is useless when you are
+   watching one corner of a board change -- so dig the camera out of the shadow
+   DOM and put it back. Entirely best-effort: it walks internals that are not a
+   public contract, and every failure degrades to the default zoom-to-board. */
+function findViewer(root, depth = 0) {
+  if (!root || depth > 10) return null;
+  const kids = [
+    ...(root.shadowRoot ? root.shadowRoot.children : []),
+    ...(root.children || []),
+  ];
+  for (const el of kids) {
+    if (el.viewer && el.viewer.viewport && el.viewer.viewport.camera) return el.viewer;
+    const found = findViewer(el, depth + 1);
+    if (found) return found;
+  }
+  return null;
+}
+
+function saveCamera(embed) {
+  try {
+    const cam = findViewer(embed)?.viewport?.camera;
+    return cam ? { x: cam.center.x, y: cam.center.y, zoom: cam.zoom, rotation: cam.rotation } : null;
+  } catch { return null; }
+}
+
+function restoreCamera(embed, saved, tries = 0) {
+  if (!saved || tries > 60) return;
+  let viewer = null;
+  try { viewer = findViewer(embed); } catch {}
+  if (!viewer) return void setTimeout(() => restoreCamera(embed, saved, tries + 1), 100);
+  try {
+    const cam = viewer.viewport.camera;
+    cam.center.set(saved.x, saved.y);
+    cam.zoom = saved.zoom;
+    cam.rotation = saved.rotation;
+    viewer.draw?.();
+  } catch {}
+}
+
+function render2d(rev) {
+  const old = pane2d.querySelector("kicanvas-embed");
+  const camera = old ? saveCamera(old) : null;
+  const embed = document.createElement("kicanvas-embed");
+  embed.setAttribute("src", `/board.kicad_pcb?rev=${rev}`);
+  embed.setAttribute("controls", "full");
+  embed.setAttribute("theme", "kicad");
+  pane2d.appendChild(embed);
+  if (old) old.remove();
+  restoreCamera(embed, camera);
+  shown2d = rev;
+  hit();
+}
+
+/* ---------------------------------------------------------------- 3D pane */
+function artUrl(rev) {
+  const q = new URLSearchParams({ kind: ui.kind, rev, view: ui.view, detail: ui.detail ? "1" : "0" });
+  return `/3d/art?${q}`;
+}
+
+function render3d(rev) {
+  const key = `${ui.kind}|${rev}|${ui.view}|${ui.detail}`;
+  if (key === shown3d) return;
+  const url = artUrl(rev);
+  if (ui.kind === "snapshot") {
+    pane3d.querySelector("model-viewer")?.remove();
+    let img = $("shot");
+    if (!img) {
+      img = document.createElement("img");
+      img.id = "shot";
+      pane3d.appendChild(img);
+    }
+    img.src = url;
+  } else {
+    $("shot")?.remove();
+    /* Rebuilding <model-viewer> on every revision would throw away the orbit
+       you set up, so reuse the element and just swap its src. */
+    let mv = pane3d.querySelector("model-viewer");
+    if (!mv) {
+      mv = document.createElement("model-viewer");
+      mv.setAttribute("camera-controls", "");
+      mv.setAttribute("shadow-intensity", "1");
+      mv.setAttribute("environment-image", "neutral");
+      mv.setAttribute("exposure", "1.1");
+      // Start looking straight down at the top face. model-viewer's own default
+      // (phi 75deg) is nearly edge-on, which for a board this thin is a sliver.
+      // Only the initial frame: the attribute is never re-set, so an orbit you
+      // set up survives every rebuild.
+      mv.setAttribute("camera-orbit", "0deg 0deg auto");
+      mv.setAttribute("interaction-prompt", "none");
+      pane3d.appendChild(mv);
+    }
+    mv.src = url;
+  }
+  shown3d = key;
+  hit();
+}
+
+/* The server holds built artefacts in memory, so a restart empties the cache
+   while this page keeps running. Without this the pane would sit on a dead
+   <img>/<model-viewer> whose URL now 404s, looking like the board vanished. */
+function clear3d() {
+  if (shown3d === "") return;
+  pane3d.querySelector("model-viewer")?.remove();
+  document.getElementById("shot")?.removeAttribute("src");
+  shown3d = "";
+}
+
+function hit() {
+  flash.classList.add("hit");
+  setTimeout(() => flash.classList.remove("hit"), 30);
+}
+
+/* ------------------------------------------------------------------- wiring */
+async function declare() {
+  // Tell the server what to build. Nothing is built while the 2D tab is open.
+  const kind = ui.tab === "3d" ? ui.kind : "none";
+  const q = new URLSearchParams({ kind, view: ui.view, detail: ui.detail ? "1" : "0" });
+  try { await fetch(`/3d/want?${q}`, { cache: "no-store" }); } catch {}
+}
+
+function setActive(container, attr, value) {
+  for (const b of container.querySelectorAll("button")) {
+    b.classList.toggle("on", b.dataset[attr] === value);
+  }
+}
+
+$("tab2d").onclick = () => switchTab("2d");
+$("tab3d").onclick = () => switchTab("3d");
+
+function switchTab(tab) {
+  ui.tab = tab;
+  $("tab2d").classList.toggle("on", tab === "2d");
+  $("tab3d").classList.toggle("on", tab === "3d");
+  pane2d.hidden = tab !== "2d";
+  pane3d.hidden = tab !== "3d";
+  $("modes").classList.toggle("hide", tab !== "3d");
+  $("views").classList.toggle("hide", tab !== "3d" || ui.kind !== "snapshot");
+  $("detailWrap").classList.toggle("hide", tab !== "3d" || ui.kind !== "model");
+  if (tab === "2d" && latest && latest.rev !== shown2d) render2d(latest.rev);
+  declare();
+  paint();
+}
+
+$("modes").onclick = (e) => {
+  const kind = e.target.dataset.kind;
+  if (!kind) return;
+  ui.kind = kind;
+  setActive($("modes"), "kind", kind);
+  $("views").classList.toggle("hide", kind !== "snapshot");
+  $("detailWrap").classList.toggle("hide", kind !== "model");
+  shown3d = "";
+  declare();
+};
+
+$("views").onclick = (e) => {
+  const view = e.target.dataset.view;
+  if (!view) return;
+  ui.view = view;
+  setActive($("views"), "view", view);
+  shown3d = "";
+  declare();
+};
+
+detail.onchange = () => { ui.detail = detail.checked; shown3d = ""; declare(); };
+
+$("now").onclick = () => {
+  if (!latest) return;
+  if (ui.tab === "2d") { shown2d = -1; render2d(latest.rev); }
+  else { shown3d = ""; render3d(latest.three.ready ?? latest.rev); }
+};
+
+follow.onchange = () => {
+  if (follow.checked && latest && ui.tab === "2d") render2d(latest.rev);
+  paint();
+};
+
+/* --------------------------------------------------------------- status */
+function paint() {
+  const s = latest;
+  if (!s) return;
+  $("name").textContent = s.name;
+  const bits = [`rev ${s.rev}`, `${(s.bytes / 1024).toFixed(0)} KB`];
+  if (ui.tab === "3d") {
+    const t = s.three;
+    if (t.error) bits.push(t.error);
+    else if (t.building !== null) bits.push(`building rev ${t.building}…`);
+    else if (t.ready === null) bits.push("no build yet");
+    else if (t.ready !== s.rev) bits.push(`3D showing rev ${t.ready}, board at ${s.rev}`);
+    else bits.push(`3D current · ${t.seconds}s`);
+  } else {
+    if (s.rev !== shown2d) bits.push("new revision pending");
+    if (s.error) bits.push(s.error);
+  }
+  $("stat").textContent = "· " + bits.join(" · ");
+  $("dot").className = (s.error || s.three.error) ? "error"
+                     : s.writing ? "writing"
+                     : (!follow.checked && ui.tab === "2d") ? "paused" : "";
+}
+
+async function poll() {
+  try {
+    latest = await (await fetch("/rev", { cache: "no-store" })).json();
+    if (ui.tab === "2d") {
+      if (follow.checked && latest.rev !== shown2d) render2d(latest.rev);
+    } else if (latest.three.ready === null) {
+      clear3d();   // nothing built (fresh start, restart, or mode just changed)
+    } else if (follow.checked || shown3d === "") {
+      // Only ever show an artefact the server says it actually holds.
+      render3d(latest.three.ready);
+    }
+    paint();
+  } catch {
+    $("dot").className = "error";
+    $("stat").textContent = "· server not responding — is kicad_live_view.py still running?";
+  }
+}
+
+declare();
+poll();
+setInterval(poll, 500);
+</script>
+</body>
+</html>
