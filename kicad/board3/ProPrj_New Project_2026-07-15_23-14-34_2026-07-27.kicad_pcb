@@ -17468,7 +17468,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "W25Q512JVEIQ TR"
+		(property "Value" "W25Q256JVEIQ"
 			(at 0 0 180)
 			(layer "F.Fab")
 			(uuid "e306db7d-340b-463c-bf00-2dbcdfda2d7b")
