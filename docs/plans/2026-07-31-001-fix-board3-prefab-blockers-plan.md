@@ -53,7 +53,7 @@ The footprint findings are a different failure shape and the more instructive on
 - **R55.** CAN2's differential geometry and the 120 Ω target in `tools/kicad_rules.json` agree — either the routing is opened to the target gap, or the target is retired with the reasoning recorded.
 - **R56.** Schematic annotations describe the as-built architecture. The `U10`/TBD62083 telltale-chain text, the `R25`–`R48` series-resistor table, the `CN4`/`CN5` SN65HVD230 breakout text, and the "5V/15A" supply note are all superseded.
 - **R57.** The `+3V3` bulk capacitance sits inside the TPS563201's D-CAP2 stability window (20–68 µF), independent of the backlight-current gate blocking plan 003's U13/U14.
-- **R58.** ERC and power-tree analysis are re-run against the authoritative EasyEDA project before sign-off, since the entire review ran against the KiCad copy with the bridge down.
+- ~~**R58.** ERC and power-tree analysis are re-run against the authoritative EasyEDA project before sign-off.~~ **RETIRED 2026-07-31 (KTD21): EasyEDA is no longer maintained, so there is no second source to reconcile against.** Replaced by: ERC is run against the KiCad schematic before sign-off, and the power tree is re-checked there after the RSTN and PTC parts land.
 
 ### Scope Boundaries
 
@@ -92,7 +92,17 @@ The footprint findings are a different failure shape and the more instructive on
 
 ### Key Technical Decisions
 
-**KTD21. The KiCad copy is the fab source for this spin; EasyEDA is updated in parallel as the record.** `kicad/README.md` says EasyEDA stays authoritative and conversion is one-way. That rule was written for a board that had not yet been routed in KiCad. It has now absorbed a full fab-readiness campaign, a telltale revision, three routing passes, and 150 resolved DRC violations, and `docs/solutions/integration-issues/easyeda-pro-to-kicad-migration-silent-data-loss.md` documents six separate silent losses on import — a re-import to recover authority would discard every one of those and re-open 41 baseline violations. So: the schematic edits are authored in **both** projects, the KiCad copy produces the gerbers, and U29 runs an explicit netlist-level reconciliation plus the EasyEDA ERC/power-tree pass (R58) to prove the two agree rather than assuming it. This is a one-spin exception with a stated reason, not a repeal of the rule.
+**KTD21. KiCad is authoritative. EasyEDA is retired.** ~~The KiCad copy is the fab source for this spin; EasyEDA is updated in parallel as the record.~~ **Superseded 2026-07-31, mid-execution, by Kevin: "we do not need to maintain easyeda project any more im moved off of that."**
+
+`kicad/board3/` is now the design, not a downstream copy. This removes the conflict the original KTD21 was written to manage — there is no upstream to reconcile against, no dual-authoring, and no re-import question. Every remaining unit edits KiCad directly.
+
+Three consequences worth stating, because they change what "done" means:
+
+- **R58 is retired**, not deferred (see Requirements). The review's own caveat that its electrical findings covered "the KiCad copy only" is moot: that copy *is* the design, so the findings stand on their own rather than awaiting confirmation from a source that no longer exists.
+- **`kicad/README.md` and CLAUDE.md are now wrong** where they say EasyEDA stays authoritative and conversion is one-way. U29 rewrites both.
+- **KTD12 is unaffected.** The GUI-only schematic→board sync is a constraint of KiCad's own eeschema/pcbnew seam, not of EasyEDA. Retiring EasyEDA automates nothing about it.
+
+The `EasyEDA/` directory and its `.eprj2` stay in the repo as history. The uncommitted `.eprj2` modification in the working tree predates this decision and is left alone.
 
 **KTD22. RSTN gets an RC with a discharge diode, not a supervisor and not an MCU GPIO.** Three options were live. A **reset supervisor** ×2 is the most rigorous — a real threshold detector, correct brownout behaviour by construction — but it adds two ICs and two more parts to source, place, and route in a campaign whose thesis is minimal disturbance. **Driving RSTN from a freed PD pin** is the most elegant (zero new parts; the chip's internal 100 kΩ pull-down holds RSTN low at POR while the MCU's GPIOs are still high-Z, which is exactly the required behaviour). Be precise about why it loses, because the obvious reason is wrong: no option here restores a passive current limit on the LEDs — KTD17 spent that and none of these three give it back. All three only guarantee the expander's POR completes so its safe default is actually reached. The difference is *what the guarantee depends on*. The RC's guarantee is a time constant; the GPIO's guarantee is that the MCU boots, does not hang before de-asserting, and holds the pin correctly through every brownout the expander also sees. That makes the last passive layer under the telltales contingent on firmware and on two devices' reset domains agreeing — a coupling worth six passives to avoid. The **RC plus a Schottky from RSTN back to `/+5V`** is the datasheet-canonical answer: the resistor and cap set the power-on delay, and the diode discharges the cap when the rail collapses, which is what makes it survive the brownout-and-restore cycle a plain RC does not. Six passives across two ICs, all 0603, all in part classes already on this board. The plain-RC-without-diode variant is explicitly rejected — on a fast brownout the cap holds charge, RSTN never goes low, and the fix silently does not fire in the exact scenario the CRITICAL was raised for.
 
@@ -253,7 +263,6 @@ Re-verify U1 (`C730212`, last seen at 37) in the same pass and record the number
 
 **Files:**
 - `kicad/board3/ProPrj_New Project_2026-07-15_23-14-34_2026-07-27.kicad_sch`
-- `EasyEDA/New Project_2026-07-15_23-14-34.eprj2` (the parallel authoring per KTD21)
 - `kicad/board3/JLCImport.kicad_sym`, `kicad/board3/JLCImport.pretty/` (new parts)
 
 **Approach:** Five edits, batched deliberately.
@@ -268,7 +277,7 @@ Re-verify U1 (`C730212`, last seen at 37) in the same pass and record the number
 
 *Annotations (R56).* Delete or mark SUPERSEDED: the `U10`/TBD62083 driver text, the `R25`–`R48` telltale-chain resistor table, the `CN4`/`CN5` SN65HVD230 breakout description (the board carries on-board TJA1051s), and the "J1: +5V IN (dedicated 5V/15A supply)" note — the last one only after the real supply spec is confirmed, since if 15 A is real the PTC sizing conversation changes rather than closes.
 
-**Execution note:** Author in both projects per KTD21, but treat the KiCad `.kicad_sch` as the artifact the sync reads. Do not begin the sync in this unit.
+**Execution note:** Edit the KiCad `.kicad_sch` directly — it is the design now (KTD21, revised). Do not begin the sync in this unit. Because these are new symbols and new nets rather than property edits, prove connectivity by netlist export and ERC before handing to the sync; a wire stub that misses a pin by one grid step is an unconnected pin that no amount of later DRC will catch.
 
 **Test scenarios:**
 - Covers R45. Netlist export shows `U11` pin 23 and `U12` pin 23 on their own nets, each with exactly one resistor and one diode terminal, and no longer members of `/+5V`. This is the direct inverse of the review's netlist proof.
