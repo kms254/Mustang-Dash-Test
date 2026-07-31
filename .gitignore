@@ -65,3 +65,10 @@ fab/*-gerbers.zip
 # in the build or the fab package depends on it. Delete it to re-fetch, or pass
 # --refresh-viewer.
 tools/vendor/
+
+# Freerouting drops its log here (tools/kicad_freeroute.py). Per-run output;
+# the committed evidence of a routing pass is the board file itself.
+/logs/
+
+# Git Bash writes a stackdump beside the cwd when it crashes. Pure debris.
+*.stackdump
