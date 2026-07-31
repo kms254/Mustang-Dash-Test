@@ -13,6 +13,19 @@
   (condition "A.Reference == 'U1' || B.Reference == 'U1' || A.Reference == 'R9' || A.Reference == 'R45' || A.Reference == 'U3' || A.Reference == 'L2'")
   (constraint courtyard_clearance (min -0.6mm)))
 
+# U12 (AW9523B telltale expander) sits deliberately close to LED6, the
+# telltale it drives -- the east cluster is packed against the board's
+# 50 mm height. This overlap was INVISIBLE until 2026-07-31: the
+# AW9523BTQR footprint carried no courtyard at all, so every courtyard
+# check passed U11/U12 by testing nothing (pre-fab review, CONFIRMED
+# HIGH). With the courtyard added (pad extent 4.7 mm + 0.25 mm margin =
+# 5.2 mm square, matching the WSON-8's convention) the real adjacency
+# finally reports. Measured, not assumed: bodies clear by 0.90 mm, pads
+# by 0.20 mm -- both comfortable. Only the courtyards kiss, by 0.30 mm.
+(rule telltale_expander_cluster
+  (condition "(A.Reference == 'U12' && B.Reference == 'LED6') || (A.Reference == 'LED6' && B.Reference == 'U12')")
+  (constraint courtyard_clearance (min -0.4mm)))
+
 # USBC1 is a mid-mount connector: its retention slots are routed cutouts
 # inside its own manufacturer footprint, and its pads plus the local
 # shield stitching legitimately sit closer to those slots than the

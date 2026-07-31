@@ -55,7 +55,12 @@
   (pad "22" smd rect (at -2 0.25 90) (size 0.28 0.7) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "5b58d874-f9b5-4ee1-8f8e-01298c3a7292"))
   (pad "23" smd rect (at -2 0.75 90) (size 0.28 0.7) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "d1ad1a6d-3713-4c4b-b6f8-1a1a54449123"))
   (pad "24" smd rect (at -2 1.25 90) (size 0.28 0.7) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "a404ca9d-1b1a-40f3-a20f-ce5ed42bfab2"))
-  (pad "25" smd rect (at 0.0127 0 90) (size 2.8 2.8) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "7ec52153-d9aa-4a40-99c4-dfecea9fde86"))
+  (fp_rect (start -2.6 -2.6) (end 2.6 2.6) (stroke (width 0.05) (type solid)) (fill no) (layer "F.CrtYd") (uuid "5e6a1b70-2c41-4d9a-9f83-0b2c7a41d001"))
+  (pad "25" smd rect (at 0.0127 0 90) (size 2.8 2.8) (layers "F.Cu" "F.Mask") (uuid "7ec52153-d9aa-4a40-99c4-dfecea9fde86"))
+  (pad "" smd rect (at -0.8373 -0.85) (size 1.1 1.1) (layers "F.Paste") (uuid "5e6a1b70-2c41-4d9a-9f83-0b2c7a41d002"))
+  (pad "" smd rect (at 0.8627 -0.85) (size 1.1 1.1) (layers "F.Paste") (uuid "5e6a1b70-2c41-4d9a-9f83-0b2c7a41d003"))
+  (pad "" smd rect (at -0.8373 0.85) (size 1.1 1.1) (layers "F.Paste") (uuid "5e6a1b70-2c41-4d9a-9f83-0b2c7a41d004"))
+  (pad "" smd rect (at 0.8627 0.85) (size 1.1 1.1) (layers "F.Paste") (uuid "5e6a1b70-2c41-4d9a-9f83-0b2c7a41d005"))
   (model "${KIPRJMOD}/JLCImport.3dshapes/AW9523BTQR.wrl"
     (offset (xyz 0 0 0))
     (scale (xyz 1 1 1))
