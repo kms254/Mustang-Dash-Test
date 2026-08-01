@@ -50,12 +50,17 @@
       "computed_zdiff_ohm": 91,
       "note": "Keep the board-wide 0.254 mm width and TIGHTEN THE GAP to 0.15 mm. This is the minimal-change option: it preserves the single-width virtue of the board, and it matches the lost action item's wording -- 'narrow it' meant narrow the gap, not the trace. Narrowing the TRACE would raise impedance away from 90 ohm, which is the trap in that note. Alternative if a 0.15 mm gap is uncomfortable: 0.30 mm width with 0.21 mm gap, also ~90 ohm."
     },
-    "CAN": {
-      "target_impedance_ohm": 120,
-      "track_width": 0.254,
-      "gap_min": 0.5,
-      "computed_zdiff_ohm": "114 at 0.5 mm gap, 118 at 0.75 mm gap",
-      "note": "CAN wants the OPPOSITE treatment to USB: loosely coupled. With 0.254 mm traces, Zdiff asymptotically approaches 2*Zo = ~120 ohm as the gap grows, so a WIDE gap (>=0.5 mm) is what reaches 120 ohm. Tightening a CAN pair the way you tighten USB drives it away from target. In practice this matters little at 1 Mbps over 23-25 mm of track -- symmetry, equal via counts and the split termination dominate -- so treat the gap as a target, not a constraint to contort the layout around."
+    "CAN_retired": {
+      "$retired": "2026-08-01. The 120 ohm target is RETIRED, not met. It was never reached in copper: CAN2's tightest approach is ~0.406 mm centre-to-centre (~0.15 mm edge gap) -- USB's tight-coupling geometry, the opposite of what CAN wants -- and CAN1's legs run uncoupled for most of their length. So the two pairs missed the same target in opposite directions.",
+      "$why_retired": "At 1 Mbps a 5 m stub-free segment is electrically short; reflection amplitude is bounded by the mismatch and the bus is terminated at its ends by the vehicle harness (J3/J4 stay OPEN by design). The repo's own analysis already argued coupling is not load-bearing here. Opening CAN2's gap to >=0.5 mm means re-routing a pair on an otherwise-clean board to chase a number nothing measures.",
+      "$if_this_changes": "Reinstate if the bus ever runs faster than 1 Mbps, leaves the vehicle harness, or grows stubs. The original target is preserved below.",
+      "$original_target": {
+        "target_impedance_ohm": 120,
+        "track_width": 0.254,
+        "gap_min": 0.5,
+        "computed_zdiff_ohm": "114 at 0.5 mm gap, 118 at 0.75 mm gap",
+        "note": "CAN wants the OPPOSITE treatment to USB: loosely coupled. With 0.254 mm traces, Zdiff asymptotically approaches 2*Zo = ~120 ohm as the gap grows, so a WIDE gap (>=0.5 mm) is what reaches 120 ohm. Tightening a CAN pair the way you tighten USB drives it away from target. In practice this matters little at 1 Mbps over 23-25 mm of track -- symmetry, equal via counts and the split termination dominate -- so treat the gap as a target, not a constraint to contort the layout around."
+      }
     }
   },
   "cost_floors_mm": {
