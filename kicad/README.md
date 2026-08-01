@@ -1,9 +1,12 @@
 # kicad/
 
-Converted KiCad copies of boards whose authoritative source lives elsewhere.
+The project's board designs.
 
-Today that is **Board3**, imported from EasyEDA Pro for the tooling evaluation in
-[docs/plans/2026-07-27-001-chore-kicad-evaluation-plan.md](../docs/plans/2026-07-27-001-chore-kicad-evaluation-plan.md).
+Today that is **Board3**. It arrived here as an import from EasyEDA Pro for the
+tooling evaluation in
+[docs/plans/2026-07-27-001-chore-kicad-evaluation-plan.md](../docs/plans/2026-07-27-001-chore-kicad-evaluation-plan.md),
+but **that evaluation is settled**: as of 2026-07-31 Kevin has moved off EasyEDA
+entirely, so this directory is the design, not a copy of one.
 
 ![Board3, angled](board3/renders/angled.png)
 
@@ -16,9 +19,15 @@ These are generated, not drawn — `.kicad_pcb` is the truth. See
 
 Three rules govern everything in this directory:
 
-- **EasyEDA stays authoritative.** Conversion is one-way. Nothing here is ever
-  converted back — round-trips accumulate error, and the EasyEDA project is the
-  source of truth until a verdict says otherwise.
+- **This is the source of truth.** ~~EasyEDA stays authoritative; conversion is
+  one-way.~~ Superseded 2026-07-31 — EasyEDA is no longer maintained, so there is
+  no upstream to defer to and nothing to reconcile against. Edit the schematic and
+  board here directly. The `EasyEDA/` directory stays in the repo as history; do
+  not mirror changes into it, and do not treat a KiCad-only change as partial.
+  The one-way rule still describes the *import*: nothing here was ever converted
+  back, and `docs/solutions/integration-issues/easyeda-pro-to-kicad-migration-silent-data-loss.md`
+  records six silent losses that make a re-import a bad idea now that this copy
+  carries all the routing.
 - **The design files are tracked on purpose.** `.kicad_pcb` and `.kicad_sch` are
   S-expression text, and `git diff` is the evaluation's verification mechanism for
   agent-driven writes. Keeping the board out of the repo would forfeit that.

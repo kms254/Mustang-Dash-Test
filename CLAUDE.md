@@ -273,6 +273,24 @@ to positively identify the backlight end (17-20) before applying 5 V; the FFC
 is down-side contact at the panel; the panel survives being driven with no
 5 V on BLVDD (renders, just dark).
 
+## KiCad is the design; EasyEDA is retired (2026-07-31)
+
+Kevin moved off EasyEDA. `kicad/board3/` is the authoritative schematic and
+board — not a downstream copy — so edit it directly and do not mirror anything
+into `EasyEDA/`, which stays only as history. Anything that was *blocked* on the
+EasyEDA bridge is now **retired**, not deferred: that includes the 2026-07-31
+pre-fab review's caveat that its electrical findings covered "the KiCad copy
+only", and its recommended ERC/power-tree re-run through the bridge. That copy
+is the design, so those findings stand on their own.
+
+This changes nothing about KTD12 below. The GUI-only schematic→board sync is a
+constraint of KiCad's own eeschema/pcbnew seam; retiring EasyEDA automates none
+of it. Measured 2026-08-01 while trying: `pcbnew` *can* add footprints, create
+nets and assign pads (that part works), but the nearest clear pocket for the new
+RSTN passives is **13.5 mm from U11 pin 23 and 16.25 mm from U12 pin 23** — there
+is no room beside either IC, so the placement judgement and the route out of the
+QFN escape want the interactive router, not a search algorithm.
+
 ## KiCad parts rule (Board3)
 
 **Every part placed on a KiCad board must be an LCSC part with matching supplier
