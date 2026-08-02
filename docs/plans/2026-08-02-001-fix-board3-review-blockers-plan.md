@@ -575,12 +575,18 @@ them wrong causes a hold, a re-quote, or unfitted parts.
 | Impedance control | **not ordered** | `dielectric_constraints no`. The USB pair is built to a 90 Ω target against the written stackup, but JLC will not verify it |
 | Assembly service | **must include through-hole / hand-solder** | **12 of 143 designators are THT**: DC1, H1, H2, H3, P1, P2, SW1–SW4, SW6, SW7. Plain SMT assembly leaves the board with no power jack, no CAN terminals and no buttons. |
 
-**Also time-sensitive, not a file fix:** **U1 (STM32H755ZIT6, `C730212`) is at 37
-units** and is ~64% of the per-board component cost ($27.26 of ~$42.31). Its only
-variant `C1343604` is at **0**. This is the identical pattern that hit U2, which
-went 2,163 → 4 units in seven days. There is no substitution available — the
-mitigation is order timing. Re-check stock immediately before placing the order,
-and treat a drop toward zero as a reason to place it that day.
+**U1 stock — risk reviewed and ACCEPTED (Kevin, 2026-08-02).** **U1
+(STM32H755ZIT6, `C730212`) is at 37 units** and is ~64% of the per-board
+component cost ($27.26 of ~$42.31); its only variant `C1343604` is at 0. This is
+the pattern that hit U2, which went 2,163 → 4 units in seven days, and there is
+no substitution available.
+
+**Do not let this rush the plan.** The decision is that shipping a board with
+three known blockers to beat a stock clock is the worse trade — a scrapped panel
+costs more than a wait. If JLC's stock reaches zero before the work is done, the
+fallback is to buy U1 elsewhere (DigiKey/Mouser carry it) and supply it as a
+consigned part, or accept the lead time. Re-check stock at order time for
+information, not as a gate.
 
 **Unverified, flagged rather than guessed:** JLC publishes no maximum hole aspect
 ratio. This board is 6.4:1 (1.6 mm / 0.25 mm) and 8.0:1 at BTN1. Their published
