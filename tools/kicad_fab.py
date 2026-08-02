@@ -339,6 +339,18 @@ def _ascii(value: str) -> str:
     return value.encode("ascii", "ignore").decode("ascii").strip()
 
 
+def _bare_footprint(value: str) -> str:
+    """Drop KiCad's library prefix: 'JLCImport:AW9523BTQR' -> 'AW9523BTQR'.
+
+    KiCad writes footprints as 'library:name'. JLCPCB's BOM wants the package
+    alone -- their sample shows '0402', 'SOT-23' -- and the library half is a
+    fact about this repo's file layout that means nothing to an assembler.
+    The part itself is chosen by LCSC number, so this column is advisory; a
+    62-character mangled string in it helps nobody reading the order.
+    """
+    return _ascii(value).rsplit(":", 1)[-1].strip()
+
+
 def write_jlc_csvs(bom: list, cpl: list, outdir: Path) -> tuple:
     """Re-emit BOM and CPL under JLCPCB's own column names and order.
 
@@ -353,7 +365,7 @@ def write_jlc_csvs(bom: list, cpl: list, outdir: Path) -> tuple:
         w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #"])
         for r in bom:
             w.writerow([_ascii(r.get("Comment", "")), _ascii(r.get("Designator", "")),
-                        _ascii(r.get("Footprint", "")), _ascii(r.get("LCSC", ""))])
+                        _bare_footprint(r.get("Footprint", "")), _ascii(r.get("LCSC", ""))])
     with cpl_path.open("w", newline="", encoding="ascii") as fh:
         w = csv.writer(fh)
         w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
