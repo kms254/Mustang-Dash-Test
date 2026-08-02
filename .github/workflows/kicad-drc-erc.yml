@@ -141,6 +141,26 @@ jobs:
           sys.exit(0 if sum(cur.values()) <= sum(base.values()) else 1)
           PY
 
+      # The BOM comes from the schematic and the CPL from the board, and both
+      # exports drop DNP parts. So a part marked Do-Not-Populate on only ONE side
+      # vanishes from one file and stays in the other -- each file internally
+      # valid, the pair unorderable. JLCPCB catches it at upload; before this
+      # step, nothing here did.
+      #
+      # It happened: a GUI "Update PCB from Schematic" run (3c9f8c1) set DNP on
+      # 16 board footprints the schematic never marked -- the eight telltales,
+      # both AW9523B expanders, their decoupling. DRC stayed 0/0 and every other
+      # check passed. Only the vendor's uploader objected, and its dialog offers
+      # a "Continue" button that would have fabricated the board with its whole
+      # telltale subsystem unpopulated.
+      #
+      # kicad_fab.py owns the assertion and exits non-zero on it; this step is
+      # just where a PR gets told. Output goes to a scratch dir -- the package
+      # under fab/ is a release artifact, not something a check should rewrite.
+      - name: Fab package is orderable (BOM/CPL symmetry)
+        if: always()
+        run: python3 tools/kicad_fab.py kicad/board3/ --out /tmp/fab-check
+
       - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4

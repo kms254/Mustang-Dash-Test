@@ -3710,7 +3710,6 @@
 				(pins "1" "2")
 			)
 		)
-		(attr dnp)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start -0.28 0.7095)
@@ -7023,7 +7022,7 @@
 				(pins "2" "1")
 			)
 		)
-		(attr smd dnp)
+		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start 0.6 -1.4)
@@ -17636,7 +17635,7 @@
 				)
 			)
 		)
-		(attr smd dnp)
+		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start -2.137385 2.150135)
@@ -18615,7 +18614,7 @@
 				(pins "1" "2")
 			)
 		)
-		(attr smd dnp)
+		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start -1.905 1.650848)
@@ -19332,7 +19331,7 @@
 				(pins "1" "2")
 			)
 		)
-		(attr smd dnp)
+		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start -1.6 1.5)
@@ -20543,7 +20542,7 @@
 				(pins "1" "2")
 			)
 		)
-		(attr smd dnp)
+		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start -1.651 1.524)
@@ -21229,7 +21228,6 @@
 				(pins "1" "2")
 			)
 		)
-		(attr dnp)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start 1.39 -0.4)
@@ -21519,7 +21517,6 @@
 				(pins "1" "2")
 			)
 		)
-		(attr dnp)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start 1.39 -0.4)
@@ -22694,7 +22691,7 @@
 				(pins "1" "2")
 			)
 		)
-		(attr smd dnp)
+		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start 1.778 1.524)
@@ -25375,7 +25372,6 @@
 				(pins "1" "2")
 			)
 		)
-		(attr dnp)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start 1.9635 0.751)
@@ -32031,7 +32027,6 @@
 				(pins "1" "2")
 			)
 		)
-		(attr dnp)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start -1.9635 0.751)
@@ -36012,7 +36007,7 @@
 				(pins "1" "2")
 			)
 		)
-		(attr smd dnp)
+		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start -1.6 -1.5)
@@ -37599,7 +37594,6 @@
 				(pins "1" "2")
 			)
 		)
-		(attr dnp)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start 0.2805 0.71)
@@ -38289,7 +38283,7 @@
 				(pins "1" "2")
 			)
 		)
-		(attr smd dnp)
+		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start -1.6 1.5)
@@ -41785,7 +41779,7 @@
 				(pins "2" "1")
 			)
 		)
-		(attr smd dnp)
+		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start 0.6 1.4)
@@ -46951,7 +46945,7 @@
 				)
 			)
 		)
-		(attr smd dnp)
+		(attr smd)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_line
 			(start 2.16281 -2.150135)
