@@ -339,6 +339,57 @@ def _ascii(value: str) -> str:
     return value.encode("ascii", "ignore").decode("ascii").strip()
 
 
+def disambiguate_comments(bom: list[dict]) -> list[tuple[str, str, str]]:
+    """Make Comment unique where two lines share it but differ in package.
+
+    Bisected against JLCPCB's uploader on 2026-08-02, one designator at a time
+    with every other byte frozen. Two ACTIVE BOM lines carrying the same Comment
+    and different packages are unhandled by their backend: the upload dies as a
+    500 or "File processing failed, please check your file and upload again",
+    never as a message naming the offending part.
+
+    Board3's case: C51 was "10uF" in C0805 and C67 "10uF" in C0603. It stayed
+    hidden while C67 was flagged DNP and dropped from the CPL, because a line
+    with no placement is never activated. Clearing that flag made both live and
+    the upload stopped working -- with an error that pointed at neither.
+
+    It takes all three conditions, and this BOM contains the counter-examples
+    that pin each one down -- every one of them ACTIVE in an upload JLCPCB
+    accepted:
+
+        Comment       package   part no.   result
+        100nF         same      differ     accepted   (C14663 / C1591)
+        10k           same      differ     accepted   (C25804 / C98220)
+        HX TS4538CJ   differ    same       accepted   (C5340169 twice)
+        10uF          differ    differ     REJECTED   (C15850 / C19702)
+
+    So neither a shared Comment, nor a package disagreement, nor two part
+    numbers is sufficient alone. Only the conjunction is rewritten -- rewriting
+    a line that demonstrably works is a new risk for no gain, and the switches
+    above would otherwise get a 52-character Comment nobody asked for.
+
+    Mutates rows in place; returns (old, new, lcsc) for reporting.
+    """
+    by_comment: dict[str, list[dict]] = {}
+    for r in bom:
+        by_comment.setdefault((r.get("Comment") or "").strip(), []).append(r)
+
+    changes = []
+    for comment, rows in by_comment.items():
+        if len(rows) < 2 or not comment:
+            continue
+        packages = {_bare_footprint(r.get("Footprint", "")) for r in rows}
+        parts = {(r.get("LCSC") or "").strip() for r in rows}
+        if len(packages) < 2 or len(parts) < 2:
+            continue
+        for r in rows:
+            pkg = _bare_footprint(r.get("Footprint", ""))
+            new = f"{comment} {pkg}"
+            changes.append((comment, new, r.get("LCSC", "")))
+            r["Comment"] = new
+    return changes
+
+
 def _bare_footprint(value: str) -> str:
     """Drop KiCad's library prefix: 'JLCImport:AW9523BTQR' -> 'AW9523BTQR'.
 
@@ -447,6 +498,7 @@ def main() -> int:
 
     missing_layers = check_gerber_layers(gerbers)
 
+    comment_fixes = disambiguate_comments(bom)
     no_cpl, no_bom = bom_cpl_symmetry(bom, cpl)
     unsourced, unplaceable = coverage_report(bom)
     sourced = len(bom) - len(unsourced)
@@ -467,6 +519,11 @@ def main() -> int:
                   "footprint, or a symbol with no supplier fields")
     else:
         print(f"  BOM/CPL   : symmetric ({len(cpl)} designators in both)")
+    if comment_fixes:
+        print(f"  Comment   : disambiguated {len(comment_fixes)} line(s) sharing a value "
+              "across different packages")
+        for old, new, lcsc in comment_fixes:
+            print(f"    {lcsc:9} {old!r} -> {new!r}")
     print(f"gerbers     : {len(gerbers)} file(s) in {outdir / 'gerbers'}")
     if missing_layers:
         print("  MISSING   : " + "; ".join(missing_layers))
