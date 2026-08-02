@@ -12777,7 +12777,7 @@
 					)
 				)
 			)
-			(property "Datasheet" "https://item.szlcsc.com/datasheet/W25Q512JVEIQ%2520TR/8361477.html"
+			(property "Datasheet" "https://item.szlcsc.com/datasheet/W25Q256JVEIQ/1811142.html"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -12799,7 +12799,7 @@
 					)
 				)
 			)
-			(property "Manufacturer Part" "W25Q512JVEIQ TR"
+			(property "Manufacturer Part" "W25Q256JVEIQ"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -12821,7 +12821,7 @@
 					)
 				)
 			)
-			(property "Supplier Part" "C7389628"
+			(property "Supplier Part" "C97522"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -12843,7 +12843,7 @@
 					)
 				)
 			)
-			(property "LCSC Part Name" "支持双/四SPI接口的3V、512Mbit 串行闪存"
+			(property "LCSC Part Name" "支持双/四SPI接口的3V、256Mbit 串行闪存"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -14709,6 +14709,126 @@
 			)
 			)
 	
+		(symbol "JLCImport:1N5819WS"
+    (pin_names (offset 1.016))
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "D" (at 0 2 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Value" "1N5819WS" (at 0 -2 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Footprint" "JLCImport:1N5819WS" (at 0 0 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Datasheet" "https://item.szlcsc.com/295156.html" (at 0 0 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Description" "1N5819WS; SOD-323_L1.8-W1.3-LS2.5-RD; Hottech" (at 0 0 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "ki_keywords" "1N5819WS C191023 Hottech SOD-323_L1.8-W1.3-LS2.5-RD" (at 0 0 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Supplier Part" "C191023" (at 0 0 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Manufacturer" "Hottech" (at 0 0 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Manufacturer Part" "1N5819WS" (at 0 0 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Supplier" "LCSC" (at 0 2 0)
+      (effects (hide yes) (font (size 1.27 1.27)))
+    )
+    (property "LCSC Part Name" "1N5819WS" (at 0 2 0)
+      (effects (hide yes) (font (size 1.27 1.27)))
+    )
+    (symbol "1N5819WS_0_1"
+      (polyline
+        (pts (xy -1.27 0) (xy -1.27 2.032) (xy -1.778 2.032) (xy -1.778 1.778))
+        (stroke (width 0.254) (type solid))
+        (fill (type none))
+      )
+      (polyline
+        (pts (xy -1.27 0) (xy -1.27 -2.032) (xy -0.762 -2.032) (xy -0.762 -1.778))
+        (stroke (width 0.254) (type solid))
+        (fill (type none))
+      )
+      (polyline
+        (pts (xy 1.27 1.524) (xy -1.27 0) (xy 1.27 -1.778) (xy 1.27 1.524))
+        (stroke (width 0.254) (type solid))
+        (fill (type none))
+      )
+      (pin unspecified line (at -5.08 0 0) (length 3.81)
+        (name "K" (effects (font (size 1.27 1.27)) hide))
+        (number "1" (effects (font (size 1.27 1.27)) hide))
+      )
+      (pin unspecified line (at 5.08 0 180) (length 3.81)
+        (name "A" (effects (font (size 1.27 1.27)) hide))
+        (number "2" (effects (font (size 1.27 1.27)) hide))
+      )
+    )
+  )
+		(symbol "JLCImport:BSMD1812-200-30V"
+    (pin_names (offset 1.016))
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "F" (at 0 3.016 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Value" "BSMD1812-200-30V" (at 0 -3.016 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Footprint" "JLCImport:BSMD1812-200-30V" (at 0 0 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Datasheet" "https://item.szlcsc.com/343302.html" (at 0 0 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Description" "BSMD1812-200-30V; F1812; BHFUSE" (at 0 0 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "ki_keywords" "BHFUSE BSMD1812-200-30V C960026 F1812" (at 0 0 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Supplier Part" "C960026" (at 0 0 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Manufacturer" "BHFUSE" (at 0 0 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Manufacturer Part" "BSMD1812-200-30V" (at 0 0 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Supplier" "LCSC" (at 0 3.016 0)
+      (effects (hide yes) (font (size 1.27 1.27)))
+    )
+    (property "LCSC Part Name" "BSMD1812-200-30V" (at 0 3.016 0)
+      (effects (hide yes) (font (size 1.27 1.27)))
+    )
+    (symbol "BSMD1812-200-30V_0_1"
+      (rectangle (start -2.54 1.016) (end 2.54 -1.016)
+        (stroke (width 0.254) (type solid))
+        (fill (type background))
+      )
+      (polyline
+        (pts (xy -2.54 0) (xy 2.54 0))
+        (stroke (width 0.254) (type solid))
+        (fill (type none))
+      )
+      (pin unspecified line (at -5.08 0 0) (length 2.54)
+        (name "1" (effects (font (size 1.27 1.27)) hide))
+        (number "1" (effects (font (size 1.27 1.27)) hide))
+      )
+      (pin unspecified line (at 5.08 0 180) (length 2.54)
+        (name "2" (effects (font (size 1.27 1.27)) hide))
+        (number "2" (effects (font (size 1.27 1.27)) hide))
+      )
+    )
+  )
 		(symbol "JLCImport:AW9523BTQR"
     (pin_names (offset 1.016))
     (in_bom yes)
@@ -14894,7 +15014,7 @@
     )
   )
 	)
-	(text "J1: +5V IN (dedicated 5V/15A supply)"
+	(text "J1/DC1: +5V IN via F1 PPTC (2A hold / 4A trip). Supply rating UNCONFIRMED -- the old \"5V/15A\" note was stale; confirm before relying on it."
 		(exclude_from_sim no)
 		(at 92.71 322.58 0)
 		(effects
@@ -14916,17 +15036,7 @@
 		)
 		(uuid "14a0aad2-4e1a-4cc3-af4d-692335abe784")
 	)
-	(text "U10: telltale driver. H1 outputs sink to GND when ON; wire external LED anode->series resistor->+5V(H1.9), cathode->H1.1-8. Resistor/LED sized off-board per lamp color."
-		(exclude_from_sim no)
-		(at 173.99 284.48 0)
-		(effects
-			(font
-				(size 0.9398 0.9398)
-			)
-			(justify left bottom)
-		)
-		(uuid "1bf62c7a-7844-4fcd-886c-277a076d3c4e")
-	)
+	
 	(text "CN3: RIGHT panel (RVT50H 800x480) - RiBus 20P FPC"
 		(exclude_from_sim no)
 		(at 326.39 284.48 0)
@@ -14949,17 +15059,7 @@
 		)
 		(uuid "79849649-6967-4d9b-a434-c70373828cd7")
 	)
-	(text "Telltale chain, all on-board: +5V -> LED anode; LED cathode -> series resistor -> U10 output, which sinks to GND when the H755 drives the matching input HIGH.\nTT1 LED1 GREEN (left turn) R25 390R | TT2 LED3 WHITE (headlight) R27 300R | TT3 LED4 BLUE (high beam) R39 200R | TT4 LED2 GREEN (right turn) R26 390R\nTT5 LED5 ORANGE (MIL/CEL) R40 470R | TT6 LED6 RED (parking brake) R44 270R | TT7 LED7 RED (oil pressure) R48 270R | TT8 LED8 YELLOW (fog lights) R38 300R\nDriver U10 = TBD62083AFWG DMOS array, ~5 mV on-state drop. The resistor values above predate that swap and are still to be re-derived for it; until then the row runs brighter and unmatched."
-		(exclude_from_sim no)
-		(at 222.25 249.174 0)
-		(effects
-			(font
-				(size 0.9398 0.9398)
-			)
-			(justify left top)
-		)
-		(uuid "85293887-76be-4041-8167-f52a24417bd1")
-	)
+	
 	(text "J3/J4: CAN termination jumpers - leave OPEN by default (vehicle bus is already terminated). Close only for bench-only bus tests."
 		(exclude_from_sim no)
 		(at 222.25 280.67 0)
@@ -14971,17 +15071,7 @@
 		)
 		(uuid "9501441f-59f4-44a6-972b-4f6350b2f18a")
 	)
-	(text "CN4/CN5: Waveshare SN65HVD230 CAN breakout modules (7-pin: VCC,GND,TXD,RXD,CANH,CANL,RS). RS tied GND for auto high-speed mode. Verify pin order against physical board silkscreen."
-		(exclude_from_sim no)
-		(at 201.93 271.78 0)
-		(effects
-			(font
-				(size 0.9398 0.9398)
-			)
-			(justify left bottom)
-		)
-		(uuid "ac0a6c16-10c5-403e-bb25-4032b2f85e3e")
-	)
+	
 	(no_connect
 		(at 220.98 38.1)
 		(uuid "170ee090-1508-4f18-8bfa-9a635eb21db8")
@@ -22238,7 +22328,7 @@
 		)
 		(uuid "948acaa7-aa8a-42cd-994a-a36e878e9a01")
 	)
-	(label "+5V_BARREL"
+	(label "DC1_IN"
 		(at 111.76 313.69 0)
 		(effects
 			(font
@@ -50334,7 +50424,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "W25Q512JVEIQ TR"
+		(property "Value" "W25Q256JVEIQ"
 			(at 86.36 92.71 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -50356,7 +50446,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/W25Q512JVEIQ%2520TR/8361477.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/W25Q256JVEIQ/1811142.html"
 			(at 110.49 81.28 0)
 			(hide yes)
 			(show_name no)
@@ -50378,7 +50468,7 @@
 				)
 			)
 		)
-		(property "Manufacturer Part" "W25Q512JVEIQ TR"
+		(property "Manufacturer Part" "W25Q256JVEIQ"
 			(at 110.49 81.28 0)
 			(hide yes)
 			(show_name no)
@@ -50400,7 +50490,7 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C7389628"
+		(property "Supplier Part" "C97522"
 			(at 110.49 81.28 0)
 			(hide yes)
 			(show_name no)
@@ -50422,7 +50512,7 @@
 				)
 			)
 		)
-		(property "LCSC Part Name" "支持双/四SPI接口的3V、512Mbit 串行闪存"
+		(property "LCSC Part Name" "支持双/四SPI接口的3V、256Mbit 串行闪存"
 			(at 110.49 81.28 0)
 			(hide yes)
 			(show_name no)
@@ -56784,7 +56874,7 @@
 		)
 		(uuid "c013359e-1dc5-43ad-a3d2-44b84ebc7471")
 	)
-	(label "+5V"
+	(label "U11_RSTN"
 		(at 186.69 234.95 90)
 		(effects
 			(font
@@ -56956,7 +57046,7 @@
 		)
 		(uuid "57c0ada7-0c28-4ec8-ad0b-f800f3314de6")
 	)
-	(label "+5V"
+	(label "U12_RSTN"
 		(at 260.35 234.95 90)
 		(effects
 			(font
@@ -58814,7 +58904,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "22uF"
+		(property "Value" "10uF"
 			(at 129.54 292.1 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -59321,5 +59411,866 @@
 			)
 		)
 		(uuid "b3351b5d-364e-4b27-b539-8866bc42e70c")
+	)
+	(symbol
+		(lib_id "ProPrj_New-easyedapro:0603WAF1002T5E")
+		(at 60.0 372.0 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "ff995e07-a140-4420-af17-10e6c2b1cf31")
+		(property "Reference" "R60"
+			(at 57.46 370.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "10kΩ"
+			(at 57.46 375.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "ProPrj_New-easyedapro:R0603"
+			(at 60.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/0603WAF1002T5E/26547.html"
+			(at 60.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "10kOhm 1% 100mW 0603"
+			(at 60.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part" "0603WAF1002T5E"
+			(at 60.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL"
+			(at 60.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Supplier Part" "C25804"
+			(at 60.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Supplier" "LCSC"
+			(at 60.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "dace5284-5350-4435-96bf-124a13550743")
+		)
+		(pin "2"
+			(uuid "350673e6-67bf-4e98-9f08-db1640f4b300")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "R60")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
+		(at 95.0 372.0 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "43a84ff7-865b-44ca-b477-79d78da66ab4")
+		(property "Reference" "C70"
+			(at 92.46 370.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100nF"
+			(at 92.46 375.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "ProPrj_New-easyedapro:C0603"
+			(at 95.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 95.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "100nF 50V X7R 0603"
+			(at 95.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
+			(at 95.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 95.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Supplier Part" "C14663"
+			(at 95.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Supplier" "LCSC"
+			(at 95.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "caad57e9-fced-4c61-9f0a-52b2819398f5")
+		)
+		(pin "2"
+			(uuid "00e5caea-1c72-4c46-b049-b395f532d0b8")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "C70")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "JLCImport:1N5819WS")
+		(at 130.0 372.0 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "045ac7c4-60b8-49e4-8e9c-f8d001a81789")
+		(property "Reference" "D10"
+			(at 127.46 370.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "1N5819WS"
+			(at 127.46 375.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "JLCImport:1N5819WS"
+			(at 130.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://www.lcsc.com/product-detail/C191023.html"
+			(at 130.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Schottky 40V 1A SOD-323"
+			(at 130.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part" "1N5819WS"
+			(at 130.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Hottech"
+			(at 130.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Supplier Part" "C191023"
+			(at 130.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Supplier" "LCSC"
+			(at 130.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a0d8e249-eeae-4363-a918-dd142dd432a0")
+		)
+		(pin "2"
+			(uuid "9db65d31-d6d0-4f91-84ec-0d04624f6517")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "D10")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ProPrj_New-easyedapro:0603WAF1002T5E")
+		(at 60.0 388.0 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "19723dd3-500c-41c4-96b6-ba5c1c9cd1d3")
+		(property "Reference" "R61"
+			(at 57.46 386.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "10kΩ"
+			(at 57.46 391.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "ProPrj_New-easyedapro:R0603"
+			(at 60.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/0603WAF1002T5E/26547.html"
+			(at 60.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "10kOhm 1% 100mW 0603"
+			(at 60.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part" "0603WAF1002T5E"
+			(at 60.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL"
+			(at 60.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Supplier Part" "C25804"
+			(at 60.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Supplier" "LCSC"
+			(at 60.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "0553ac7b-8fcf-488f-94a8-738eb9384bf7")
+		)
+		(pin "2"
+			(uuid "fd1887e9-452e-4a41-bff9-746c8d77dd83")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "R61")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
+		(at 95.0 388.0 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "67a8cce9-c694-4adc-8022-714872998c5f")
+		(property "Reference" "C71"
+			(at 92.46 386.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100nF"
+			(at 92.46 391.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "ProPrj_New-easyedapro:C0603"
+			(at 95.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 95.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "100nF 50V X7R 0603"
+			(at 95.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
+			(at 95.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 95.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Supplier Part" "C14663"
+			(at 95.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Supplier" "LCSC"
+			(at 95.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "522d0b2b-13a0-4535-a98c-e61483e4617c")
+		)
+		(pin "2"
+			(uuid "97c741e9-f9c6-48ba-83ec-62d524ba62ee")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "C71")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "JLCImport:1N5819WS")
+		(at 130.0 388.0 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "039cd8bb-b89a-4511-919a-4635a98bb2ae")
+		(property "Reference" "D11"
+			(at 127.46 386.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "1N5819WS"
+			(at 127.46 391.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "JLCImport:1N5819WS"
+			(at 130.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://www.lcsc.com/product-detail/C191023.html"
+			(at 130.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Schottky 40V 1A SOD-323"
+			(at 130.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part" "1N5819WS"
+			(at 130.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Hottech"
+			(at 130.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Supplier Part" "C191023"
+			(at 130.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Supplier" "LCSC"
+			(at 130.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "eef0e13e-5a3e-4b1e-b960-f03f42ddde27")
+		)
+		(pin "2"
+			(uuid "2e6e83a9-ee6e-48ad-9824-8627740a8f02")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "D11")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "JLCImport:BSMD1812-200-30V")
+		(at 170.0 372.0 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "efe8541e-7136-41b8-a7b3-bf16988775aa")
+		(property "Reference" "F1"
+			(at 167.46 370.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "BSMD1812-200-30V"
+			(at 167.46 375.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "JLCImport:BSMD1812-200-30V"
+			(at 170.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://www.lcsc.com/product-detail/C960026.html"
+			(at 170.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "PPTC 2A hold 4A trip 30V 1812"
+			(at 170.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part" "BSMD1812-200-30V"
+			(at 170.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "BHFUSE"
+			(at 170.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Supplier Part" "C960026"
+			(at 170.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Supplier" "LCSC"
+			(at 170.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "260b5f72-58e1-4794-9c59-bf15bd7108f8")
+		)
+		(pin "2"
+			(uuid "1ac87613-8295-4dc6-a156-ec09c9f717eb")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "F1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(label "+5V"
+		(at 54.92 372.0 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "40a494fa-5ef4-41cc-b252-73160f7f39a9")
+	)
+	(label "U11_RSTN"
+		(at 65.08 372.0 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "746b1107-8ae5-4931-a4a4-987334b422e4")
+	)
+	(label "U11_RSTN"
+		(at 89.92 372.0 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "9b1d2ce6-5048-49b1-9844-0bc67f9fc4a3")
+	)
+	(label "GND"
+		(at 100.08 372.0 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "56c6fac6-fcbe-4922-99f8-855570cfaffa")
+	)
+	(label "U11_RSTN"
+		(at 124.92 372.0 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "f7b6b91b-5c32-475a-8b67-36745eb5a11b")
+	)
+	(label "+5V"
+		(at 135.08 372.0 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "0caeef96-622d-429f-bb00-17c91e3df3ae")
+	)
+	(label "+5V"
+		(at 54.92 388.0 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "6d62e218-d1ee-46e6-8a69-b2b38ab1ba91")
+	)
+	(label "U12_RSTN"
+		(at 65.08 388.0 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "535e665f-dd89-47f0-81fa-c0548d82cfb9")
+	)
+	(label "U12_RSTN"
+		(at 89.92 388.0 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "8244509d-9618-489c-8875-21a1fc2407de")
+	)
+	(label "GND"
+		(at 100.08 388.0 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "2e867291-0881-49e8-a883-ab7a09be0b8a")
+	)
+	(label "U12_RSTN"
+		(at 124.92 388.0 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "f7e1aa3e-6903-4209-bca0-794464cc9a4d")
+	)
+	(label "+5V"
+		(at 135.08 388.0 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "ced895b7-f777-4c65-a790-ff9edb19fe40")
+	)
+	(label "DC1_IN"
+		(at 164.92 372.0 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "2aabb778-5020-4e34-99fc-521b4dd7ddde")
+	)
+	(label "+5V_BARREL"
+		(at 175.08 372.0 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "2dd40579-07d0-4fe8-b480-4aa1e34ebeba")
 	)
 )

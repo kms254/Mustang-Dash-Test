@@ -130,6 +130,15 @@ by construction. That workflow's own header says *"a check that cries wolf is a
 check people learn to merge past"*, which is the argument against the flags in
 the step below it.
 
+**A resolved instance, in warning form.** The thesis applies to standing
+warnings as well as red gates: U2's `lib_footprint_mismatch` sat at "1" through
+an entire pre-fab campaign, waved through as "pre-existing/cosmetic" — while
+two new divergence families accumulated invisibly under the unchanging count,
+because a per-footprint warning is a boolean that cannot register additions.
+It cleared only when someone produced the field-level diff instead of accepting
+the label; see
+[lib_footprint_mismatch is a real diff](../integration-issues/kicad-lib-footprint-mismatch-integer-nanometre-comparison.md).
+
 ## When to Apply
 
 - Before adding any pass/fail check to an artifact you inherited rather than

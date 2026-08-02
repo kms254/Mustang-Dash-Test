@@ -89,6 +89,16 @@ The manufacturing constraints a board is drawn to — minimum clearance, track w
 
 That separation is why rules are verified rather than assumed after any import or handoff. Measured against the wrong rules a correct board reports hundreds of violations, and a router reading those rules will produce copper the fab never agreed to — with nothing in either output indicating the constraints themselves are fiction. The tell is a violation set clustered just under a round number: real sloppiness scatters, a mismatched rule produces a band.
 
+### Embedded Footprint Copy
+Every placed footprint on a board is a full copy of its library definition, embedded in the board file at placement time — so the board and the library hold independent data for the same part, and only a field-level comparison keeps them honest.
+
+Editing one copy never touches the other: a library-only fix changes nothing that gets fabricated, and an instance-only fix is silently reverted the next time the part is updated from the library, which is why footprint fixes here land in both. The copies are compared field-by-field in integer nanometres with pad-local overrides counted as data, so equal-looking values written at different decimal precision are genuinely different. When the copies disagree, the board copy is what gets fabricated, and reconciliation runs toward it.
+
+### Warning Inbox
+The project's treatment of design-check warnings as an inbox owed a decision: every warning is either fixed or given a scoped exemption carrying its recorded reason, and the inbox is held at zero so any standing warning is a signal rather than scenery.
+
+The discipline exists because a warning that never clears gets waved through, and a per-item warning hides new defects behind an unchanging count — "pre-existing" is not a diagnosis. Exemption is reserved for geometry that is correct by intent; divergence between copies of the same data is drift and gets reconciled, not exempted.
+
 ## Track Simulation
 
 ### Circuit

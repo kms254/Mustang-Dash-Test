@@ -31,11 +31,11 @@
     "clearance": 0.1016,
     "track_width": 0.254,
     "via_diameter": 0.6,
-    "via_drill": 0.3
+    "via_drill": 0.25
   },
   "$notes": {
     "track_width": "0.254 mm (10 mil) is what every track on Board3 actually is, so it is the design's working width rather than the process floor. The 0.1016 mm minimum is JLC's standard limit; 0.09 mm (3.5 mil) is reachable on their ADVANCED process at extra cost, which is what an autorouter necks down to at fine-pitch pads if it is not constrained.",
-    "annular_ring": "JLC wants 0.15 mm minimum, 0.2 mm preferred (re-verified against jlcpcb.com/capabilities/pcb-capabilities on 2026-07-27: 'recommended 0.20 mm or above; absolute minimum 0.15 mm' for multilayer 1oz). It IS expressible -- min_via_annular_width, added above on 2026-07-27. Leaving it out cost real money in attention: the importer's .kicad_pro carries 0.1, so for four units every DRC run in this plan measured annular rings against a rule the board was never designed to, and a 0.5/0.3 via with a 0.10 mm ring that U5 introduced went unreported until kicad-happy's DFM check found it. A rule you do not encode is a rule you are not checking.",
+    "annular_ring": "JLC wants 0.15 mm minimum, 0.2 mm preferred (re-verified against jlcpcb.com/capabilities/pcb-capabilities on 2026-07-27: 'recommended 0.20 mm or above; absolute minimum 0.15 mm' for multilayer 1oz). It IS expressible -- min_via_annular_width, added above on 2026-07-27. Leaving it out cost real money in attention: the importer's .kicad_pro carries 0.1, so for four units every DRC run in this plan measured annular rings against a rule the board was never designed to, and a 0.5/0.3 via with a 0.10 mm ring that U5 introduced went unreported until kicad-happy's DFM check found it. A rule you do not encode is a rule you are not checking. UPDATED 2026-07-31: the 198-via population was moved from 0.6/0.3 (ring 0.150, exactly JLC absolute minimum, zero registration margin) to 0.6/0.25 (ring 0.175). The obvious move -- growing the via to 0.7/0.35 -- was tried first and produced 535 DRC violations (514 clearance, 20 hole-to-hole), because this board is routed tight against 0.6 mm copper; it would need a full re-route. Shrinking the DRILL buys the identical ring with zero copper growth and zero new violations. Cost consequence recorded below.",
     "min_hole_size": "min_through_hole_diameter is 0.3 mm here as a COST floor, not a capability floor -- JLC's published range is 0.15-6.3 mm, but drills under 0.3 mm can attract a surcharge. One deliberate exception exists on Board3: the BTN1 via at U1.93 is 0.5/0.2 because its pad neighbours cap the diameter at 0.517 mm and the ring rule has to win."
   },
   "differential_pairs": {
@@ -50,16 +50,21 @@
       "computed_zdiff_ohm": 91,
       "note": "Keep the board-wide 0.254 mm width and TIGHTEN THE GAP to 0.15 mm. This is the minimal-change option: it preserves the single-width virtue of the board, and it matches the lost action item's wording -- 'narrow it' meant narrow the gap, not the trace. Narrowing the TRACE would raise impedance away from 90 ohm, which is the trap in that note. Alternative if a 0.15 mm gap is uncomfortable: 0.30 mm width with 0.21 mm gap, also ~90 ohm."
     },
-    "CAN": {
-      "target_impedance_ohm": 120,
-      "track_width": 0.254,
-      "gap_min": 0.5,
-      "computed_zdiff_ohm": "114 at 0.5 mm gap, 118 at 0.75 mm gap",
-      "note": "CAN wants the OPPOSITE treatment to USB: loosely coupled. With 0.254 mm traces, Zdiff asymptotically approaches 2*Zo = ~120 ohm as the gap grows, so a WIDE gap (>=0.5 mm) is what reaches 120 ohm. Tightening a CAN pair the way you tighten USB drives it away from target. In practice this matters little at 1 Mbps over 23-25 mm of track -- symmetry, equal via counts and the split termination dominate -- so treat the gap as a target, not a constraint to contort the layout around."
+    "CAN_retired": {
+      "$retired": "2026-08-01. The 120 ohm target is RETIRED, not met. It was never reached in copper: CAN2's tightest approach is ~0.406 mm centre-to-centre (~0.15 mm edge gap) -- USB's tight-coupling geometry, the opposite of what CAN wants -- and CAN1's legs run uncoupled for most of their length. So the two pairs missed the same target in opposite directions.",
+      "$why_retired": "At 1 Mbps a 5 m stub-free segment is electrically short; reflection amplitude is bounded by the mismatch and the bus is terminated at its ends by the vehicle harness (J3/J4 stay OPEN by design). The repo's own analysis already argued coupling is not load-bearing here. Opening CAN2's gap to >=0.5 mm means re-routing a pair on an otherwise-clean board to chase a number nothing measures.",
+      "$if_this_changes": "Reinstate if the bus ever runs faster than 1 Mbps, leaves the vehicle harness, or grows stubs. The original target is preserved below.",
+      "$original_target": {
+        "target_impedance_ohm": 120,
+        "track_width": 0.254,
+        "gap_min": 0.5,
+        "computed_zdiff_ohm": "114 at 0.5 mm gap, 118 at 0.75 mm gap",
+        "note": "CAN wants the OPPOSITE treatment to USB: loosely coupled. With 0.254 mm traces, Zdiff asymptotically approaches 2*Zo = ~120 ohm as the gap grows, so a WIDE gap (>=0.5 mm) is what reaches 120 ohm. Tightening a CAN pair the way you tighten USB drives it away from target. In practice this matters little at 1 Mbps over 23-25 mm of track -- symmetry, equal via counts and the split termination dominate -- so treat the gap as a target, not a constraint to contort the layout around."
+      }
     }
   },
   "cost_floors_mm": {
-    "$comment": "Not capability limits -- price breaks. DRC must not fail on these or the gate stops meaning anything, so tools/kicad_verify.py reports them as an advisory line instead. Anything listed here needs a recorded reason, the way U1.93's 0.2 mm drill has one.",
+    "$comment": "Not capability limits -- price breaks. DRC must not fail on these or the gate stops meaning anything, so tools/kicad_verify.py reports them as an advisory line instead. Anything listed here needs a recorded reason, the way U1.93's 0.2 mm drill has one. EXCEPTION 2026-07-31: the whole 198-via population now drills 0.25 mm, under this 0.3 mm floor. Reason: it is the only way to get annular-ring margin on an already-routed board (see annular_ring note). JLC capability min is 0.15 mm so this is buildable, but CONFIRM the surcharge at quote time -- 198 holes is not a rounding error, and reverting is one command if the price is wrong.",
     "through_hole_diameter": 0.3
   }
 }

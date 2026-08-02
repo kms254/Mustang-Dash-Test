@@ -97,7 +97,14 @@ without fp-lib-table + .pretty : lib_footprint_issues 120  (all "library not fou
 with    fp-lib-table + .pretty : lib_footprint_mismatch 37 (real, fixable, fixed)
 ```
 
+What the *genuine* mismatches actually are — and why one of them (U2) outlived
+this campaign at a count of "1" until it was diffed field-by-field — is
+anatomized in the integration-issues doc linked below: instance-only
+`zone_connect` overrides from the EasyEDA import, integer-nanometre precision
+differences, and rotation bookkeeping, reconciled toward the board.
+
 ## Related
 
+- [lib_footprint_mismatch is a real diff](../integration-issues/kicad-lib-footprint-mismatch-integer-nanometre-comparison.md) — the genuine half of this warning class: what the real mismatches are made of once the phantoms are staged away, and the reconcile-toward-the-board fix
 - [Refill zones before measuring a headlessly routed board](refill-zones-before-measuring-a-headlessly-routed-board.md) — the rules-staging half of the same principle: the `.kicad_pro` sidecar decides what the fill and the DRC judge against
 - [Call BuildConnectivity() before counting airwires](build-connectivity-before-counting-airwires.md) — same campaign; the in-memory version of measuring against the wrong context
