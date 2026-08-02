@@ -48,6 +48,7 @@ import math
 import zipfile
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -295,6 +296,49 @@ def _compass(dx: float, dy: float) -> str:
     return "-".join(p for p in (vertical, horizontal) if p) or "centre"
 
 
+# Symbols that turn up in EasyEDA-authored values, mapped to the ASCII spelling
+# an English-language BOM would use anyway. Anything not listed is stripped by
+# _ascii() rather than guessed at.
+_ASCII_SUBS = {
+    "Ω": "",      # GREEK CAPITAL OMEGA -- "10kOhm" reads worse than "10k"
+    "Ω": "",      # OHM SIGN, the other codepoint for the same glyph
+    "µ": "u",     # MICRO SIGN
+    "μ": "u",     # GREEK SMALL MU -- visually identical, different codepoint
+    "°": "deg",
+    "℃": "C",
+    "±": "+/-",
+    "–": "-",     # EN DASH
+    "—": "-",     # EM DASH
+    "‘": "'", "’": "'",
+    "“": '"', "”": '"',
+}
+
+
+def _ascii(value: str) -> str:
+    """Coerce a field to pure ASCII for the vendor upload.
+
+    JLCPCB's uploader does not declare an encoding and these files carry no BOM
+    marker, so a non-ASCII byte is read under whatever the server guesses --
+    cp1252 or GBK -- and the request dies with a 500 that names nothing. The
+    values that trip it here are resistor legends written with a real Omega
+    (10kOhm, 4.7kOhm) by the EasyEDA import.
+
+    This project has already paid for this exact character once: freerouting's
+    DSN reader pops a modal warning dialog on any non-ASCII byte, and the Omega
+    in these same resistor values is what triggered it (CLAUDE.md, autorouting
+    notes). Two tools, one codepoint.
+
+    Substitutions come from _ASCII_SUBS; anything else outside ASCII is dropped
+    after an NFKD pass, which folds accents rather than deleting the letter.
+    """
+    if not value:
+        return ""
+    for bad, good in _ASCII_SUBS.items():
+        value = value.replace(bad, good)
+    value = unicodedata.normalize("NFKD", value)
+    return value.encode("ascii", "ignore").decode("ascii").strip()
+
+
 def write_jlc_csvs(bom: list, cpl: list, outdir: Path) -> tuple:
     """Re-emit BOM and CPL under JLCPCB's own column names and order.
 
@@ -304,19 +348,57 @@ def write_jlc_csvs(bom: list, cpl: list, outdir: Path) -> tuple:
     Designator, Mid X, Mid Y, Layer and Rotation.
     """
     bom_path, cpl_path = outdir / "bom-jlcpcb.csv", outdir / "cpl-jlcpcb.csv"
-    with bom_path.open("w", newline="", encoding="utf-8") as fh:
+    with bom_path.open("w", newline="", encoding="ascii") as fh:
         w = csv.writer(fh)
         w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #"])
         for r in bom:
-            w.writerow([r.get("Comment", ""), r.get("Designator", ""),
-                        r.get("Footprint", ""), r.get("LCSC", "")])
-    with cpl_path.open("w", newline="", encoding="utf-8") as fh:
+            w.writerow([_ascii(r.get("Comment", "")), _ascii(r.get("Designator", "")),
+                        _ascii(r.get("Footprint", "")), _ascii(r.get("LCSC", ""))])
+    with cpl_path.open("w", newline="", encoding="ascii") as fh:
         w = csv.writer(fh)
         w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
         for r in cpl:
-            w.writerow([r.get("Ref", ""), r.get("PosX", ""), r.get("PosY", ""),
-                        (r.get("Side", "") or "").capitalize(), r.get("Rot", "")])
+            w.writerow([_ascii(r.get("Ref", "")), _ascii(r.get("PosX", "")),
+                        _ascii(r.get("PosY", "")),
+                        _ascii((r.get("Side", "") or "").capitalize()),
+                        _ascii(r.get("Rot", ""))])
     return bom_path, cpl_path
+
+
+def bom_cpl_symmetry(bom: list[dict], cpl: list[dict]) -> tuple[list[str], list[str]]:
+    """Return (in BOM but not CPL, in CPL but not BOM). Either is unorderable.
+
+    JLCPCB checks this on upload and refuses the pair -- "The below parts won't
+    be assembled due to data missing ... designators don't exist in the CPL
+    file". It is worth catching here because the two files come from DIFFERENT
+    sources and can disagree while each is internally valid: the BOM is exported
+    from the schematic, the CPL from the board. Both exports pass --exclude-dnp,
+    so a part flagged Do-Not-Populate on ONLY one side is silently dropped from
+    that file alone.
+
+    That is not hypothetical. Commit 3c9f8c1 -- a GUI "Update PCB from Schematic"
+    run, the one link in the workflow nothing can verify automatically (KTD12) --
+    set DNP on 16 board footprints the schematic never marked: the eight
+    telltales, both AW9523B expanders, and their decoupling. Every local check
+    passed and DRC was 0/0. The defect surfaced only when JLCPCB's uploader
+    rejected the package, and clicking past that dialog would have fabricated a
+    board with its entire telltale subsystem unpopulated.
+
+    A reference-range delimiter mismatch produces the same rejection by a
+    different route; see export_bom. Two causes, one gate.
+    """
+    def refs(rows: list[dict], key: str) -> set:
+        out = set()
+        for r in rows:
+            for d in (r.get(key) or "").split(","):
+                d = d.strip()
+                if d:
+                    out.add(d)
+        return out
+
+    bom_refs = refs(bom, "Designator")
+    cpl_refs = refs(cpl, "Ref")
+    return sorted(bom_refs - cpl_refs), sorted(cpl_refs - bom_refs)
 
 
 def coverage_report(bom: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -353,6 +435,7 @@ def main() -> int:
 
     missing_layers = check_gerber_layers(gerbers)
 
+    no_cpl, no_bom = bom_cpl_symmetry(bom, cpl)
     unsourced, unplaceable = coverage_report(bom)
     sourced = len(bom) - len(unsourced)
 
@@ -360,6 +443,18 @@ def main() -> int:
     print(f"board       : {board.name}")
     print(f"BOM lines   : {len(bom)}  ({sourced} sourced, {len(unsourced)} without LCSC or MPN)")
     print(f"CPL rows    : {len(cpl)}")
+    if no_cpl or no_bom:
+        print("  BOM/CPL   : MISMATCH -- JLCPCB will refuse this pair on upload")
+        if no_cpl:
+            print(f"    in BOM, absent from CPL ({len(no_cpl)}): {', '.join(no_cpl)}")
+            print("      -> usually DNP set on the BOARD footprint but not the schematic "
+                  "symbol; check with pcbnew's IsDNP(), not by reading the file as text")
+        if no_bom:
+            print(f"    in CPL, absent from BOM ({len(no_bom)}): {', '.join(no_bom)}")
+            print("      -> usually DNP set on the schematic SYMBOL but not the board "
+                  "footprint, or a symbol with no supplier fields")
+    else:
+        print(f"  BOM/CPL   : symmetric ({len(cpl)} designators in both)")
     print(f"gerbers     : {len(gerbers)} file(s) in {outdir / 'gerbers'}")
     if missing_layers:
         print("  MISSING   : " + "; ".join(missing_layers))
@@ -388,6 +483,11 @@ def main() -> int:
           "corrections to this project: its rules match on names like 'LQFP-' and would\n"
           "rotate these parts a quarter turn they do not need.", flush=True)
 
+    # A BOM/CPL mismatch is an ERROR, not INCOMPLETE: the package is not merely
+    # short of information, it is one JLCPCB rejects outright -- or worse, one an
+    # operator clicks past into a board assembled with parts missing.
+    if no_cpl or no_bom:
+        return EXIT_ERROR
     return EXIT_INCOMPLETE if (unsourced or unplaceable) else EXIT_OK
 
 
