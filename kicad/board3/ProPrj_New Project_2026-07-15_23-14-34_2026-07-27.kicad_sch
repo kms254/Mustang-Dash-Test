@@ -24431,6 +24431,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 63.5 12.7 0)
 			(hide yes)
@@ -26344,6 +26355,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 91.44 44.45 0)
 			(hide yes)
@@ -28035,6 +28057,17 @@
 				(justify left bottom)
 			)
 		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 425.45 256.54 0)
 			(hide yes)
@@ -28443,6 +28476,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 52.07 45.72 0)
 			(hide yes)
@@ -28598,6 +28642,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -28767,6 +28822,17 @@
 					(size 1.2446 1.2446)
 				)
 				(justify left bottom)
+			)
+		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
 			)
 		)
 		(property "Supplier" "LCSC"
@@ -29287,6 +29353,17 @@
 					(size 1.2446 1.2446)
 				)
 				(justify left bottom)
+			)
+		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
 			)
 		)
 		(property "Supplier" "LCSC"
@@ -30186,6 +30263,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 66.04 26.67 0)
 			(hide yes)
@@ -30346,6 +30434,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -31549,6 +31648,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -33729,6 +33839,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 189.23 81.28 0)
 			(hide yes)
@@ -35152,6 +35273,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 215.9 76.2 0)
 			(hide yes)
@@ -35307,6 +35439,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -35695,6 +35838,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -36559,6 +36713,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -38788,6 +38953,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -41659,7 +41835,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K"
+		(property "Value" "HL-A-3528H343W-S1-13HL-HR3(SDCM 6)(6000K-7000K)"
 			(at 196.85 123.19 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -41705,7 +41881,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K"
+		(property "Manufacturer Part" "HL-A-3528H343W-S1-13HL-HR3(SDCM 6)(6000K-7000K)"
 			(at 200.66 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -42921,6 +43097,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 177.8 41.91 0)
 			(hide yes)
@@ -43076,6 +43263,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -43604,6 +43802,17 @@
 					(size 1.2446 1.2446)
 				)
 				(justify left bottom)
+			)
+		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
 			)
 		)
 		(property "Supplier" "LCSC"
@@ -47229,6 +47438,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 80.01 43.18 0)
 			(hide yes)
@@ -48898,6 +49118,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 120.65 44.45 0)
 			(hide yes)
@@ -50495,6 +50726,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -52845,6 +53087,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 140.97 44.45 0)
 			(hide yes)
@@ -53610,6 +53863,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -54584,6 +54848,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 71.12 43.18 0)
 			(hide yes)
@@ -55322,6 +55597,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 111.76 44.45 0)
 			(hide yes)
@@ -55477,6 +55763,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -59491,6 +59788,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 60.0 372.0 0)
 			(hide yes)
@@ -59587,6 +59895,17 @@
 		)
 		(property "Supplier Part" "C15849"
 			(at 95.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(hide yes)
 			(effects
 				(font
@@ -59697,6 +60016,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 130.0 372.0 0)
 			(hide yes)
@@ -59793,6 +60123,17 @@
 		)
 		(property "Supplier Part" "C25804"
 			(at 60.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(hide yes)
 			(effects
 				(font
@@ -59903,6 +60244,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 95.0 388.0 0)
 			(hide yes)
@@ -60006,6 +60358,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 130.0 388.0 0)
 			(hide yes)
@@ -60102,6 +60465,17 @@
 		)
 		(property "Supplier Part" "C48985875"
 			(at 170.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(hide yes)
 			(effects
 				(font
