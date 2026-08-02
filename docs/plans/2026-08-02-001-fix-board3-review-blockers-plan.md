@@ -422,6 +422,149 @@ it has the more authoritative-sounding name. One `rm`.
 
 ---
 
+### U42. Simplify CAN termination to one resistor per bus, jumper-selectable
+
+**Goal:** replace the four-part split network with a two-part one, and make
+termination an independent yes/no choice **per CAN bus**.
+
+**What is there now**, verified through `pcbnew` — both buses identical:
+
+    CAN1_H ──[ H1 ]── /CAN1_TERM ──[ R10 60.4Ω ]──┬── /CAN1_CT
+                                                   │
+                                              [ C57 4.7nF ]
+                                                   │
+                                                  GND
+                                                   │
+    CAN1_L ─────────────────[ R14 60.4Ω ]──────────┘
+
+Split termination is the right *topology* — two halves with a mid-point cap damp
+common-mode without loading differential. The defect is **which leg the jumper
+interrupts**. H1 sits only in the `CAN1_H` branch, so with the jumper open:
+
+- `CAN1_H` → open at H1, carries nothing
+- `CAN1_L` → **still** 60.4 Ω + 4.7 nF to ground, permanently
+
+That is an unbalanced AC load on one leg of a differential pair — τ = 284 ns
+against a 1 µs bit time at 1 Mbps. Exactly what split termination exists to
+avoid. `tools/kicad_rules.json` records the intended default as *un-terminated*
+("the bus is terminated at its ends by the vehicle harness"), so the un-jumpered
+state is the one that is wrong.
+
+**Approach — series resistor behind the jumper:**
+
+    CAN_H ──[ H1 pin1 ][ H1 pin2 ]──[ R 120Ω ]── CAN_L
+
+Jumper **fitted** → a single 120 Ω across the pair, the standard CAN end
+termination. Jumper **open** → the resistor is left dangling from one line with
+its far end floating: a ~1 pF stub with no path to anywhere, instead of today's
+permanent RC to ground. Each bus keeps its own header, so **CAN1 and CAN2 are
+selected independently** — fit one, both, or neither.
+
+**Parts, per bus:** `H1` + `R10` + `R14` + `C57` (4) → `H1` + one 120 Ω (2).
+
+| | before | after |
+|---|---|---|
+| placements | 8 (both buses) | 4 |
+| `C2933247` 60.4 Ω ×4, **Extended** | 1 line | removed |
+| `C53987` 4.7 nF ×2, Basic (used *only* by C57/C58) | 1 line | removed |
+| `C22787` 120 Ω 0603, **Basic + preferred** (no feeder fee), 3.08 M stock, $0.008 | — | 1 line |
+
+Net **−1 BOM line and −1 extended-part fee**, on top of U35/U36. Running total:
+48 → 46 (U35) → 45 (U36) → **44** (U42).
+
+Power check: at 2 V differential, 120 Ω dissipates 33 mW against the 0603 part's
+100 mW rating — 3× margin, and 0603 matches the board's dominant package.
+
+**Files:** `kicad/board3/*.kicad_sch`, `kicad/board3/*.kicad_pcb`
+
+**Approach note:** this needs a re-route of both CAN connector areas, so it is
+the second-largest routing job in the plan after U33. Add the part with
+`python tools/kicad_lcsc.py add C22787`, then `kicad_lcsc.py models`.
+
+**Verification:** `/CAN1_H` and `/CAN1_L` each carry exactly the transceiver pin,
+the connector pin, and one termination element; no net reaches `/GND` through a
+termination part; DRC 0/0. Repeat for CAN2.
+
+**Interim measure until this ships:** on the current board, **fit the H1/H3
+jumpers**. That makes the existing network the symmetric split termination it was
+drawn as, at the cost of 120 Ω of extra termination on a short bench bus — benign
+at 1 Mbps. Put it on the bring-up card.
+
+---
+
+### U43. Raise four DRC guard rails that sit below the fab's actual limits
+
+**Goal:** stop the rule set from being able to certify an unbuildable board.
+
+Each of these is currently *satisfied by the geometry* — so this is not a defect
+list, it is a list of checks that would not catch one. Measured against JLC's
+live capability table:
+
+| Rule | Configured | JLC actual | Board's real value |
+|---|---|---|---|
+| `m_SolderMaskMinWidth` | **0.0 mm** (disabled) | 0.10 mm green / 0.13 black-white | 0.1795 mm ✓ |
+| `min_text_height` | 0.8 mm | **1.0 mm** | 1.0 / 1.27 mm ✓ |
+| `min_text_thickness` | 0.08 mm | **0.15 mm** | 0.15 mm ✓ (exactly at limit) |
+| `min_hole_clearance` | 0.1016 mm | 0.20 via→track, 0.28 PTH→track, 0.30 inner PTH→cu | 0.2730 / 0.4330 / 0.3021 ✓ |
+
+Plus the `.kicad_dru` scopes edge clearance **below** the fab limit:
+
+    (rule usbc_slot_edge
+      (condition "A.intersectsArea('usbc_slots')")
+      (constraint edge_clearance (min 0.1mm)))
+
+0.1 mm is half of JLC's 0.20 mm copper-to-routed-slot minimum. The board sits at
+0.2417 mm so it passes anyway — but that rule would certify a board that cannot
+be built. Raise it to 0.20 mm and it still passes, while meaning something.
+
+Because `solder_mask_bridge` is severity *error* while its width parameter is
+0.0, it only ever catches actual aperture overlaps, never a sub-minimum dam.
+
+**Files:** `kicad/board3/*.kicad_pro`, `kicad/board3/*.kicad_dru`
+
+**Verification:** after raising all five, DRC still 0/0. If anything now fails,
+that is a real finding the old rules were hiding — treat it as such, do not lower
+the rule back.
+
+**Related, and deliberately NOT changed here:** three features pass with
+essentially no margin and should be watched rather than adjusted, since fixing
+them costs re-routing:
+
+- BTN1 via annular ring **0.1500 mm** — JLC's absolute minimum, recommended 0.20
+- USBC1.1/2/3 hole → Inner2 `/+5V` zone **0.3021 mm** vs a 0.30 mm limit (2.1 µm)
+- USBC1 pads → routed retention slot **0.2417 mm** vs 0.20 mm
+
+---
+
+### U44. Order-form facts that are not in any file
+
+**Goal:** the quote form asks for things the gerbers do not state, and getting
+them wrong causes a hold, a re-quote, or unfitted parts.
+
+| Field | Answer | Why it is not obvious |
+|---|---|---|
+| Board size | **250 × 50 mm** | not 230 × 50 (U39) |
+| Minimum hole size | **0.20 mm** | 204 vias are 0.25, but the single BTN1 via at 0.20 forces the lower tier. Declaring 0.25 is wrong. |
+| Via covering | **Tented** | the board sets `m_TentViasFront/Back = True`; JLC's plugged-via service caps at 0.5 mm and ours are 0.6 mm, so tenting is what must be selected |
+| Surface finish | **ENIG** | the stackup block specifies it and it is a real cost adder over HASL |
+| Stackup | **JLC04161H-7628** | the literal string appears **nowhere** in the `.kicad_pcb` — only the numeric values match, so nothing binds the order to that template |
+| Impedance control | **not ordered** | `dielectric_constraints no`. The USB pair is built to a 90 Ω target against the written stackup, but JLC will not verify it |
+| Assembly service | **must include through-hole / hand-solder** | **12 of 143 designators are THT**: DC1, H1, H2, H3, P1, P2, SW1–SW4, SW6, SW7. Plain SMT assembly leaves the board with no power jack, no CAN terminals and no buttons. |
+
+**Also time-sensitive, not a file fix:** **U1 (STM32H755ZIT6, `C730212`) is at 37
+units** and is ~64% of the per-board component cost ($27.26 of ~$42.31). Its only
+variant `C1343604` is at **0**. This is the identical pattern that hit U2, which
+went 2,163 → 4 units in seven days. There is no substitution available — the
+mitigation is order timing. Re-check stock immediately before placing the order,
+and treat a drop toward zero as a reason to place it that day.
+
+**Unverified, flagged rather than guessed:** JLC publishes no maximum hole aspect
+ratio. This board is 6.4:1 (1.6 mm / 0.25 mm) and 8.0:1 at BTN1. Their published
+0.15 mm multilayer minimum with 1.6 mm listed as standard *implies* ~10.7:1 is
+supported, but that is an inference. Confirm at order if certainty is wanted.
+
+---
+
 ## Key Technical Decisions
 
 **KTD27. Verify by pin FUNCTION, never pin number.** U31's defect survived a
@@ -469,10 +612,42 @@ Recorded so they are not lost, and explicitly **not** in scope here:
   pad 2 orphans U12's reset pull-up, and the internal pull-down holds RSTN low:
   U12 in permanent reset, all four east telltales dark. The **west side home-runs
   to the plane and does not have this.** Home-run the east side too.
-- **CAN termination jumper is on the wrong side of the split.** With H1 open,
-  `CAN1_L` keeps a 60.4 Ω + 4.7 nF path to ground while `CAN1_H` carries nothing —
-  an unbalanced AC load on one leg. Free workaround: **fit the H1/H3 jumpers**
-  (bring-up card). Spin-2 fix: one 120 Ω 0805 land, DNP.
+- **`fab/bom.csv`'s `Part Class` column is stale.** 8 lines blank — including
+  every part this campaign touched (D10/D11, F1, U2) — and 1 wrong (`C98220`
+  says Basic, JLC says Extended). Not an upload risk (`Part Class` is absent
+  from `bom-jlcpcb.csv`) but it is the column a human quotes from, so a budget
+  built from it understates the extended-part fees.
+- **13 board 3D-model references point at `.wrl`, not `.step`** (F1, D10, D11,
+  U11, U12, LED1, LED3–LED8) — every one has a `.step` sibling already on disk.
+  `kicad_lcsc.py check` passes because the referenced file exists, but
+  `kicad-cli pcb export step` ignores VRML, so an enclosure-fit STEP export
+  silently omits those 13 bodies. Mechanical only, and a quiet drift from
+  `kicad/README.md`'s stated `.step` convention.
+- **LED3's value carries HTML-escape damage** — `HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K`,
+  where `_amp_lt_` is a surviving `&lt;`. Real MPN is
+  `HL-A-3528H343W-S1-13HL-HR3(SDCM 6)(6000K-7000K)`. Cosmetic for ordering — the
+  LCSC code picks the part — but that 62-character string is what the Component
+  Marking Layer carries.
+- **`--smd-only` is a CPL landmine.** 134 of 150 footprints carry no
+  footprint-type attribute and `footprint_type_mismatch` is `ignore`. The shipped
+  CPL is correct, but exporting with `--smd-only` (the commonly-cited JLCPCB
+  recipe) yields a **13-part** CPL that still looks well-formed.
+- **Ask for an AOI check on U12 P0_6.** The U12↔LED6 pad gap is 0.200 mm with
+  zero mask expansion, and LED6's pad carries ~15× the paste volume of the QFN
+  pin beside it. A bridge there lands `/+5V` on P0_6 — which is *unconnected*, so
+  the board works perfectly with the defect present and no functional test finds
+  it. +5 V is inside the part's 6 V pin rating, so it will not fail fast either.
+- **CAN bus pins have no TVS.** `/CAN1_H`, `/CAN1_L`, `/CAN2_H`, `/CAN2_L` go
+  straight to the harness. Defensible — the TJA1051T/3 carries ±8 kV IEC 61000-4-2
+  and ±58 V bus-fault ratings, and KTD3 explicitly makes the car's 12 V front-end
+  the production board's problem. Recorded so it is not lost when this moves into
+  the car.
+- **`/SWO` connects to exactly one pad (U1.130) and goes nowhere** — H2 is a
+  5-pin SWD header with no SWO pin, so ITM trace is unavailable. Costs no parts.
+- **24 of 32 expander ports are unused** — U11 and U12 each drive only P1_4–P1_7.
+  The useful reading is positive: this board already has **24 spare POR-safe I/O
+  on an existing bus**, so any spin-2 feature (backlight enable, more telltales,
+  an encoder) belongs there rather than on a new IC or a new MCU GPIO.
 - **CH224K (U4) is a 100 W PD controller hard-strapped to 5 V.** Safe as wired,
   but two 5.1 kΩ CC pull-downs do the same job: −2 placements, −1 extended line,
   −1 exposed-pad reflow risk.
