@@ -59532,7 +59532,7 @@
 				)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "1uF"
 			(at 92.46 375.81 0)
 			(effects
 				(font
@@ -59549,7 +59549,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10A105KB8NNNC/16531.html"
 			(at 95.0 372.0 0)
 			(hide yes)
 			(effects
@@ -59558,7 +59558,7 @@
 				)
 			)
 		)
-		(property "Description" "100nF 50V X7R 0603"
+		(property "Description" "Capacitance:1uF Tolerance:±10% Tolerance:±10% Voltage Rating:50V Temperature Coefficient:X5R"
 			(at 95.0 372.0 0)
 			(hide yes)
 			(effects
@@ -59567,7 +59567,7 @@
 				)
 			)
 		)
-		(property "Manufacturer Part" "CC0603KRX7R9BB104"
+		(property "Manufacturer Part" "CL10A105KB8NNNC"
 			(at 95.0 372.0 0)
 			(hide yes)
 			(effects
@@ -59576,7 +59576,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "YAGEO"
+		(property "Manufacturer" "SAMSUNG(三星)"
 			(at 95.0 372.0 0)
 			(hide yes)
 			(effects
@@ -59585,7 +59585,7 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C14663"
+		(property "Supplier Part" "C15849"
 			(at 95.0 372.0 0)
 			(hide yes)
 			(effects
@@ -59841,7 +59841,7 @@
 				)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "1uF"
 			(at 92.46 391.81 0)
 			(effects
 				(font
@@ -59858,7 +59858,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10A105KB8NNNC/16531.html"
 			(at 95.0 388.0 0)
 			(hide yes)
 			(effects
@@ -59867,7 +59867,7 @@
 				)
 			)
 		)
-		(property "Description" "100nF 50V X7R 0603"
+		(property "Description" "Capacitance:1uF Tolerance:±10% Tolerance:±10% Voltage Rating:50V Temperature Coefficient:X5R"
 			(at 95.0 388.0 0)
 			(hide yes)
 			(effects
@@ -59876,7 +59876,7 @@
 				)
 			)
 		)
-		(property "Manufacturer Part" "CC0603KRX7R9BB104"
+		(property "Manufacturer Part" "CL10A105KB8NNNC"
 			(at 95.0 388.0 0)
 			(hide yes)
 			(effects
@@ -59885,7 +59885,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "YAGEO"
+		(property "Manufacturer" "SAMSUNG(三星)"
 			(at 95.0 388.0 0)
 			(hide yes)
 			(effects
@@ -59894,7 +59894,7 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C14663"
+		(property "Supplier Part" "C15849"
 			(at 95.0 388.0 0)
 			(hide yes)
 			(effects
@@ -60047,7 +60047,7 @@
 				)
 			)
 		)
-		(property "Value" "BSMD1812-200-30V"
+		(property "Value" "1812L300_30GR"
 			(at 167.46 375.81 0)
 			(effects
 				(font
@@ -60055,7 +60055,7 @@
 				)
 			)
 		)
-		(property "Footprint" "JLCImport:BSMD1812-200-30V"
+		(property "Footprint" "JLCImport:1812L300_30GR"
 			(at 170.0 372.0 0)
 			(hide yes)
 			(effects
@@ -60064,7 +60064,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.lcsc.com/product-detail/C960026.html"
+		(property "Datasheet" "https://item.szlcsc.com/343302.html"
 			(at 170.0 372.0 0)
 			(hide yes)
 			(effects
@@ -60073,7 +60073,7 @@
 				)
 			)
 		)
-		(property "Description" "PPTC 2A hold 4A trip 30V 1812"
+		(property "Description" "1812L300/30GR; F1812; LUTE"
 			(at 170.0 372.0 0)
 			(hide yes)
 			(effects
@@ -60082,7 +60082,7 @@
 				)
 			)
 		)
-		(property "Manufacturer Part" "BSMD1812-200-30V"
+		(property "Manufacturer Part" "1812L300/30GR"
 			(at 170.0 372.0 0)
 			(hide yes)
 			(effects
@@ -60091,7 +60091,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "BHFUSE"
+		(property "Manufacturer" "LUTE"
 			(at 170.0 372.0 0)
 			(hide yes)
 			(effects
@@ -60100,7 +60100,7 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C960026"
+		(property "Supplier Part" "C48985875"
 			(at 170.0 372.0 0)
 			(hide yes)
 			(effects
