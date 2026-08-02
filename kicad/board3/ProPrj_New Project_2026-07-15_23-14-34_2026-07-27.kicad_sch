@@ -59939,7 +59939,7 @@
 	)
 	(symbol
 		(lib_id "JLCImport:1N5819WS")
-		(at 130.0 372.0 0)
+		(at 130.0 372.0 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -60281,7 +60281,7 @@
 	)
 	(symbol
 		(lib_id "JLCImport:1N5819WS")
-		(at 130.0 388.0 0)
+		(at 130.0 388.0 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
