@@ -90,6 +90,7 @@ clean, merged `main` on a fresh branch — not from the current working tree.
       └───────────────────────────────────┴───────────────────────────────────┘
                                           ▼
                             U45  silk: function labels, no refdes
+                                 U49  SWO out to the debug header
                                  (last — U33/U42 move copper near connectors)
                                           ▼
                             U37  courtyards + un-ignore the check
@@ -766,6 +767,61 @@ protection element with exactly two pads on its input side.
 
 ---
 
+### U49. Bring `/SWO` out to the debug header
+
+**Goal:** give this board a diagnostic channel that does not collide with the
+serial protocol.
+
+**The gap.** `/SWO` is a **dangling net** — exactly one pad, `U1.130`, going
+nowhere. H2 is a 5-pin header carrying `+3V3, SWDIO, SWCLK, NRST, GND`, so the
+MCU's trace output has no destination and ITM is unavailable.
+
+**Why this board needs it more than most.** The USB serial is not a debug
+channel here, it is a *protocol* channel: `ok`/`err` acks are the only output
+after boot, and both the `/dash` skill and the host tests depend on that
+contract. So today there is **nowhere to print** — any `printf` added to diagnose
+something breaks the contract the tooling relies on.
+
+SWO is a separate one-way path out of the core carrying ITM (`printf` at
+megabits), exception entry/exit trace, and PC sampling for profiling. ST-LINK
+V2/V3 and J-Link all support it. On a board whose hard bring-up problems have
+been timing and signal integrity — the 27 MHz wedge that dead-locked the
+firmware in an unbounded busy-poll, the unresolved two-panel crosstalk, marginal
+FFC contacts — exception trace and PC sampling are the right instruments, and
+none of them cost a byte on the protocol port.
+
+**Files:** `kicad/board3/*.kicad_sch`, `kicad/board3/*.kicad_pcb`
+
+**Approach:** H2 `PZ254V-11-05P` → the 6-pin variant of the same family (H1/H3
+already use `PZ254V-11-02P`, so this is a family the board and the BOM already
+carry). Route `U1.130` to the new pin. Suggested order — keep the existing five
+in place and append SWO — so any cable already made stays valid.
+
+**Space check, measured:** H2 sits at (130.44, 115.59) rotated 90°, bbox
+3.17 × 13.33 mm, so growth is ±1.27 mm along y. Nearest neighbours are lateral,
+not in the growth path — C4 and C35 are ~6.5 mm away in x, H3 is clear in x
+entirely. Re-verify during execution rather than trusting this.
+
+**Two honest caveats:**
+
+1. A 6-pin 0.1″ header is **not a plug-in standard** — the conventional choices
+   are the 10-pin Cortex Debug connector or a 20-pin. It works fine with flying
+   leads, which is how this bench already connects, but it is not a socket
+   anything ships with. If a standard connector is wanted, decide that now
+   rather than after copper exists.
+2. **No firmware enables ITM today.** This buys capability that still has to be
+   built on. It is cheap to add now and impossible to add after fabrication,
+   which is the whole argument.
+
+Add the part with `python tools/kicad_lcsc.py add C<n>` once the 6-pin variant's
+LCSC code is confirmed, then `kicad_lcsc.py models`.
+
+**Verification:** `/SWO` carries exactly two pads — `U1.130` and the new H2 pin.
+DRC 0/0. `kicad_lcsc.py check` PASS. Header pin order documented on the bring-up
+card, since the silk (U45) will label it `SWD` rather than enumerate pins.
+
+---
+
 ## Genuinely deferred — and why
 
 Unlike the list above, these cannot be closed in this spin. The distinction
@@ -780,10 +836,9 @@ matters: **"spin 2" is only a real bucket when something blocks the work now.**
   the TJA1051T/3 carries ±8 kV IEC 61000-4-2 and ±58 V bus-fault ratings, and
   KTD3 makes the car's 12 V front-end the production board's problem. This board
   is a bench article.
-- **`/SWO` goes nowhere** — it connects to exactly one pad (U1.130) because H2 is
-  a 5-pin SWD header with no SWO pin, so ITM trace is unavailable. Closing it
-  means a different debug connector, which is a deliberate spin-2 scope decision
-  rather than a defect.
+*(`/SWO` was listed here and has been promoted to U49 — the fix is a 5-pin →
+6-pin header in a family the board already uses, plus one route, which is not a
+blocking input at all.)*
 
 ## Declined, with reasons
 
