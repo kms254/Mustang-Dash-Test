@@ -13,14 +13,18 @@ branch: fix/board3-review-blockers
 
 Board3 was one click from fabrication when a six-lens review returned **NO-GO**
 on three blockers. The headline one is that the fix for the previous review's
-CRITICAL finding is installed backwards and does nothing. This plan closes all
-three, folds in the cheap findings that need the same GUI session, and takes the
-BOM from 48 lines to 45 while permanently removing the defect class that broke
-the JLCPCB uploader.
+CRITICAL finding is installed backwards and does nothing.
 
-**Done means:** the board is orderable with every blocker closed, verified by
-netlist and measurement rather than by inference, and the fab package regenerated
-under KiCad's own interpreter.
+This plan closes **every finding that can be closed before the board is made** —
+not just the blockers. There is no spin 1 yet, so "defer to spin 2" would mean
+deliberately fabricating known defects to save edits we are already making. Only
+three findings are genuinely deferred, each because it is blocked on an input
+that does not exist (carrier CAD, a different debug connector, a production-board
+decision already recorded in KTD3).
+
+**Done means:** the board is orderable with every closable finding closed,
+verified by netlist and measurement rather than by inference, the BOM down from
+48 lines to 44, and the fab package regenerated under KiCad's own interpreter.
 
 ## Why this plan exists
 
@@ -55,7 +59,11 @@ it the board reports 36 violations, all inside its three declared scopes.
 - Power input path copper meets `docs/hardware/board3-pcb-layout-guide.md` §3
 - `tools/kicad_lcsc.py check` PASS
 - BOM/CPL symmetric; `kicad_fab.py` exits 0 with gerbers named `F_Cu.gbr` et al.
-- BOM at 45 lines or fewer, with zero same-Comment/different-part-number pairs
+- BOM at 44 lines, with zero same-Comment/different-part-number pairs
+- `kicad-cli pcb export step` emits all 143 bodies (carrier CAD depends on it)
+- No via centre inside any pad; no track-to-via edge gap below 0.12 mm
+- Every finding from the 2026-08-02 review is closed, deferred with a stated
+  blocking input, or declined with a stated reason — none silently dropped
 
 ---
 
@@ -69,20 +77,35 @@ clean, merged `main` on a fresh branch — not from the current working tree.
                                           ▼
                                    new branch: fix/board3-review-blockers
                                           │
-             ┌────────────────────────────┼────────────────────────────┐
-             ▼                            ▼                            ▼
-       U35 (no GUI)              U31, U32, U34, U36              U33 (routing)
-       metadata merges           one GUI sync covers all         power copper
-             │                            │                            │
-             └────────────────────────────┴────────────────────────────┘
+      ┌───────────────────────────────────┼───────────────────────────────────┐
+      ▼                                   ▼                                   ▼
+  no GUI needed                  ONE GUI sync covers all              routing work
+  U35  part-number merges        U31  diode reversal  ★               U33  power copper ★
+  U38  netclass via_drill        U32  F1 resize       ★               U42  CAN termination
+  U39  doc corrections           U34  C70/C71 → 1 µF                  U47  copper fixes
+  U40  delete stale zip          U36  C67 → 0805
+  U43  raise DRC guard rails     U46  footprint + metadata
+                                 U48  R4 divider, VBUS OCP
+      │                                   │                                   │
+      └───────────────────────────────────┴───────────────────────────────────┘
                                           ▼
-                              U37, U38, U39, U40 (cleanup)
+                            U45  silk: function labels, no refdes
+                                 (last — U33/U42 move copper near connectors)
                                           ▼
-                              regenerate fab package, order
+                            U37  courtyards + un-ignore the check
+                                          ▼
+                    regenerate fab package → U44 order-form checklist → order
 
-U31, U32, U34 and U36 all require the KTD12 GUI sync, so they batch into **one**
-`Update PCB from Schematic` pass rather than four. U35 needs no sync at all and
-can be done any time. U33 is independent copper work.
+★ = the three fabrication blockers.
+
+**The GUI sync is the expensive step, so batch it.** U31, U32, U34, U36, U46 and
+U48 all need one `Update PCB from Schematic` pass — run it once, not six times.
+That step is also the one nothing can verify automatically (KTD12) and the one
+that silently set 16 DNP flags last time, so **re-run `bom_cpl_symmetry()` and a
+DNP census immediately after it**.
+
+U45 goes last on purpose: silk placed before U33 and U42 move copper near the
+connectors would need redoing.
 
 ---
 
@@ -565,6 +588,59 @@ supported, but that is an inference. Confirm at order if certainty is wanted.
 
 ---
 
+### U45. Silk carries function, not designators
+
+**Goal:** stop printing reference designators, and label the things a person
+actually has to identify with their hands.
+
+**Current state**, measured through `pcbnew`: **8 of 146** designators print —
+D10, D11, F1, U11, U12 and the three fiducials. The other 138 are hidden,
+including all 64 capacitors, all 35 resistors, nine ICs, the eight telltales and
+all six switches.
+
+**Decision: hide the remaining five and keep silk for inputs and buttons only.**
+The board file is authoritative and `kicad/board3/renders/` carries current
+top/bottom/angled images regenerated on every board commit, so a designator is
+always seconds away. Printing 138 of them would have been a real layout job on a
+dense 250 × 50 mm board with silk clearance only just armed at 0.15 mm (U28) —
+whereas this direction makes silk *sparser*.
+
+**Hide (5):** D10, D11, F1, U11, U12.
+**Fiducials:** FID1–3 keep their marks; the designator text can go too.
+
+**Label (16) — and label them by FUNCTION, not designator.** For precisely the
+parts worth marking, the refdes is the least informative string available:
+
+| Part | Print this, not this |
+|---|---|
+| FPC1 / FPC2 / FPC3 | **CENTER** / **LEFT** / **RIGHT** |
+| P1 / P2 | **CAN1** / **CAN2** |
+| H1 / H3 | **TERM1** / **TERM2** |
+| H2 | **SWD** |
+| DC1 | **12V** (or the confirmed supply rating) |
+| USBC1 | **USB** |
+| SW1–SW4 | **BTN1**–**BTN4** |
+| SW6 / SW7 | **RESET** / **BOOT** |
+
+Plugging the centre panel into the wrong FPC is a real bench mistake, and
+`FPC2` does not protect against it. `RESET` vs `BOOT` matters more than `SW6` vs
+`SW7` when a board is in a half-assembled state and someone is holding it.
+
+**Files:** `kicad/board3/*.kicad_pcb` — reference-text visibility is a board-side
+property of the placed footprint, so this needs **no schematic sync** (the U10
+`Value` precedent). Functional labels are new `gr_text` items on `F.SilkS`.
+
+**Verification:** DRC 0/0 with `silk_over_copper` and `silk_edge_clearance`
+armed — this is the check that matters, since 16 new text items near connectors
+is exactly where silk-over-pad appears. Text ≥1.0 mm height and ≥0.15 mm
+thickness (JLC's minimums, see U43). Re-render and eyeball
+`kicad/board3/renders/top.png`.
+
+**Execution note:** do this **after** U33 and U42, both of which move copper near
+connectors. Silk placed first would need redoing.
+
+---
+
 ## Key Technical Decisions
 
 **KTD27. Verify by pin FUNCTION, never pin number.** U31's defect survived a
@@ -596,73 +672,147 @@ and getting exactly 1 violation back.
 
 ---
 
-## Deferred to spin 2
+### U46. Cheap fixes that need no copper — do them while the files are open
 
-Recorded so they are not lost, and explicitly **not** in scope here:
+Every item here is a metadata or footprint edit. None touches a net. They were
+initially filed as "spin 2", which was wrong: there is no spin 1 yet, so
+deferring them means **deliberately fabricating a board with known defects** to
+save edits we are already making.
 
-- **R4 = 0 Ω on `/VBUS_SENSE`** puts unlimited 5 V injection into U1 pin 98 during
-  the buck's soft-start, while VDD is still rising. ST's limit is ±5 mA; the clamp
-  sees tens of mA on every power-up. Also floats when USB is unplugged. One-part
-  fix: make R4 the top of a 100 k/100 k divider.
+- **U4's exposed pad is still 100% paste.** The fourth EP part; U23 windowed the
+  other three. Same edit, already understood. EP-to-pin gap is 1.200 mm so
+  bridging is not credible, but there is no reason to ship the inconsistency.
+- **LED3 has no printed polarity mark**, and **LED5's two silk cues contradict
+  each other** — its centre arrow points at pad 1 (cathode) while its corner
+  triangle sits at the pad 2 corner. The U23 fix covered LED4/6/7 and stopped.
+  A reversed telltale just stays dark, but this is a rework/inspection trap.
+- **LED3's value carries HTML-escape damage**:
+  `HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K`, where `_amp_lt_` is a
+  surviving `&lt;`. Real MPN is `HL-A-3528H343W-S1-13HL-HR3(SDCM 6)(6000K-7000K)`.
+  That 62-character string is what the Component Marking Layer carries.
+- **`fab/bom.csv`'s `Part Class` column is stale** — 8 lines blank (including
+  every part this campaign touched) and 1 wrong (`C98220` claims Basic, JLC says
+  Extended). It is the column a human quotes from.
+- **13 3D-model references point at `.wrl` where a `.step` sibling exists on
+  disk** (F1, D10, D11, U11, U12, LED1, LED3–LED8). `kicad_lcsc.py check` passes
+  because the file exists, but `kicad-cli pcb export step` ignores VRML, so an
+  enclosure-fit export silently omits 13 bodies — and the carrier CAD is what
+  gates the board-shrink decision.
+- **Set footprint-type attributes.** 134 of 150 footprints carry none and
+  `footprint_type_mismatch` is `ignore`, so exporting with `--smd-only` (the
+  commonly-cited JLCPCB recipe) yields a **13-part CPL that still looks
+  well-formed**. Set the attributes and un-ignore the check.
+- **SW1–SW4 and SW6/SW7 use two land patterns for one part number**
+  (`LS5.4` vs `LS5.0`). At most one is dimensionally right.
+
+**Verification:** DRC 0/0; `kicad_lcsc.py check` PASS; `kicad-cli pcb export step`
+produces a model with all 143 bodies.
+
+---
+
+### U47. Copper fixes to make while U33 and U42 already have the router open
+
+These need routing, which is exactly why they belong in this spin rather than the
+next one — the alternative is opening the router twice.
+
+- **Home-run the east `/+5V` feed.** R61 and D11 currently draw `/+5V`
+  *through* the LED4 telltale daisy chain. Verified by real in-memory segment
+  deletion: cutting either feed segment orphans `D11.2, LED4.2, R61.1`. One cold
+  joint at LED4 pad 2 removes U12's reset pull-up, the internal 100 kΩ pull-down
+  holds RSTN low, and **U12 sits in permanent reset — all four east telltales
+  dark and the expander unresponsive on I2C.** The **west side already home-runs
+  to the plane and does not have this**; make the east side match.
+- **Relieve `/U12_RSTN`'s clearance.** It runs at **1.4 µm** of margin against
+  two telltale vias (0.1030 mm edge gap vs a 0.1016 mm rule) — the tightest
+  copper on the board, on a net added by the last campaign. An etch or
+  registration excursion shorts reset to a telltale cathode, and U12 would then
+  reset itself every time TT4 or TT8 illuminates.
+- **Move the escape vias out of LED2/6/7/8's cathode pads.** Via centres sit
+  *inside* pad 1 on four telltales. Tenting is irrelevant when the via is inside
+  the pad's own mask aperture: solder wicks down the 0.25 mm barrel during
+  reflow — up to ~22% of one pad's deposit — giving an asymmetric fillet and LED
+  tilt on a part sitting behind a lens.
+- **Give BTN1's via an annular ring with margin.** At 0.5/0.2 it has exactly
+  **0.150 mm**, JLC's absolute minimum with zero headroom, and it is also the one
+  via forcing the whole order into the 0.20 mm hole tier (U44). If neighbouring
+  pads can be nudged to allow 0.6/0.25, both problems close together.
+
+**Verification:** DRC 0/0 after `ZONE_FILLER.Fill()` then `BuildConnectivity()`;
+re-run the segment-deletion test and confirm no LED cut orphans R61 or D11;
+minimum track-to-via edge gap above 0.12 mm; no via centre inside any pad.
+
+---
+
+### U48. Two electrical fixes the review found outside the blocker set
+
+- **R4 = 0 Ω puts unlimited 5 V injection into U1 pin 98 (PA9) on every
+  power-up.** `/VBUS_SENSE` has exactly two pads: `R4.2` and `U1.98`. PA9 is 5 V
+  tolerant, but ST's tolerance is conditional on VDD being present — and 3.3 V is
+  *derived* from 5 V through U3, so during the buck's soft-start VBUS sits on PA9
+  through 0 Ω while VDD is still rising. Current into the ESD clamp is limited
+  only by the clamp itself (~10–50 Ω), i.e. **tens of mA against a ±5 mA limit,
+  every single power-up**. Secondary: with no lower leg, PA9 floats when USB is
+  unplugged and barrel-powered, so VBUS sensing reads indeterminate. Fix: make R4
+  the top of a divider (100 k / 100 k). One added part.
 - **`/VBUS` has no overcurrent protection.** The 2026-07-31 HIGH named *both*
-  inputs; only the barrel got F1.
-- **`/U12_RSTN` runs at 1.4 µm of clearance margin** against two telltale vias
-  (0.1030 mm edge gap vs a 0.1016 mm rule) — the tightest copper on the board.
-- **R61/D11 draw `/+5V` through the LED4 daisy chain.** One cold joint at LED4
-  pad 2 orphans U12's reset pull-up, and the internal pull-down holds RSTN low:
-  U12 in permanent reset, all four east telltales dark. The **west side home-runs
-  to the plane and does not have this.** Home-run the east side too.
-- **`fab/bom.csv`'s `Part Class` column is stale.** 8 lines blank — including
-  every part this campaign touched (D10/D11, F1, U2) — and 1 wrong (`C98220`
-  says Basic, JLC says Extended). Not an upload risk (`Part Class` is absent
-  from `bom-jlcpcb.csv`) but it is the column a human quotes from, so a budget
-  built from it understates the extended-part fees.
-- **13 board 3D-model references point at `.wrl`, not `.step`** (F1, D10, D11,
-  U11, U12, LED1, LED3–LED8) — every one has a `.step` sibling already on disk.
-  `kicad_lcsc.py check` passes because the referenced file exists, but
-  `kicad-cli pcb export step` ignores VRML, so an enclosure-fit STEP export
-  silently omits those 13 bodies. Mechanical only, and a quiet drift from
-  `kicad/README.md`'s stated `.step` convention.
-- **LED3's value carries HTML-escape damage** — `HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K`,
-  where `_amp_lt_` is a surviving `&lt;`. Real MPN is
-  `HL-A-3528H343W-S1-13HL-HR3(SDCM 6)(6000K-7000K)`. Cosmetic for ordering — the
-  LCSC code picks the part — but that 62-character string is what the Component
-  Marking Layer carries.
-- **`--smd-only` is a CPL landmine.** 134 of 150 footprints carry no
-  footprint-type attribute and `footprint_type_mismatch` is `ignore`. The shipped
-  CPL is correct, but exporting with `--smd-only` (the commonly-cited JLCPCB
-  recipe) yields a **13-part** CPL that still looks well-formed.
+  inputs; only the barrel got F1. Combined with U33's finding that `/VBUS` is
+  10 mil copper, a board-side short downstream of the connector is cleared by the
+  trace rather than by a protection device. Fit a PTC in the USB path as F1's
+  counterpart.
+
+**Verification:** `/VBUS_SENSE` carries R4.2, the new divider leg, and U1.98;
+divider midpoint computes to ≤3.3 V at VBUS = 5.25 V. `/VBUS` has a series
+protection element with exactly two pads on its input side.
+
+---
+
+## Genuinely deferred — and why
+
+Unlike the list above, these cannot be closed in this spin. The distinction
+matters: **"spin 2" is only a real bucket when something blocks the work now.**
+
+- **Board shrink.** Gated on carrier CAD and measured FFC tail reach — inputs
+  that do not exist yet. Worth ~$15–30 per 5-board run; not worth guessing at.
+  U46's `.step` fix is a prerequisite, since the carrier CAD needs a complete
+  3D export.
+- **CAN bus TVS.** `/CAN1_H`, `/CAN1_L`, `/CAN2_H`, `/CAN2_L` reach the harness
+  with no transient protection. Defensible and **already a recorded decision**:
+  the TJA1051T/3 carries ±8 kV IEC 61000-4-2 and ±58 V bus-fault ratings, and
+  KTD3 makes the car's 12 V front-end the production board's problem. This board
+  is a bench article.
+- **`/SWO` goes nowhere** — it connects to exactly one pad (U1.130) because H2 is
+  a 5-pin SWD header with no SWO pin, so ITM trace is unavailable. Closing it
+  means a different debug connector, which is a deliberate spin-2 scope decision
+  rather than a defect.
+
+## Declined, with reasons
+
+Reviewed and rejected — recorded so they are not re-opened:
+
+- **Removing the CH224K (U4).** Two 5.1 kΩ CC pull-downs would do the same job
+  (−2 placements, −1 extended line, −1 exposed-pad reflow risk), and its 100 W
+  capability is genuinely unusable here — no rail could accept 9 V. But it is
+  *correctly and safely strapped* (CFG1 high forces 5 V regardless of CFG2/CFG3),
+  and removing it means re-laying the entire power-entry corner, which is where
+  U33's copper work already carries risk. Not worth compounding.
+- **Removing the ten orphan capacitors** (C20–C28, C56) — a 7.62 mm grid in open
+  board with no active device within 9.8 mm, residue of the deleted ULN2803
+  block. Every pad has two track endpoints, so removal is a re-route of a working
+  area to save ~$0.20 of parts. The `/+5V` daisy-chain hazard is exactly what
+  makes this dangerous rather than easy.
+- **Printing all 138 designators** — see U45. The board file plus
+  `kicad/board3/renders/` make every designator recoverable in seconds; function
+  labels on connectors and buttons are worth more than refdes on 64 capacitors.
+
+## Order-time instructions, not board changes
+
 - **Ask for an AOI check on U12 P0_6.** The U12↔LED6 pad gap is 0.200 mm with
   zero mask expansion, and LED6's pad carries ~15× the paste volume of the QFN
-  pin beside it. A bridge there lands `/+5V` on P0_6 — which is *unconnected*, so
-  the board works perfectly with the defect present and no functional test finds
-  it. +5 V is inside the part's 6 V pin rating, so it will not fail fast either.
-- **CAN bus pins have no TVS.** `/CAN1_H`, `/CAN1_L`, `/CAN2_H`, `/CAN2_L` go
-  straight to the harness. Defensible — the TJA1051T/3 carries ±8 kV IEC 61000-4-2
-  and ±58 V bus-fault ratings, and KTD3 explicitly makes the car's 12 V front-end
-  the production board's problem. Recorded so it is not lost when this moves into
-  the car.
-- **`/SWO` connects to exactly one pad (U1.130) and goes nowhere** — H2 is a
-  5-pin SWD header with no SWO pin, so ITM trace is unavailable. Costs no parts.
-- **24 of 32 expander ports are unused** — U11 and U12 each drive only P1_4–P1_7.
-  The useful reading is positive: this board already has **24 spare POR-safe I/O
-  on an existing bus**, so any spin-2 feature (backlight enable, more telltales,
-  an encoder) belongs there rather than on a new IC or a new MCU GPIO.
-- **CH224K (U4) is a 100 W PD controller hard-strapped to 5 V.** Safe as wired,
-  but two 5.1 kΩ CC pull-downs do the same job: −2 placements, −1 extended line,
-  −1 exposed-pad reflow risk.
-- **Ten capacitors (C20–C28, C56) sit in empty board space** on a 7.62 mm grid with
-  no active device within 9.8 mm — residue of the deleted ULN2803 block. Not
-  removable without re-routing: every pad has two track endpoints.
-- **LED3 has no printed polarity mark; LED5's two silk cues contradict each other.**
-- **SW1–SW4 vs SW6/SW7 use two land patterns for one part number** (LS5.4 vs LS5.0).
-- **U4's exposed pad is still 100% paste** — the fourth EP part; U23's windowing
-  covered three.
-- **LED2/6/7/8 have an unfilled 0.25 mm via inside the cathode pad's mask opening**
-  — solder wicking, up to ~22% of one pad's deposit, asymmetric fillet.
-- **Board shrink.** Gated on carrier CAD and measured FFC tail reach, not on the
-  PCB editor. Worth ~$15–30 per 5-board run; not worth re-opening a verified
-  layout for.
+  pin beside it. A bridge there lands `/+5V` on P0_6 — which is **unconnected**,
+  so the board works perfectly with the defect present, no functional test finds
+  it, and 5 V is inside the part's 6 V pin rating so it will not fail fast.
+- **Fit the H1/H3 jumpers** if U42 has not shipped, so the existing split
+  termination is at least symmetric.
 
 ## Post-fab bench debt — Kevin initiates all bench operations
 
