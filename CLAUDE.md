@@ -369,7 +369,10 @@ forward from the FRAM U7): west U11 at 0x5B (AD both +5V — every port
 POR-safe), east U12 at 0x5A (AD1 +5V/AD0 GND — LEDs on POR-safe P1_4–P1_7).
 Both VCC=+5V (POR "high" = anode rail = LEDs off; pins are 6 V-rated, I2C
 VIH is a fixed 1.4 V so the 3.3 V trunk is legal); RSTN strapped +5V
-(internal pull-DOWN); 5 ms post-POR before I2C; ID reg 0x10 = 0x23.
+(internal pull-DOWN); 5 ms post-POR before I2C; ID reg 0x10 = 0x23. RSTN datasheet facts
+(verified 2026-08-02): VIH fixed 1.4 V (not VCC-ratiometric), internal
+pull-down 100 kΩ typ, built-in ≤10 µs glitch filter; the 10k/100n/Schottky
+network holds reset ≥335 µs and settles at 4.55 V — 3.2x/3.3x margins.
 Brightness matching is the host-tested calibration table
 (`dash_calibration.h`, ISEL ×2/4 range) — the resistor derivation (plan 003
 U12) was superseded unfabbed. **Buttons stayed on MCU GPIO (KTD20)** — no

@@ -7,7 +7,12 @@
 # Pinned astcenc binary fetched by tools/get-astcenc.sh
 /tools/.astcenc/
 
-# EasyEDA Pro hourly autosaves (the .eprj2 project itself IS tracked)
+# EasyEDA is retired (2026-07-31) -- kicad/board3 is the design, not a copy of
+# one. The .eprj2 was tracked while EasyEDA was authoritative; it is untracked
+# now because the app rewrites the whole 24 MB binary every time it opens the
+# project, producing a dirty tree that means nothing. The blob stays in history
+# forever: git show 945cb5a:"EasyEDA/New Project_2026-07-15_23-14-34.eprj2"
+/EasyEDA/*.eprj2
 /EasyEDA/*_backup/
 
 # PlatformIO build output and per-machine IDE config.
