@@ -18,9 +18,9 @@ CRITICAL finding is installed backwards and does nothing.
 This plan closes **every finding that can be closed before the board is made** —
 not just the blockers. There is no spin 1 yet, so "defer to spin 2" would mean
 deliberately fabricating known defects to save edits we are already making. Only
-three findings are genuinely deferred, each because it is blocked on an input
-that does not exist (carrier CAD, a different debug connector, a production-board
-decision already recorded in KTD3).
+**two** findings are genuinely deferred, each blocked on an input that does not
+exist: the board shrink (needs carrier CAD and measured FFC tail reach) and CAN
+TVS (a production-board decision already recorded in KTD3).
 
 **Done means:** the board is orderable with every closable finding closed,
 verified by netlist and measurement rather than by inference, the BOM down from
