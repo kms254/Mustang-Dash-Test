@@ -24756,7 +24756,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 384.81 147.32 0)
 		(unit 1)
 		(body_style 0)
@@ -24799,7 +24799,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 384.81 147.32 0)
 			(hide yes)
 			(show_name no)
@@ -24823,7 +24823,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 384.81 147.32 0)
 			(hide yes)
 			(show_name no)
@@ -24835,7 +24835,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 384.81 147.32 0)
 			(hide yes)
 			(show_name no)
@@ -24847,7 +24847,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 384.81 147.32 0)
 			(hide yes)
 			(show_name no)
@@ -24907,7 +24907,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 384.81 147.32 0)
 			(hide yes)
 			(show_name no)
@@ -29634,7 +29634,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 312.42 135.89 0)
 		(unit 1)
 		(body_style 0)
@@ -29677,7 +29677,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 312.42 135.89 0)
 			(hide yes)
 			(show_name no)
@@ -29701,7 +29701,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 312.42 135.89 0)
 			(hide yes)
 			(show_name no)
@@ -29713,7 +29713,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 312.42 135.89 0)
 			(hide yes)
 			(show_name no)
@@ -29725,7 +29725,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 312.42 135.89 0)
 			(hide yes)
 			(show_name no)
@@ -29785,7 +29785,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 312.42 135.89 0)
 			(hide yes)
 			(show_name no)
@@ -29861,7 +29861,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 354.33 146.05 0)
 		(unit 1)
 		(body_style 0)
@@ -29904,7 +29904,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 354.33 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -29928,7 +29928,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 354.33 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -29940,7 +29940,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 354.33 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -29952,7 +29952,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 354.33 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -30012,7 +30012,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 354.33 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -32364,7 +32364,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 377.19 116.84 0)
 		(unit 1)
 		(body_style 0)
@@ -32407,7 +32407,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 377.19 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -32431,7 +32431,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 377.19 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -32443,7 +32443,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 377.19 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -32455,7 +32455,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 377.19 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -32515,7 +32515,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 377.19 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -32890,7 +32890,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 298.45 120.65 0)
 		(unit 1)
 		(body_style 0)
@@ -32933,7 +32933,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 298.45 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -32957,7 +32957,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 298.45 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -32969,7 +32969,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 298.45 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -32981,7 +32981,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 298.45 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -33041,7 +33041,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 298.45 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -33184,7 +33184,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "RC0603FR-0710KL"
+		(property "Manufacturer Part" "0603WAF1002T5E"
 			(at 302.26 154.94 0)
 			(hide yes)
 			(show_name no)
@@ -33196,7 +33196,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "YAGEO"
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
 			(at 302.26 154.94 0)
 			(hide yes)
 			(show_name no)
@@ -33208,7 +33208,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C98220"
+		(property "Supplier Part" "C25804"
 			(at 302.26 154.94 0)
 			(hide yes)
 			(show_name no)
@@ -34235,7 +34235,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "RC0603FR-0710KL"
+		(property "Manufacturer Part" "0603WAF1002T5E"
 			(at 335.28 171.45 0)
 			(hide yes)
 			(show_name no)
@@ -34247,7 +34247,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "YAGEO"
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
 			(at 335.28 171.45 0)
 			(hide yes)
 			(show_name no)
@@ -34259,7 +34259,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C98220"
+		(property "Supplier Part" "C25804"
 			(at 335.28 171.45 0)
 			(hide yes)
 			(show_name no)
@@ -37512,7 +37512,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 316.23 114.3 0)
 		(unit 1)
 		(body_style 0)
@@ -37555,7 +37555,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 316.23 114.3 0)
 			(hide yes)
 			(show_name no)
@@ -37579,7 +37579,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 316.23 114.3 0)
 			(hide yes)
 			(show_name no)
@@ -37591,7 +37591,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 316.23 114.3 0)
 			(hide yes)
 			(show_name no)
@@ -37603,7 +37603,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 316.23 114.3 0)
 			(hide yes)
 			(show_name no)
@@ -37663,7 +37663,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 316.23 114.3 0)
 			(hide yes)
 			(show_name no)
@@ -40688,7 +40688,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "RC0603FR-0710KL"
+		(property "Manufacturer Part" "0603WAF1002T5E"
 			(at 334.01 157.48 0)
 			(hide yes)
 			(show_name no)
@@ -40700,7 +40700,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "YAGEO"
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
 			(at 334.01 157.48 0)
 			(hide yes)
 			(show_name no)
@@ -40712,7 +40712,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C98220"
+		(property "Supplier Part" "C25804"
 			(at 334.01 157.48 0)
 			(hide yes)
 			(show_name no)
@@ -42626,7 +42626,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "RC0603FR-0710KL"
+		(property "Manufacturer Part" "0603WAF1002T5E"
 			(at 349.25 163.83 0)
 			(hide yes)
 			(show_name no)
@@ -42638,7 +42638,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "YAGEO"
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
 			(at 349.25 163.83 0)
 			(hide yes)
 			(show_name no)
@@ -42650,7 +42650,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C98220"
+		(property "Supplier Part" "C25804"
 			(at 349.25 163.83 0)
 			(hide yes)
 			(show_name no)
@@ -43755,7 +43755,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "RC0603FR-0710KL"
+		(property "Manufacturer Part" "0603WAF1002T5E"
 			(at 367.03 168.91 0)
 			(hide yes)
 			(show_name no)
@@ -43767,7 +43767,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "YAGEO"
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
 			(at 367.03 168.91 0)
 			(hide yes)
 			(show_name no)
@@ -43779,7 +43779,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C98220"
+		(property "Supplier Part" "C25804"
 			(at 367.03 168.91 0)
 			(hide yes)
 			(show_name no)
@@ -46114,7 +46114,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 332.74 146.05 0)
 		(unit 1)
 		(body_style 0)
@@ -46157,7 +46157,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 332.74 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -46181,7 +46181,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 332.74 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -46193,7 +46193,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 332.74 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -46205,7 +46205,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 332.74 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -46265,7 +46265,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 332.74 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -49027,7 +49027,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "RC0603FR-0710KL"
+		(property "Manufacturer Part" "0603WAF1002T5E"
 			(at 367.03 157.48 0)
 			(hide yes)
 			(show_name no)
@@ -49039,7 +49039,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "YAGEO"
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
 			(at 367.03 157.48 0)
 			(hide yes)
 			(show_name no)
@@ -49051,7 +49051,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C98220"
+		(property "Supplier Part" "C25804"
 			(at 367.03 157.48 0)
 			(hide yes)
 			(show_name no)
@@ -50584,7 +50584,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 334.01 109.22 0)
 		(unit 1)
 		(body_style 0)
@@ -50627,7 +50627,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 334.01 109.22 0)
 			(hide yes)
 			(show_name no)
@@ -50651,7 +50651,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 334.01 109.22 0)
 			(hide yes)
 			(show_name no)
@@ -50663,7 +50663,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 334.01 109.22 0)
 			(hide yes)
 			(show_name no)
@@ -50675,7 +50675,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 334.01 109.22 0)
 			(hide yes)
 			(show_name no)
@@ -50735,7 +50735,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 334.01 109.22 0)
 			(hide yes)
 			(show_name no)
@@ -51816,7 +51816,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 386.08 130.81 0)
 		(unit 1)
 		(body_style 0)
@@ -51859,7 +51859,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 386.08 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -51883,7 +51883,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 386.08 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -51895,7 +51895,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 386.08 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -51907,7 +51907,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 386.08 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -51967,7 +51967,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 386.08 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -52043,7 +52043,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 369.57 138.43 0)
 		(unit 1)
 		(body_style 0)
@@ -52086,7 +52086,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 369.57 138.43 0)
 			(hide yes)
 			(show_name no)
@@ -52110,7 +52110,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 369.57 138.43 0)
 			(hide yes)
 			(show_name no)
@@ -52122,7 +52122,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 369.57 138.43 0)
 			(hide yes)
 			(show_name no)
@@ -52134,7 +52134,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 369.57 138.43 0)
 			(hide yes)
 			(show_name no)
@@ -52194,7 +52194,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 369.57 138.43 0)
 			(hide yes)
 			(show_name no)
@@ -53911,7 +53911,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 339.09 127 0)
 		(unit 1)
 		(body_style 0)
@@ -53954,7 +53954,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 339.09 127 0)
 			(hide yes)
 			(show_name no)
@@ -53978,7 +53978,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 339.09 127 0)
 			(hide yes)
 			(show_name no)
@@ -53990,7 +53990,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 339.09 127 0)
 			(hide yes)
 			(show_name no)
@@ -54002,7 +54002,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 339.09 127 0)
 			(hide yes)
 			(show_name no)
@@ -54062,7 +54062,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 339.09 127 0)
 			(hide yes)
 			(show_name no)
@@ -56077,7 +56077,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 312.42 125.73 0)
 		(unit 1)
 		(body_style 0)
@@ -56120,7 +56120,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 312.42 125.73 0)
 			(hide yes)
 			(show_name no)
@@ -56144,7 +56144,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 312.42 125.73 0)
 			(hide yes)
 			(show_name no)
@@ -56156,7 +56156,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 312.42 125.73 0)
 			(hide yes)
 			(show_name no)
@@ -56168,7 +56168,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 312.42 125.73 0)
 			(hide yes)
 			(show_name no)
@@ -56228,7 +56228,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 312.42 125.73 0)
 			(hide yes)
 			(show_name no)
