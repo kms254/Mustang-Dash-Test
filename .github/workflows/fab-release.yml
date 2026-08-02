@@ -93,10 +93,30 @@ jobs:
       # this is a separate job rather than one more step above.
       - uses: actions/checkout@v4
 
+      # Extract at the workspace root, NOT into fab/. upload-artifact roots the
+      # archive at the least common ancestor of its paths, and drc.json sits at
+      # the repo root -- so the artifact already carries the fab/ prefix. Passing
+      # `path: fab` here nests it to fab/fab/ and every path below misses.
       - uses: actions/download-artifact@v4
         with:
           name: fab-package
-          path: fab
+          path: .
+
+      # Name the failure here rather than letting it surface as an unmatched
+      # glob inside `gh release create`, which reads like a missing build.
+      - name: The package arrived intact
+        run: |
+          set -euo pipefail
+          missing=0
+          for f in fab/gerbers-jlcpcb.zip fab/bom-jlcpcb.csv fab/cpl-jlcpcb.csv \
+                   fab/bom.csv fab/cpl.csv; do
+            if [ -f "$f" ]; then echo "  ok      $f"; else echo "  MISSING $f"; missing=1; fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::artifact did not unpack where expected - tree below"
+            find . -name 'gerbers-jlcpcb.zip' -o -name 'bom-jlcpcb.csv' | head
+            exit 1
+          fi
 
       - name: Resolve the tag
         id: tag
