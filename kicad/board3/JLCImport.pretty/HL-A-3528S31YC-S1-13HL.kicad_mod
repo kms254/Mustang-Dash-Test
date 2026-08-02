@@ -1,45 +1,232 @@
 (footprint "HL-A-3528S31YC-S1-13HL"
-  (version 20241229)
-  (generator "JLCImport")
-  (generator_version "1.0")
-  (layer "F.Cu")
-  (descr "HL-A-3528S31YC-S1-13HL; LED-SMD_L3.2-W2.8-LS3.5-RD_YELLOW; HONGLITRONIC")
-  (tags "C516140 HL-A-3528S31YC-S1-13HL HONGLITRONIC LED-SMD_L3.2-W2.8-LS3.5-RD_YELLOW")
-  (property "Reference" "REF**" (at 0 -2.524 0) (layer "F.SilkS") (uuid "e07305c9-3d09-4c73-b393-d3e07e2ab9bf")
-    (effects (font (size 1 1) (thickness 0.15)))
-  )
-  (property "Value" "~" (at 0 2.524 0) (layer "F.Fab") (uuid "88eafd65-bcf9-4288-936a-e79908ffbfe1")
-    (effects (font (size 1 1) (thickness 0.15)))
-  )
-  (property "Datasheet" "https://atta.szlcsc.com/upload/public/pdf/source/20200417/C516140_F0F8181DF1ECF12F01D4FEAE0D617960.pdf" (at 0 0 0) (layer "F.Fab") (hide yes) (uuid "6f2c03ca-e55f-4c97-8a00-afc9bdca02e6")
-    (effects (font (size 1 1) (thickness 0.15)))
-  )
-  (property "Description" "HL-A-3528S31YC-S1-13HL; LED-SMD_L3.2-W2.8-LS3.5-RD_YELLOW; HONGLITRONIC" (at 0 0 0) (layer "F.Fab") (hide yes) (uuid "597547f0-a573-4aa4-977a-686320039742")
-    (effects (font (size 1 1) (thickness 0.15)))
-  )
-  (property "LCSC" "C516140" (at 0 0 0) (layer "F.Fab") (hide yes) (uuid "ac8c8991-2f37-4dd7-aec4-e69f9d13b48e")
-    (effects (font (size 1 1) (thickness 0.15)))
-  )
-  (attr smd)
-  (fp_line (start 1.778 1.524) (end -1.651 1.524) (stroke (width 0.254) (type solid)) (layer "F.SilkS") (uuid "7163dc6d-0008-4749-afac-9cb39435b4ff"))
-  (fp_line (start -1.778 -1.524) (end 1.651 -1.524) (stroke (width 0.254) (type solid)) (layer "F.SilkS") (uuid "1f464700-7eea-41c9-8048-38efb12f0cef"))
-  (fp_line (start -0.635 -1.524) (end -0.635 -0.9144) (stroke (width 0.254) (type solid)) (layer "F.SilkS") (uuid "54df367a-3f72-4681-8bfd-114bcd0a834e"))
-  (fp_line (start -0.635 -0.9144) (end -0.0254 -1.524) (stroke (width 0.254) (type solid)) (layer "F.SilkS") (uuid "59014267-71a5-4ea2-8ac5-dcb60fbe99c4"))
-  (fp_poly (pts (xy 1.397 0.762) (xy 1.397 -0.638) (xy 1.187 -0.638) (xy 1.187 0.762)) (stroke (width 0) (type solid)) (fill solid) (layer "F.Fab") (uuid "e2af4c6b-5c55-41bb-88a2-3f7a3f342280"))
-  (fp_poly (pts (xy 1.712 0.167) (xy 1.712 -0.043) (xy 0.872 -0.043) (xy 0.872 0.167)) (stroke (width 0) (type solid)) (fill solid) (layer "F.Fab") (uuid "56eb52b0-3c9c-49b4-acb7-1eaa2b8e6403"))
-  (fp_poly (pts (xy -1.905 0.127) (xy -1.905 -0.083) (xy -1.065 -0.083) (xy -1.065 0.127)) (stroke (width 0) (type solid)) (fill solid) (layer "F.Fab") (uuid "14bb614d-109b-4127-ad43-b5b159f5f11d"))
-  (fp_poly (pts (xy -1.778 -0.635) (xy -1.8 -1.4) (xy -1.013 -1.4) (xy -1.778 -0.635)) (stroke (width 0) (type solid)) (fill solid) (layer "F.Fab") (uuid "c4d045e1-0a4d-4cda-a638-7e7d32b478e2"))
-  (fp_poly (pts (xy -0.09144 -1.524406) (xy -0.09144 -1.45796) (xy -0.635 -0.9144) (xy -0.635 -1.489) (xy -0.59944 -1.524406)) (stroke (width 0) (type solid)) (fill solid) (layer "F.SilkS") (uuid "4eef1a19-217e-4f48-a28d-0345d82d6776"))
-  (pad "2" smd rect (at 1.35 0) (size 0.9 2.47) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "0f004e28-f66e-413c-a8b4-21a202afcaca"))
-  (fp_line (start -2.05 -1.65) (end 2.05 -1.65) (stroke (width 0.05) (type solid)) (layer "F.CrtYd") (uuid "5ebfbcc7-a102-4d51-9b98-01ef989ad3d6"))
-  (fp_line (start 2.05 -1.65) (end 2.05 1.65) (stroke (width 0.05) (type solid)) (layer "F.CrtYd") (uuid "3317f7c2-db2e-449d-91a0-52a02d8afeb0"))
-  (fp_line (start 2.05 1.65) (end -2.05 1.65) (stroke (width 0.05) (type solid)) (layer "F.CrtYd") (uuid "e99c7e4c-fe59-4540-ac23-2f14cfdda06e"))
-  (fp_line (start -2.05 1.65) (end -2.05 -1.65) (stroke (width 0.05) (type solid)) (layer "F.CrtYd") (uuid "f5546aaf-1915-49c3-aee6-261681176098"))
-  (pad "1" smd rect (at -1.35 0) (size 0.9 2.47) (layers "F.Cu" "F.Mask" "F.Paste") (uuid "492244b3-bd29-44fc-90d1-b54b918d6e4e"))
-  (model "${KIPRJMOD}/JLCImport.3dshapes/HL-A-3528S31YC-S1-13HL.wrl"
-    (offset (xyz 0 0 0.75))
-    (scale (xyz 1 1 1))
-    (rotate (xyz 0 0 -180))
-  )
-  (embedded_fonts no)
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "HL-A-3528S31YC-S1-13HL; LED-SMD_L3.2-W2.8-LS3.5-RD_YELLOW; HONGLITRONIC")
+	(tags "C516140 HL-A-3528S31YC-S1-13HL HONGLITRONIC LED-SMD_L3.2-W2.8-LS3.5-RD_YELLOW")
+	(property "Reference" "REF**"
+		(at 0 -2.524 0)
+		(layer "F.SilkS")
+		(uuid "7eba5e16-b1fc-4674-813b-269f1f7b439f")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "~"
+		(at 0 2.524 0)
+		(layer "F.Fab")
+		(uuid "78e15e6e-8995-46ae-a106-768ba576c829")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" "https://atta.szlcsc.com/upload/public/pdf/source/20200417/C516140_F0F8181DF1ECF12F01D4FEAE0D617960.pdf"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "1fe74117-42d7-4484-9f69-166ff6a4a19d")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" "HL-A-3528S31YC-S1-13HL; LED-SMD_L3.2-W2.8-LS3.5-RD_YELLOW; HONGLITRONIC"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "b2ea2935-c153-46ec-b4db-d5f0b85f7a51")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "LCSC" "C516140"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "4576a149-b514-4e49-b3ee-e42a8f9f0d01")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_line
+		(start -1.778 -1.524)
+		(end 1.651 -1.524)
+		(stroke
+			(width 0.254)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "f30dbf4a-667d-4ced-8f35-38d225e6c5d9")
+	)
+	(fp_line
+		(start -0.635 -1.524)
+		(end -0.635 -0.9144)
+		(stroke
+			(width 0.254)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "b2f18b30-ed4d-4805-beeb-89366bb3b299")
+	)
+	(fp_line
+		(start -0.635 -0.9144)
+		(end -0.0254 -1.524)
+		(stroke
+			(width 0.254)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "4d49f846-c29c-41a4-a2e9-4348ceffabde")
+	)
+	(fp_line
+		(start 1.778 1.524)
+		(end -1.651 1.524)
+		(stroke
+			(width 0.254)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "3d22c1fc-10fb-42c3-8aa4-fee1920d5ce2")
+	)
+	(fp_poly
+		(pts
+			(xy -0.09144 -1.524406) (xy -0.09144 -1.45796) (xy -0.635 -0.9144) (xy -0.635 -1.489) (xy -0.59944 -1.524406)
+		)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill yes)
+		(layer "F.SilkS")
+		(uuid "b480bb4f-c72d-4308-84bc-e98be93c164d")
+	)
+	(fp_line
+		(start -2.05 -1.65)
+		(end 2.05 -1.65)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "f07b17b5-6249-41eb-8594-9bacfd5ef8f2")
+	)
+	(fp_line
+		(start -2.05 1.65)
+		(end -2.05 -1.65)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "a5820d27-a4ae-4e6f-8cb9-67a1d58374bc")
+	)
+	(fp_line
+		(start 2.05 -1.65)
+		(end 2.05 1.65)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "801aa197-f0b8-429f-b150-fc468b88e10c")
+	)
+	(fp_line
+		(start 2.05 1.65)
+		(end -2.05 1.65)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "6635f003-0164-43b8-b9f2-6c511590da13")
+	)
+	(fp_poly
+		(pts
+			(xy -1.905 0.127) (xy -1.905 -0.083) (xy -1.065 -0.083) (xy -1.065 0.127)
+		)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill yes)
+		(layer "F.Fab")
+		(uuid "e4b84ceb-536e-4860-afb8-98e0c8a27b89")
+	)
+	(fp_poly
+		(pts
+			(xy -1.778 -0.635) (xy -1.8 -1.4) (xy -1.013 -1.4) (xy -1.778 -0.635)
+		)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill yes)
+		(layer "F.Fab")
+		(uuid "3f689eb4-3b5f-4383-b18e-7aa26a17e7a4")
+	)
+	(fp_poly
+		(pts
+			(xy 1.397 0.762) (xy 1.397 -0.638) (xy 1.187 -0.638) (xy 1.187 0.762)
+		)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill yes)
+		(layer "F.Fab")
+		(uuid "f4fa672d-63a5-4302-8b7d-d128f5db9f6f")
+	)
+	(fp_poly
+		(pts
+			(xy 1.712 0.167) (xy 1.712 -0.043) (xy 0.872 -0.043) (xy 0.872 0.167)
+		)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill yes)
+		(layer "F.Fab")
+		(uuid "17c11409-d4d9-4296-8c60-22a88d37589d")
+	)
+	(pad "1" smd rect
+		(at -1.35 0)
+		(size 0.9 2.47)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "f04df1a6-12dc-40be-b0a4-d9d171699686")
+	)
+	(pad "2" smd rect
+		(at 1.35 0)
+		(size 0.9 2.47)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "649e49bb-0ea0-43f4-ae07-8e25869c048b")
+	)
+	(embedded_fonts no)
+	(model "${KIPRJMOD}/JLCImport.3dshapes/HL-A-3528S31YC-S1-13HL.step"
+		(offset
+			(xyz 0 0 0.75)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 -180)
+		)
+	)
 )
