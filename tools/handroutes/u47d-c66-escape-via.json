@@ -1,0 +1,55 @@
+{
+  "$comment": [
+    "C66's /+3V3 escape via sat dead centre in its own pad -- the last via-in-pad",
+    "on this board that was not deliberate.",
+    "",
+    "It had to be CLASSIFIED before it could be fixed, because three other",
+    "vias-in-pad here are correct and must stay: U4's five exposed-pad thermal",
+    "vias (the reason U46 windowed its paste), Q2's two plane stitches added by",
+    "U33, and U1.93's documented 0.5/0.2 exception. The test that settles it:",
+    "there is NO /+3V3 plane on Board3 -- the pours are /GND on Top, Bottom and",
+    "Inner1, and /+5V on Inner2 -- so a /+3V3 via cannot be stitching to a plane.",
+    "This one is a plain Top->Inner1 layer transition, the same reflow hazard just",
+    "removed from the four telltales and from C67.",
+    "",
+    "Its siblings settle it too: C67 and C68 are the same 22 uF/0805 bulk cap on",
+    "the same rail at the other two panel connectors, and neither has a via in its",
+    "pad. C66 was the odd one out of three.",
+    "",
+    "The Inner1 feed already runs north from the via, so north is the natural exit",
+    "-- and it is blocked: /VBUS_SENSE crosses on Top at -0.411. East is blocked",
+    "by /SCLK_L_MCU on Inner2 (-0.194). South is clear at 0.2239 to /+5V, so the",
+    "via goes south and the Inner1 feed runs the full length of the pad to meet",
+    "it. That costs nothing: the pad is top-only, so Inner1 passing beneath it",
+    "touches nothing. Feed clearance stays above 2.1 mm the whole way; the Top",
+    "stub clears by 0.44."
+  ],
+  "steps": [
+    {
+      "step": "1/1  C66 -- via south out of the pad, Inner1 feed extended to meet it",
+      "$delete_note": [
+        "Split in two on purpose. The Inner1 track runs from (47.600,97.500) to",
+        "(47.600,95.720), so deleting it needs a bbox reaching y=95.72 -- and a",
+        "single rule with vias:true then also swallows the SECOND via at that far",
+        "end, which is a different layer transition entirely. Doing that broke the",
+        "net (airwires 0 -> 1). So the track is deleted with vias:false over the",
+        "long span, and the via with a tight bbox around the pad end only."
+      ],
+      "delete": [
+        {"net": "+3V3", "layers": ["Inner1"], "vias": false,
+         "bbox": [47.50, 95.65, 47.65, 97.55]},
+        {"net": "+3V3", "layers": ["Top Layer"], "vias": true,
+         "bbox": [47.50, 97.40, 47.65, 97.60]}
+      ],
+      "add": [
+        {"net": "+3V3", "layer": "Inner1", "width": 0.3,
+         "points": [[47.600, 95.720], [47.600, 98.700]]},
+        {"net": "+3V3", "layer": "Top Layer", "width": 0.3,
+         "points": [[47.600, 98.700], [47.600, 97.900]]}
+      ],
+      "add_vias": [
+        {"net": "+3V3", "at": [47.600, 98.700], "diameter": 0.6, "drill": 0.25}
+      ]
+    }
+  ]
+}
