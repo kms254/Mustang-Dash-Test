@@ -86,6 +86,36 @@ jobs:
             -o drc.json \
             "${{ steps.find.outputs.pcb }}"
 
+      # Parity is OFF by default in kicad-cli, and it is the only check that
+      # compares a footprint against its SYMBOL rather than against its own
+      # library copy. That blind spot shipped real defects: F1 kept the old
+      # fuse's land pattern after U32 changed the part, and C70/C71/R4/LED3 were
+      # each left marked on the board with a part an earlier unit had replaced.
+      # Plain DRC passed every one of them. This gate is absolute rather than
+      # ratcheted -- the board and the schematic either agree or they do not.
+      - name: Schematic parity gate
+        run: |
+          kicad-cli pcb drc \
+            --schematic-parity \
+            --severity-all \
+            --format json \
+            -o parity.json \
+            "${{ steps.find.outputs.pcb }}"
+          python3 - <<'PY'
+          import collections, json, sys
+          issues = json.load(open("parity.json", encoding="utf-8")).get("schematic_parity", [])
+          if not issues:
+              print("schematic parity: clean")
+              sys.exit(0)
+          for kind, n in collections.Counter(i["type"] for i in issues).most_common():
+              print(f"  {n:4d}  {kind}")
+          for i in issues[:25]:
+              where = ", ".join(x.get("description", "") for x in i.get("items", []))
+              print(f"    - {i.get('description', '')}  [{where}]")
+          print(f"\n{len(issues)} schematic parity issue(s): the board disagrees with the schematic.")
+          sys.exit(1)
+          PY
+
       # Fails on NEW violations only, compared per type so a falling total
       # cannot hide a class that did not exist before. Both boards are measured
       # through tools/kicad_rules.json, never their own .kicad_pro.

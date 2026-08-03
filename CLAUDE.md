@@ -466,6 +466,30 @@ write-up drew the line at "segments" and explicitly excused pads — so when you
 generalise a rule of this shape, test every object type before exempting any.
 Same family as the rule below.
 
+**`--schematic-parity` is OFF by default, and it is the only check that compares
+a footprint to its SYMBOL.** Plain DRC compares each footprint against its own
+*library* copy, which passes happily while the board disagrees with the
+schematic. That blind spot shipped four real defects, each a board marked with a
+part an earlier unit had already replaced: F1 kept `BSMD1812-200-30V` after U32
+fitted the 3 A PTC, C70/C71 still said `100nF` after U34 took them to 1 µF, R4
+still said `0Ω` after U48 made it 10 kΩ, and LED3 carried U46's mangled MPN. All
+are fixed and the gate is now in CI (`kicad-drc-erc.yml`), absolute rather than
+ratcheted. Two related traps: an FPID written without its library nickname
+(`C0603` rather than `ProPrj_New-easyedapro:C0603`) reads as a mismatch *and*
+stops KiCad resolving the library at all, so `lib_footprint_mismatch` silently
+tests nothing; and `pcbnew.FootprintLoad()` returns exactly such a bare FPID, so
+set it explicitly after any scripted footprint swap.
+
+**`footprint_symbol_field_mismatch` is deliberately set to `ignore`.** KiCad wants
+every symbol field mirrored onto the footprint. Mirroring them was tried
+(2026-08-03) and reverted: Board3's supplier metadata lives on the *symbol* by
+design — `kicad_fab.py` builds the BOM from schematic fields — so copying it onto
+footprints creates a second copy that drifts, and it immediately produced 13
+`lib_footprint_mismatch` violations because the library copies carry no such
+fields. The exemption covers the field check only; `footprint_symbol_mismatch`
+(footprint and value) stays armed, and that is the half that catches real
+defects.
+
 **Read board facts through `pcbnew`, never regex.** Three separate wrong
 conclusions in one session came from parsing `.kicad_pcb` as text: "the board has
 no tracks" (the file writes `(segment` followed by a newline, so a `\(segment `
