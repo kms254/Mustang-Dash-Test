@@ -1,0 +1,138 @@
+{
+  "$comment": [
+    "U49 -- close out H2, the TC2030-IDC-NL Tag-Connect debug header.",
+    "Four independent defects, applied in one atomic pass so the zones refill once.",
+    "Every clearance below is exact point-segment math against tools/kicad_rules.json:",
+    "  track centreline to a pad EDGE                  = 0.1016 + 0.127 = 0.2286",
+    "  track centreline to another track centreline    = 0.3556",
+    "  via (0.6) centre to a track centreline          = 0.5286",
+    "  track centreline to an NPTH hole CENTRE         = 0.4953 + 0.2 + 0.127 = 0.8223",
+    "The 0.2 there is min_hole_clearance, which is the rule the pours were failing."
+  ],
+  "steps": [
+    {
+      "step": "1/4  hole_clearance x12 -- ban the pour over H2's three alignment holes",
+      "$why": [
+        "H2's NPTH alignment holes are drill 0.9906 (r 0.4953). The four pours (GND on",
+        "Top/Bottom/Inner1, +5V on Inner2) fill to min_clearance 0.1016 and so land at",
+        "0.1021 from every hole -- under the 0.2 mm min_hole_clearance rule. 3 holes x 4",
+        "zones = the 12 errors. Nothing upstream is wrong; the two rules simply disagree,",
+        "and the pour is the side that has to yield.",
+        "Octagon circumradius 0.85 -> inradius 0.85*cos(22.5) = 0.7853, so the pour stops",
+        "0.7853 - 0.4953 = 0.290 mm from the hole edge. 1.45x the rule.",
+        "vias stay LEGAL: SWO's own escape via lands at (135.212,120.200), inside H2's",
+        "courtyard. Banning vias here would have blocked step 4 from the other side.",
+        "Sized to touch no existing via either -- nearest copper approach is the +3V3 via",
+        "at (130.442,120.668), 1.030 mm from hole A's centre against the 0.85 radius."
+      ],
+      "add_keepouts": [
+        {"ref": "H2", "at": [131.402, 121.588], "radius": 0.85,
+         "layers": ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"]},
+        {"ref": "H2", "at": [136.482, 120.572], "radius": 0.85,
+         "layers": ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"]},
+        {"ref": "H2", "at": [136.482, 122.604], "radius": 0.85,
+         "layers": ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"]}
+      ]
+    },
+
+    {
+      "step": "2/4  shorting_items -- jog Bottom /NRST east around the /BTN2 via",
+      "$why": [
+        "The /NRST bottom run is a 10.05 mm straight at x=133.500. The /BTN2 via sits at",
+        "(133.400,115.200) -- 0.100 mm off that line against the 0.5286 a 0.6 via needs.",
+        "A VIA IS A DISC ON EVERY LAYER, so checking this segment against Bottom copper",
+        "alone finds nothing. The full-layer sweep also turns up a second one, /BTN1 at",
+        "(136.000,113.600); the jog is sized to clear both.",
+        "Jog east, not west: east of x=133.5 the Bottom layer is empty here, west of it",
+        "sits the /SWDIO via at (132.672,119.800).",
+        "Closest approaches after the jog: /BTN2 via 0.700 (needs 0.5286), /BTN1 via 1.923."
+      ],
+      "delete": [
+        {"net": "NRST", "layers": ["Bottom Layer"], "vias": false,
+         "bbox": [133.4, 113.0, 133.6, 123.2]}
+      ],
+      "add": [
+        {"net": "NRST", "layer": "Bottom Layer", "width": 0.254,
+         "points": [[133.500, 123.100], [133.500, 116.500], [134.100, 115.900],
+                    [134.100, 114.500], [133.500, 113.900], [133.500, 113.048]]}
+      ]
+    },
+
+    {
+      "step": "3/4  hole_clearance -- walk Bottom /+3V3 around H2's west alignment hole",
+      "$why": [
+        "The H2 pad-1 escape dives at (132.672,123.400) and runs diagonally to the +3V3",
+        "via at (130.442,120.668). That diagonal passes 0.162 mm from the alignment hole",
+        "at (131.402,121.588) -- straight THROUGH it, hence the reported 0.0000 actual.",
+        "The via is only 1.330 mm from the hole, so the tangents from it to the 0.8223",
+        "keep-out circle are 38.2 deg either side of the line to the hole: every approach",
+        "between 5.6 and 82.0 deg clips it. That kills the gentle diagonals and is why",
+        "this is an L, not a bend.",
+        "Approach due south (90 deg) instead: the vertical at x=130.442 clears the hole",
+        "centre by 0.960 mm. Chamfered at 45 deg to match the rest of the board.",
+        "Segment clearances to the hole centre: 1.812 / 1.579 / 0.960, all over 0.8223."
+      ],
+      "delete": [
+        {"net": "+3V3", "layers": ["Bottom Layer"], "vias": false,
+         "bbox": [130.3, 120.5, 132.8, 123.5]}
+      ],
+      "add": [
+        {"net": "+3V3", "layer": "Bottom Layer", "width": 0.254,
+         "points": [[132.672, 123.400], [131.000, 123.400], [130.442, 122.842],
+                    [130.442, 120.668]]}
+      ]
+    },
+
+    {
+      "step": "4/4  unconnected_items -- route /SWO, H2.6 to U1.130",
+      "$why": [
+        "U1.130 is a 0.28 x 2.0 mm LQFP lead with 0.220 mm neighbours either side, so it",
+        "has exactly two exits: its north tip and its south tip. Both were closed.",
+        "  SOUTH is a dead end, not merely tight. The gate between C6.2's corner",
+        "  (151.744,121.980) and pad 131's corner (152.110,121.800) is 0.408 mm against",
+        "  the 0.4572 two-sided clearance a 0.254 track needs -- and even necking through",
+        "  it only reaches a pocket sealed by C6.2's east edge and the /CAN2_RX diagonal,",
+        "  0.390 mm apart against the 0.5842 that same track needs. Nothing exits.",
+        "  NORTH had 0.644 mm before the /+3V3 diagonal, which is enough for a track and",
+        "  not for a via: a 0.6 via needs its centre 0.7475 mm clear of a 45 deg neighbour,",
+        "  which lands it at y=119.903 -- inside the pad. A 0.5/0.2 via (the U1.93",
+        "  precedent) still lands at 119.833, also inside. There is no via that fits.",
+        "So the /+3V3 east branch moves. It is the only thing in the wedge, and north of",
+        "it the LQFP interior is empty for 12 mm. Rebranching it 1.7 mm west off the",
+        "y=119.466 run costs +0.5 mm of rail in free space and opens a 1.35 mm corridor;",
+        "the existing y=118.450 horizontal is untouched, only extended west to meet it.",
+        "SWO then exits north into that corridor, vias down at (151.750,119.200) with",
+        "0.750 to the moved rail, and crosses to H2 on Bottom -- which is empty for the",
+        "whole 15.5 mm span but for one /GND via at (140.578,116.858), 2.64 mm clear.",
+        "The H2 end approaches pad 6 from the NORTH. It has to: the alignment hole at",
+        "(136.482,120.572) is 0.381 mm off the pad-6 row against the 0.8223 a track",
+        "needs, so no pad on this connector can be reached horizontally. The Bottom run",
+        "sits at y=119.500, 1.072 mm north of that hole."
+      ],
+      "delete": [
+        {"net": "+3V3", "layers": ["Top Layer"], "vias": false,
+         "bbox": [151.1, 118.4, 152.5, 119.8]},
+        {"net": "+3V3", "layers": ["Top Layer"], "vias": false,
+         "bbox": [146.4, 119.4, 151.0, 119.6]}
+      ],
+      "add": [
+        {"net": "+3V3", "layer": "Top Layer", "width": 0.254,
+         "points": [[146.504, 119.466], [149.500, 119.466], [150.932, 119.466]]},
+        {"net": "+3V3", "layer": "Top Layer", "width": 0.254,
+         "points": [[149.500, 119.466], [150.516, 118.450], [152.456, 118.450]]},
+
+        {"net": "SWO", "layer": "Top Layer", "width": 0.254,
+         "points": [[135.212, 120.953], [135.212, 120.200]]},
+        {"net": "SWO", "layer": "Bottom Layer", "width": 0.254,
+         "points": [[135.212, 120.200], [135.912, 119.500], [151.450, 119.500],
+                    [151.750, 119.200]]},
+        {"net": "SWO", "layer": "Top Layer", "width": 0.254,
+         "points": [[151.750, 119.200], [151.750, 120.800]]}
+      ],
+      "add_vias": [
+        {"net": "SWO", "at": [135.212, 120.200], "diameter": 0.6, "drill": 0.25},
+        {"net": "SWO", "at": [151.750, 119.200], "diameter": 0.6, "drill": 0.25}
+      ]
+    }
+  ]
+}

@@ -17,7 +17,9 @@ An edit is a single spec, or {"steps": [spec, spec, ...]} applied in order:
                   "vias": true}],
     "add":      [{"net": "CAN1_H", "layer": "Top Layer", "width": 0.254,
                   "points": [[x,y], [x,y], ...]}],
-    "add_vias": [{"net": "USB_DM_CONN", "at": [x,y], "diameter": 0.6, "drill": 0.3}]
+    "add_vias": [{"net": "USB_DM_CONN", "at": [x,y], "diameter": 0.6, "drill": 0.3}],
+    "add_keepouts": [{"ref": "H2", "at": [x,y], "radius": 0.85,
+                      "layers": ["F.Cu","In1.Cu","In2.Cu","B.Cu"]}]
   }
 
 Deletion semantics: a track is removed only when BOTH endpoints are inside bbox,
@@ -42,12 +44,21 @@ Three traps this tool exists to absorb
 
 3. board.GetTracks() RE-WRAPS THE LIVE CONTAINER. Call it again after a Remove()
    and you get a SwigPyObject that will not iterate. Snapshot once, up front.
+
+4. A POUR FILLS TO min_clearance, BUT AN NPTH HOLE IS JUDGED BY min_hole_clearance.
+   Board3 sets those to 0.1016 and 0.2, so every zone that reaches a mounting or
+   alignment hole lands in the 0.084 mm gap between them and reports
+   hole_clearance -- four layers x every hole, with nothing wrong upstream to fix.
+   "add_keepouts" is the fix: a rule area over the hole that only bans the pour.
+   It must NOT ban vias. The keepout belongs to the FOOTPRINT, so it travels with
+   the part and the library copy stays the source of truth.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -174,6 +185,54 @@ def apply_step(board, spec: dict, tracks: list, dry: bool):
         board.Add(via)
         print(f"  + {rule['net']:<13} via           ({x:8.3f},{y:8.3f})"
               f"{'  tented' if rule.get('tented') else ''}")
+        added += 1
+
+    for rule in spec.get("add_keepouts", []):
+        # A rule area parented to the footprint, so it moves with the part and a
+        # future placement of the same library footprint inherits it. Geometry is
+        # ABSOLUTE -- KiCad writes footprint zone outlines in board coordinates,
+        # which is why these read the same as the pads beside them.
+        ref = rule["ref"]
+        for footprint in board.GetFootprints():
+            if footprint.GetReference() == ref:
+                break
+        else:
+            raise SystemExit(f"no footprint {ref!r} on the board")
+
+        if "points" in rule:
+            points = rule["points"]
+        else:
+            # Regular octagon: inradius = radius * cos(22.5 deg) = 0.9239 * radius
+            # is what actually holds the pour back, so size against THAT, not the
+            # circumradius the number looks like.
+            cx, cy = rule["at"]
+            r = rule["radius"]
+            points = [(cx + r * math.cos(math.radians(22.5 + 45 * k)),
+                       cy + r * math.sin(math.radians(22.5 + 45 * k)))
+                      for k in range(8)]
+
+        zone = pcbnew.ZONE(footprint)
+        zone.SetIsRuleArea(True)
+        # The file format calls this "copperpour"; the API calls it ZoneFills.
+        zone.SetDoNotAllowZoneFills(True)
+        zone.SetDoNotAllowVias(not rule.get("allow_vias", True))
+        zone.SetDoNotAllowTracks(not rule.get("allow_tracks", True))
+        zone.SetDoNotAllowPads(not rule.get("allow_pads", True))
+        zone.SetDoNotAllowFootprints(rule.get("ban_footprints", True))
+        layers = pcbnew.LSET()
+        for name in rule.get("layers", ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"]):
+            layers.AddLayer(layer_id(board, name))
+        zone.SetLayerSet(layers)
+        outline = zone.Outline()
+        outline.NewOutline()
+        for x, y in points:
+            outline.Append(to_nm(x), to_nm(y))
+        if not dry:
+            footprint.Add(zone)
+        span = ",".join(rule.get("layers", ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"]))
+        print(f"  + {ref:<13} keepout       ({points[0][0]:8.3f},{points[0][1]:8.3f})"
+              f" +{len(points)-1} pts  [{span}]  pour banned, vias "
+              f"{'banned' if zone.GetDoNotAllowVias() else 'legal'}")
         added += 1
 
     for rule in spec.get("move_zones", []):
