@@ -49454,7 +49454,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:0603WAF0000T5E")
+		(lib_id "ProPrj_New-easyedapro:0603WAF1002T5E")
 		(at 358.14 59.69 0)
 		(unit 1)
 		(body_style 0)
@@ -49475,7 +49475,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "0Ω"
+		(property "Value" "10kΩ"
 			(at 355.6 63.5 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -49497,7 +49497,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/0603WAF0000T5E/21903.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/0603WAF1002T5E/26547.html"
 			(at 358.14 59.69 0)
 			(hide yes)
 			(show_name no)
@@ -49509,7 +49509,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Description" "Type:Thick Film Resistor Resistance:0Ω Tolerance:±1% Tolerance:±1% Power(Watts):100mW Voltage-Supply(Max):75V Temperature Coefficient:- Temperature Coefficient:- Operating Temperature:-55℃~+155℃ Operating Temperature:-55℃~+155℃"
+		(property "Description" "Type:Thick Film Resistor Resistance:10kΩ Tolerance:±1% Tolerance:±1% Power(Watts):100mW Voltage-Supply(Max):75V Temperature Coefficient:±100ppm/℃ Temperature Coefficient:±100ppm/℃ Operating Temperature:-55℃~+155℃ Operating Temperature:-55℃~+155℃"
 			(at 358.14 59.69 0)
 			(hide yes)
 			(show_name no)
@@ -49521,7 +49521,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "0603WAF0000T5E"
+		(property "Manufacturer Part" "0603WAF1002T5E"
 			(at 358.14 59.69 0)
 			(hide yes)
 			(show_name no)
@@ -49545,7 +49545,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C21189"
+		(property "Supplier Part" "C25804"
 			(at 358.14 59.69 0)
 			(hide yes)
 			(show_name no)
@@ -49569,7 +49569,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "0Ω ±1% 100mW 厚膜电阻"
+		(property "LCSC Part Name" "厚膜电阻 10kΩ ±1% 100mW"
 			(at 358.14 59.69 0)
 			(hide yes)
 			(show_name no)
