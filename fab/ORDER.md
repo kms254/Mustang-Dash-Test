@@ -61,7 +61,7 @@ ordering; if it has gone, the order is blocked regardless of everything above.
 As of 2026-08-03, on branch `fix/board3-review-blockers`:
 
 - DRC **0 errors, 0 warnings, 0 unconnected, 0 schematic parity**
-- BOM 43 lines / CPL 142 rows, symmetric
+- BOM 42 lines / CPL 140 rows, symmetric
 - Every via-in-pad remaining is deliberate (U4's exposed-pad thermal vias, Q2's
   plane stitches, U1.93's documented exception)
 
