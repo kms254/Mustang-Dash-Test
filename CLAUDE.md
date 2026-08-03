@@ -340,12 +340,29 @@ with no CLI. All three candidate routes were tested on Board3 and all three fail
 - **The `pcbnew` Python API exposes nothing** — no `netlist`, `updater`,
   `synchronise` or `fromsch` symbol at all. `BOARD_NETLIST_UPDATER` is C++
   internal and was never SWIG-wrapped.
-- **The KiCad MCP's `sync_schematic_to_board` returns `success: true` and does
-  nothing.** It reported "106 nets added" while assigning **0 pads**, listed
-  every pad as unmatched (`LED6/1`, `R39/1`, `C44/2`…), and never wrote the
-  file — byte-identical afterwards. It is built to populate an *empty* board
-  ("without this step, the board has no footprints"), not to reconcile one
-  already placed and routed. **Treat its success as meaningless on this board.**
+- **The KiCad MCP's `sync_schematic_to_board` reports success and CORRUPTS the
+  board.** Re-tested 2026-08-02 on the fully-routed Board3; worse than the
+  earlier "does nothing" reading. It returned `success: true, 0 footprints
+  added, 93 nets added, 55 pads assigned` — and:
+  - **It creates duplicate nets differing only by a leading slash.** The board
+    carries `/GND`, `/+5V`, `/DC1_IN`; it added `GND`, `+5V`, `DC1_IN`. Net
+    count 229 → 245, with **16 names existing in both forms**.
+  - **It then reassigns pads onto the new names**, orphaning them from the
+    copper attached to the old ones: **airwires 0 → 30**.
+  - **It does not do the thing you wanted anyway** — F1's footprint change
+    (`BSMD1812-200-30V` → `1812L300_30GR`) did not happen; 0 footprints added.
+
+  Recoverable only because the tree was committed; `git restore` put the md5
+  back exactly. **Never run it on a placed-and-routed board.** KTD12 stands:
+  the sync is GUI-only.
+
+  What works instead, and is how every schematic change in the 2026-08-02
+  campaign reached the board: **apply both sides by hand.** For a rotation,
+  rotate the symbol *and* the footprint and swap the pad nets (U31). For a
+  value or supplier change on an unchanged land pattern, edit the schematic
+  properties and, where the board's `Value` prints, set it with `fp.SetValue()`
+  (U10/U24/U32). Verify through the exported netlist by pin **function**, never
+  pin number (KTD27).
 
 **A fourth route exists and is not a netlist sync: `pcbnew` can replace footprints
 directly.** `FootprintLoad`, `board.Add`/`Remove`, `SetPosition`/
