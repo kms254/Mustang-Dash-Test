@@ -59086,7 +59086,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "10uF"
+		(property "Value" "22uF"
 			(at 129.54 292.1 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -59097,7 +59097,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:C0603"
+		(property "Footprint" "ProPrj_New-easyedapro:C0805"
 			(at 132.08 287.02 0)
 			(hide yes)
 			(show_name no)
@@ -59108,7 +59108,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10A106KP8NNNC/19702.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL21A226MAQNNNE/45783.html"
 			(at 132.08 287.02 0)
 			(hide yes)
 			(show_name no)
@@ -59132,7 +59132,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10A106KP8NNNC"
+		(property "Manufacturer Part" "CL21A226MAQNNNE"
 			(at 132.08 287.02 0)
 			(hide yes)
 			(show_name no)
@@ -59156,7 +59156,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C19702"
+		(property "Supplier Part" "C45783"
 			(at 132.08 287.02 0)
 			(hide yes)
 			(show_name no)

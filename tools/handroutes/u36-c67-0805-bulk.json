@@ -1,0 +1,43 @@
+{
+  "$comment": [
+    "U36 -- C67 10 uF/0603 becomes 22 uF/0805 (C45783), matching C66 at FPC1 and",
+    "C68 at FPC3. The land pattern was inherited from the EasyEDA import, not",
+    "chosen: C67 was the board's only 10 V part, and after DC-bias derating at",
+    "3.3 V it delivered nearer 5 uF against its siblings' ~17 uF. The footprint",
+    "swap itself is applied through pcbnew; this file is the copper that has to",
+    "move because of it.",
+    "",
+    "Only ONE thing actually has to move. Going 0603 -> 0805 pushes the pads from",
+    "+/-0.700 to +/-1.000 and grows them to 1.410 x 1.350, so pad 2 (/GND) now",
+    "spans y 92.995..94.405 -- and the /GND stitching via sat at (140.350,94.300),",
+    "INSIDE that. Same net, so DRC would never complain; it would simply be a via",
+    "in a pad, and reflow would wick solder down the barrel.",
+    "",
+    "The /+3V3 side needs nothing: its track already started at (140.350,92.000),",
+    "which the larger pad 1 (y 90.995..92.405) still covers.",
+    "",
+    "The via cannot simply move south. The /I2C_SCL Inner1 diagonal runs",
+    "y = x - 44.900 overhead, and a 0.6 via needs its centre 0.7476 mm clear of it",
+    "in y, capping the via at y <= 94.702 -- while clearing the new pad needs",
+    "y > 94.705. Infeasible at x=140.350, by 3 um. Moving EAST opens it: the",
+    "diagonal climbs away as x grows, so at x=141.000 the clearance is 0.849",
+    "against the 0.5286 required, and the via still clears pad 2's corner by",
+    "0.195 mm."
+  ],
+  "steps": [
+    {
+      "step": "1/1  move the /GND stitching via out from under the new 0805 pad",
+      "delete": [
+        {"net": "GND", "layers": ["Top Layer"], "vias": true,
+         "bbox": [140.2, 93.3, 140.5, 94.4]}
+      ],
+      "add": [
+        {"net": "GND", "layer": "Top Layer", "width": 0.3,
+         "points": [[140.350, 93.700], [140.350, 94.250], [141.000, 94.900]]}
+      ],
+      "add_vias": [
+        {"net": "GND", "at": [141.000, 94.900], "diameter": 0.6, "drill": 0.25}
+      ]
+    }
+  ]
+}
