@@ -84,6 +84,15 @@ One unrouted pad-to-pad connection on a PCB — the thin line a layout tool draw
 
 The distinction is load-bearing here because this project has already confused them once: a routing task recorded as "~274 unrouted nets" was in fact ~274 airwires across roughly a hundred nets, 93 of which already carried copper. Scoped against nets the work looked like most of the board; scoped correctly it was a nearly-complete board. Any statement about how much routing remains is ambiguous unless it names which unit it counts.
 
+An airwire count also answers a narrower question than it appears to. It reports whether pads are *joined*, not whether any particular copper is what joins them — so on a net carrying a Copper Pour it cannot evaluate a deletion at all: the pour takes over and the count stays at zero whether the removed copper was redundant or load-bearing. Zero airwires is evidence about connectivity, never about whether copper was doing work.
+
+### Copper Pour
+A filled region of copper assigned to a net, poured around existing geometry rather than drawn as a path — the form the ground and supply nets take across most of a board's area. Distinct from a track, which joins two specific points, in that a pour joins everything it touches and reshapes itself on every refill.
+
+Two consequences run through this project. A pour is *derived* geometry, so it is only true after a refill under the real Design Rules, and any measurement spanning an edit must refill first or it describes the previous board. And a pour silently substitutes: because it already touches every pad on its net, removing a dedicated connection to one of those pads does not disconnect it, it demotes it to a thermal-relief attachment — a real change in resistance and current capacity that connectivity checks report as no change at all.
+
+A pour's inverse is a **rule area** (keepout): a region with the same outline semantics that bans something rather than filling it. Barring the pour from a region while still permitting tracks and vias is how a plane is held clear of a drilled hole without closing the area to routing.
+
 ### Design Rules
 The manufacturing constraints a board is drawn to — minimum clearance, track width, via diameter and drill, hole spacing — held as project metadata alongside the board rather than inside its geometry. Because they live outside the design objects, they travel separately: a tool can carry every footprint, net, and trace faithfully and still lose the rules entirely.
 

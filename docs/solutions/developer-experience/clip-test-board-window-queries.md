@@ -1,6 +1,7 @@
 ---
-title: Never window-filter board geometry queries by endpoint containment — clip-test the segment
+title: "Window-filter board geometry by shape intersection, never by an object's reference point"
 date: 2026-07-29
+last_updated: 2026-08-02
 category: developer-experience
 module: kicad/board3
 problem_type: developer_experience
@@ -10,10 +11,11 @@ applies_when:
   - "Dumping or querying board copper inside a coordinate window via pcbnew"
   - "Building obstacle maps for routing, placement, or clearance work"
   - "Any spatial filter over segments, wires, or edges (schematic or PCB)"
-tags: [pcbnew, geometry, query, window, clip, liang-barsky, routing]
+  - "Any spatial filter over pads, footprints, or other objects that have extent"
+tags: [pcbnew, geometry, query, window, clip, liang-barsky, routing, pads, bounding-box]
 ---
 
-# Never window-filter board geometry queries by endpoint containment — clip-test the segment
+# Window-filter board geometry by shape intersection, never by an object's reference point
 
 ## Context
 
@@ -31,6 +33,18 @@ This is the same failure family as the repo's standing "read board facts
 through `pcbnew`, never regex" rule: a query that looks exhaustive but has a
 blind spot produces confident wrong conclusions, which cost far more than the
 query saved.
+
+**Second incident, 2026-08-02 (U49 — H2's Tag-Connect debug header).** Routing
+`/SWO` out of `U1.130`, a window dump enumerated pads by testing whether
+`pad.GetPosition()` fell inside the window. `C6` — a 100 nF decoupling cap at
+origin `(151.294, 123.079)` — sat outside, so it never appeared. Its GND pad
+spans `x 150.844..151.744, y 121.980..122.779` and reaches well into the
+window, and `/SWO` was routed straight through it.
+
+The instructive part is that this doc *caused* it. The rule above had been
+generalised as "clip segments," and the paragraph below explicitly excused pads
+from the treatment. Filtering pads by centre was therefore not an oversight —
+it was the documented guidance, followed correctly.
 
 ## Guidance
 
@@ -58,16 +72,39 @@ def seg_hits_win(sx, sy, ex, ey, X1, X2, Y1, Y2):
     return True
 ```
 
-Vias and pads are points/rects, so containment (inflated by their radius) is
-fine for them — the trap is specifically **segments**, whose extent between
-endpoints the naive filter ignores. Long power/sense rails, bus serpentines,
-and inner-layer rivers are exactly the objects most likely to cross a local
-window with both endpoints far away — and exactly the objects a route most
-needs to know about.
+Long power/sense rails, bus serpentines, and inner-layer rivers are exactly
+the objects most likely to cross a local window with both endpoints far away
+— and exactly the objects a route most needs to know about.
 
 Also dump **footprint pads**, not just tracks and vias, when mapping
 obstacles: the same session separately missed an FPC connector's pad row
 because the dump enumerated only `GetTracks()`.
+
+### Every object type needs its own test — and none of them is "is the origin inside?"
+
+> **Corrected 2026-08-02.** This doc previously said "vias and pads are
+> points/rects, so containment (inflated by their radius) is fine for them —
+> the trap is specifically segments." **The pad half of that was wrong**, and
+> it cost a second incident (see Context). A pad is not a point: it has extent,
+> and `pad.GetPosition()` is a *reference point*, not the shape. The real rule
+> is not "clip segments"; it is **never filter by a reference point**, whatever
+> the object.
+
+| Object | Correct window test | Why the naive test fails |
+|--------|--------------------|--------------------------|
+| Track segment | Liang-Barsky clip of the segment | Both endpoints can sit outside a window the segment crosses |
+| Pad | Bounding-box **overlap** against `pad.GetBoundingBox()` | The centre can sit outside while copper reaches in |
+| Footprint | Bounding-box overlap against `fp.GetBoundingBox()` | Same as pads, at part scale |
+| Via | Centre ± radius, **on every layer it spans** | A via is a disc on all its layers; a layer-filtered query hides it (see [search every copper layer before placing a via](search-every-copper-layer-before-placing-a-via.md)) |
+
+```python
+# Pads: overlap on the pad's own extent, never containment of its origin.
+bb = pad.GetBoundingBox()
+px1, py1 = bb.GetLeft() / NM, bb.GetTop() / NM
+px2, py2 = bb.GetRight() / NM, bb.GetBottom() / NM
+if not (px2 < X1 or px1 > X2 or py2 < Y1 or py1 > Y2):
+    report(pad)
+```
 
 ## Why This Matters
 
@@ -78,17 +115,34 @@ at the DRC gate, one rework iteration per miss. The cost asymmetry is stark:
 the clip test is ~15 lines once; each miss cost a full derive-lay-verify
 cycle.
 
+The pad variant is worse in one specific way: **the more carefully a part is
+placed, the more likely it is to be missed.** A decoupling cap is deliberately
+pushed hard against the IC it serves, so its body sits just outside the pin's
+local window while its pads reach across the boundary. The naive filter is
+therefore most blind exactly where the layout is tightest and a wrong route is
+most expensive.
+
+Note also what did *not* catch it. The window dump is the map a hand route is
+derived from; if the map is wrong, the clearance arithmetic downstream is
+flawless and the answer is still wrong. Only DRC caught it, at the end.
+
 ## When to Apply
 
 - Every windowed geometry dump in routing/placement scripts (`pcbnew`,
   EasyEDA bridge, any EDA scripting).
 - Building obstacle inventories before deriving track paths by hand.
-- Reviewing someone else's board query script: search for `inwin(sx, sy) or
-  inwin(ex, ey)` shapes — that pattern is the bug.
+- Reviewing someone else's board query script. Two patterns are the bug:
+  `inwin(sx, sy) or inwin(ex, ey)` for segments, and any range test applied to
+  `pad.GetPosition()` / `fp.GetPosition()` for pads and footprints.
+- Generalising *any* rule of this shape. The 2026-08-02 recurrence happened
+  because the original write-up drew the boundary at "segments" rather than at
+  "reference points," and then explicitly cleared the object type that broke
+  next. When a rule turns on "this object has extent the filter ignores," check
+  every object type against that test before exempting any of them.
 
 ## Examples
 
-Before (the bug — both dumps in the session used this):
+Before (the bug — both dumps in the 2026-07-29 session used this):
 
 ```python
 if inwin(sx, sy) or inwin(ex, ey):   # misses through-tracks entirely
@@ -102,8 +156,68 @@ if seg_hits_win(sx, sy, ex, ey, X1, X2, Y1, Y2):
     print(track)
 ```
 
+The pad recurrence, 2026-08-02 — same shape, different object:
+
+```python
+p = pad.GetPosition()                       # a reference point, not the shape
+if X1 <= p.x / NM <= X2 and Y1 <= p.y / NM <= Y2:   # C6 invisible
+    print(pad)
+```
+
+```python
+bb = pad.GetBoundingBox()                   # the shape
+if not (bb.GetRight() / NM < X1 or bb.GetLeft() / NM > X2 or
+        bb.GetBottom() / NM < Y1 or bb.GetTop() / NM > Y2):
+    print(pad)                              # C6 appears
+```
+
+## Known remaining instances (swept 2026-08-02, not yet fixed)
+
+A repo-wide sweep after the second incident found the same reference-point
+reduction still live in one tool. It is **not** on the U49 path and was left
+alone deliberately — `kicad_fit_telltales.py` is the one-off fitter from U11,
+whose board changes were reverted, so it is dormant code that cannot be
+exercised without redoing that work. Recorded here so the next person to wake it
+knows what to fix first:
+
+- `tools/kicad_fit_telltales.py:88-90` — tracks pre-filtered by
+  `min(hypot(start), hypot(end)) > 12 mm`: the segment form of this bug, still
+  live.
+- `tools/kicad_fit_telltales.py:98-100` — pads pre-filtered by
+  `hypot(pad.GetPosition() - centre) > 12 mm`: the pad form.
+- `tools/kicad_fit_telltales.py:113-115` — footprints pre-filtered by
+  `fp.GetPosition()`: the highest-risk of the three, since a QFN or FPC
+  courtyard extends far past its origin.
+- `tools/kicad_fit_telltales.py:50-55` — stale-stub matching against old pad
+  *centres* (collected at line 44) within 1.0 mm, so a track landing on the far
+  edge of a wide pad survives as a stale stub.
+
+The instructive detail: that file already uses the exact, correct conflict test
+(`GetEffectiveShape(F_Cu).Collide()`), but feeds it from these centre-based
+pre-filters — so the exact test only ever judges what the sloppy filter admitted.
+**An exact predicate behind a lossy filter is only as good as the filter.**
+
+Two adjacent gaps found by the same sweep:
+
+- [Search every copper layer before placing a via](search-every-copper-layer-before-placing-a-via.md)
+  — its prescribed `viable()` obstacle model iterates tracks only; pads are
+  absent from the obstacle set entirely, so a via placed by that recipe can land
+  in a pad it never saw.
+- `tools/kicad_handroute.py` deletion semantics (both track endpoints inside the
+  bbox, a via when its centre is) read like this bug but are **not** — for
+  *deletion* the conservative rule is deliberate, since a segment merely passing
+  through must survive. The distinction worth holding: reference-point
+  containment is wrong for *discovery*, and right for *narrow, conservative
+  selection*.
+
+The good precedent to copy is `tools/kicad_shove.py:163-198`, which stores pads
+by all four `GetBoundingBox()` edges and hashes them into every spatial bucket
+they touch — structurally the overlap test this doc argues for.
+
 ## Related
 
 - CLAUDE.md — "Never window-filter board dumps by endpoint containment" (compressed version) and "Read board facts through `pcbnew`, never regex" (same failure family)
 - `docs/solutions/tooling-decisions/freerouting-headless-integration-for-kicad.md` — the routing session this bug shaped
 - `tools/kicad_shove.py` — uses exact segment math for the same reason (its `GetEffectiveShape().Collide()` lesson is the DRC-side sibling of this query-side rule)
+- [Search every copper layer before placing a via](search-every-copper-layer-before-placing-a-via.md) — the via row of the table above; a via is a disc on every layer it spans, so a layer-filtered query hides it
+- `tools/handroutes/u49-h2-tag-connect.json` — the route derived after the correction; its `$why` blocks record the clearances the corrected map produced

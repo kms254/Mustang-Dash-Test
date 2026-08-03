@@ -452,11 +452,19 @@ and the final TT2/TT5/TT7 restack was laid by hand from complete window
 dumps with exact clearance math (track-track 0.3556, track-via 0.5286,
 via-via 0.7016 center-to-center at 0.254 mm/0.1016 mm rules).
 
-**Never window-filter board dumps by endpoint containment.** A track whose
-endpoints both lie outside the window is invisible even though it crosses it
-— that hid the full-width `VBUS_SENSE` Inner1 river (y95.014, x54–110) twice
-in one session and cost three routing iterations. Clip the segment against
-the window (Liang-Barsky) instead. Same family as the rule below.
+**Never window-filter board dumps by an object's reference point.** Ask whether
+the SHAPE intersects the window, never whether some representative point is
+inside it — and the test differs per object type: **tracks** by segment clip
+(Liang-Barsky), **pads and footprints** by bounding-box overlap
+(`GetBoundingBox()`, never `GetPosition()`), **vias** by centre±radius on every
+layer they span. Both halves have been paid for: endpoint containment hid the
+full-width `VBUS_SENSE` Inner1 river (y95.014, x54–110) twice in one session and
+cost three routing iterations (2026-07-29); centre containment then hid C6's GND
+pad (body at 151.294,123.079, pad reaching to x151.744) and `/SWO` was routed
+straight through it (2026-08-02). The second happened *because* the first
+write-up drew the line at "segments" and explicitly excused pads — so when you
+generalise a rule of this shape, test every object type before exempting any.
+Same family as the rule below.
 
 **Read board facts through `pcbnew`, never regex.** Three separate wrong
 conclusions in one session came from parsing `.kicad_pcb` as text: "the board has
