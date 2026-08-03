@@ -48060,7 +48060,7 @@
 			)
 		)
 	)
-	(gr_text "CENTER"
+	(gr_text "LEFT"
 		(at 49.985533 86.718567 0)
 		(layer "F.SilkS")
 		(uuid "c94a7214-34da-4e44-8b19-c8a0ac2f2b40")
@@ -48159,7 +48159,7 @@
 			)
 		)
 	)
-	(gr_text "LEFT"
+	(gr_text "CENTER"
 		(at 149.985533 86.718567 0)
 		(layer "F.SilkS")
 		(uuid "b3c234fd-d040-44ba-960b-74d87eaf9ea5")

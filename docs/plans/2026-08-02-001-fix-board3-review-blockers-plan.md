@@ -637,7 +637,7 @@ parts worth marking, the refdes is the least informative string available:
 
 | Part | Print this, not this |
 |---|---|
-| FPC1 / FPC2 / FPC3 | **CENTER** / **LEFT** / **RIGHT** |
+| FPC1 / FPC2 / FPC3 | **LEFT** / **CENTER** / **RIGHT** — CORRECTED 2026-08-03; this table originally said CENTER/LEFT/RIGHT and was WRONG. FPC1 carries `/SCLK_L`, FPC2 carries `/SCLK_C`. The labels were placed from this table without checking the nets and had to be swapped after review. Verify by NET, not by this row (KTD27). |
 | P1 / P2 | **CAN1** / **CAN2** |
 | H1 / H3 | **TERM1** / **TERM2** |
 | H2 | **SWD** |
