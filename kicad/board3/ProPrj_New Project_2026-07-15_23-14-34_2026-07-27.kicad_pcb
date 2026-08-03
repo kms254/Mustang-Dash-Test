@@ -3447,7 +3447,7 @@
 			)
 		)
 	)
-	(footprint "C0603"
+	(footprint "ProPrj_New-easyedapro:C0603"
 		(layer "F.Cu")
 		(uuid "15a805cf-2d67-4c52-a25c-9bd119dde0ab")
 		(at 159.3 90 -90)
@@ -4823,7 +4823,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "1uF"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(uuid "667b96ca-b535-428b-93a9-705c9c2ef141")
@@ -5766,7 +5766,7 @@
 			)
 		)
 	)
-	(footprint "HL-A-3528S35FC-S1-13HL"
+	(footprint "JLCImport:HL-A-3528S35FC-S1-13HL"
 		(layer "F.Cu")
 		(uuid "2df11998-0ff9-420f-8595-d6239b558671")
 		(at 224.75 95.5 90)
@@ -14352,7 +14352,7 @@
 				(justify top)
 			)
 		)
-		(property "Value" "0Ω"
+		(property "Value" "10kΩ"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(uuid "7141a8ce-f3f6-4fa4-90cb-562ea4aa789c")
@@ -16395,7 +16395,7 @@
 			)
 		)
 	)
-	(footprint "AW9523BTQR"
+	(footprint "JLCImport:AW9523BTQR"
 		(layer "F.Cu")
 		(uuid "4f8ff343-2402-4440-b71b-42ca76dba91b")
 		(at 85 95 -90)
@@ -17376,7 +17376,7 @@
 			)
 		)
 	)
-	(footprint "HL-A-3528H203BC-S1-13HL"
+	(footprint "JLCImport:HL-A-3528H203BC-S1-13HL"
 		(layer "F.Cu")
 		(uuid "5370b56b-c1af-4653-9b1b-cb202a5f0ac3")
 		(at 225 90 -90)
@@ -18095,7 +18095,7 @@
 			)
 		)
 	)
-	(footprint "HL-A-3528U51GC-S1-13HL"
+	(footprint "JLCImport:HL-A-3528U51GC-S1-13HL"
 		(layer "F.Cu")
 		(uuid "5501ea64-32bd-455e-a9a8-0c72ad76dcc6")
 		(at 65 90 -90)
@@ -19309,7 +19309,7 @@
 			)
 		)
 	)
-	(footprint "HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K"
+	(footprint "JLCImport:HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K"
 		(layer "F.Cu")
 		(uuid "5a56cff4-47c6-43a7-8569-606986ba5708")
 		(at 74.75 90.25 -90)
@@ -19327,7 +19327,7 @@
 				)
 			)
 		)
-		(property "Value" "HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K"
+		(property "Value" "HL-A-3528H343W-S1-13HL-HR3(SDCM 6)(6000K-7000K)"
 			(at -15.25 165.25 270)
 			(layer "F.Fab")
 			(uuid "b133e771-3557-4da9-aefd-b2a80b4c39c5")
@@ -20010,7 +20010,7 @@
 			)
 		)
 	)
-	(footprint "C0603"
+	(footprint "ProPrj_New-easyedapro:C0603"
 		(layer "F.Cu")
 		(uuid "5b7279a9-0b34-44b0-9baf-5b33b55ff43b")
 		(at 59.3 90 90)
@@ -20300,7 +20300,7 @@
 			)
 		)
 	)
-	(footprint "C0603"
+	(footprint "ProPrj_New-easyedapro:C0603"
 		(layer "F.Cu")
 		(uuid "5e4728b3-307e-4f5a-9396-490dd3c6e3fe")
 		(at 257.25 93.25 180)
@@ -21489,7 +21489,7 @@
 			)
 		)
 	)
-	(footprint "HL-A-3528S31YC-S1-13HL"
+	(footprint "JLCImport:HL-A-3528S31YC-S1-13HL"
 		(layer "F.Cu")
 		(uuid "6971b5f4-cb8a-4d4e-bede-0916ec9413b5")
 		(at 233.5 95.5 -90)
@@ -24114,9 +24114,10 @@
 		(layer "F.Cu")
 		(uuid "79711249-604c-49f0-8a7a-b28c164a0663")
 		(at 30 90)
-		(property "Reference" ""
+		(property "Reference" "MP1"
 			(at 0 0 0)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "f81f5caa-fa3c-493f-a3fa-f5e8ea460437")
 			(effects
 				(font
@@ -24156,7 +24157,7 @@
 				)
 			)
 		)
-		(attr through_hole)
+		(attr through_hole board_only exclude_from_pos_files exclude_from_bom)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_rect
 			(start -2.75 -2.75)
@@ -24181,7 +24182,7 @@
 		)
 		(embedded_fonts no)
 	)
-	(footprint "C0805"
+	(footprint "ProPrj_New-easyedapro:C0805"
 		(layer "F.Cu")
 		(uuid "7a68f0a9-bb5c-47c4-8412-d48a8499f87d")
 		(at 46.6 97.5 180)
@@ -25399,7 +25400,7 @@
 			)
 		)
 	)
-	(footprint "Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical"
+	(footprint "Board3:Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical"
 		(layer "F.Cu")
 		(uuid "7cb791f6-23d5-4e0e-9cae-9346d8915428")
 		(at 133.942 121.588)
@@ -28861,7 +28862,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "1uF"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(uuid "ee0e418c-7a65-4f39-8af4-3c6b2625a178")
@@ -31211,7 +31212,7 @@
 			)
 		)
 	)
-	(footprint "C0805"
+	(footprint "ProPrj_New-easyedapro:C0805"
 		(layer "F.Cu")
 		(uuid "a2600dd8-2cc5-4954-8b54-81f0633ce455")
 		(at 252.9 96.5)
@@ -35227,7 +35228,7 @@
 			)
 		)
 	)
-	(footprint "HVO-3528CPXA"
+	(footprint "JLCImport:HVO-3528CPXA"
 		(layer "F.Cu")
 		(uuid "b65c5f7d-0c28-4e60-a317-eaa5cf4a8ab7")
 		(at 65 95 90)
@@ -36807,7 +36808,7 @@
 			)
 		)
 	)
-	(footprint "C0603"
+	(footprint "ProPrj_New-easyedapro:C0603"
 		(layer "F.Cu")
 		(uuid "c0a4c0d7-9b3a-44a1-95f6-63f9dbeddd9d")
 		(at 140.35 92.7 -90)
@@ -37509,7 +37510,7 @@
 			)
 		)
 	)
-	(footprint "HL-A-3528U51GC-S1-13HL"
+	(footprint "JLCImport:HL-A-3528U51GC-S1-13HL"
 		(layer "F.Cu")
 		(uuid "c4b5f704-7679-4b3c-88eb-e938f1cd74bf")
 		(at 234.75 89.75 -90)
@@ -38121,9 +38122,10 @@
 		(layer "F.Cu")
 		(uuid "ccd43473-052f-47a6-bb30-7a2c75b2f99e")
 		(at 30 130)
-		(property "Reference" ""
+		(property "Reference" "MP2"
 			(at 0 0 0)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "63f4a7f5-1464-4c70-9f73-647711f546fa")
 			(effects
 				(font
@@ -38163,7 +38165,7 @@
 				)
 			)
 		)
-		(attr through_hole)
+		(attr through_hole board_only exclude_from_pos_files exclude_from_bom)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_rect
 			(start -2.75 -2.75)
@@ -41026,7 +41028,7 @@
 			)
 		)
 	)
-	(footprint "HL-A-3528S35FC-S1-13HL"
+	(footprint "JLCImport:HL-A-3528S35FC-S1-13HL"
 		(layer "F.Cu")
 		(uuid "da3771c3-464e-446d-b5fe-dec846234285")
 		(at 75 95 -90)
@@ -41593,9 +41595,10 @@
 		(layer "F.Cu")
 		(uuid "dd459951-4906-4044-a043-ce86c57153bc")
 		(at 270 90)
-		(property "Reference" ""
+		(property "Reference" "MP3"
 			(at 0 0 0)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "f41d188d-404d-44b8-a742-a680437854a7")
 			(effects
 				(font
@@ -41635,7 +41638,7 @@
 				)
 			)
 		)
-		(attr through_hole)
+		(attr through_hole board_only exclude_from_pos_files exclude_from_bom)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_rect
 			(start -2.75 -2.75)
@@ -45075,9 +45078,10 @@
 		(layer "F.Cu")
 		(uuid "ebab8b60-1042-4c0a-8ba8-e46a9049f43a")
 		(at 270 130)
-		(property "Reference" ""
+		(property "Reference" "MP4"
 			(at 0 0 0)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "721a2c96-77b9-448b-8e8f-dd6473060c0b")
 			(effects
 				(font
@@ -45117,7 +45121,7 @@
 				)
 			)
 		)
-		(attr through_hole)
+		(attr through_hole board_only exclude_from_pos_files exclude_from_bom)
 		(duplicate_pad_numbers_are_jumpers no)
 		(fp_rect
 			(start -2.75 -2.75)
@@ -46417,7 +46421,7 @@
 			)
 		)
 	)
-	(footprint "AW9523BTQR"
+	(footprint "JLCImport:AW9523BTQR"
 		(layer "F.Cu")
 		(uuid "f4df9658-c385-4f11-b42e-4209932c0166")
 		(at 227 100 90)
