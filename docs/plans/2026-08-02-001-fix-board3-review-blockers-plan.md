@@ -828,6 +828,76 @@ card, since the silk (U45) will label it `SWD` rather than enumerate pins.
 
 ---
 
+## U47 outcome — one closed, three assessed and left
+
+**Closed: the east `/+5V` home-run.** R61.1 and D11.1 each now have their own via
+into the Inner2 plane. Proven with the same segment-deletion test that found the
+defect: both cuts that previously orphaned `D11.2, LED4.2, R61.1` now yield zero
+airwires, while a control cut on LED8's feed still yields one.
+
+**BTN1's annular ring — NOT IMPROVABLE, measured.** The DFM lens suggested
+"bump the pad to 0.6 and keep 0.175", which assumed room that does not exist.
+The nearest other-net edge is U1.92's pad at 0.360 mm, capping via diameter at
+**0.517 mm**:
+
+| option | ring | verdict |
+|---|---|---|
+| current 0.5 / 0.2 | 0.1500 | at JLC's minimum, forces the 0.20 mm drill tier |
+| 0.517 / 0.25 | **0.1335** | **below the 0.15 mm minimum — not allowed** |
+| 0.517 / 0.2 | 0.1585 | +0.0085 mm, spends clearance margin for nothing |
+
+So the existing 0.5/0.2 is already correct and `kicad_rules.json` documents it as
+a deliberate exception. **U44's "declare 0.20 mm minimum hole" stands** — the
+tier cannot be dropped without moving U1's escape.
+
+**`/U12_RSTN` clearance — left as-is.** Tightest point is a 0.36 mm In2 segment
+at x=233.28 against the `/TT8_LED_K` via: gap 0.1030 mm against a 0.1016 rule,
+**margin +0.0014 mm**. It passes. Nudging it requires moving the adjacent
+segments that share its endpoints — a re-route of working copper for 1.4 µm.
+
+**Telltale cathode escape vias — deferred.** LED2.1, LED6.1, LED7.1 and LED8.1
+each have a via centre *inside* the pad, so solder wicks down the barrel during
+reflow (up to ~22% of one pad's deposit, asymmetric fillet, LED tilt behind a
+lens). Clear relocation spots exist ~1.6 mm out on all four — but each via is an
+*escape*, carrying an F.Cu stub to the pad and a track away on B.Cu or In1, so
+moving one is a coordinated two-layer re-route, four times, in the densest part
+of the board. Deferred deliberately: it is a MEDIUM assembly-yield item, and
+geometric edits introduced defects twice during this session's execution (the
+pin-1 circles, the first widening pass). Worth doing with a clear head.
+
+## Open findings — surfaced during execution, not yet closed
+
+**U3 and U4 pin-1 marker circles are clipped by solder mask.** Surfaced by U43:
+arming `solder_mask_min_width` (which had been *absent*, therefore zero) took
+DRC 0 → 2, both `silk_over_copper`.
+
+    U3 (TPS563201) circle overlaps its /GND pad 1  by 0.1030 mm  (40% of stroke width)
+    U4 (CH224K)    circle overlaps its /GND EP     by 0.0174 mm
+
+The fab clips silk where it crosses a mask opening, so both pin-1 dots print
+partially. **Warning severity — does not block fabrication.**
+
+**A fix was attempted and reverted.** Recorded because the failure is more
+useful than the attempt:
+
+- The solve measured the circle against **the footprint's own pads**. That is the
+  wrong model. Silk clipping is a *board-level* question, and arming
+  `solder_mask_min_width` makes KiCad merge nearby mask openings into larger
+  apertures and check the silk against those. Both circles were moved to a
+  verified 0.15 mm clearance from every pad edge and **both warnings persisted
+  unchanged**.
+- Moving the library circle 0.004 mm and the instance 0.254 mm made them
+  diverge, producing a `lib_footprint_mismatch` on U3 — the exact class
+  documented in `docs/solutions/integration-issues/kicad-lib-footprint-mismatch-integer-nanometre-comparison.md`.
+  A footprint edit must land in library *and* instance with identical numbers
+  (KTD26), and "identical" means the same computed value, not the same intent.
+
+**To close it properly**, someone needs a model of KiCad's merged-mask-aperture
+geometry — the shape the check actually runs against — rather than pad
+distances. Until then the rule stays armed and the two warnings stay visible,
+per U43's own instruction: a failure the old rules were hiding is a real
+finding, so do not lower the rule back.
+
 ## Genuinely deferred — and why
 
 Unlike the list above, these cannot be closed in this spin. The distinction
