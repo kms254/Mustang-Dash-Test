@@ -65,10 +65,8 @@ As of 2026-08-03, on branch `fix/board3-review-blockers`:
 - Every via-in-pad remaining is deliberate (U4's exposed-pad thermal vias, Q2's
   plane stitches, U1.93's documented exception)
 
-**One open electrical item — see U42.** The CAN termination jumpers interrupt
-only the `CAN_H` leg, so with H1/H3 open the `CAN_L` line still carries
-60.4 Ω + 4.7 nF to ground permanently: an unbalanced AC load on one leg of a
-differential pair. **Until U42 ships, fit the H1 and H3 jumpers** — that makes
-the network the symmetric split termination it was drawn as, at the cost of
-120 Ω of extra termination on a short bench bus, which is benign at 1 Mbps.
-Put this on the bring-up card.
+**No open electrical items.** U42 closed 2026-08-03: the CAN termination
+mid-point capacitors (C57/C58) are deleted, so each bus is now a plain
+120.8 Ω end termination selected by its jumper. With H1/H3 **open** the
+resistors float — there is no longer a permanent RC load on `CAN_L`. Fit the
+jumpers only if this board is at an end of the CAN bus.
