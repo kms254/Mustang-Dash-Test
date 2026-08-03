@@ -1,0 +1,74 @@
+# Board3 — order form answers
+
+The JLCPCB quote form asks for things the gerbers do not state. Getting them
+wrong causes a hold, a re-quote, or a board that arrives with parts missing.
+This file sits beside the upload files because that is where you will be
+standing when the form asks.
+
+**Every value below was measured from the board on 2026-08-03, not copied from a
+plan.** Where a fact is not in the board file at all, that is called out — those
+are the ones nothing will catch for you.
+
+## Fabrication
+
+| Field | Answer | Why it is not obvious |
+|---|---|---|
+| Board size | **250 × 50 mm** | Measured 250.254 × 50.254 over Edge.Cuts. Not 230 × 50 — that figure circulated in session notes and review prompts and is wrong (U39). |
+| Layers | **4** | |
+| Thickness | **1.6 mm** | |
+| Surface finish | **ENIG** | `(copper_finish "ENIG")` is in the board's stackup block. A real cost adder over HASL, so it will not be chosen for you. |
+| Minimum hole size | **0.20 mm** | 221 vias drill 0.25, but the single BTN1 via at U1.93 is 0.5/0.2 and forces the lower tier. Declaring 0.25 is wrong. |
+| Via covering | **Tented** | The board sets `m_TentViasFront` and `m_TentViasBack` true. JLC's *plugged*-via service caps at 0.5 mm and ours are 0.6 mm, so tenting is the only option that matches. |
+| Impedance control | **Not ordered** | `(dielectric_constraints no)`. The USB pair is built to a 90 Ω target against the stackup below, but JLC will not verify it and is not being asked to. |
+| Stackup | **JLC04161H-7628** | **This string appears nowhere in the `.kicad_pcb`** — only the numeric values match the template. Nothing binds the order to it, so it has to be selected by hand. |
+
+## Assembly
+
+**Plain SMT assembly is not sufficient. The service must include through-hole /
+hand-soldering**, or the board arrives with no power input, no CAN terminals and
+no buttons.
+
+**13 components have plated through-holes:**
+
+    DC1                     power jack
+    P1, P2                  CAN terminals
+    H1, H3                  CAN termination jumpers
+    SW1, SW2, SW3, SW4      buttons
+    SW6, SW7                reset, boot
+    USBC1                   mid-mount USB-C (through-hole legs)
+
+Two exclusions worth stating, because both look like they belong on that list
+and do not:
+
+- **H2 is not on it.** The Tag-Connect TC2030-IDC-NL is a *cable*, not a fitted
+  part — its three holes are NPTH alignment holes and its six pads are bare
+  copper for pogo pins. Nothing is soldered. It is also `in_bom no` and
+  `in_pos_files no`, so it appears in neither the BOM nor the CPL.
+- **MP1–MP4 are not on it.** They are the four EasyEDA corner mounting pads —
+  plated holes, but board features rather than components, and excluded from BOM
+  and CPL by attribute.
+
+## Known risk at order time
+
+**U1 (STM32H755ZIT6, `C730212`) stock.** Reviewed and **accepted by Kevin,
+2026-08-02.** It is ~64% of the per-board component cost ($27.26 of ~$42.31) and
+its only variant `C1343604` is at 0. This is the pattern that hit U2, which went
+2,163 → 4 units in seven days, with no substitution available. Check stock before
+ordering; if it has gone, the order is blocked regardless of everything above.
+
+## Board state
+
+As of 2026-08-03, on branch `fix/board3-review-blockers`:
+
+- DRC **0 errors, 0 warnings, 0 unconnected, 0 schematic parity**
+- BOM 43 lines / CPL 142 rows, symmetric
+- Every via-in-pad remaining is deliberate (U4's exposed-pad thermal vias, Q2's
+  plane stitches, U1.93's documented exception)
+
+**One open electrical item — see U42.** The CAN termination jumpers interrupt
+only the `CAN_H` leg, so with H1/H3 open the `CAN_L` line still carries
+60.4 Ω + 4.7 nF to ground permanently: an unbalanced AC load on one leg of a
+differential pair. **Until U42 ships, fit the H1 and H3 jumpers** — that makes
+the network the symmetric split termination it was drawn as, at the cost of
+120 Ω of extra termination on a short bench bus, which is benign at 1 Mbps.
+Put this on the bring-up card.
