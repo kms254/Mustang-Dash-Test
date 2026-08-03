@@ -433,6 +433,23 @@ design decision** (the 0.7/0.35 → 0.6/0.25 change).
 
 **Files:** `tools/kicad_rules.json`, `CLAUDE.md`, PR descriptions.
 
+**CLOSED 2026-08-03.** `kicad_rules.json` corrected on both counts, and a
+correction block appended to PR #17 rather than editing its claims in place, so
+the original record stands beside the correction.
+
+Two amendments to this unit's own table, found while closing it:
+
+- **The via count should not be corrected, it should be removed.** "205" was
+  already stale by the time this plan was written — U47, U48 and U49 each added
+  vias, and the board measured **222** on 2026-08-03. Replacing one hardcoded
+  count with another just resets the clock, so `kicad_rules.json` now says to
+  count them and how.
+- **The "150-violation baseline" is not in PR #19.** It appears once, in PR #17.
+  PR #19's only "baseline" mentions are about the frozen BOM used for the
+  2026-08-02 order, which is a different and accurate claim.
+
+Board size confirmed by measurement: **250.254 × 50.254 mm** over Edge.Cuts.
+
 ---
 
 ### U40. Delete the stale gerber decoy
