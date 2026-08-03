@@ -38,6 +38,15 @@ for r, o in olds.items():
 # --- 1. drop the stale local stubs -----------------------------------------
 # Only copper that actually lands on an old telltale pad is stale. An earlier
 # radius-based sweep also deleted /+5V feeding C30, which is why this is exact.
+#
+# NOT CORRECTED, deliberately: this reduces each pad to its CENTRE, so a track
+# landing on the far edge of a wide pad is >1 mm away and survives as a stale
+# stub. That is the same reference-point bug fixed in section 3 -- but unlike
+# those pre-filters the fix here is NOT monotone. This test gates DELETION on a
+# same-net match, so widening it deletes more copper, which is precisely how the
+# C30 orphan above happened. Correcting it means testing the endpoint against
+# the pad's actual shape AND re-verifying the fit, not swapping the distance
+# function. Left as a recorded hazard rather than an unverified change.
 oldpads = []
 for r, o in olds.items():
     for p in o.Pads():
@@ -74,6 +83,29 @@ for r in sorted(ASSIGN):
     b.Remove(o); b.Add(n); news[r] = n
 
 # --- 3. foreign copper to avoid --------------------------------------------
+# The distance tests below are PRE-FILTERS in front of an exact Collide(), so
+# the only thing that matters is that they never drop an obstacle the exact test
+# would have caught. Reference-point distance does exactly that: a long track
+# can cross within reach with BOTH endpoints far outside range, and a pad or
+# footprint whose ORIGIN is out of range can still have copper inside it.
+# Widening a pre-filter is monotone -- it can only add candidates, never remove
+# them -- which is why this was safe to correct without re-running the fit.
+# See docs/solutions/developer-experience/clip-test-board-window-queries.md.
+def _box_point_dist(bb, pos):
+    dx = max(bb.GetLeft() - pos.x, 0, pos.x - bb.GetRight())
+    dy = max(bb.GetTop() - pos.y, 0, pos.y - bb.GetBottom())
+    return math.hypot(dx, dy)
+
+
+def _seg_point_dist(a, c, pos):
+    dx, dy = c.x - a.x, c.y - a.y
+    if dx == 0 and dy == 0:
+        return math.hypot(pos.x - a.x, pos.y - a.y)
+    t = ((pos.x - a.x) * dx + (pos.y - a.y) * dy) / float(dx * dx + dy * dy)
+    t = max(0.0, min(1.0, t))
+    return math.hypot(pos.x - (a.x + t * dx), pos.y - (a.y + t * dy))
+
+
 def shapes_near(pos):
     """Every F.Cu shape within reach, tagged with its net.
 
@@ -85,8 +117,7 @@ def shapes_near(pos):
     for t in b.GetTracks():
         if not t.IsOnLayer(pcbnew.F_Cu):
             continue
-        if min(math.hypot(t.GetStart().x - pos.x, t.GetStart().y - pos.y),
-               math.hypot(t.GetEnd().x - pos.x, t.GetEnd().y - pos.y)) > MM(12):
+        if _seg_point_dist(t.GetStart(), t.GetEnd(), pos) > MM(12):
             continue
         out.append((t.GetEffectiveShape(pcbnew.F_Cu), t.GetNetname()))
     for f in b.GetFootprints():
@@ -95,8 +126,7 @@ def shapes_near(pos):
         for p in f.Pads():
             if not p.IsOnLayer(pcbnew.F_Cu):
                 continue
-            pp = p.GetPosition()
-            if math.hypot(pp.x - pos.x, pp.y - pos.y) > MM(12):
+            if _box_point_dist(p.GetBoundingBox(), pos) > MM(12):
                 continue
             out.append((p.GetEffectiveShape(pcbnew.F_Cu), p.GetNetname()))
     return out
@@ -110,8 +140,9 @@ def courtyards_near(pos):
     for f in b.GetFootprints():
         if f.GetReference() in ASSIGN:
             continue
-        fp_pos = f.GetPosition()
-        if math.hypot(fp_pos.x - pos.x, fp_pos.y - pos.y) > MM(12):
+        # Footprint EXTENT, not origin -- the highest-risk of the three, since a
+        # QFP or FPC courtyard reaches far past the part's origin.
+        if _box_point_dist(f.GetBoundingBox(False, False), pos) > MM(12):
             continue
         cy = f.GetCourtyard(pcbnew.F_CrtYd)
         if cy.OutlineCount():

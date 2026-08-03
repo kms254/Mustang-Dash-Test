@@ -171,31 +171,40 @@ if not (bb.GetRight() / NM < X1 or bb.GetLeft() / NM > X2 or
     print(pad)                              # C6 appears
 ```
 
-## Known remaining instances (swept 2026-08-02, not yet fixed)
+## The sweep, and why three of four were safe to fix untested (2026-08-03)
 
 A repo-wide sweep after the second incident found the same reference-point
-reduction still live in one tool. It is **not** on the U49 path and was left
-alone deliberately — `kicad_fit_telltales.py` is the one-off fitter from U11,
-whose board changes were reverted, so it is dormant code that cannot be
-exercised without redoing that work. Recorded here so the next person to wake it
-knows what to fix first:
+reduction in four places, all in `tools/kicad_fit_telltales.py` — the one-off
+fitter from U11. Three are now fixed; one is deliberately not.
 
-- `tools/kicad_fit_telltales.py:88-90` — tracks pre-filtered by
-  `min(hypot(start), hypot(end)) > 12 mm`: the segment form of this bug, still
-  live.
-- `tools/kicad_fit_telltales.py:98-100` — pads pre-filtered by
-  `hypot(pad.GetPosition() - centre) > 12 mm`: the pad form.
-- `tools/kicad_fit_telltales.py:113-115` — footprints pre-filtered by
-  `fp.GetPosition()`: the highest-risk of the three, since a QFN or FPC
-  courtyard extends far past its origin.
-- `tools/kicad_fit_telltales.py:50-55` — stale-stub matching against old pad
-  *centres* (collected at line 44) within 1.0 mm, so a track landing on the far
-  edge of a wide pad survives as a stale stub.
+The three fixed ones are **pre-filters in front of an exact
+`GetEffectiveShape(F_Cu).Collide()` test**, and that is what made them safe to
+correct without re-running the fit. A pre-filter's only job is to never drop an
+obstacle the exact test would have caught, so **widening one is monotone**: it
+can add candidates, never remove them. Worst case the script runs slower.
 
-The instructive detail: that file already uses the exact, correct conflict test
-(`GetEffectiveShape(F_Cu).Collide()`), but feeds it from these centre-based
-pre-filters — so the exact test only ever judges what the sloppy filter admitted.
-**An exact predicate behind a lossy filter is only as good as the filter.**
+- tracks — was `min(hypot(start), hypot(end)) > 12 mm`, now segment distance
+- pads — was `hypot(pad.GetPosition() - centre)`, now `GetBoundingBox()` distance
+- footprints — was `fp.GetPosition()`, now `GetBoundingBox()`; the highest-risk
+  of the three, since a QFP or FPC courtyard reaches far past its origin
+
+The fourth is the stale-stub matcher, which reduces each pad to its centre and
+so lets a track landing on the far edge of a wide pad survive. It is **left as a
+recorded hazard**, because the same widening is *not* monotone there: that test
+gates **deletion** on a same-net match, so making it more inclusive deletes more
+copper — which is exactly how the file's own comment records orphaning C30's
+`/+5V`. Correcting it means testing the endpoint against the pad's real shape
+*and* re-verifying the fit, which is a different piece of work.
+
+Two lessons worth carrying:
+
+- **An exact predicate behind a lossy filter is only as good as the filter.**
+  That file had the correct conflict test all along and still misjudged, because
+  the exact test only ever saw what the sloppy filter admitted.
+- **Whether a fix is safe to apply untested depends on its monotonicity, not its
+  size.** All four sites are the same one-line bug. Three could be corrected
+  blind; the fourth could not, and the difference is only which direction the
+  error pushes — toward seeing more, or toward deleting more.
 
 Two adjacent gaps found by the same sweep:
 
