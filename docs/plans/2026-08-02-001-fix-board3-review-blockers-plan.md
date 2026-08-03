@@ -855,17 +855,32 @@ at x=233.28 against the `/TT8_LED_K` via: gap 0.1030 mm against a 0.1016 rule,
 **margin +0.0014 mm**. It passes. Nudging it requires moving the adjacent
 segments that share its endpoints — a re-route of working copper for 1.4 µm.
 
-**Telltale cathode escape vias — deferred.** LED2.1, LED6.1, LED7.1 and LED8.1
-each have a via centre *inside* the pad, so solder wicks down the barrel during
-reflow (up to ~22% of one pad's deposit, asymmetric fillet, LED tilt behind a
-lens). Clear relocation spots exist ~1.6 mm out on all four — but each via is an
-*escape*, carrying an F.Cu stub to the pad and a track away on B.Cu or In1, so
-moving one is a coordinated two-layer re-route, four times, in the densest part
-of the board. Deferred deliberately: it is a MEDIUM assembly-yield item, and
-geometric edits introduced defects twice during this session's execution (the
-pin-1 circles, the first widening pass). Worth doing with a clear head.
+**Telltale cathode escape vias — CLOSED 2026-08-03.** LED2.1, LED6.1, LED7.1 and
+LED8.1 each had a via centre *inside* the pad, so solder wicks down the barrel
+during reflow (up to ~22% of one pad's deposit, asymmetric fillet, LED tilt
+behind a lens). This was deferred as "a coordinated two-layer re-route, four
+times, in the densest part of the board." Three of the four were not that: each
+is a via at the pad centre with a stub into the pad and a longer track running
+away, so the fix is to slide the via out **along the direction its own track
+already runs** and lengthen the stub — no net changes layer, no chain is
+re-established. LED6 south (0.345 clear), LED7 south on Inner1, LED8 west.
 
-## Open findings — surfaced during execution, not yet closed
+LED2 was genuinely hard, and the reason is the useful part: `/U12_RSTN`
+*staircases around* that via — arriving west at y=87.960, zigzagging through
+(235.24..235.28, 88.24..88.76), leaving west at y=89.040. That detour exists
+*because* of the via, and it then blocks every escape from it (north 0.083,
+south negative, east clears 0.793 but the Bottom track reaching it crosses the
+staircase at -0.034). West works at 0.113 mm — tight, recorded as tight, and
+accepted because a legal clearance beats a guaranteed assembly defect. Re-routing
+`/U12_RSTN` so its staircase is unnecessary would open real margin and remains
+the better long-term fix.
+
+Specs: `tools/handroutes/u47b-telltale-escape-vias.json`, `u47c-led2-escape-via.json`.
+A fifth, C66.1, was found by the same census and closed in `u47d-c66-escape-via.json`.
+Every via-in-pad now left on the board is deliberate: U4's five exposed-pad
+thermal vias, Q2's two plane stitches from U33, and U1.93's documented exception.
+
+## Findings surfaced during execution — all closed 2026-08-03
 
 **U3 and U4 pin-1 marker circles are clipped by solder mask.** Surfaced by U43:
 arming `solder_mask_min_width` (which had been *absent*, therefore zero) took
@@ -892,11 +907,33 @@ useful than the attempt:
   A footprint edit must land in library *and* instance with identical numbers
   (KTD26), and "identical" means the same computed value, not the same intent.
 
-**To close it properly**, someone needs a model of KiCad's merged-mask-aperture
-geometry — the shape the check actually runs against — rather than pad
-distances. Until then the rule stays armed and the two warnings stay visible,
-per U43's own instruction: a failure the old rules were hiding is a real
-finding, so do not lower the rule back.
+**CLOSED 2026-08-03, and the prediction above was wrong.** No model of merged
+mask apertures was needed: this board sets `SolderMaskExpansion = 0.0`, so the
+apertures *are* the pad outlines and it is ordinary distance arithmetic. What
+the earlier attempt actually got wrong was **scope** — it measured each circle
+against its own footprint's pads.
+
+U4 is the case it looked like: the binding constraint is pad 11, the full
+exposed pad, not the four paste quadrants. Overlap 0.0175 mm, matching the
+0.0174 recorded above; moving 0.20 mm along the corner normal gives +0.1828.
+
+U3 was not about U3 at all. Its circle sat 0.1470 from its own pad 1 — three
+microns short, so a small nudge looked right, and was wrong. The real clipper is
+**L2.1, the buck inductor beside it**, which the circle already overlapped by
+0.045 and which a nudge east made worse. The U3.1↔L2.1 corridor is 0.610 mm and
+a 0.254-radius dot with 0.15 clearance either side needs 0.808, so no position in
+that gap works. The dot moved diagonally out to (110.700,103.800) — clear of
+U3.1 by 0.2442, of L2.1 by 0.2738, still north-east of pin 1, which is where pin
+1 is.
+
+Both circles moved in the library **and** the placed instance (KTD26), with the
+footprint transform calibrated empirically from a pad rather than assumed: U3
+sits at rot 90, where a board-space move of +x is a local move of +y, and
+guessing the sign would have driven the dot further into the inductor. No
+`lib_footprint_mismatch` appeared, which is the proof both sides moved together.
+
+The rule stays armed. **DRC is now 0 errors and 0 warnings — the warning inbox
+is empty.**
 
 ## Genuinely deferred — and why
 
