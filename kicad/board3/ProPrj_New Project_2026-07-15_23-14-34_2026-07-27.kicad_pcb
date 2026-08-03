@@ -25881,8 +25881,8 @@
 			(uuid "d0c30a98-382d-4a72-b71f-74f42842f6fe")
 		)
 		(fp_circle
-			(center 1.397 1.651)
-			(end 1.524 1.651)
+			(center 2.39 1.34)
+			(end 2.517 1.34)
 			(stroke
 				(width 0.254)
 				(type default)
@@ -30508,8 +30508,8 @@
 			(uuid "fac11c09-2bf0-4f7c-85ac-9dc019e1fb84")
 		)
 		(fp_circle
-			(center -1.92 1.26)
-			(end -1.6355 1.26)
+			(center -2.078 1.383)
+			(end -1.7935 1.383)
 			(stroke
 				(width 0.15)
 				(type default)
