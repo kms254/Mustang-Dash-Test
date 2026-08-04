@@ -187,7 +187,7 @@ Footprints that legitimately have no body — fiducials, free pads, mounting
 holes, test points — are exempt via the `BODILESS` table in the tool, and every
 exemption is **printed on every run**. An exemption you cannot see is one you
 cannot audit, and that table is the only path by which a real part could pass
-unnoticed. Board3 currently exempts 7: three fiducials and four free pads.
+unnoticed. Board3 currently exempts 8: three fiducials, four free pads (MP1-MP4) and H2, the Tag-Connect land pattern -- a cable presses pogo pins onto bare copper, so nothing is fitted and there is no part to source.
 
 3D models live in `board3/EASYEDA_MODELS/` and **are tracked** (~53 MB, ~9.5 MB
 in history). They are regenerable from the schematic's LCSC codes via

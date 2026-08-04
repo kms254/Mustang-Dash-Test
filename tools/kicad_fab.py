@@ -225,6 +225,21 @@ def canonicalise_gerber_names(board: Path, gerber_dir: Path) -> list:
                 renames.append((user, target.name))
     for user, name in renames:
         print(f"  renamed gerber: {user!r} -> {name.rsplit('-', 1)[-1]}", flush=True)
+
+    # The Gerber X2 job file lists every plot by filename and was written BEFORE
+    # the renames above -- so left alone it points at eleven files that no longer
+    # exist. JLCPCB reads the filenames and ignores the job file, which is why
+    # this survived a real order; a fab that honours X2 would not be so kind.
+    # Found by the 2026-08-03 seven-lens review.
+    fixed = 0
+    for job in gerber_dir.glob("*.gbrjob"):
+        text = job.read_text(encoding="utf-8")
+        for user, name in renames:
+            text = text.replace(f"-{user}.gbr", f"-{name.rsplit('-', 1)[-1]}")
+        job.write_text(text, encoding="utf-8")
+        fixed += 1
+    if fixed and renames:
+        print(f"  rewrote {fixed} .gbrjob to match the renamed plots", flush=True)
     return renames
 
 

@@ -16,6 +16,7 @@ are the ones nothing will catch for you.
 | Board size | **250 × 50 mm** | Measured 250.254 × 50.254 over Edge.Cuts. Not 230 × 50 — that figure circulated in session notes and review prompts and is wrong (U39). |
 | Layers | **4** | |
 | Thickness | **1.6 mm** | |
+| Copper weight | **1 oz (35 um), outer and inner** | The order form asks, and it changes both price and minimum trace/space. The design rules here (0.1016 mm min track/clearance) are JLC's standard 1 oz limits; 2 oz would relax nothing and cost more. |
 | Surface finish | **ENIG** | `(copper_finish "ENIG")` is in the board's stackup block. A real cost adder over HASL, so it will not be chosen for you. |
 | Minimum hole size | **0.20 mm** | 221 vias drill 0.25, but the single BTN1 via at U1.93 is 0.5/0.2 and forces the lower tier. Declaring 0.25 is wrong. |
 | Via covering | **Tented** | The board sets `m_TentViasFront` and `m_TentViasBack` true. JLC's *plugged*-via service caps at 0.5 mm and ours are 0.6 mm, so tenting is the only option that matches. |
@@ -28,7 +29,7 @@ are the ones nothing will catch for you.
 hand-soldering**, or the board arrives with no power input, no CAN terminals and
 no buttons.
 
-**13 components have plated through-holes:**
+**12 components have plated through-holes:**
 
     DC1                     power jack
     P1, P2                  CAN terminals
