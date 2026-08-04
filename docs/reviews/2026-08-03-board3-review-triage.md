@@ -321,18 +321,50 @@ All five measured 2026-08-03.
     **3 NPTH holes at 0.9906 mm** — the locating holes a *legged* TC2030-IDC
     cable drops into. `-NL` describes which **cable** you buy, not what the land
     pattern supports; buy the legged variant and it is hands-free. Nothing to fix.
-26. **[CONFIRMED] P1/P2 carry no CANH/CANL pin identification.** (dft) The
-    connectors *are* identified by bus — silk reads `CAN1` 10.5 mm from P1 and
-    `CAN2` 11.0 mm from P2, plus `TERM1`/`TERM2` for the jumpers — but nothing
-    says which of the two screw terminals is H and which is L. CAN is
-    differential, so a swap does not work and does not obviously announce itself.
-    Cheap to fix: silk only, no schematic, no netlist — the U45 shape of change.
-27. **[CONFIRMED] The eight telltales carry no TT1–TT8 identification.** (dft)
-    Nearest silk to LED1 is `LEFT` at 15.4 mm — a panel label, unrelated. Same
-    fix shape as (26): eight silk labels matching the schematic's `TTn` naming,
-    which is also the firmware's lamp index (`lamp bit l drives TT(l+1)`).
-    *Note: neither (26) nor (27) can go through `kicad_handroute.py` as it
-    stands — it has no silk-text operation. U45's labels did not come from it.*
+26. **[CONFIRMED — NOT fixable with silk; needs a placement change]** P1/P2 carry
+    no CANH/CANL pin identification. (dft) The connectors *are* identified by bus
+    — `CAN1` 10.5 mm from P1, `CAN2` 11.0 mm from P2, plus `TERM1`/`TERM2` — but
+    nothing says which screw terminal is H. CAN is differential, so a swap simply
+    does not work and does not announce itself.
+    **There is nowhere to put the label.** P1/P2 are boxed in on all four sides:
+    | side | obstruction | gap |
+    |---|---|---|
+    | above | H1/H3 termination jumper (y 120.40–123.57) | **0.61 mm** |
+    | left | resistors ending x 168.5 | **0.94 mm** |
+    | right | part starting x 181.5 | **0.97 mm** |
+    | below | board edge at y 135.13 | **0.28 mm** |
+    A 1.0 mm label needs ~1.4 mm with margin, so none of those fit. And anything
+    placed *inside* the courtyard prints underneath the terminal-block body and
+    is invisible once the part is fitted — worse than nothing, because it looks
+    like the board was labelled.
+    **So this is a placement question, not a silk question.** Options: move H1/H3
+    up to open the band above P1/P2, or accept and rely on the schematic. Not
+    actioned — it needs a decision, and moving the termination jumpers is a real
+    change to a routed area.
+27. **[FIXED] The eight telltales carry no TT1–TT8 identification.** (dft)
+    Fixed in `tools/handroutes/u55-telltale-silk.json`, 1.0 mm text on a 0.15 mm
+    stroke to match U45's sixteen labels.
+    **The mapping was the whole job, and it is not the designator number:**
+
+    | LED1 | LED2 | LED3 | LED4 | LED5 | LED6 | LED7 | LED8 |
+    |---|---|---|---|---|---|---|---|
+    | TT1 | **TT4** | **TT2** | **TT3** | TT5 | TT6 | TT7 | TT8 |
+
+    Three of eight are permuted. Labelling `LED2` as "TT2" would have been wrong
+    on three lamps — which is exactly how U45 put `CENTER` on the `LEFT`
+    connector and became the last review's only CRITICAL. Every label was
+    derived from the net the cathode actually lands on, then **checked again
+    afterwards from the opposite direction**: for each placed label, the nearest
+    LED was found and its `/TTn_LED_K` net compared — 8/8 agree.
+    The physical interleave is why the labels earn their keep: the left cluster
+    carries TT1, TT2, TT5, TT7 and the right carries TT3, TT4, TT6, TT8, so
+    nobody could infer the numbering from the layout.
+    TT6 and TT8 sit to the left and right of their LEDs rather than below,
+    because U12's courtyard (y 97.36–102.64) occupies the space under the right
+    cluster's bottom row. Both remain unambiguous.
+    *`kicad_handroute.py` gained an `add_silk` operation for this — it had none,
+    which is why U45's labels did not come from it. Also `any_layer_id()`, since
+    the existing resolver only walked the copper stack.*
 
 ## 6. DFM margins — thin but legal
 

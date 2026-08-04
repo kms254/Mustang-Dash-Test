@@ -22,6 +22,9 @@ An edit is a single spec, or {"steps": [spec, spec, ...]} applied in order:
                   "points": [[x,y], [x,y], ...]}],
     "add_vias": [{"net": "USB_DM_CONN", "at": [x,y], "diameter": 0.6, "drill": 0.3}],
     "untent_vias": [{"at": [x,y], "net": "SCLK_C", "label": "TP1"}],
+    "add_silk":  [{"text": "TT1", "at": [x,y], "height": 1.0, "thickness": 0.15}],
+    "replace_footprints": [{"ref": "SW1", "fpid": "lib:FOOTPRINT",
+                            "libpath": "kicad/board3/lib.pretty"}],
     "add_keepouts": [{"ref": "H2", "at": [x,y], "radius": 0.85,
                       "layers": ["F.Cu","In1.Cu","In2.Cu","B.Cu"]}]
   }
@@ -121,6 +124,20 @@ def layer_id(board, name: str) -> int:
 _KEEPALIVE: list = []
 
 
+def any_layer_id(board, name: str) -> int:
+    """Resolve ANY layer by name, not just copper.
+
+    layer_id() walks CuStack(), which is right for tracks and vias and useless
+    for silkscreen. Board3 renames its layers ("Top Silkscreen Layer", not
+    "F.SilkS"), so both the board's own name and KiCad's canonical name are
+    accepted -- and layers are always compared by ID afterwards, never by name.
+    """
+    for lid in board.GetEnabledLayers().Seq():
+        if name in (board.GetLayerName(lid), pcbnew.LayerName(lid)):
+            return lid
+    raise SystemExit(f"unknown layer: {name!r}")
+
+
 def apply_step(board, spec: dict, tracks: list, dry: bool):
     netmap = {net.GetNetname().lstrip("/"): net
               for net in board.GetNetsByNetcode().values()}
@@ -191,6 +208,29 @@ def apply_step(board, spec: dict, tracks: list, dry: bool):
                   f"({end.x/NM:8.3f},{end.y/NM:8.3f})")
             if not dry:
                 track.SetNet(dst)
+
+    for rule in spec.get("add_silk", []):
+        # Board-level silkscreen text. Defaults match the 16 labels U45 placed
+        # (1.0 mm high, 0.15 mm stroke) so the board reads as one hand -- and
+        # 0.15 mm is also the process minimum, so do not go below it.
+        text = pcbnew.PCB_TEXT(board)
+        x, y = rule["at"]
+        text.SetText(rule["text"])
+        text.SetPosition(pcbnew.VECTOR2I(to_nm(x), to_nm(y)))
+        text.SetLayer(any_layer_id(board, rule.get("layer", "Top Silkscreen Layer")))
+        text.SetTextHeight(to_nm(rule.get("height", 1.0)))
+        text.SetTextWidth(to_nm(rule.get("width", 1.0)))
+        text.SetTextThickness(to_nm(rule.get("thickness", 0.15)))
+        text.SetHorizJustify(pcbnew.GR_TEXT_H_ALIGN_CENTER)
+        text.SetVertJustify(pcbnew.GR_TEXT_V_ALIGN_CENTER)
+        if rule.get("angle"):
+            text.SetTextAngleDegrees(rule["angle"])
+        if rule.get("mirror"):
+            text.SetMirrored(True)
+        board.Add(text)
+        print(f"  T {rule['text']:<10} {rule.get('layer','Top Silkscreen Layer'):<21} "
+              f"({x:8.3f},{y:8.3f})")
+        added += 1
 
     for rule in spec.get("replace_footprints", []):
         # Swap a footprint for a different land pattern, keeping everything that
