@@ -3588,7 +3588,7 @@
 					)
 				)
 			)
-			(property "LCSC Part Name" "单路 0603磁珠 阻抗120Ω@100MHz"
+			(property "LCSC Part Name" "单路 0603磁珠 阻抗120Ω100MHz"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -7889,6 +7889,187 @@
 				)
 			)
 			(embedded_fonts no)
+		)
+		(symbol "Board3:TC2030-IDC-NL"
+			(exclude_from_sim no)
+			(in_bom no)
+			(on_board yes)
+			(in_pos_files no)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "H"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "TC2030-IDC-NL"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "Board3:Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical"
+				(at 0 0 0)
+				(hide yes)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" "https://www.tag-connect.com/wp-content/uploads/bsk-pdf-manager/TC2030-IDC-NL_26.pdf"
+				(at 0 0 0)
+				(hide yes)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Tag-Connect TC2030-IDC-NL land pattern - six pads and three alignment holes, nothing is fitted. Mates with a TC2030-IDC-NL spring-pin cable. ARM Cortex (CTX) pinout."
+				(at 0 0 0)
+				(hide yes)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "TC2030-IDC-NL_1_0"
+				(rectangle
+					(start -2.54 7.62)
+					(end 2.54 -10.16)
+					(stroke
+						(width 0.254)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin unspecified line
+					(at -5.08 5.08 0)
+					(length 2.54)
+					(name "VCC"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin unspecified line
+					(at -5.08 2.54 0)
+					(length 2.54)
+					(name "SWDIO"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin unspecified line
+					(at -5.08 0 0)
+					(length 2.54)
+					(name "nRESET"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin unspecified line
+					(at -5.08 -2.54 0)
+					(length 2.54)
+					(name "SWCLK"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin unspecified line
+					(at -5.08 -5.08 0)
+					(length 2.54)
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin unspecified line
+					(at -5.08 -7.62 0)
+					(length 2.54)
+					(name "SWO"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
 		)
 		(symbol "ProPrj_New-easyedapro:PZ254V-11-05P"
 			(exclude_from_sim no)
@@ -22009,7 +22190,7 @@
 		(uuid "864338c3-4e59-4158-8a9d-237b7bd562a1")
 	)
 	(label "NRST"
-		(at 309.88 38.1 0)
+		(at 309.88 35.56 0)
 		(effects
 			(font
 				(size 1.2446 1.2446)
@@ -23319,7 +23500,7 @@
 		(uuid "d28ea39a-a046-4bde-b5f6-bffecc781720")
 	)
 	(label "SWCLK"
-		(at 309.88 35.56 0)
+		(at 309.88 38.1 0)
 		(effects
 			(font
 				(size 1.2446 1.2446)
@@ -24386,7 +24567,7 @@
 				)
 			)
 		)
-		(property "Description" "Impedance @ Frequency:120Ω@100MHz Tolerance:±25% Tolerance:±25% DC Resistance(DCR):50mΩ Current Rating:2A Number of Circuits:1 Operating Temperature:-55℃~+125℃ Operating Temperature:-55℃~+125℃"
+		(property "Description" "Impedance  Frequency:120Ω100MHz Tolerance:±25% Tolerance:±25% DC Resistance(DCR):50mΩ Current Rating:2A Number of Circuits:1 Operating Temperature:-55℃~+125℃ Operating Temperature:-55℃~+125℃"
 			(at 63.5 12.7 0)
 			(hide yes)
 			(show_name no)
@@ -24431,6 +24612,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 63.5 12.7 0)
 			(hide yes)
@@ -24442,7 +24634,7 @@
 				)
 			)
 		)
-		(property "LCSC Part Name" "单路 0603磁珠 阻抗120Ω@100MHz"
+		(property "LCSC Part Name" "单路 0603磁珠 阻抗120Ω100MHz"
 			(at 63.5 12.7 0)
 			(hide yes)
 			(show_name no)
@@ -24756,7 +24948,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 384.81 147.32 0)
 		(unit 1)
 		(body_style 0)
@@ -24799,7 +24991,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 384.81 147.32 0)
 			(hide yes)
 			(show_name no)
@@ -24823,7 +25015,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 384.81 147.32 0)
 			(hide yes)
 			(show_name no)
@@ -24835,7 +25027,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 384.81 147.32 0)
 			(hide yes)
 			(show_name no)
@@ -24847,7 +25039,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 384.81 147.32 0)
 			(hide yes)
 			(show_name no)
@@ -24907,7 +25099,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 384.81 147.32 0)
 			(hide yes)
 			(show_name no)
@@ -26344,6 +26536,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 91.44 44.45 0)
 			(hide yes)
@@ -27634,7 +27837,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Description" "Number:1 N-Channel Drain to Source Voltage:30V Current - Continuous Drain(Id):12A RDS(on):10mΩ@10V Pd - Power Dissipation:4.5W Gate Threshold Voltage (Vgs(th)):1.5V@250uA Gate Charge(Qg):12.6nC@4.5V Input Capacitance(Ciss):960pF Reverse Transfer Capacitan"
+		(property "Description" "Number:1 N-Channel Drain to Source Voltage:30V Current - Continuous Drain(Id):12A RDS(on):10mΩ10V Pd - Power Dissipation:4.5W Gate Threshold Voltage (Vgs(th)):1.5V250uA Gate Charge(Qg):12.6nC4.5V Input Capacitance(Ciss):960pF Reverse Transfer Capacitan"
 			(at 340.36 256.54 0)
 			(hide yes)
 			(show_name no)
@@ -27754,7 +27957,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Gate Charge(Qg)" "12.6nC@4.5V"
+		(property "Gate Charge(Qg)" "12.6nC4.5V"
 			(at 340.36 256.54 0)
 			(hide yes)
 			(show_name no)
@@ -27766,7 +27969,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Gate Threshold Voltage (Vgs(th))" "1.5V@250uA"
+		(property "Gate Threshold Voltage (Vgs(th))" "1.5V250uA"
 			(at 340.36 256.54 0)
 			(hide yes)
 			(show_name no)
@@ -27850,7 +28053,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "RDS(on)" "10mΩ@10V"
+		(property "RDS(on)" "10mΩ10V"
 			(at 340.36 256.54 0)
 			(hide yes)
 			(show_name no)
@@ -27862,7 +28065,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Reverse Transfer Capacitance (Crss@Vds)" "87pF"
+		(property "Reverse Transfer Capacitance (CrssVds)" "87pF"
 			(at 340.36 256.54 0)
 			(hide yes)
 			(show_name no)
@@ -28033,6 +28236,17 @@
 					(size 1.2446 1.2446)
 				)
 				(justify left bottom)
+			)
+		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
 			)
 		)
 		(property "Supplier" "LCSC"
@@ -28443,6 +28657,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 52.07 45.72 0)
 			(hide yes)
@@ -28598,6 +28823,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -28767,6 +29003,17 @@
 					(size 1.2446 1.2446)
 				)
 				(justify left bottom)
+			)
+		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
 			)
 		)
 		(property "Supplier" "LCSC"
@@ -29289,6 +29536,17 @@
 				(justify left bottom)
 			)
 		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 450.85 256.54 0)
 			(hide yes)
@@ -29634,7 +29892,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 312.42 135.89 0)
 		(unit 1)
 		(body_style 0)
@@ -29677,7 +29935,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 312.42 135.89 0)
 			(hide yes)
 			(show_name no)
@@ -29701,7 +29959,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 312.42 135.89 0)
 			(hide yes)
 			(show_name no)
@@ -29713,7 +29971,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 312.42 135.89 0)
 			(hide yes)
 			(show_name no)
@@ -29725,7 +29983,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 312.42 135.89 0)
 			(hide yes)
 			(show_name no)
@@ -29785,7 +30043,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 312.42 135.89 0)
 			(hide yes)
 			(show_name no)
@@ -29861,7 +30119,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 354.33 146.05 0)
 		(unit 1)
 		(body_style 0)
@@ -29904,7 +30162,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 354.33 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -29928,7 +30186,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 354.33 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -29940,7 +30198,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 354.33 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -29952,7 +30210,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 354.33 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -30012,7 +30270,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 354.33 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -30186,6 +30444,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 66.04 26.67 0)
 			(hide yes)
@@ -30346,6 +30615,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -31555,6 +31835,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 226.06 77.47 0)
 			(hide yes)
@@ -32137,234 +32428,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:0603B472K500NT")
-		(at 161.29 187.96 0)
-		(unit 1)
-		(body_style 0)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "31910a92-31e7-4c9c-ba2e-860abc78291d")
-		(property "Reference" "C58"
-			(at 160.02 185.42 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Value" "4.7nF"
-			(at 160.02 193.04 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Footprint" "ProPrj_New-easyedapro:C0603"
-			(at 161.29 187.96 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/0603B472K500NT/55004.html"
-			(at 161.29 187.96 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Description" "Capacitance:4.7nF Tolerance:±10% Tolerance:±10% Voltage Rating:50V Temperature Coefficient:X7R"
-			(at 161.29 187.96 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Manufacturer Part" "0603B472K500NT"
-			(at 161.29 187.96 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Manufacturer" "FH(风华)"
-			(at 161.29 187.96 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Part" "C53987"
-			(at 161.29 187.96 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier" "LCSC"
-			(at 161.29 187.96 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "LCSC Part Name" "4.7nF ±10% 50V"
-			(at 161.29 187.96 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Add into BOM" "yes"
-			(at 161.29 187.96 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Convert to PCB" "yes"
-			(at 161.29 187.96 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "JLCPCB Part Class" "Basic Part"
-			(at 161.29 187.96 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Footprint" "0603"
-			(at 161.29 187.96 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Temperature Coefficient" "X7R"
-			(at 161.29 187.96 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Tolerance" "±10%"
-			(at 161.29 187.96 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Voltage Rating" "50V"
-			(at 161.29 187.96 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(pin "2"
-			(uuid "fb48c778-395c-4253-83ad-285c4c41e853")
-		)
-		(pin "1"
-			(uuid "afc4494f-044d-4680-b936-29d3f1e8ab73")
-		)
-		(instances
-			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
-				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
-					(reference "C58")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 377.19 116.84 0)
 		(unit 1)
 		(body_style 0)
@@ -32407,7 +32471,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 377.19 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -32431,7 +32495,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 377.19 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -32443,7 +32507,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 377.19 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -32455,7 +32519,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 377.19 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -32515,7 +32579,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 377.19 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -32890,7 +32954,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 298.45 120.65 0)
 		(unit 1)
 		(body_style 0)
@@ -32933,7 +32997,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 298.45 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -32957,7 +33021,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 298.45 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -32969,7 +33033,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 298.45 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -32981,7 +33045,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 298.45 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -33041,7 +33105,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 298.45 120.65 0)
 			(hide yes)
 			(show_name no)
@@ -33184,7 +33248,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "RC0603FR-0710KL"
+		(property "Manufacturer Part" "0603WAF1002T5E"
 			(at 302.26 154.94 0)
 			(hide yes)
 			(show_name no)
@@ -33196,7 +33260,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "YAGEO"
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
 			(at 302.26 154.94 0)
 			(hide yes)
 			(show_name no)
@@ -33208,7 +33272,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C98220"
+		(property "Supplier Part" "C25804"
 			(at 302.26 154.94 0)
 			(hide yes)
 			(show_name no)
@@ -33729,6 +33793,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 189.23 81.28 0)
 			(hide yes)
@@ -34235,7 +34310,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "RC0603FR-0710KL"
+		(property "Manufacturer Part" "0603WAF1002T5E"
 			(at 335.28 171.45 0)
 			(hide yes)
 			(show_name no)
@@ -34247,7 +34322,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "YAGEO"
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
 			(at 335.28 171.45 0)
 			(hide yes)
 			(show_name no)
@@ -34259,7 +34334,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C98220"
+		(property "Supplier Part" "C25804"
 			(at 335.28 171.45 0)
 			(hide yes)
 			(show_name no)
@@ -35152,6 +35227,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 215.9 76.2 0)
 			(hide yes)
@@ -35307,6 +35393,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -35695,6 +35792,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -36559,6 +36667,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -37512,7 +37631,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 316.23 114.3 0)
 		(unit 1)
 		(body_style 0)
@@ -37555,7 +37674,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 316.23 114.3 0)
 			(hide yes)
 			(show_name no)
@@ -37579,7 +37698,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 316.23 114.3 0)
 			(hide yes)
 			(show_name no)
@@ -37591,7 +37710,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 316.23 114.3 0)
 			(hide yes)
 			(show_name no)
@@ -37603,7 +37722,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 316.23 114.3 0)
 			(hide yes)
 			(show_name no)
@@ -37663,7 +37782,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 316.23 114.3 0)
 			(hide yes)
 			(show_name no)
@@ -38788,6 +38907,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -40323,7 +40453,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Description" "Number:1 N-Channel Drain to Source Voltage:30V Current - Continuous Drain(Id):12A RDS(on):10mΩ@10V Pd - Power Dissipation:4.5W Gate Threshold Voltage (Vgs(th)):1.5V@250uA Gate Charge(Qg):12.6nC@4.5V Input Capacitance(Ciss):960pF Reverse Transfer Capacitan"
+		(property "Description" "Number:1 N-Channel Drain to Source Voltage:30V Current - Continuous Drain(Id):12A RDS(on):10mΩ10V Pd - Power Dissipation:4.5W Gate Threshold Voltage (Vgs(th)):1.5V250uA Gate Charge(Qg):12.6nC4.5V Input Capacitance(Ciss):960pF Reverse Transfer Capacitan"
 			(at 358.14 241.3 0)
 			(hide yes)
 			(show_name no)
@@ -40443,7 +40573,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Gate Charge(Qg)" "12.6nC@4.5V"
+		(property "Gate Charge(Qg)" "12.6nC4.5V"
 			(at 358.14 241.3 0)
 			(hide yes)
 			(show_name no)
@@ -40455,7 +40585,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Gate Threshold Voltage (Vgs(th))" "1.5V@250uA"
+		(property "Gate Threshold Voltage (Vgs(th))" "1.5V250uA"
 			(at 358.14 241.3 0)
 			(hide yes)
 			(show_name no)
@@ -40539,7 +40669,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "RDS(on)" "10mΩ@10V"
+		(property "RDS(on)" "10mΩ10V"
 			(at 358.14 241.3 0)
 			(hide yes)
 			(show_name no)
@@ -40551,7 +40681,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Reverse Transfer Capacitance (Crss@Vds)" "87pF"
+		(property "Reverse Transfer Capacitance (CrssVds)" "87pF"
 			(at 358.14 241.3 0)
 			(hide yes)
 			(show_name no)
@@ -40688,7 +40818,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "RC0603FR-0710KL"
+		(property "Manufacturer Part" "0603WAF1002T5E"
 			(at 334.01 157.48 0)
 			(hide yes)
 			(show_name no)
@@ -40700,7 +40830,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "YAGEO"
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
 			(at 334.01 157.48 0)
 			(hide yes)
 			(show_name no)
@@ -40712,7 +40842,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C98220"
+		(property "Supplier Part" "C25804"
 			(at 334.01 157.48 0)
 			(hide yes)
 			(show_name no)
@@ -41147,233 +41277,6 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:0603B472K500NT")
-		(at 149.86 199.39 0)
-		(unit 1)
-		(body_style 0)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "8e00c5e0-70ae-43ed-80ab-dab48249d44d")
-		(property "Reference" "C57"
-			(at 148.59 196.85 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Value" "4.7nF"
-			(at 148.59 204.47 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Footprint" "ProPrj_New-easyedapro:C0603"
-			(at 149.86 199.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/0603B472K500NT/55004.html"
-			(at 149.86 199.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Description" "Capacitance:4.7nF Tolerance:±10% Tolerance:±10% Voltage Rating:50V Temperature Coefficient:X7R"
-			(at 149.86 199.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Manufacturer Part" "0603B472K500NT"
-			(at 149.86 199.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Manufacturer" "FH(风华)"
-			(at 149.86 199.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Part" "C53987"
-			(at 149.86 199.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier" "LCSC"
-			(at 149.86 199.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "LCSC Part Name" "4.7nF ±10% 50V"
-			(at 149.86 199.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Add into BOM" "yes"
-			(at 149.86 199.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Convert to PCB" "yes"
-			(at 149.86 199.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "JLCPCB Part Class" "Basic Part"
-			(at 149.86 199.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Footprint" "0603"
-			(at 149.86 199.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Temperature Coefficient" "X7R"
-			(at 149.86 199.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Tolerance" "±10%"
-			(at 149.86 199.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Voltage Rating" "50V"
-			(at 149.86 199.39 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(pin "2"
-			(uuid "99e74208-3a3b-4575-805e-374fdd2a8a51")
-		)
-		(pin "1"
-			(uuid "e4e6e2ac-891e-48c6-bfbe-0db51d35d4ba")
-		)
-		(instances
-			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
-				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
-					(reference "C57")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "ProPrj_New-easyedapro:CL10A105KB8NNNC")
 		(at 25.4 13.97 0)
 		(unit 1)
@@ -41659,7 +41562,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K"
+		(property "Value" "HL-A-3528H343W-S1-13HL-HR3(SDCM 6)(6000K-7000K)"
 			(at 196.85 123.19 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -41705,7 +41608,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "HL-A-3528H343W-S1-13HL-HR3_SDCM_amp_lt_6_6000K-7000K"
+		(property "Manufacturer Part" "HL-A-3528H343W-S1-13HL-HR3(SDCM 6)(6000K-7000K)"
 			(at 200.66 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -42626,7 +42529,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "RC0603FR-0710KL"
+		(property "Manufacturer Part" "0603WAF1002T5E"
 			(at 349.25 163.83 0)
 			(hide yes)
 			(show_name no)
@@ -42638,7 +42541,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "YAGEO"
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
 			(at 349.25 163.83 0)
 			(hide yes)
 			(show_name no)
@@ -42650,7 +42553,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C98220"
+		(property "Supplier Part" "C25804"
 			(at 349.25 163.83 0)
 			(hide yes)
 			(show_name no)
@@ -42921,6 +42824,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 177.8 41.91 0)
 			(hide yes)
@@ -43076,6 +42990,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -43606,6 +43531,17 @@
 				(justify left bottom)
 			)
 		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 400.05 256.54 0)
 			(hide yes)
@@ -43755,7 +43691,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "RC0603FR-0710KL"
+		(property "Manufacturer Part" "0603WAF1002T5E"
 			(at 367.03 168.91 0)
 			(hide yes)
 			(show_name no)
@@ -43767,7 +43703,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "YAGEO"
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
 			(at 367.03 168.91 0)
 			(hide yes)
 			(show_name no)
@@ -43779,7 +43715,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C98220"
+		(property "Supplier Part" "C25804"
 			(at 367.03 168.91 0)
 			(hide yes)
 			(show_name no)
@@ -44574,14 +44510,14 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:PZ254V-11-05P")
+		(lib_id "Board3:TC2030-IDC-NL")
 		(at 316.23 35.56 0)
 		(unit 1)
 		(body_style 0)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
-		(in_pos_files yes)
+		(in_pos_files no)
 		(dnp no)
 		(uuid "a033439d-8aa8-4d7e-bb80-b6463e3eda72")
 		(property "Reference" "H2"
@@ -44595,8 +44531,8 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "PZ254V-11-05P"
-			(at 313.69 45.72 0)
+		(property "Value" "TC2030-IDC-NL"
+			(at 313.69 48.26 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -44606,7 +44542,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:HDR-TH_5P-P2.54-V-M"
+		(property "Footprint" "Board3:Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical"
 			(at 316.23 35.56 0)
 			(hide yes)
 			(show_name no)
@@ -44617,7 +44553,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/PZ254V-11-05P/502960.html"
+		(property "Datasheet" "https://www.tag-connect.com/wp-content/uploads/bsk-pdf-manager/TC2030-IDC-NL_26.pdf"
 			(at 316.23 35.56 0)
 			(hide yes)
 			(show_name no)
@@ -44629,7 +44565,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Description" "Pin Structure:1x5P Pitch:2.54mm Row Spacing:- Circluar Pins/Square Pins:Pin Header Mounting Type:Through Hole Number of Rows:1 Number of Pins:5P Current Rating:3A Voltage Rating (Max):250V Length of Mating Pin:6mm Insulation Height:2.5mm Length of End Con"
+		(property "Description" "Tag-Connect TC2030-IDC-NL land pattern - six pads and three alignment holes, nothing is fitted. Mates with a TC2030-IDC-NL spring-pin cable. ARM Cortex (CTX) pinout."
 			(at 316.23 35.56 0)
 			(hide yes)
 			(show_name no)
@@ -44640,312 +44576,12 @@
 				)
 				(justify left bottom)
 			)
-		)
-		(property "Manufacturer Part" "PZ254V-11-05P"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Manufacturer" "XFCN(兴飞)"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Part" "C492404"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier" "LCSC"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "LCSC Part Name" "1x5P 间距:2.54mm 方针 直插"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Add into BOM" "yes"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Circluar Pins/Square Pins" "Pin Header"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Color" "Black"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Contact Material" "Brass"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Contact Plating" "-"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Convert to PCB" "yes"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Current Rating" "3A"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Insulation Height" "2.5mm"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "JLCPCB Part Class" "Extended Part"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Length of End Connection Pin" "3mm"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Length of Mating Pin" "6mm"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Mounting Type" "Through Hole"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Number of Pins" "5P"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Number of Rows" "1"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Operating Temperature" "-40℃~+105℃"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Pin Structure" "1x5P"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Pitch" "2.54mm"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Row Spacing" "-"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Supplier Footprint" "插件,P=2.54mm"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(property "Voltage Rating (Max)" "250V"
-			(at 316.23 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.2446 1.2446)
-				)
-				(justify left bottom)
-			)
-		)
-		(pin "2"
-			(uuid "cffb8298-c440-4735-808d-bf73c66473c1")
 		)
 		(pin "1"
 			(uuid "f639c776-8814-46e6-a851-d36700b1e65f")
+		)
+		(pin "2"
+			(uuid "cffb8298-c440-4735-808d-bf73c66473c1")
 		)
 		(pin "3"
 			(uuid "99d0ab93-51c2-4bbc-bb31-3f6e0b0a8df9")
@@ -44956,6 +44592,9 @@
 		(pin "5"
 			(uuid "b7970fed-c325-43a9-be89-813d0d9a8b05")
 		)
+		(pin "6"
+			(uuid "4b1f7c02-9d3e-4a51-8c67-0e2fa9d5b331")
+		)
 		(instances
 			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
 				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
@@ -44965,6 +44604,7 @@
 			)
 		)
 	)
+
 	(symbol
 		(lib_id "ProPrj_New-easyedapro:CL21A106KAYNNNE")
 		(at 356.87 120.65 0)
@@ -46114,7 +45754,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 332.74 146.05 0)
 		(unit 1)
 		(body_style 0)
@@ -46157,7 +45797,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 332.74 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -46181,7 +45821,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 332.74 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -46193,7 +45833,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 332.74 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -46205,7 +45845,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 332.74 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -46265,7 +45905,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 332.74 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -47223,6 +46863,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -48898,6 +48549,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 120.65 44.45 0)
 			(hide yes)
@@ -49027,7 +48689,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "RC0603FR-0710KL"
+		(property "Manufacturer Part" "0603WAF1002T5E"
 			(at 367.03 157.48 0)
 			(hide yes)
 			(show_name no)
@@ -49039,7 +48701,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "YAGEO"
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
 			(at 367.03 157.48 0)
 			(hide yes)
 			(show_name no)
@@ -49051,7 +48713,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C98220"
+		(property "Supplier Part" "C25804"
 			(at 367.03 157.48 0)
 			(hide yes)
 			(show_name no)
@@ -49223,7 +48885,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:0603WAF0000T5E")
+		(lib_id "ProPrj_New-easyedapro:0603WAF1002T5E")
 		(at 358.14 59.69 0)
 		(unit 1)
 		(body_style 0)
@@ -49244,7 +48906,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "0Ω"
+		(property "Value" "10kΩ"
 			(at 355.6 63.5 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -49266,7 +48928,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/0603WAF0000T5E/21903.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/0603WAF1002T5E/26547.html"
 			(at 358.14 59.69 0)
 			(hide yes)
 			(show_name no)
@@ -49278,7 +48940,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Description" "Type:Thick Film Resistor Resistance:0Ω Tolerance:±1% Tolerance:±1% Power(Watts):100mW Voltage-Supply(Max):75V Temperature Coefficient:- Temperature Coefficient:- Operating Temperature:-55℃~+155℃ Operating Temperature:-55℃~+155℃"
+		(property "Description" "Type:Thick Film Resistor Resistance:10kΩ Tolerance:±1% Tolerance:±1% Power(Watts):100mW Voltage-Supply(Max):75V Temperature Coefficient:±100ppm/℃ Temperature Coefficient:±100ppm/℃ Operating Temperature:-55℃~+155℃ Operating Temperature:-55℃~+155℃"
 			(at 358.14 59.69 0)
 			(hide yes)
 			(show_name no)
@@ -49290,7 +48952,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "0603WAF0000T5E"
+		(property "Manufacturer Part" "0603WAF1002T5E"
 			(at 358.14 59.69 0)
 			(hide yes)
 			(show_name no)
@@ -49314,7 +48976,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C21189"
+		(property "Supplier Part" "C25804"
 			(at 358.14 59.69 0)
 			(hide yes)
 			(show_name no)
@@ -49338,7 +49000,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "0Ω ±1% 100mW 厚膜电阻"
+		(property "LCSC Part Name" "厚膜电阻 10kΩ ±1% 100mW"
 			(at 358.14 59.69 0)
 			(hide yes)
 			(show_name no)
@@ -50501,6 +50163,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 110.49 81.28 0)
 			(hide yes)
@@ -50584,7 +50257,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 334.01 109.22 0)
 		(unit 1)
 		(body_style 0)
@@ -50627,7 +50300,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 334.01 109.22 0)
 			(hide yes)
 			(show_name no)
@@ -50651,7 +50324,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 334.01 109.22 0)
 			(hide yes)
 			(show_name no)
@@ -50663,7 +50336,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 334.01 109.22 0)
 			(hide yes)
 			(show_name no)
@@ -50675,7 +50348,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 334.01 109.22 0)
 			(hide yes)
 			(show_name no)
@@ -50735,7 +50408,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 334.01 109.22 0)
 			(hide yes)
 			(show_name no)
@@ -51816,7 +51489,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 386.08 130.81 0)
 		(unit 1)
 		(body_style 0)
@@ -51859,7 +51532,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 386.08 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -51883,7 +51556,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 386.08 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -51895,7 +51568,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 386.08 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -51907,7 +51580,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 386.08 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -51967,7 +51640,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 386.08 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -52043,7 +51716,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 369.57 138.43 0)
 		(unit 1)
 		(body_style 0)
@@ -52086,7 +51759,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 369.57 138.43 0)
 			(hide yes)
 			(show_name no)
@@ -52110,7 +51783,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 369.57 138.43 0)
 			(hide yes)
 			(show_name no)
@@ -52122,7 +51795,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 369.57 138.43 0)
 			(hide yes)
 			(show_name no)
@@ -52134,7 +51807,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 369.57 138.43 0)
 			(hide yes)
 			(show_name no)
@@ -52194,7 +51867,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 369.57 138.43 0)
 			(hide yes)
 			(show_name no)
@@ -52839,6 +52512,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -53616,6 +53300,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 382.27 274.32 0)
 			(hide yes)
@@ -53911,7 +53606,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 339.09 127 0)
 		(unit 1)
 		(body_style 0)
@@ -53954,7 +53649,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 339.09 127 0)
 			(hide yes)
 			(show_name no)
@@ -53978,7 +53673,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 339.09 127 0)
 			(hide yes)
 			(show_name no)
@@ -53990,7 +53685,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 339.09 127 0)
 			(hide yes)
 			(show_name no)
@@ -54002,7 +53697,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 339.09 127 0)
 			(hide yes)
 			(show_name no)
@@ -54062,7 +53757,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 339.09 127 0)
 			(hide yes)
 			(show_name no)
@@ -54578,6 +54273,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -55322,6 +55028,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 111.76 44.45 0)
 			(hide yes)
@@ -55477,6 +55194,17 @@
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -56077,7 +55805,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL10B104KB8NNNC")
+		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
 		(at 312.42 125.73 0)
 		(unit 1)
 		(body_style 0)
@@ -56120,7 +55848,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10B104KB8NNNC/1943.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603KRX7R9BB104/15331.html"
 			(at 312.42 125.73 0)
 			(hide yes)
 			(show_name no)
@@ -56144,7 +55872,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10B104KB8NNNC"
+		(property "Manufacturer Part" "CC0603KRX7R9BB104"
 			(at 312.42 125.73 0)
 			(hide yes)
 			(show_name no)
@@ -56156,7 +55884,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "SAMSUNG(三星)"
+		(property "Manufacturer" "YAGEO(国巨)"
 			(at 312.42 125.73 0)
 			(hide yes)
 			(show_name no)
@@ -56168,7 +55896,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C1591"
+		(property "Supplier Part" "C14663"
 			(at 312.42 125.73 0)
 			(hide yes)
 			(show_name no)
@@ -56228,7 +55956,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 312.42 125.73 0)
 			(hide yes)
 			(show_name no)
@@ -58904,7 +58632,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "10uF"
+		(property "Value" "22uF"
 			(at 129.54 292.1 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -58915,7 +58643,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:C0603"
+		(property "Footprint" "ProPrj_New-easyedapro:C0805"
 			(at 132.08 287.02 0)
 			(hide yes)
 			(show_name no)
@@ -58926,7 +58654,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10A106KP8NNNC/19702.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL21A226MAQNNNE/45783.html"
 			(at 132.08 287.02 0)
 			(hide yes)
 			(show_name no)
@@ -58950,7 +58678,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CL10A106KP8NNNC"
+		(property "Manufacturer Part" "CL21A226MAQNNNE"
 			(at 132.08 287.02 0)
 			(hide yes)
 			(show_name no)
@@ -58974,7 +58702,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C19702"
+		(property "Supplier Part" "C45783"
 			(at 132.08 287.02 0)
 			(hide yes)
 			(show_name no)
@@ -59491,6 +59219,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 60.0 372.0 0)
 			(hide yes)
@@ -59532,7 +59271,7 @@
 				)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "1uF"
 			(at 92.46 375.81 0)
 			(effects
 				(font
@@ -59549,7 +59288,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10A105KB8NNNC/16531.html"
 			(at 95.0 372.0 0)
 			(hide yes)
 			(effects
@@ -59558,7 +59297,7 @@
 				)
 			)
 		)
-		(property "Description" "100nF 50V X7R 0603"
+		(property "Description" "Capacitance:1uF Tolerance:±10% Tolerance:±10% Voltage Rating:50V Temperature Coefficient:X5R"
 			(at 95.0 372.0 0)
 			(hide yes)
 			(effects
@@ -59567,7 +59306,7 @@
 				)
 			)
 		)
-		(property "Manufacturer Part" "CC0603KRX7R9BB104"
+		(property "Manufacturer Part" "CL10A105KB8NNNC"
 			(at 95.0 372.0 0)
 			(hide yes)
 			(effects
@@ -59576,7 +59315,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "YAGEO"
+		(property "Manufacturer" "SAMSUNG(三星)"
 			(at 95.0 372.0 0)
 			(hide yes)
 			(effects
@@ -59585,8 +59324,19 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C14663"
+		(property "Supplier Part" "C15849"
 			(at 95.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(hide yes)
 			(effects
 				(font
@@ -59620,7 +59370,7 @@
 	)
 	(symbol
 		(lib_id "JLCImport:1N5819WS")
-		(at 130.0 372.0 0)
+		(at 130.0 372.0 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -59690,6 +59440,17 @@
 		)
 		(property "Supplier Part" "C191023"
 			(at 130.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(hide yes)
 			(effects
 				(font
@@ -59800,6 +59561,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 60.0 388.0 0)
 			(hide yes)
@@ -59841,7 +59613,7 @@
 				)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "1uF"
 			(at 92.46 391.81 0)
 			(effects
 				(font
@@ -59858,7 +59630,7 @@
 				)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/CL10A105KB8NNNC/16531.html"
 			(at 95.0 388.0 0)
 			(hide yes)
 			(effects
@@ -59867,7 +59639,7 @@
 				)
 			)
 		)
-		(property "Description" "100nF 50V X7R 0603"
+		(property "Description" "Capacitance:1uF Tolerance:±10% Tolerance:±10% Voltage Rating:50V Temperature Coefficient:X5R"
 			(at 95.0 388.0 0)
 			(hide yes)
 			(effects
@@ -59876,7 +59648,7 @@
 				)
 			)
 		)
-		(property "Manufacturer Part" "CC0603KRX7R9BB104"
+		(property "Manufacturer Part" "CL10A105KB8NNNC"
 			(at 95.0 388.0 0)
 			(hide yes)
 			(effects
@@ -59885,7 +59657,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "YAGEO"
+		(property "Manufacturer" "SAMSUNG(三星)"
 			(at 95.0 388.0 0)
 			(hide yes)
 			(effects
@@ -59894,8 +59666,19 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C14663"
+		(property "Supplier Part" "C15849"
 			(at 95.0 388.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(hide yes)
 			(effects
 				(font
@@ -59929,7 +59712,7 @@
 	)
 	(symbol
 		(lib_id "JLCImport:1N5819WS")
-		(at 130.0 388.0 0)
+		(at 130.0 388.0 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -60006,6 +59789,17 @@
 				)
 			)
 		)
+		(property "JLCPCB Part Class" "Basic Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Supplier" "LCSC"
 			(at 130.0 388.0 0)
 			(hide yes)
@@ -60047,7 +59841,7 @@
 				)
 			)
 		)
-		(property "Value" "BSMD1812-200-30V"
+		(property "Value" "1812L300_30GR"
 			(at 167.46 375.81 0)
 			(effects
 				(font
@@ -60055,7 +59849,7 @@
 				)
 			)
 		)
-		(property "Footprint" "JLCImport:BSMD1812-200-30V"
+		(property "Footprint" "JLCImport:1812L300_30GR"
 			(at 170.0 372.0 0)
 			(hide yes)
 			(effects
@@ -60064,7 +59858,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.lcsc.com/product-detail/C960026.html"
+		(property "Datasheet" "https://item.szlcsc.com/343302.html"
 			(at 170.0 372.0 0)
 			(hide yes)
 			(effects
@@ -60073,7 +59867,7 @@
 				)
 			)
 		)
-		(property "Description" "PPTC 2A hold 4A trip 30V 1812"
+		(property "Description" "1812L300/30GR; F1812; LUTE"
 			(at 170.0 372.0 0)
 			(hide yes)
 			(effects
@@ -60082,7 +59876,7 @@
 				)
 			)
 		)
-		(property "Manufacturer Part" "BSMD1812-200-30V"
+		(property "Manufacturer Part" "1812L300/30GR"
 			(at 170.0 372.0 0)
 			(hide yes)
 			(effects
@@ -60091,7 +59885,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "BHFUSE"
+		(property "Manufacturer" "LUTE"
 			(at 170.0 372.0 0)
 			(hide yes)
 			(effects
@@ -60100,8 +59894,19 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C960026"
+		(property "Supplier Part" "C48985875"
 			(at 170.0 372.0 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "JLCPCB Part Class" "Extended Part"
+			(at 0 0 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(hide yes)
 			(effects
 				(font
@@ -60272,5 +60077,25 @@
 			(justify left bottom)
 		)
 		(uuid "2dd40579-07d0-4fe8-b480-4aa1e34ebeba")
+	)
+	(wire
+		(pts
+			(xy 308.61 43.18) (xy 311.15 43.18)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7d2c4e18-6b95-4f30-a1c2-53e8d0b7f942")
+	)
+	(label "SWO"
+		(at 309.88 43.18 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "b6a0f351-8c47-42de-9e15-2f7c8a4d1e60")
 	)
 )

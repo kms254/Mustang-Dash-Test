@@ -1,0 +1,49 @@
+{
+  "$comment": [
+    "LED2, the fourth telltale escape via -- the one u47b deliberately left out.",
+    "",
+    "/U12_RSTN STAIRCASES AROUND this via. It arrives from the west at y=87.960,",
+    "zigzags through (235.24..235.28, 88.24..88.76) to get past the via, and",
+    "leaves west again at y=89.040. That detour exists because of the via, and it",
+    "is what makes every obvious escape illegal:",
+    "",
+    "  north  y<=87.450 (clear of the pad)  0.083 to the y=87.960 run    NO",
+    "  south  y>=89.350                     negative to the y=89.040 run  NO",
+    "  east   x>=236.5 clears by 0.793, but the Bottom track reaching it must",
+    "         cross the staircase: -0.034 at x=235.5                      NO",
+    "",
+    "West works. The via lands at (233.000,88.500) -- outside the pad, its 0.6 mm",
+    "copper clearing the pad edge by 0.150 mm -- and the Bottom track it already",
+    "sits on simply gets shorter. Clearance to /U12_RSTN is 0.113 against the",
+    "0.1016 rule.",
+    "",
+    "0.113 is tight and is recorded as such. It is accepted because what it",
+    "replaces is worse and certain: a via centred in the pad wicks solder down the",
+    "barrel at reflow (~22% of the deposit on the estimate on record), giving an",
+    "asymmetric fillet and a tilted LED behind a lens. A legal 0.113 mm gap beats",
+    "a guaranteed assembly defect, and this same net is already documented running",
+    "at 0.1030 elsewhere on the board.",
+    "",
+    "The alternative -- re-routing /U12_RSTN so the staircase is unnecessary --",
+    "would open real margin here and is the better long-term fix. It is a separate",
+    "change to a working net and is not attempted in this spec."
+  ],
+  "steps": [
+    {
+      "step": "1/1  LED2 -- slide the via west, out of the pad, along its own Bottom run",
+      "delete": [
+        {"net": "TT4_LED_K", "layers": ["Top Layer", "Bottom Layer"], "vias": true,
+         "bbox": [224.20, 88.35, 234.85, 88.55]}
+      ],
+      "add": [
+        {"net": "TT4_LED_K", "layer": "Bottom Layer", "width": 0.254,
+         "points": [[224.250, 88.500], [233.000, 88.500]]},
+        {"net": "TT4_LED_K", "layer": "Top Layer", "width": 0.254,
+         "points": [[233.000, 88.500], [233.900, 88.500]]}
+      ],
+      "add_vias": [
+        {"net": "TT4_LED_K", "at": [233.000, 88.500], "diameter": 0.6, "drill": 0.25}
+      ]
+    }
+  ]
+}

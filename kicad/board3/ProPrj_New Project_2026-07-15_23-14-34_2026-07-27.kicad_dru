@@ -33,4 +33,4 @@
 # area drawn on the board around the connector.
 (rule usbc_slot_edge
   (condition "A.intersectsArea('usbc_slots')")
-  (constraint edge_clearance (min 0.1mm)))
+  (constraint edge_clearance (min 0.2mm)))

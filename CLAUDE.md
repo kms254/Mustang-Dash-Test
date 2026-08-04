@@ -340,12 +340,29 @@ with no CLI. All three candidate routes were tested on Board3 and all three fail
 - **The `pcbnew` Python API exposes nothing** — no `netlist`, `updater`,
   `synchronise` or `fromsch` symbol at all. `BOARD_NETLIST_UPDATER` is C++
   internal and was never SWIG-wrapped.
-- **The KiCad MCP's `sync_schematic_to_board` returns `success: true` and does
-  nothing.** It reported "106 nets added" while assigning **0 pads**, listed
-  every pad as unmatched (`LED6/1`, `R39/1`, `C44/2`…), and never wrote the
-  file — byte-identical afterwards. It is built to populate an *empty* board
-  ("without this step, the board has no footprints"), not to reconcile one
-  already placed and routed. **Treat its success as meaningless on this board.**
+- **The KiCad MCP's `sync_schematic_to_board` reports success and CORRUPTS the
+  board.** Re-tested 2026-08-02 on the fully-routed Board3; worse than the
+  earlier "does nothing" reading. It returned `success: true, 0 footprints
+  added, 93 nets added, 55 pads assigned` — and:
+  - **It creates duplicate nets differing only by a leading slash.** The board
+    carries `/GND`, `/+5V`, `/DC1_IN`; it added `GND`, `+5V`, `DC1_IN`. Net
+    count 229 → 245, with **16 names existing in both forms**.
+  - **It then reassigns pads onto the new names**, orphaning them from the
+    copper attached to the old ones: **airwires 0 → 30**.
+  - **It does not do the thing you wanted anyway** — F1's footprint change
+    (`BSMD1812-200-30V` → `1812L300_30GR`) did not happen; 0 footprints added.
+
+  Recoverable only because the tree was committed; `git restore` put the md5
+  back exactly. **Never run it on a placed-and-routed board.** KTD12 stands:
+  the sync is GUI-only.
+
+  What works instead, and is how every schematic change in the 2026-08-02
+  campaign reached the board: **apply both sides by hand.** For a rotation,
+  rotate the symbol *and* the footprint and swap the pad nets (U31). For a
+  value or supplier change on an unchanged land pattern, edit the schematic
+  properties and, where the board's `Value` prints, set it with `fp.SetValue()`
+  (U10/U24/U32). Verify through the exported netlist by pin **function**, never
+  pin number (KTD27).
 
 **A fourth route exists and is not a netlist sync: `pcbnew` can replace footprints
 directly.** `FootprintLoad`, `board.Add`/`Remove`, `SetPosition`/
@@ -435,11 +452,43 @@ and the final TT2/TT5/TT7 restack was laid by hand from complete window
 dumps with exact clearance math (track-track 0.3556, track-via 0.5286,
 via-via 0.7016 center-to-center at 0.254 mm/0.1016 mm rules).
 
-**Never window-filter board dumps by endpoint containment.** A track whose
-endpoints both lie outside the window is invisible even though it crosses it
-— that hid the full-width `VBUS_SENSE` Inner1 river (y95.014, x54–110) twice
-in one session and cost three routing iterations. Clip the segment against
-the window (Liang-Barsky) instead. Same family as the rule below.
+**Never window-filter board dumps by an object's reference point.** Ask whether
+the SHAPE intersects the window, never whether some representative point is
+inside it — and the test differs per object type: **tracks** by segment clip
+(Liang-Barsky), **pads and footprints** by bounding-box overlap
+(`GetBoundingBox()`, never `GetPosition()`), **vias** by centre±radius on every
+layer they span. Both halves have been paid for: endpoint containment hid the
+full-width `VBUS_SENSE` Inner1 river (y95.014, x54–110) twice in one session and
+cost three routing iterations (2026-07-29); centre containment then hid C6's GND
+pad (body at 151.294,123.079, pad reaching to x151.744) and `/SWO` was routed
+straight through it (2026-08-02). The second happened *because* the first
+write-up drew the line at "segments" and explicitly excused pads — so when you
+generalise a rule of this shape, test every object type before exempting any.
+Same family as the rule below.
+
+**`--schematic-parity` is OFF by default, and it is the only check that compares
+a footprint to its SYMBOL.** Plain DRC compares each footprint against its own
+*library* copy, which passes happily while the board disagrees with the
+schematic. That blind spot shipped four real defects, each a board marked with a
+part an earlier unit had already replaced: F1 kept `BSMD1812-200-30V` after U32
+fitted the 3 A PTC, C70/C71 still said `100nF` after U34 took them to 1 µF, R4
+still said `0Ω` after U48 made it 10 kΩ, and LED3 carried U46's mangled MPN. All
+are fixed and the gate is now in CI (`kicad-drc-erc.yml`), absolute rather than
+ratcheted. Two related traps: an FPID written without its library nickname
+(`C0603` rather than `ProPrj_New-easyedapro:C0603`) reads as a mismatch *and*
+stops KiCad resolving the library at all, so `lib_footprint_mismatch` silently
+tests nothing; and `pcbnew.FootprintLoad()` returns exactly such a bare FPID, so
+set it explicitly after any scripted footprint swap.
+
+**`footprint_symbol_field_mismatch` is deliberately set to `ignore`.** KiCad wants
+every symbol field mirrored onto the footprint. Mirroring them was tried
+(2026-08-03) and reverted: Board3's supplier metadata lives on the *symbol* by
+design — `kicad_fab.py` builds the BOM from schematic fields — so copying it onto
+footprints creates a second copy that drifts, and it immediately produced 13
+`lib_footprint_mismatch` violations because the library copies carry no such
+fields. The exemption covers the field check only; `footprint_symbol_mismatch`
+(footprint and value) stays armed, and that is the half that catches real
+defects.
 
 **Read board facts through `pcbnew`, never regex.** Three separate wrong
 conclusions in one session came from parsing `.kicad_pcb` as text: "the board has

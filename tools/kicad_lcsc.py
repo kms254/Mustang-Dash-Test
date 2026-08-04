@@ -491,6 +491,12 @@ BODILESS = (
     (re.compile(r"^testpoint|^tp[-_]", re.I), "test point"),
     (re.compile(r"^solderjumper|^jumper[-_]", re.I), "solder jumper"),
     (re.compile(r"^logo|^graphic", re.I), "silkscreen graphic"),
+    # A Tag-Connect is a CABLE, not a part. Its pogo pins press against bare
+    # copper and the legless -NL variant is held by hand, so nothing is ever
+    # fitted here: no body to model, no line to buy, and the schematic symbol
+    # carries in_bom no + in_pos_files no to match.
+    (re.compile(r"^tag[-_]connect", re.I), "Tag-Connect land pattern - pogo pins "
+                                           "touch bare copper, nothing is fitted"),
 )
 
 
@@ -545,7 +551,14 @@ def cmd_check(args) -> int:
     # audit alone would never notice it.
     on_board = {f["ref"] for f in placed}
     unplaced = [p for p in parts if p.get("Reference") and p["Reference"] not in on_board]
-    sch_unsourced = [p for p in parts if not (p.get("Supplier Part") or "").strip()]
+    # BODILESS is the ONE table both sides consult. A land pattern with nothing
+    # fitted has no LCSC code by definition, so exempting it on the board and
+    # then failing it on the schematic would make the exemption unreachable --
+    # which is precisely what H2 (Tag-Connect) did before this line existed.
+    exempt_refs = {fp["ref"] for fp, _ in exempt if fp["ref"]}
+    sch_unsourced = [p for p in parts
+                     if not (p.get("Supplier Part") or "").strip()
+                     and p.get("Reference") not in exempt_refs]
 
     print(f"placed       : {len(placed)}  ({len(real)} components, {len(exempt)} bodiless by design)")
     print(f"LCSC mapped  : {len(real) - len(no_lcsc)}/{len(real)}")

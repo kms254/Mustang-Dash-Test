@@ -225,6 +225,21 @@ def canonicalise_gerber_names(board: Path, gerber_dir: Path) -> list:
                 renames.append((user, target.name))
     for user, name in renames:
         print(f"  renamed gerber: {user!r} -> {name.rsplit('-', 1)[-1]}", flush=True)
+
+    # The Gerber X2 job file lists every plot by filename and was written BEFORE
+    # the renames above -- so left alone it points at eleven files that no longer
+    # exist. JLCPCB reads the filenames and ignores the job file, which is why
+    # this survived a real order; a fab that honours X2 would not be so kind.
+    # Found by the 2026-08-03 seven-lens review.
+    fixed = 0
+    for job in gerber_dir.glob("*.gbrjob"):
+        text = job.read_text(encoding="utf-8")
+        for user, name in renames:
+            text = text.replace(f"-{user}.gbr", f"-{name.rsplit('-', 1)[-1]}")
+        job.write_text(text, encoding="utf-8")
+        fixed += 1
+    if fixed and renames:
+        print(f"  rewrote {fixed} .gbrjob to match the renamed plots", flush=True)
     return renames
 
 
@@ -339,6 +354,69 @@ def _ascii(value: str) -> str:
     return value.encode("ascii", "ignore").decode("ascii").strip()
 
 
+def disambiguate_comments(bom: list[dict]) -> list[tuple[str, str, str]]:
+    """Make Comment unique where two lines share it but differ in package.
+
+    Bisected against JLCPCB's uploader on 2026-08-02, one designator at a time
+    with every other byte frozen. Two ACTIVE BOM lines carrying the same Comment
+    and different packages are unhandled by their backend: the upload dies as a
+    500 or "File processing failed, please check your file and upload again",
+    never as a message naming the offending part.
+
+    Board3's case: C51 was "10uF" in C0805 and C67 "10uF" in C0603. It stayed
+    hidden while C67 was flagged DNP and dropped from the CPL, because a line
+    with no placement is never activated. Clearing that flag made both live and
+    the upload stopped working -- with an error that pointed at neither.
+
+    It takes all three conditions, and this BOM contains the counter-examples
+    that pin each one down -- every one of them ACTIVE in an upload JLCPCB
+    accepted:
+
+        Comment       package   part no.   result
+        100nF         same      differ     accepted   (C14663 / C1591)
+        10k           same      differ     accepted   (C25804 / C98220)
+        HX TS4538CJ   differ    same       accepted   (C5340169 twice)
+        10uF          differ    differ     REJECTED   (C15850 / C19702)
+
+    So neither a shared Comment, nor a package disagreement, nor two part
+    numbers is sufficient alone. Only the conjunction is rewritten -- rewriting
+    a line that demonstrably works is a new risk for no gain, and the switches
+    above would otherwise get a 52-character Comment nobody asked for.
+
+    Mutates rows in place; returns (old, new, lcsc) for reporting.
+    """
+    by_comment: dict[str, list[dict]] = {}
+    for r in bom:
+        by_comment.setdefault((r.get("Comment") or "").strip(), []).append(r)
+
+    changes = []
+    for comment, rows in by_comment.items():
+        if len(rows) < 2 or not comment:
+            continue
+        packages = {_bare_footprint(r.get("Footprint", "")) for r in rows}
+        parts = {(r.get("LCSC") or "").strip() for r in rows}
+        if len(packages) < 2 or len(parts) < 2:
+            continue
+        for r in rows:
+            pkg = _bare_footprint(r.get("Footprint", ""))
+            new = f"{comment} {pkg}"
+            changes.append((comment, new, r.get("LCSC", "")))
+            r["Comment"] = new
+    return changes
+
+
+def _bare_footprint(value: str) -> str:
+    """Drop KiCad's library prefix: 'JLCImport:AW9523BTQR' -> 'AW9523BTQR'.
+
+    KiCad writes footprints as 'library:name'. JLCPCB's BOM wants the package
+    alone -- their sample shows '0402', 'SOT-23' -- and the library half is a
+    fact about this repo's file layout that means nothing to an assembler.
+    The part itself is chosen by LCSC number, so this column is advisory; a
+    62-character mangled string in it helps nobody reading the order.
+    """
+    return _ascii(value).rsplit(":", 1)[-1].strip()
+
+
 def write_jlc_csvs(bom: list, cpl: list, outdir: Path) -> tuple:
     """Re-emit BOM and CPL under JLCPCB's own column names and order.
 
@@ -353,7 +431,7 @@ def write_jlc_csvs(bom: list, cpl: list, outdir: Path) -> tuple:
         w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #"])
         for r in bom:
             w.writerow([_ascii(r.get("Comment", "")), _ascii(r.get("Designator", "")),
-                        _ascii(r.get("Footprint", "")), _ascii(r.get("LCSC", ""))])
+                        _bare_footprint(r.get("Footprint", "")), _ascii(r.get("LCSC", ""))])
     with cpl_path.open("w", newline="", encoding="ascii") as fh:
         w = csv.writer(fh)
         w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
@@ -435,6 +513,7 @@ def main() -> int:
 
     missing_layers = check_gerber_layers(gerbers)
 
+    comment_fixes = disambiguate_comments(bom)
     no_cpl, no_bom = bom_cpl_symmetry(bom, cpl)
     unsourced, unplaceable = coverage_report(bom)
     sourced = len(bom) - len(unsourced)
@@ -455,6 +534,11 @@ def main() -> int:
                   "footprint, or a symbol with no supplier fields")
     else:
         print(f"  BOM/CPL   : symmetric ({len(cpl)} designators in both)")
+    if comment_fixes:
+        print(f"  Comment   : disambiguated {len(comment_fixes)} line(s) sharing a value "
+              "across different packages")
+        for old, new, lcsc in comment_fixes:
+            print(f"    {lcsc:9} {old!r} -> {new!r}")
     print(f"gerbers     : {len(gerbers)} file(s) in {outdir / 'gerbers'}")
     if missing_layers:
         print("  MISSING   : " + "; ".join(missing_layers))

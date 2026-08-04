@@ -433,6 +433,23 @@ design decision** (the 0.7/0.35 → 0.6/0.25 change).
 
 **Files:** `tools/kicad_rules.json`, `CLAUDE.md`, PR descriptions.
 
+**CLOSED 2026-08-03.** `kicad_rules.json` corrected on both counts, and a
+correction block appended to PR #17 rather than editing its claims in place, so
+the original record stands beside the correction.
+
+Two amendments to this unit's own table, found while closing it:
+
+- **The via count should not be corrected, it should be removed.** "205" was
+  already stale by the time this plan was written — U47, U48 and U49 each added
+  vias, and the board measured **222** on 2026-08-03. Replacing one hardcoded
+  count with another just resets the clock, so `kicad_rules.json` now says to
+  count them and how.
+- **The "150-violation baseline" is not in PR #19.** It appears once, in PR #17.
+  PR #19's only "baseline" mentions are about the frozen BOM used for the
+  2026-08-02 order, which is a different and accurate claim.
+
+Board size confirmed by measurement: **250.254 × 50.254 mm** over Edge.Cuts.
+
 ---
 
 ### U40. Delete the stale gerber decoy
@@ -620,7 +637,7 @@ parts worth marking, the refdes is the least informative string available:
 
 | Part | Print this, not this |
 |---|---|
-| FPC1 / FPC2 / FPC3 | **CENTER** / **LEFT** / **RIGHT** |
+| FPC1 / FPC2 / FPC3 | **LEFT** / **CENTER** / **RIGHT** — CORRECTED 2026-08-03; this table originally said CENTER/LEFT/RIGHT and was WRONG. FPC1 carries `/SCLK_L`, FPC2 carries `/SCLK_C`. The labels were placed from this table without checking the nets and had to be swapped after review. Verify by NET, not by this row (KTD27). |
 | P1 / P2 | **CAN1** / **CAN2** |
 | H1 / H3 | **TERM1** / **TERM2** |
 | H2 | **SWD** |
@@ -827,6 +844,113 @@ DRC 0/0. `kicad_lcsc.py check` PASS. Header pin order documented on the bring-up
 card, since the silk (U45) will label it `SWD` rather than enumerate pins.
 
 ---
+
+## U47 outcome — one closed, three assessed and left
+
+**Closed: the east `/+5V` home-run.** R61.1 and D11.1 each now have their own via
+into the Inner2 plane. Proven with the same segment-deletion test that found the
+defect: both cuts that previously orphaned `D11.2, LED4.2, R61.1` now yield zero
+airwires, while a control cut on LED8's feed still yields one.
+
+**BTN1's annular ring — NOT IMPROVABLE, measured.** The DFM lens suggested
+"bump the pad to 0.6 and keep 0.175", which assumed room that does not exist.
+The nearest other-net edge is U1.92's pad at 0.360 mm, capping via diameter at
+**0.517 mm**:
+
+| option | ring | verdict |
+|---|---|---|
+| current 0.5 / 0.2 | 0.1500 | at JLC's minimum, forces the 0.20 mm drill tier |
+| 0.517 / 0.25 | **0.1335** | **below the 0.15 mm minimum — not allowed** |
+| 0.517 / 0.2 | 0.1585 | +0.0085 mm, spends clearance margin for nothing |
+
+So the existing 0.5/0.2 is already correct and `kicad_rules.json` documents it as
+a deliberate exception. **U44's "declare 0.20 mm minimum hole" stands** — the
+tier cannot be dropped without moving U1's escape.
+
+**`/U12_RSTN` clearance — left as-is.** Tightest point is a 0.36 mm In2 segment
+at x=233.28 against the `/TT8_LED_K` via: gap 0.1030 mm against a 0.1016 rule,
+**margin +0.0014 mm**. It passes. Nudging it requires moving the adjacent
+segments that share its endpoints — a re-route of working copper for 1.4 µm.
+
+**Telltale cathode escape vias — CLOSED 2026-08-03.** LED2.1, LED6.1, LED7.1 and
+LED8.1 each had a via centre *inside* the pad, so solder wicks down the barrel
+during reflow (up to ~22% of one pad's deposit, asymmetric fillet, LED tilt
+behind a lens). This was deferred as "a coordinated two-layer re-route, four
+times, in the densest part of the board." Three of the four were not that: each
+is a via at the pad centre with a stub into the pad and a longer track running
+away, so the fix is to slide the via out **along the direction its own track
+already runs** and lengthen the stub — no net changes layer, no chain is
+re-established. LED6 south (0.345 clear), LED7 south on Inner1, LED8 west.
+
+LED2 was genuinely hard, and the reason is the useful part: `/U12_RSTN`
+*staircases around* that via — arriving west at y=87.960, zigzagging through
+(235.24..235.28, 88.24..88.76), leaving west at y=89.040. That detour exists
+*because* of the via, and it then blocks every escape from it (north 0.083,
+south negative, east clears 0.793 but the Bottom track reaching it crosses the
+staircase at -0.034). West works at 0.113 mm — tight, recorded as tight, and
+accepted because a legal clearance beats a guaranteed assembly defect. Re-routing
+`/U12_RSTN` so its staircase is unnecessary would open real margin and remains
+the better long-term fix.
+
+Specs: `tools/handroutes/u47b-telltale-escape-vias.json`, `u47c-led2-escape-via.json`.
+A fifth, C66.1, was found by the same census and closed in `u47d-c66-escape-via.json`.
+Every via-in-pad now left on the board is deliberate: U4's five exposed-pad
+thermal vias, Q2's two plane stitches from U33, and U1.93's documented exception.
+
+## Findings surfaced during execution — all closed 2026-08-03
+
+**U3 and U4 pin-1 marker circles are clipped by solder mask.** Surfaced by U43:
+arming `solder_mask_min_width` (which had been *absent*, therefore zero) took
+DRC 0 → 2, both `silk_over_copper`.
+
+    U3 (TPS563201) circle overlaps its /GND pad 1  by 0.1030 mm  (40% of stroke width)
+    U4 (CH224K)    circle overlaps its /GND EP     by 0.0174 mm
+
+The fab clips silk where it crosses a mask opening, so both pin-1 dots print
+partially. **Warning severity — does not block fabrication.**
+
+**A fix was attempted and reverted.** Recorded because the failure is more
+useful than the attempt:
+
+- The solve measured the circle against **the footprint's own pads**. That is the
+  wrong model. Silk clipping is a *board-level* question, and arming
+  `solder_mask_min_width` makes KiCad merge nearby mask openings into larger
+  apertures and check the silk against those. Both circles were moved to a
+  verified 0.15 mm clearance from every pad edge and **both warnings persisted
+  unchanged**.
+- Moving the library circle 0.004 mm and the instance 0.254 mm made them
+  diverge, producing a `lib_footprint_mismatch` on U3 — the exact class
+  documented in `docs/solutions/integration-issues/kicad-lib-footprint-mismatch-integer-nanometre-comparison.md`.
+  A footprint edit must land in library *and* instance with identical numbers
+  (KTD26), and "identical" means the same computed value, not the same intent.
+
+**CLOSED 2026-08-03, and the prediction above was wrong.** No model of merged
+mask apertures was needed: this board sets `SolderMaskExpansion = 0.0`, so the
+apertures *are* the pad outlines and it is ordinary distance arithmetic. What
+the earlier attempt actually got wrong was **scope** — it measured each circle
+against its own footprint's pads.
+
+U4 is the case it looked like: the binding constraint is pad 11, the full
+exposed pad, not the four paste quadrants. Overlap 0.0175 mm, matching the
+0.0174 recorded above; moving 0.20 mm along the corner normal gives +0.1828.
+
+U3 was not about U3 at all. Its circle sat 0.1470 from its own pad 1 — three
+microns short, so a small nudge looked right, and was wrong. The real clipper is
+**L2.1, the buck inductor beside it**, which the circle already overlapped by
+0.045 and which a nudge east made worse. The U3.1↔L2.1 corridor is 0.610 mm and
+a 0.254-radius dot with 0.15 clearance either side needs 0.808, so no position in
+that gap works. The dot moved diagonally out to (110.700,103.800) — clear of
+U3.1 by 0.2442, of L2.1 by 0.2738, still north-east of pin 1, which is where pin
+1 is.
+
+Both circles moved in the library **and** the placed instance (KTD26), with the
+footprint transform calibrated empirically from a pad rather than assumed: U3
+sits at rot 90, where a board-space move of +x is a local move of +y, and
+guessing the sign would have driven the dot further into the inductor. No
+`lib_footprint_mismatch` appeared, which is the proof both sides moved together.
+
+The rule stays armed. **DRC is now 0 errors and 0 warnings — the warning inbox
+is empty.**
 
 ## Genuinely deferred — and why
 

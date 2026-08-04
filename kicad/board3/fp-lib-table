@@ -2,4 +2,5 @@
 	(version 7)
 	(lib (name "ProPrj_New-easyedapro") (type "KiCad") (uri "${KIPRJMOD}/ProPrj_New-easyedapro.pretty") (options "") (descr ""))
   (lib (name "JLCImport")(type "KiCad")(uri "${KIPRJMOD}/JLCImport.pretty")(options "")(descr ""))
+  (lib (name "Board3")(type "KiCad")(uri "${KIPRJMOD}/Board3.pretty")(options "")(descr "Board3's own land patterns -- footprints with no purchasable part behind them"))
 )
