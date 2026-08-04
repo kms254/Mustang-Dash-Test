@@ -180,10 +180,24 @@ def export_gerbers(board: Path, outdir: Path) -> list:
     canonicalise_gerber_names(board, gerber_dir)
     files = sorted(p for p in gerber_dir.iterdir() if p.is_file())
     # JLCPCB takes a zip, not a folder, so ship the thing that can be uploaded.
+    #
+    # The drill MAP is deliberately not in it. It is a human-readable drawing of
+    # where the holes are; the machine reads the Excellon .drl, and the .gbrjob
+    # declares the 11 plotted layers and says nothing about the map. So it would
+    # arrive as the one file in the archive with no declared function, on a board
+    # whose outline already had to be renamed because a fab reads filenames (see
+    # canonicalise_gerber_names). An undeclared .gbr in a layer-bearing zip is an
+    # invitation to guess. It is still generated into fab/gerbers/ for humans --
+    # dropping it from the upload costs nothing and removes the ambiguity.
     archive = outdir / "gerbers-jlcpcb.zip"
+    upload = [f for f in files if not f.name.endswith("-drl_map.gbr")]
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zf:
-        for f in files:
+        for f in upload:
             zf.write(f, f.name)
+    for f in files:
+        if f not in upload:
+            print(f"  kept out of the upload zip: {f.name} "
+                  f"(drill map -- reference drawing, not fab input)", flush=True)
     return files
 
 
