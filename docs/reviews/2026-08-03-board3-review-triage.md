@@ -79,8 +79,14 @@ one was already settled; one was wrong.
 9. **[UNVERIFIED] U1 is at 25 units**, variant at 0. `ORDER.md` records 37 as of
    2026-08-02 — it is falling. (fab-readiness) **Check before ordering; this
    blocks the order regardless of the board.**
-10. **[UNVERIFIED] No component-free rail on any edge; panelisation for assembly
-    unaddressed.** (dfm-fab)
+10. **[CONFIRMED — order-form item, not a board defect] No component-free rail on
+    any edge.** (dfm-fab) Measured courtyard-to-edge: **left −0.29 mm** (USBC1
+    overhangs, as an edge connector must), **bottom 0.28 mm** (P2), **top and
+    right 2.33 mm**. Three of four edges are populated, and nothing approaches
+    the ~5 mm an assembly conveyor wants. At 250 × 50 mm expect JLC to add rails
+    themselves; the risk is a quote-time hold, not a bad board. Recorded in
+    `fab/ORDER.md` with the measured numbers so it is answered rather than
+    discovered.
 
 ## 4. Board electrical — real engineering decisions, none blocking DRC
 
@@ -210,39 +216,128 @@ they were less reliable about is what the numbers mean.
 
 ## 5. Testability
 
-23. **[UNVERIFIED] No power-on indicator and no bare-copper +5 V probe point.**
-    (dft) A powered healthy board looks identical to a dead one.
-24. **[UNVERIFIED] Zero test points and 222/222 vias tented** — no bare ground
-    reference for a scope probe. (dft)
-25. **[UNVERIFIED ×2 lenses] The Tag-Connect -NL has no legs**, so SWD must be
-    hand-held for a whole session; U49 removed the previous header. (dft +
-    simplicity.) A real ergonomics regression — weigh against the space it saved.
-26. **[UNVERIFIED] P1/P2 carry no CANH/CANL pin identification.** (dft)
-27. **[UNVERIFIED] The eight telltales carry no TT1–TT8 identification.** (dft)
+All five measured 2026-08-03.
+
+23. **[CONFIRMED] No power-on indicator and no bare-copper +5 V probe point.**
+    (dft) All eight LEDs are telltales: every one sits between `/+5V` and a
+    `/TTn_LED_K` cathode driven by the expanders, so **nothing lights without
+    firmware**. A board with a dead MCU, a wrong option byte or a stalled I2C
+    bus looks exactly like a board with no power. Fix costs an LED + resistor
+    across a rail — two new parts, so a schematic edit and a KTD12 GUI sync.
+24. **[CONFIRMED — and it blocks a documented procedure] Zero test points, all
+    vias tented.** (dft) Measured: **0 test-point footprints**, and 234/234 vias
+    tented (187 inherit `m_TentViasFront/Back = True`, 47 tented explicitly).
+    There is no bare copper anywhere to land a scope ground.
+    The review filed this as ergonomics. It is more than that: the **U9
+    read-integrity soak** — the project's own acceptance gate for raising
+    `DASH_SPI_RUN_HZ`, and the thing that must pass before 24–30 MHz is
+    believed — is written against `TP1=SCLK_C, TP2=MOSI_C, TP3=MISO_NODE,
+    TP4=CS_C, TP5=GND`, with "TP5 is a dedicated scope ground — use it with a
+    short ground spring". **None of those exist on Board3.** The clock walk's
+    "scope TP1/TP3, ground on TP5" branch cannot be executed as written.
+25. **[REFUTED] "The Tag-Connect -NL has no legs, so SWD must be hand-held."**
+    (dft + simplicity) The board is not the constraint. H2's footprint carries
+    **3 NPTH holes at 0.9906 mm** — the locating holes a *legged* TC2030-IDC
+    cable drops into. `-NL` describes which **cable** you buy, not what the land
+    pattern supports; buy the legged variant and it is hands-free. Nothing to fix.
+26. **[CONFIRMED] P1/P2 carry no CANH/CANL pin identification.** (dft) The
+    connectors *are* identified by bus — silk reads `CAN1` 10.5 mm from P1 and
+    `CAN2` 11.0 mm from P2, plus `TERM1`/`TERM2` for the jumpers — but nothing
+    says which of the two screw terminals is H and which is L. CAN is
+    differential, so a swap does not work and does not obviously announce itself.
+    Cheap to fix: silk only, no schematic, no netlist — the U45 shape of change.
+27. **[CONFIRMED] The eight telltales carry no TT1–TT8 identification.** (dft)
+    Nearest silk to LED1 is `LEFT` at 15.4 mm — a panel label, unrelated. Same
+    fix shape as (26): eight silk labels matching the schematic's `TTn` naming,
+    which is also the firmware's lamp index (`lamp bit l drives TT(l+1)`).
+    *Note: neither (26) nor (27) can go through `kicad_handroute.py` as it
+    stands — it has no silk-text operation. U45's labels did not come from it.*
 
 ## 6. DFM margins — thin but legal
 
-28. **[UNVERIFIED] Solder mask webs have zero headroom** (min dam 0.1795 mm).
-29. **[UNVERIFIED] Smallest annular ring sits exactly on the process minimum.**
-30. **[UNVERIFIED] H2's NPTH holes are marked non-plated only by an Excellon
-    comment.**
-31. **[UNVERIFIED] Two 0.75 mm internal cutouts** milled into the board profile.
-32. **[UNVERIFIED] No local fiducials on any 0.5 mm-pitch part** on a 250 mm board.
-33. **[UNVERIFIED] Six through-hole tact switches have 0603 passives 1.10–1.30 mm
-    away.** (dfa)
-34. **[UNVERIFIED] A DRC severity was set to `ignore` in the same branch that
-    armed the guard rails.** (drc-routing) That is
-    `footprint_symbol_field_mismatch`, deliberate and documented in CLAUDE.md —
-    but the lens is right that it deserves visibility.
+All seven measured 2026-08-03. Two refuted, one turned into a live order-form
+constraint.
+
+28. **[CONFIRMED figure, "zero headroom" WRONG — but it constrains the order]**
+    Min solder-mask dam is **0.1795 mm** exactly as claimed (U1.129 ↔ C6.2, a
+    decoupling cap against the QFP), with 51 dams under 0.20 mm. But **0 dams
+    are under 0.10 mm**, and JLCPCB's green mask holds a 0.1 mm dam — so there
+    is ~80 µm of headroom, not zero.
+    **The real consequence is colour.** JLC's non-green masks need **0.25 mm**
+    dams, which all 51 of these would violate. **Green is now a requirement,
+    not a preference**, and `fab/ORDER.md` says so.
+29. **[REFUTED] "Smallest annular ring sits exactly on the process minimum."**
+    Measured: **0.1500 mm** on the single 0.50/0.20 BTN1 via, **0.1750 mm** on
+    every other via. JLC's via annular-ring minimum is ~0.13 mm. Not on the
+    limit — 15% and 35% above it.
+30. **[CONFIRMED, fixed] H2's NPTH holes are distinguished only inside a merged
+    Excellon file.** Real: H2 has 3 NPTH pads (0.9906 mm) and `kicad_fab.py`
+    exported one merged `.drl`, where non-plated holes are separated by a
+    comment rather than by being in their own file. A fab that reads the
+    geometry and skips the comment plates them, and H2's whole purpose is that
+    pogo pins touch **bare** copper. Fixed by exporting separate PTH/NPTH files.
+31. **[REFUTED] "Two 0.75 mm internal cutouts milled into the board profile."**
+    There are none. Edge.Cuts holds exactly 8 items — 4 lines and 4 corner arcs
+    — i.e. a 250 × 50 mm rectangle with R2.5 corners, and nothing else. No
+    internal cutout of any size exists.
+32. **[CONFIRMED, accepted] No local fiducials on any 0.5 mm-pitch part.** Three
+    global fiducials (FID1/FID2/FID3) are spread across the board; the nearest
+    to U1 is FID2 at 20.8 mm. Local fiducials would improve placement accuracy
+    on a 250 mm panel, but JLC places 0.5 mm-pitch QFPs on global fiducials
+    routinely and U1 sits mid-board rather than at a corner. Accepted; revisit
+    only if a build shows placement drift.
+33. **[CONFIRMED, and worse than reported] THT switches sit beside 0603
+    passives.** The review said 1.10–1.30 mm; measured courtyard-to-courtyard it
+    is **0.45 mm** (SW1→R28, SW2→R29, SW3→R30, SW4→R31) and 0.65/0.66 mm for
+    SW6/SW7→R1. JLC hand-solders THT, so an iron tip works within half a
+    millimetre of a 0603. Accepted — moving them means re-routing the button
+    block — but it belongs in the assembly notes.
+34. **[CONFIRMED, already deliberate] A DRC severity is set to `ignore`.**
+    `footprint_symbol_field_mismatch`, documented in CLAUDE.md with its
+    reasoning: Board3's supplier metadata lives on the *symbol* by design, so
+    mirroring it onto footprints creates a second copy that drifts, and it
+    produced 13 `lib_footprint_mismatch` violations when tried. The half that
+    catches real defects, `footprint_symbol_mismatch`, stays armed. The lens is
+    right that it deserves visibility — this entry is that visibility.
 
 ## 7. Simplification candidates
 
-35. **[UNVERIFIED] CAN termination is still four 60.4 Ω Extended parts with two
-    now vestigial.** (simplicity) This is the U42 consolidation deliberately not
-    done — the defect is closed, the cost optimisation is not.
-36. **[UNVERIFIED] C41/C42 are Extended ±1% 18 pF where a Basic+preferred part is
-    identical.** (simplicity)
-37. **[UNVERIFIED] SW1–SW4 and SW6/SW7 are one part on two land patterns.**
+35. **[REFUTED as stated; the optimisation behind it is real] "Four 60.4 Ω
+    Extended parts with two now vestigial."** (simplicity) All four
+    (R10/R14/R15/R24, `C2933247`, 60.4 Ω ±1%, Extended) are **in circuit**:
+    R10+R14 in series make CAN1's 120.8 Ω, R15+R24 make CAN2's. **None is
+    vestigial.** What is true is that U42's removal of the centre-tap caps left
+    each pair electrically equivalent to one resistor, so 2×60.4 Ω could become
+    1×120 Ω — 4 parts → 2.
+    **Deliberately not doing it.** Collapsing the pair destroys the centre tap,
+    which is the only thing that would let the split-termination cap come back if
+    (19) is ever revisited. It also costs a topology change and therefore a KTD12
+    GUI sync, to save two 0603s. Keeping the option is worth more.
+36. **[CONFIRMED] C41/C42 are Extended where a Basic part would do.** Both are
+    `C527046`, 18 pF, C0603, **Extended Part**. Crystal load caps want C0G/NP0
+    and that is widely stocked as Basic at this value. This is the cheapest
+    change on the entire list: identical value, identical footprint, identical
+    nets, so it is a **pure supplier-metadata swap** — no geometry, no `Value`
+    change on the board, no GUI sync (the U10 precedent). Pending a Basic C0G
+    18 pF being confirmed in stock.
+37. **[CONFIRMED — and mis-filed as "simplification"; it is a fit risk]** SW1–SW4
+    and SW6/SW7 are the same part (`C5340169`, HX TS4538CJ) on **two different
+    land patterns**, and the difference is not cosmetic:
+
+    | | footprint | pad X offsets | lead span |
+    |---|---|---|---|
+    | SW1–SW4 | `…-LS5.4` | ±2.700 mm | 5.4 mm |
+    | SW6, SW7 | `…-LS5.0` | ±2.500 mm | 5.0 mm |
+
+    Both agree on the 3.00 mm pitch (pads at y ±1.500) and both use 1.0 mm
+    drills. They disagree by **0.4 mm on lead span, 0.2 mm per side** — and the
+    part has exactly one true lead span, so **one of these two has its holes in
+    the wrong place**. With a ~0.8 mm lead in a 1.0 mm hole there is only ~0.1 mm
+    of radial slack, so the wrong one needs the leads splayed or pinched to seat.
+    These are hand-soldered, so it will probably go in — and probably not sit
+    flat.
+    **Unresolved: which one is correct.** Needs the HX TS4538CJ drawing. This is
+    the one item in §7 that is not a cost question.
 
 ## 8. Refuted — do not act on these
 
@@ -258,10 +353,29 @@ they were less reliable about is what the numbers mean.
     assembly-safe.** Same treatment.
 42. **[REFUTED → LOW] No reference designator reaches the assembler.** Found ~98%
     pre-existing and deliberate, and mischaracterised on three counts.
-43. **[UNVERIFIED, overlaps 40/41] Eight vias sit in pasted, mask-opened pads.**
-    (dfm-fab) Same theme as two findings *refuted* on measurement — treat with
-    corresponding scepticism.
-44. **[UNVERIFIED, overlaps 42] No refdes printed and no fab-package map.** (dft)
+43. **[REFUTED — the scepticism was warranted] "Eight vias sit in pasted,
+    mask-opened pads."** (dfm-fab) The count is right; the risk is not. Measured:
+    8 vias land inside a top pad — **U4 ×5, Q2 ×2, U1 ×1** — and they split into
+    two harmless groups.
+    - **U4 ×5** have `paste = False`. They are the CH224K's exposed-pad thermal
+      vias, and with no paste aperture over them there is nothing to wick.
+    - **Q2 ×2 and U1 ×1** do have paste, which is the case that would matter —
+      and all three are **tented**: U1.93 explicitly (`front/back = 1`), Q2.6 and
+      Q2.7 by inheriting the board default, which is `m_TentViasFront/Back =
+      True`. A tented barrel cannot wick.
+    Exactly the set CLAUDE.md already documents as deliberate (U4's thermal vias,
+    Q2's plane stitches, U1.93's exception). Consistent with 40/41 being refuted.
+44. **[CONFIRMED as fact, accepted — consistent with 42] No refdes printed.**
+    (dft) Measured: **0 of 148** footprints have a visible silk reference, though
+    all 148 have their refdes *assigned* to the top silk layer — they are placed
+    and hidden, not missing. That is what makes it deliberate rather than an
+    oversight, which is what (42) concluded.
+    Not an assembly risk: the assembler places from the CPL, which is symmetric
+    at 140 rows. It is a bench-rework annoyance — you cannot identify R33 on the
+    board by eye. Turning them on is not free either: 148 designators on a dense
+    250 × 50 mm board would collide with pads and each other, and the board
+    already carries the 16 *functional* silk labels from U45, which is the
+    information a human actually needs. Accepted.
 
 ---
 

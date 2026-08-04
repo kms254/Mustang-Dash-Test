@@ -19,6 +19,7 @@ are the ones nothing will catch for you.
 | Thickness | **1.6 mm** | |
 | Copper weight | **1 oz (35 um), outer and inner** | The order form asks, and it changes both price and minimum trace/space. The design rules here (0.1016 mm min track/clearance) are JLC's standard 1 oz limits; 2 oz would relax nothing and cost more. |
 | Surface finish | **ENIG** | `(copper_finish "ENIG")` is in the board's stackup block. A real cost adder over HASL, so it will not be chosen for you. |
+| Solder mask colour | **GREEN — required, not a preference** | The narrowest mask dam on the board is **0.1795 mm** (U1.129 ↔ C6.2), and **51 dams sit under 0.20 mm**. Green holds a 0.1 mm dam, so those pass with ~80 µm to spare. **JLC's other colours need 0.25 mm**, which every one of those 51 would violate — the mask would simply not print between those pads, next to a 0.5 mm-pitch QFP. Picking a colour for looks is a real defect here. |
 | Minimum hole size | **0.20 mm** | Every via but one drills 0.25; the single BTN1 via at U1.93 is 0.5/0.2 and forces the lower tier. Declaring 0.25 is wrong. Stated as a rule rather than a count — the count moves with every routing change (U50 took it 222 → 234), and a stale number here is worse than none. |
 | Via covering | **Tented** | The board sets `m_TentViasFront` and `m_TentViasBack` true. JLC's *plugged*-via service caps at 0.5 mm and ours are 0.6 mm, so tenting is the only option that matches. |
 | Impedance control | **Not ordered** | `(dielectric_constraints no)`. The USB pair is built to a 90 Ω target against the stackup below, but JLC will not verify it and is not being asked to. |
@@ -69,10 +70,19 @@ regardless of everything above, and the decision becomes buy-elsewhere-and-consi
 or wait.
 
 **Panelisation.** No component-free rail is provided on any board edge and none
-is designed in. At 250 × 50 mm this is a long, narrow board; if JLC's assembly
-line requires rails they add them themselves, but it is worth confirming at quote
+is designed in. Measured courtyard-to-edge clearance: **left −0.29 mm** (USBC1
+deliberately overhangs, as an edge connector must), **bottom 0.28 mm** (P2),
+**top and right 2.33 mm**. Assembly lines generally want ≥5 mm on two opposite
+edges for the conveyor, so at 250 × 50 mm — long, narrow, and populated to three
+of four edges — expect JLC to add rails themselves. Worth confirming at quote
 rather than discovering it as a hold. Nothing in the board files declares an
 intent either way.
+
+**Drill files.** The package ships **separate PTH and NPTH Excellon files**, not
+one merged file. That is deliberate: H2's three 0.9906 mm holes are non-plated,
+and in a merged file the only thing marking them so is a comment. H2 is a
+Tag-Connect land pattern whose pogo pins press on **bare copper** — plating those
+holes is not a cosmetic error. Do not "helpfully" merge them when uploading.
 
 ## Board state
 

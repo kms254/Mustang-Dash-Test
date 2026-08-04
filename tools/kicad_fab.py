@@ -173,8 +173,14 @@ def export_gerbers(board: Path, outdir: Path) -> list:
     _run("pcb", "export", "gerbers", "--layers", layers,
          "--no-protel-ext", "--subtract-soldermask",
          "-o", str(gerber_dir) + "/", str(board))
+    # --excellon-separate-th: plated and non-plated holes go in their own files.
+    # Merged, KiCad marks the non-plated ones with a comment, and a fab that reads
+    # the geometry but not the comment plates them. H2 is the case that matters:
+    # its 3 NPTH holes locate a Tag-Connect's legs and its pogo pins land on BARE
+    # copper, so plating them is not cosmetic. Review item 30.
     _run("pcb", "export", "drill", "--format", "excellon",
          "--drill-origin", "absolute", "--excellon-units", "mm",
+         "--excellon-separate-th",
          "--generate-map", "--map-format", "gerberx2",
          "-o", str(gerber_dir) + "/", str(board))
     canonicalise_gerber_names(board, gerber_dir)
