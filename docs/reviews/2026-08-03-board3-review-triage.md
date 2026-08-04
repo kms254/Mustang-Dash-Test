@@ -118,21 +118,72 @@ one was already settled; one was wrong.
     - No OCP on `/VBUS` is true (F1 is only in the barrel path) and is normal for
       a USB-C **sink**: the source provides OCP by spec. Optional hardening, not
       a fix.
-13. **[UNVERIFIED] `+3V3` is 100% 10 mil against the layout guide's ≥30 mil.**
-14. **[UNVERIFIED] TJA1051 VIO has no bypass within 23 mm.**
-15. **[UNVERIFIED] NRST filtering and pull-up are 87–89 mm from the pin.**
-16. **[UNVERIFIED] F1's derated hold current has ~1.1× margin** against the
-    project's own worst case.
-17. **[UNVERIFIED] CAN termination resistors are 0603/100 mW** — a CANH-to-battery
-    short in a 12 V vehicle exceeds that.
-18. **[UNVERIFIED] `SCLK_R` runs 32 mm parallel to `MISO_R` at 0.389 mm on
-    Inner2.**
-19. **[UNVERIFIED] U42 gave up split termination's common-mode damping.** True by
-    construction — it was the point of the change. Judge whether the trade holds.
-20. **[UNVERIFIED] Post-fuse power path necks to 0.62 mm for 7.3 mm** against
-    F1's 3 A hold. (drc-routing)
-21. **[UNVERIFIED] This branch cut the board's tightest clearance to 72 nm of
-    margin.** (drc-routing) Worth finding which edit did it.
+All nine measured 2026-08-03. **Every geometric figure in this section
+reproduced** — unlike §8, these lenses were reading the board correctly. What
+they were less reliable about is what the numbers mean.
+
+13. **[CONFIRMED — violates the guide, inside the thermal target] `+3V3` is
+    100% 10 mil against the layout guide's ≥30 mil.** True: **no `+3V3` pour
+    exists** (the only pours are `/GND` ×3 and `/+5V` on Inner2), 216 of 221
+    segments are 0.254 mm, and the widest conductor anywhere on the net is
+    0.300 mm — so whatever the topology, the trunk is ≤12 mil. But at the
+    guide's own 0.8 A that is **~8 °C rise**, inside the 10 °C design target,
+    with 1.11× current margin. Rule violated, physics fine. 21 of those
+    segments are on inner layers, where the same width is only 0.44 A.
+    *(A graph walk was attempted to identify the trunk and produced nonsense —
+    1 of 74 sink pads resolved as reachable, inflating every downstream count.
+    The bound above is topology-free and does not depend on it.)*
+14. **[CONFIRMED] TJA1051 VIO has no bypass within 23 mm.** Measured: U8.5 →
+    nearest `/+3V3` cap **23.19 mm**, U9.5 → **26.95 mm**. The contrast is the
+    tell — VCC on the same parts is decoupled at **4.71 mm** (C59) and
+    **3.86 mm** (C60), so VIO was missed, not traded away. NXP asks for 100 nF
+    at both. Fixing means two new parts, a schematic edit and a KTD12 GUI sync
+    — the expensive shape of change, for a modest EMI/RXD-integrity gain.
+15. **[CONFIRMED — the one with a reliability argument] NRST filtering and
+    pull-up are 87–89 mm from the pin.** Measured from U1.27: **C46 88.97 mm,
+    R49 86.68 mm**, SW6 81.54 mm. Violates layout guide §3 item 13 ("C46 at
+    NRST") *and* ST's own recommended NRST protection, which puts the 100 nF at
+    the pin. It matters because the H7's internal filter only rejects pulses
+    under ~300 ns; a longer glitch on an 89 mm antenna in a car resets the dash.
+    Same fix shape as U50 — move two parts, no schematic change.
+16. **[NOT VERIFIED — needs the derating curve] F1's derated hold current has
+    ~1.1× margin.** F1 is `1812L300_30GR`, 3 A hold at 23 °C, against a stated
+    1.5–2 A worst case. The *direction* is real: PTC hold current derates
+    steeply with ambient and an under-dash environment is not 23 °C. But the
+    specific 1.1× was not reproduced — that needs the Littelfuse derating
+    table, which was not fetched. Settled neither way.
+17. **[CONFIRMED] CAN termination resistors are 0603/100 mW.** All four
+    (R10/R14/R15/R24, 60.4 Ω) are `R0603`. Termination is R10+R14 in series
+    (120.8 Ω) across CANH–CANL with the jumper in the CANH leg. A CANH-to-12 V
+    short drives ~99 mA through the pair — **~1.19 W total, ~0.6 W each, about
+    6× a 0603's rating**. Real for a vehicle, but only when the H1/H3 jumper is
+    fitted, i.e. only when this board is a bus end.
+18. **[CONFIRMED exactly] `SCLK_R` runs 32 mm parallel to `MISO_R` at 0.389 mm
+    on Inner2.** Measured **32.74 mm at 0.389 mm edge-to-edge** — exact. A
+    second corridor of **54.73 mm at 0.557 mm** also exists, so if anything the
+    finding understates it. Aggressor and victim are the same bus, and SPI
+    samples MISO on the SCLK edge, which is when crosstalk peaks. Unchanged by
+    U50, which re-laid `/SCLK_R` on its original line.
+19. **[TRUE BY CONSTRUCTION] U42 gave up split termination's common-mode
+    damping.** Verified in the netlist: `/CAN1_CT` and `/CAN2_CT` carry only the
+    two resistors — no capacitor to ground. Each pair is now electrically one
+    120.8 Ω differential terminator with a floating centre tap: correct
+    differential termination, no common-mode damping. It was the point of the
+    change; the trade is a judgement, not a defect.
+20. **[FIXED] Post-fuse power path necks to 0.62 mm for 7.3 mm.** (drc-routing)
+    Geometry reproduced exactly, and a trunk walk confirmed it load-bearing
+    (blocking it disconnects Q2's sources from F1 — the whole rail). Widened in
+    `tools/handroutes/u51-plus5v-barrel-neck.json`: 1.524 mm for the first
+    3.00 mm, 0.900 mm for the rest. **15 °C → 8 °C at the guide's 2 A.** It
+    cannot be 60 mil throughout: Q2's gate pad is 0.596 mm from the centreline,
+    capping a uniform width at 0.989 mm.
+21. **[CONFIRMED exactly — informational] The board's tightest clearance is
+    72 nm of margin.** (drc-routing) Swept every track/via pair on every layer:
+    minimum gap **0.101672 mm** against the 0.1016 rule = **+72 nm**, between
+    `/+5V_BARREL` and `/GATE_BARREL` near Q2. It passes, and it is margin
+    against *our own* rule — JLCPCB's capability is ~0.0889 mm, so real fab
+    margin is ~12.8 µm. Not a defect; worth knowing that pair has no room left
+    for a future edit. U51 widened a **different** `/+5V_BARREL` segment.
 22. **[REFUTED → LOW] Barrel input has no OVP and silk says only "DC IN".**
     (adversarial-ee + dft, same issue twice.) Verifier kept the observation and
     demolished the severity. **Still worth marking the voltage** — it was left
