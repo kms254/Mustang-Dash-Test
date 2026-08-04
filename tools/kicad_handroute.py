@@ -21,6 +21,7 @@ An edit is a single spec, or {"steps": [spec, spec, ...]} applied in order:
     "add":      [{"net": "CAN1_H", "layer": "Top Layer", "width": 0.254,
                   "points": [[x,y], [x,y], ...]}],
     "add_vias": [{"net": "USB_DM_CONN", "at": [x,y], "diameter": 0.6, "drill": 0.3}],
+    "untent_vias": [{"at": [x,y], "net": "SCLK_C", "label": "TP1"}],
     "add_keepouts": [{"ref": "H2", "at": [x,y], "radius": 0.85,
                       "layers": ["F.Cu","In1.Cu","In2.Cu","B.Cu"]}]
   }
@@ -182,6 +183,33 @@ def apply_step(board, spec: dict, tracks: list, dry: bool):
                   f"({end.x/NM:8.3f},{end.y/NM:8.3f})")
             if not dry:
                 track.SetNet(dst)
+
+    for rule in spec.get("untent_vias", []):
+        # Open the solder mask over a via so it becomes a probe point. The board
+        # default tents every via front and back, which is right for 229 of them
+        # and wrong for the handful you need to put a scope on. Selection is by
+        # exact position because a via has no name to address it by.
+        x, y = rule["at"]
+        want = (to_nm(x), to_nm(y))
+        tol = to_nm(rule.get("tolerance", 0.01))
+        for track in tracks:
+            if track.Type() != pcbnew.PCB_VIA_T:
+                continue
+            pos = track.GetPosition()
+            if abs(pos.x - want[0]) > tol or abs(pos.y - want[1]) > tol:
+                continue
+            if rule.get("net") and track.GetNetname().lstrip("/") != rule["net"].lstrip("/"):
+                raise SystemExit(
+                    f"via at ({x},{y}) is on {track.GetNetname()!r}, "
+                    f"not {rule['net']!r} -- refusing to untent the wrong one")
+            if not dry:
+                track.SetFrontTentingMode(pcbnew.TENTING_MODE_NOT_TENTED)
+                track.SetBackTentingMode(pcbnew.TENTING_MODE_NOT_TENTED)
+            print(f"  o untented {track.GetNetname():<13} via at ({x},{y})"
+                  f"{'  ' + rule['label'] if rule.get('label') else ''}")
+            break
+        else:
+            raise SystemExit(f"no via within {rule.get('tolerance', 0.01)} mm of ({x},{y})")
 
     for rule in spec.get("move_footprints", []):
         ref = rule["ref"]

@@ -250,17 +250,43 @@ All five measured 2026-08-03.
     firmware**. A board with a dead MCU, a wrong option byte or a stalled I2C
     bus looks exactly like a board with no power. Fix costs an LED + resistor
     across a rail — two new parts, so a schematic edit and a KTD12 GUI sync.
-24. **[CONFIRMED — and it blocks a documented procedure] Zero test points, all
-    vias tented.** (dft) Measured: **0 test-point footprints**, and 234/234 vias
-    tented (187 inherit `m_TentViasFront/Back = True`, 47 tented explicitly).
-    There is no bare copper anywhere to land a scope ground.
-    The review filed this as ergonomics. It is more than that: the **U9
-    read-integrity soak** — the project's own acceptance gate for raising
-    `DASH_SPI_RUN_HZ`, and the thing that must pass before 24–30 MHz is
-    believed — is written against `TP1=SCLK_C, TP2=MOSI_C, TP3=MISO_NODE,
-    TP4=CS_C, TP5=GND`, with "TP5 is a dedicated scope ground — use it with a
-    short ground spring". **None of those exist on Board3.** The clock walk's
-    "scope TP1/TP3, ground on TP5" branch cannot be executed as written.
+24. **[PARTLY REFUTED, remainder FIXED] "Zero test points and 222/222 vias
+    tented — no bare ground reference for a scope probe."** (dft)
+    **The ground half is wrong.** `MP1`–`MP4` are **5.00 × 5.00 mm bare-copper
+    pads on `/GND`** at the four board corners — mask open, no paste. That is a
+    better ground target than any test point would have been. What they are not
+    is *near* anything: the closest is ~100 mm from the centre-panel SPI, which
+    defeats the short-ground-spring requirement.
+    **The signal half was right, and mattered more than filed.** There were no
+    signal probe points at all, and the **U9 read-integrity soak** — the
+    project's own acceptance gate for every `DASH_SPI_RUN_HZ` increase — is
+    written against `TP1=SCLK, TP2=MOSI, TP3=MISO, TP4=CS, TP5=GND`. Its "scope
+    TP1/TP3, ground on TP5" branch could not be run as written. (Those names are
+    Board2's, whose buffered topology Board3 dropped.)
+    **Fixed in `tools/handroutes/u53-spi-probe-points.json`, with no new parts.**
+    Vias already existed on all four centre-panel SPI signals with a `/GND` via
+    beside them, so opening the mask over five of them buys the whole thing — no
+    footprints, no BOM line, no CPL row, nothing for parity to disagree with:
+
+    | | net | position | to ground |
+    |---|---|---|---|
+    | TP1 SCLK | `/SCLK_C_MCU` | 152.460, 93.750 | 5.06 mm |
+    | TP2 MOSI | `/MOSI_C_MCU` | 149.750, 95.260 | 2.03 mm |
+    | TP3 MISO | `/MISO_C` | 148.730, 92.990 | 3.83 mm |
+    | TP4 CS | `/CS_C` | 150.290, 91.950 | 5.20 mm |
+    | TP5 GND | `/GND` | 148.430, 96.810 | — |
+
+    Two things to know before trusting a trace. **TP1/TP2 are on the MCU side of
+    R32/R35**, because `/SCLK_C` and `/MOSI_C` have no via — so they show what
+    the MCU launches, which under source-series termination is a half-amplitude
+    step for one round trip. Correct, and alarming if unexpected. And **a 0.6 mm
+    via is a small target** — fine tip and a sprung ground lead, not a clip.
+    **Cost: 2 `silk_over_copper` warnings**, taking `--severity-all` from 0 to 2
+    (errors, unconnected and parity stay 0). Accepted deliberately: the
+    silk-clear alternative vias sit 7.25 and 8.85 mm from ground instead of 3.83
+    and 5.20, and ground-lead inductance is the documented way this exact
+    measurement goes wrong. The warning means the fab clips silk off exposed
+    copper — correct over a probe point — leaving a ~0.6 mm gap in two outlines.
 25. **[REFUTED] "The Tag-Connect -NL has no legs, so SWD must be hand-held."**
     (dft + simplicity) The board is not the constraint. H2's footprint carries
     **3 NPTH holes at 0.9906 mm** — the locating holes a *legged* TC2030-IDC
