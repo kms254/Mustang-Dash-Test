@@ -171,12 +171,38 @@ they were less reliable about is what the numbers mean.
     pin 4.18 mm away, because XI and XO are diagonally opposite on this 4-pad
     package so only one can face U1. Rotating X1 just swaps which net is long.
     Fixing it needs a footprint with adjacent XI/XO — an open part decision.
-16. **[NOT VERIFIED — needs the derating curve] F1's derated hold current has
-    ~1.1× margin.** F1 is `1812L300_30GR`, 3 A hold at 23 °C, against a stated
-    1.5–2 A worst case. The *direction* is real: PTC hold current derates
-    steeply with ambient and an under-dash environment is not 23 °C. But the
-    specific 1.1× was not reproduced — that needs the Littelfuse derating
-    table, which was not fetched. Settled neither way.
+16. **[CONFIRMED — accepted for this revision, with a condition] F1's derated
+    hold current has ~1.1× margin.** The reviewer's number was right. 1812L
+    rerating, against a load built up from the rail rather than the guide's
+    hand-wave (3 backlights ≤0.25 A = 0.75, buck input 0.59, telltales 0.16,
+    two CAN transceivers 0.14, expanders 0.01 → **≈1.65 A worst case**):
+
+    | ambient | 23 °C | 40 °C | 50 °C | 60 °C | 70 °C | 85 °C |
+    |---|---|---|---|---|---|---|
+    | hold | 3.00 A | 2.62 A | 2.43 A | 2.25 A | 2.00 A | 1.78 A |
+    | vs 1.65 A | 1.82× | 1.59× | 1.47× | 1.36× | 1.21× | 1.08× |
+
+    At 70 °C the 80%-of-hold rule for guaranteed non-trip gives 1.60 A, **under
+    the 1.65 A load** — and 70 °C is the system's own ceiling anyway (the tact
+    switches are −25/+70 °C).
+    **Decision 2026-08-03 (Kevin): leave F1 as is.** The reasoning is not that
+    the margin is fine — it is that this revision is the wrong place to spend it.
+    - On the bench, where this board actually runs, ambient is 23–40 °C and the
+      margin is **1.6–1.8×**. Ample.
+    - **The 30 V rating is the forward-looking part.** Every same-footprint
+      option above 3 A is **16 V max** (`C22374900` 4 A, `C7542974` 3.5 A), so
+      raising hold current now means *dropping* voltage rating — backwards for a
+      board whose successor takes automotive 12 V. Keeping 30 V in 1812 costs
+      the amp; that is the trade, and it is the right way round here.
+    - **The car version resizes F1 regardless.** At 12 V in, the same power is
+      ~0.76 A, wanting a ~1.5 A part rather than 3 A.
+    **What would reopen this:** running *this* board in a hot cabin. The 70 °C
+    figure is not theoretical — if Board3 itself goes in the car for testing,
+    a hot day with three backlights lit trips it, and the fix is `C22374900`
+    (4 A, same land pattern, value + supplier metadata only, no GUI sync).
+    *Also note for the 12 V design: 30 V is not enough for a real automotive
+    input either. Load dump needs a proper front end (TVS + clamp); F1's rating
+    must not be what carries it.* See the carrier plan's Outstanding Questions.
 17. **[CONFIRMED] CAN termination resistors are 0603/100 mW.** All four
     (R10/R14/R15/R24, 60.4 Ω) are `R0603`. Termination is R10+R14 in series
     (120.8 Ω) across CANH–CANL with the jumper in the CANH leg. A CANH-to-12 V

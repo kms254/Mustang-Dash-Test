@@ -114,6 +114,31 @@ Board2 is a bench-style carrier: the MCU is a socketed Teensy module, CAN rides 
 - Telltale series resistor values for the 0805 LEDs (computed at U7 from the selected LEDs' Vf).
 - Exact buck regulator part and CAN connector style (selected at U1/U6 from JLC basic-library stock at that moment).
 
+**The in-car revision takes automotive 12 V, and that is a front-end redesign (recorded 2026-08-03)**
+
+- Board3 as built is a **5 V-input bench board**: the barrel jack *is* the 5 V rail
+  (`DC1 → F1 → Q2 → /+5V`), which is why it is silked `5V ONLY`. The version that
+  goes in the car has to accept a **12 V automotive supply** instead.
+- **This is not a connector change.** A vehicle 12 V rail is nominally 9–16 V,
+  reaches ~24 V on a jump start, and carries ISO 7637 transients — load dump is
+  the big one, tens of volts for hundreds of milliseconds. The board's current
+  input path has no headroom for any of that: `U11`/`U12` are **6 V absolute
+  maximum**, and the panels' backlights sit on the same rail.
+- **Minimum shape of the change:** a 12 V→5 V buck ahead of the present rail, plus
+  a real front end — reverse-polarity protection, a TVS sized for load dump, and
+  input filtering. `Q2`'s ideal-diode ORing and `U3`'s 5→3.3 V stage stay
+  downstream of it.
+- **F1 is resized by this, not by the ambient-margin argument.** At 12 V in, the
+  same ~1.65 A of 5 V load draws ~0.76 A, so the input PTC wants ~1.5 A rather
+  than 3 A. And **F1's voltage rating must not be what survives load dump** — a
+  30 V PTC does not clamp a transient; the TVS does. Sizing F1 for automotive
+  volts is the wrong instrument.
+- **Consequence for review item 16, and why it stayed open-but-accepted:** the
+  3 A/30 V part fitted today has only 1.21× margin at 70 °C, and every
+  same-footprint part above 3 A is 16 V max. Raising hold current now would drop
+  voltage rating on a board whose successor needs *more* of it — so the amp was
+  left on the table deliberately. Revisit at the 12 V design, not before.
+
 **Possible future change — HSE bypass instead of a crystal (recorded 2026-08-03, not blocking)**
 
 - **Option:** replace `X1` (4-pad crystal) and its load caps `C41`/`C42` with a crystal
