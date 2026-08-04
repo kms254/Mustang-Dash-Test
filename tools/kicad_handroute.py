@@ -12,9 +12,12 @@ unreproducible.
 An edit is a single spec, or {"steps": [spec, spec, ...]} applied in order:
 
   {
-    "move_footprints": [{"ref": "X1", "by": [0.5, 0.0]}],
+    "move_footprints": [{"ref": "X1", "by": [0.5, 0.0]},
+                        {"ref": "R33", "to": [136.0, 101.25], "rot": 180}],
     "delete":   [{"net": "CAN1_H", "bbox": [x1,y1,x2,y2], "layers": ["Bottom Layer"],
                   "vias": true}],
+    "renet":    [{"from": "SCLK_L_MCU", "to": "SCLK_L", "bbox": [x1,y1,x2,y2],
+                  "layers": ["Inner2"], "vias": true}],
     "add":      [{"net": "CAN1_H", "layer": "Top Layer", "width": 0.254,
                   "points": [[x,y], [x,y], ...]}],
     "add_vias": [{"net": "USB_DM_CONN", "at": [x,y], "diameter": 0.6, "drill": 0.3}],
@@ -25,7 +28,16 @@ An edit is a single spec, or {"steps": [spec, spec, ...]} applied in order:
 Deletion semantics: a track is removed only when BOTH endpoints are inside bbox,
 a via when its centre is. A segment that merely passes through survives --
 deleting those silently orphans copper outside the region you meant to touch.
-Omit "bbox" to match a whole net, "layers" to match any layer.
+Omit "bbox" to match a whole net, "layers" to match any layer. "renet" selects
+by the same rule, and exists because moving a series element to the other end of
+a run renames most of that run rather than re-laying it: re-adding copper rounds
+every endpoint through millimetres, so geometry that was DRC-clean moves. Renet
+keeps the integer nanometres and changes only the net.
+
+"move_footprints" takes "by" (relative) or "to" (absolute), plus an optional
+"rot" in degrees. Placing a two-pad part in series ON its own escape needs the
+part aligned with the trace, so orientation is part of the placement, not a
+separate GUI step.
 
 Three traps this tool exists to absorb
 --------------------------------------
@@ -135,18 +147,63 @@ def apply_step(board, spec: dict, tracks: list, dry: bool):
                 board.Remove(track)
             removed += 1
 
+    for rule in spec.get("renet", []):
+        # Reassign copper from one net to another WITHOUT re-laying it. Splitting a
+        # series element off the far end of a run means most of that run simply
+        # changes name; deleting and re-adding it would round every endpoint
+        # through millimetres and move geometry that is already DRC-clean.
+        # Selection semantics are the same as "delete": both endpoints inside bbox.
+        src = rule["from"].lstrip("/")
+        dst = netmap[rule["to"].lstrip("/")]
+        bbox = rule.get("bbox")
+        layers = rule.get("layers")
+        for track in tracks:
+            if track.GetNetname().lstrip("/") != src:
+                continue
+            is_via = track.Type() == pcbnew.PCB_VIA_T
+            if is_via and not rule.get("vias", True):
+                continue
+            if layers and not is_via and board.GetLayerName(track.GetLayer()) not in layers:
+                continue
+            start, end = track.GetStart(), track.GetEnd()
+            if bbox:
+                x1, y1, x2, y2 = bbox
+
+                def inside(point) -> bool:
+                    return x1 <= point.x / NM <= x2 and y1 <= point.y / NM <= y2
+
+                if not inside(start):
+                    continue
+                if not is_via and not inside(end):
+                    continue
+            kind = "via" if is_via else board.GetLayerName(track.GetLayer())
+            print(f"  > {src} -> {rule['to'].lstrip('/'):<13} {kind:<13} "
+                  f"({start.x/NM:8.3f},{start.y/NM:8.3f})->"
+                  f"({end.x/NM:8.3f},{end.y/NM:8.3f})")
+            if not dry:
+                track.SetNet(dst)
+
     for rule in spec.get("move_footprints", []):
         ref = rule["ref"]
-        dx, dy = rule["by"]
         for footprint in board.GetFootprints():
             if footprint.GetReference() != ref:
                 continue
             pos = footprint.GetPosition()
-            moved = pcbnew.VECTOR2I(pos.x + to_nm(dx), pos.y + to_nm(dy))
+            if "to" in rule:
+                x, y = rule["to"]
+                moved = pcbnew.VECTOR2I(to_nm(x), to_nm(y))
+                how = f"to ({x},{y})"
+            else:
+                dx, dy = rule["by"]
+                moved = pcbnew.VECTOR2I(pos.x + to_nm(dx), pos.y + to_nm(dy))
+                how = f"by ({dx},{dy})"
             if not dry:
                 footprint.SetPosition(moved)
-            print(f"  ~ moved {ref} by ({dx},{dy}) -> "
-                  f"({moved.x/NM:.3f},{moved.y/NM:.3f})")
+                if "rot" in rule:
+                    footprint.SetOrientationDegrees(rule["rot"])
+            if "rot" in rule:
+                how += f" rot={rule['rot']}"
+            print(f"  ~ moved {ref} {how} -> ({moved.x/NM:.3f},{moved.y/NM:.3f})")
             break
         else:
             raise SystemExit(f"no footprint {ref!r} on the board")

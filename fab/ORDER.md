@@ -19,7 +19,7 @@ are the ones nothing will catch for you.
 | Thickness | **1.6 mm** | |
 | Copper weight | **1 oz (35 um), outer and inner** | The order form asks, and it changes both price and minimum trace/space. The design rules here (0.1016 mm min track/clearance) are JLC's standard 1 oz limits; 2 oz would relax nothing and cost more. |
 | Surface finish | **ENIG** | `(copper_finish "ENIG")` is in the board's stackup block. A real cost adder over HASL, so it will not be chosen for you. |
-| Minimum hole size | **0.20 mm** | 221 vias drill 0.25, but the single BTN1 via at U1.93 is 0.5/0.2 and forces the lower tier. Declaring 0.25 is wrong. |
+| Minimum hole size | **0.20 mm** | Every via but one drills 0.25; the single BTN1 via at U1.93 is 0.5/0.2 and forces the lower tier. Declaring 0.25 is wrong. Stated as a rule rather than a count — the count moves with every routing change (U50 took it 222 → 234), and a stale number here is worse than none. |
 | Via covering | **Tented** | The board sets `m_TentViasFront` and `m_TentViasBack` true. JLC's *plugged*-via service caps at 0.5 mm and ours are 0.6 mm, so tenting is the only option that matches. |
 | Impedance control | **Not ordered** | `(dielectric_constraints no)`. The USB pair is built to a 90 Ω target against the stackup below, but JLC will not verify it and is not being asked to. |
 | Stackup | **JLC04161H-7628** | **This string appears nowhere in the `.kicad_pcb`** — only the numeric values match the template. Nothing binds the order to it, so it has to be selected by hand. |
@@ -76,12 +76,20 @@ intent either way.
 
 ## Board state
 
-As of 2026-08-03, on branch `fix/board3-review-blockers`:
+As of 2026-08-03, after U50:
 
-- DRC **0 errors, 0 warnings, 0 unconnected, 0 schematic parity**
+- DRC **0 errors, 0 warnings, 0 unconnected, 0 schematic parity** (run in place,
+  `--severity-all --schematic-parity`)
 - BOM 42 lines / CPL 140 rows, symmetric
 - Every via-in-pad remaining is deliberate (U4's exposed-pad thermal vias, Q2's
   plane stitches, U1.93's documented exception)
+
+**Re-upload the gerbers if you are ordering after 2026-08-03.** U50 moved the
+four panel-SPI series resistors (R33/R34/R36/R37) to their MCU pins and re-cut
+their nets, so any zip built before that describes different copper. The CPL
+changed too — those four parts moved and their rotations went 90° → 180°/0°.
+`gerbers-jlcpcb.zip` is a build artefact and is not tracked; regenerate with
+`"C:/Program Files/KiCad/10.0/bin/python.exe" tools/kicad_fab.py kicad/board3`.
 
 **No open electrical items.** U42 closed 2026-08-03: the CAN termination
 mid-point capacitors (C57/C58) are deleted, so each bus is now a plain
