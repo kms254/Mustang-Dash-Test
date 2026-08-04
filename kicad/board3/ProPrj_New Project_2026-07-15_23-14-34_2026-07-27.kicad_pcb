@@ -48038,7 +48038,7 @@
 			)
 		)
 	)
-	(gr_text "DC IN"
+	(gr_text "5V ONLY"
 		(at 32.637 126.325 0)
 		(layer "F.SilkS")
 		(uuid "eaf09c09-ec07-41c5-9c69-2ebdf92d3ff8")

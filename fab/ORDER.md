@@ -13,6 +13,7 @@ are the ones nothing will catch for you.
 
 | Field | Answer | Why it is not obvious |
 |---|---|---|
+| **INPUT VOLTAGE** | **5 V ONLY at the barrel jack** | There is NO regulator between DC1 and the 5 V rail: DC1 -> F1 (PTC) -> Q2 (reverse-polarity FET) -> `/+5V`. U3 is the 5 V->3.3 V buck, downstream. A 12 V supply puts 12 V straight onto U8/U9, U11/U12 (6 V abs max), all eight LEDs and pins 17/18 of all three panel connectors. The board is silked `5V ONLY`. |
 | Board size | **250 × 50 mm** | Measured 250.254 × 50.254 over Edge.Cuts. Not 230 × 50 — that figure circulated in session notes and review prompts and is wrong (U39). |
 | Layers | **4** | |
 | Thickness | **1.6 mm** | |
