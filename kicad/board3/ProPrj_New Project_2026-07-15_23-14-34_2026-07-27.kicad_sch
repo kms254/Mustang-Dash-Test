@@ -36440,7 +36440,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603FRNPO9BN180/545472.html"
+		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2304140030_Samsung-Electro-Mechanics-CL10C180JB8NNNC_C1647.pdf"
 			(at 97.79 21.59 0)
 			(hide yes)
 			(show_name no)
@@ -36451,7 +36451,7 @@
 				)
 			)
 		)
-		(property "Description" "Capacitance:18pF Tolerance:±1% Tolerance:±1% Voltage Rating:50V Temperature Coefficient:NP0"
+		(property "Description" "Capacitance:18pF Tolerance:±5% Voltage Rating:50V Temperature Coefficient:C0G Package:0603"
 			(at 97.79 21.59 0)
 			(hide yes)
 			(show_name no)
@@ -36463,7 +36463,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CC0603FRNPO9BN180"
+		(property "Manufacturer Part" "CL10C180JB8NNNC"
 			(at 97.79 21.59 0)
 			(hide yes)
 			(show_name no)
@@ -36475,7 +36475,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "YAGEO(国巨)"
+		(property "Manufacturer" "Samsung Electro-Mechanics"
 			(at 97.79 21.59 0)
 			(hide yes)
 			(show_name no)
@@ -36487,7 +36487,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C527046"
+		(property "Supplier Part" "C1647"
 			(at 97.79 21.59 0)
 			(hide yes)
 			(show_name no)
@@ -36511,7 +36511,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "18pF ±1% 50V"
+		(property "LCSC Part Name" "18pF ±5% 50V"
 			(at 97.79 21.59 0)
 			(hide yes)
 			(show_name no)
@@ -36546,7 +36546,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 97.79 21.59 0)
 			(hide yes)
 			(show_name no)
@@ -51986,7 +51986,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/CC0603FRNPO9BN180/545472.html"
+		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2304140030_Samsung-Electro-Mechanics-CL10C180JB8NNNC_C1647.pdf"
 			(at 113.03 19.05 0)
 			(hide yes)
 			(show_name no)
@@ -51997,7 +51997,7 @@
 				)
 			)
 		)
-		(property "Description" "Capacitance:18pF Tolerance:±1% Tolerance:±1% Voltage Rating:50V Temperature Coefficient:NP0"
+		(property "Description" "Capacitance:18pF Tolerance:±5% Voltage Rating:50V Temperature Coefficient:C0G Package:0603"
 			(at 113.03 19.05 0)
 			(hide yes)
 			(show_name no)
@@ -52009,7 +52009,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "CC0603FRNPO9BN180"
+		(property "Manufacturer Part" "CL10C180JB8NNNC"
 			(at 113.03 19.05 0)
 			(hide yes)
 			(show_name no)
@@ -52021,7 +52021,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "YAGEO(国巨)"
+		(property "Manufacturer" "Samsung Electro-Mechanics"
 			(at 113.03 19.05 0)
 			(hide yes)
 			(show_name no)
@@ -52033,7 +52033,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C527046"
+		(property "Supplier Part" "C1647"
 			(at 113.03 19.05 0)
 			(hide yes)
 			(show_name no)
@@ -52057,7 +52057,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "18pF ±1% 50V"
+		(property "LCSC Part Name" "18pF ±5% 50V"
 			(at 113.03 19.05 0)
 			(hide yes)
 			(show_name no)
@@ -52092,7 +52092,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "JLCPCB Part Class" "Extended Part"
+		(property "JLCPCB Part Class" "Basic Part"
 			(at 113.03 19.05 0)
 			(hide yes)
 			(show_name no)

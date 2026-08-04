@@ -438,16 +438,34 @@ constraint.
     which is the only thing that would let the split-termination cap come back if
     (19) is ever revisited. It also costs a topology change and therefore a KTD12
     GUI sync, to save two 0603s. Keeping the option is worth more.
-36. **[CONFIRMED] C41/C42 are Extended where a Basic part would do.** Both are
-    `C527046`, 18 pF, C0603, **Extended Part**. Crystal load caps want C0G/NP0
-    and that is widely stocked as Basic at this value. This is the cheapest
-    change on the entire list: identical value, identical footprint, identical
-    nets, so it is a **pure supplier-metadata swap** — no geometry, no `Value`
-    change on the board, no GUI sync (the U10 precedent).
-    **Replacement identified and in stock: `C1647`**, Samsung CL10C180JB8NNNC,
-    18 pF 50 V **C0G ±5%** 0603, **Basic + preferred**, 550,609 in stock at
-    $0.0109. C0G is what a crystal load cap wants, and ±5% on 18 pF is ±0.9 pF —
-    under half a picofarad on CL, i.e. a few ppm. Ready to execute.
+36. **[FIXED] C41/C42 were Extended where a Basic part does the job.** They were
+    `C527046` (YAGEO CC0603FRNPO9BN180, 18 pF ±1% NP0 0603, **Extended**). Now
+    **`C1647`** — Samsung CL10C180JB8NNNC, 18 pF 50 V **C0G ±5%** 0603,
+    **Basic**, 524k in stock at $0.0109. Extended BOM lines 26 → 25.
+    Identical value, footprint and nets, so the board is untouched and there is
+    no GUI sync (the U10 precedent).
+    **The tolerance relaxation is the only real question, and it is fine by 45×.**
+    ±1% → ±5% on an 18 pF pair moves the effective crystal load ±0.45 pF around
+    CL = 12 pF. For a 25 MHz fundamental (C0 ≈ 3 pF, C1 ≈ 5 fF) that is
+    **≈ ±5 ppm** of pull, against ±1 ppm for the ±1% part — so the total budget
+    goes from about ±30 ppm (crystal ±10 initial, ±20 over temperature) to ±35.
+    The tightest consumer on this board is CAN bit timing at roughly ±1580 ppm,
+    and USB does not depend on HSE at all (DFU runs HSI48+CRS, AN2606 §52). The
+    ±1% part was over-specified.
+    `kicad_lcsc.py add C1647` brought the part in properly — symbol, footprint
+    and STEP model in `JLCImport` — and the two instances' supplier fields were
+    repointed to it.
+    **One deliberate loose end.** C41/C42 still carry `lib_id`
+    `ProPrj_New-easyedapro:CC0603FRNPO9BN180`; only their instance fields name
+    the Samsung part. Fully repointing `lib_id` means hand-inserting a symbol
+    definition into the schematic's 60k-line `lib_symbols` cache, which is
+    s-expression surgery for no functional gain — the BOM is generated from
+    instance properties and is correct. The on-disk library symbol was left
+    describing the YAGEO part, because that is what it is. The residual hazard
+    is that a GUI *Update Symbols from Library* would revert the fields; the
+    canonical fix is a GUI *Change Symbol* on C41/C42, whenever the project is
+    next open. Note the board already relies on this same instance-override
+    pattern for SW1–SW4.
 37. **[CONFIRMED — and mis-filed as "simplification"; it is a fit risk]** SW1–SW4
     and SW6/SW7 are the same part (`C5340169`, HX TS4538CJ) on **two different
     land patterns**, and the difference is not cosmetic:
