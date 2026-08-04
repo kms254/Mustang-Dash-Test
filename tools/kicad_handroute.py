@@ -21,6 +21,7 @@ An edit is a single spec, or {"steps": [spec, spec, ...]} applied in order:
     "add":      [{"net": "CAN1_H", "layer": "Top Layer", "width": 0.254,
                   "points": [[x,y], [x,y], ...]}],
     "add_vias": [{"net": "USB_DM_CONN", "at": [x,y], "diameter": 0.6, "drill": 0.3}],
+    "move_fp_text": [{"ref": "R10", "field": "reference", "to": [x,y]}],
     "untent_vias": [{"at": [x,y], "net": "SCLK_C", "label": "TP1"}],
     "add_silk":  [{"text": "TT1", "at": [x,y], "height": 1.0, "thickness": 0.15}],
     "replace_footprints": [{"ref": "SW1", "fpid": "lib:FOOTPRINT",
@@ -350,6 +351,37 @@ def apply_step(board, spec: dict, tracks: list, dry: bool):
             if "rot" in rule:
                 how += f" rot={rule['rot']}"
             print(f"  ~ moved {ref} {how} -> ({moved.x/NM:.3f},{moved.y/NM:.3f})")
+            break
+        else:
+            raise SystemExit(f"no footprint {ref!r} on the board")
+
+    for rule in spec.get("move_fp_text", []):
+        # Move a footprint's Reference/Value FIELD -- not board-level silk, which
+        # is "move_silk". Swapping a land pattern re-seats these fields at the new
+        # library's offsets, so a designator that used to sit clear can land on a
+        # neighbour's silk (U57: R10's ref moved 0.38 mm outward going 0603->0805
+        # and hit R14). Runs after replace_footprints/move_footprints, because
+        # both rebuild or re-place the field it edits.
+        ref = rule["ref"]
+        which = rule.get("field", "reference").lower()
+        for footprint in board.GetFootprints():
+            if footprint.GetReference() != ref:
+                continue
+            item = footprint.Reference() if which == "reference" else footprint.Value()
+            pos = item.GetPosition()
+            if "to" in rule:
+                x, y = rule["to"]
+                moved = pcbnew.VECTOR2I(to_nm(x), to_nm(y))
+                how = f"to ({x},{y})"
+            else:
+                dx, dy = rule["by"]
+                moved = pcbnew.VECTOR2I(pos.x + to_nm(dx), pos.y + to_nm(dy))
+                how = f"by ({dx},{dy})"
+            if not dry:
+                item.SetPosition(moved)
+                if "angle" in rule:
+                    item.SetTextAngleDegrees(rule["angle"])
+            print(f"  ~ {ref} {which} {how} -> ({moved.x/NM:.3f},{moved.y/NM:.3f})")
             break
         else:
             raise SystemExit(f"no footprint {ref!r} on the board")
