@@ -244,12 +244,18 @@ they were less reliable about is what the numbers mean.
 
 All five measured 2026-08-03.
 
-23. **[CONFIRMED] No power-on indicator and no bare-copper +5 V probe point.**
-    (dft) All eight LEDs are telltales: every one sits between `/+5V` and a
-    `/TTn_LED_K` cathode driven by the expanders, so **nothing lights without
-    firmware**. A board with a dead MCU, a wrong option byte or a stalled I2C
-    bus looks exactly like a board with no power. Fix costs an LED + resistor
-    across a rail — two new parts, so a schematic edit and a KTD12 GUI sync.
+23. **[CONFIRMED — probe point half FIXED, indicator half open]** (dft) Two
+    claims in one entry, and they resolved differently.
+    **The bare-copper +5 V probe point now exists** — U53 untented a `/+5V` via
+    at (126.251, 107.730) with a local ground 5.03 mm away, plus `/+3V3`. See
+    (24).
+    **No power-on indicator, still true.** All eight LEDs are telltales: each
+    sits between `/+5V` and a `/TTn_LED_K` cathode driven by the expanders, so
+    **nothing lights without firmware**. A board with a dead MCU, a wrong option
+    byte or a stalled I2C bus looks exactly like an unpowered one. The probe
+    points make that diagnosable with a meter, which is most of the value; an
+    actual indicator LED still costs two new parts, a schematic edit and a KTD12
+    GUI sync, and remains a judgement call.
 24. **[PARTLY REFUTED, remainder FIXED] "Zero test points and 222/222 vias
     tented — no bare ground reference for a scope probe."** (dft)
     **The ground half is wrong.** `MP1`–`MP4` are **5.00 × 5.00 mm bare-copper
@@ -263,30 +269,33 @@ All five measured 2026-08-03.
     written against `TP1=SCLK, TP2=MOSI, TP3=MISO, TP4=CS, TP5=GND`. Its "scope
     TP1/TP3, ground on TP5" branch could not be run as written. (Those names are
     Board2's, whose buffered topology Board3 dropped.)
-    **Fixed in `tools/handroutes/u53-spi-probe-points.json`, with no new parts.**
-    Vias already existed on all four centre-panel SPI signals with a `/GND` via
-    beside them, so opening the mask over five of them buys the whole thing — no
-    footprints, no BOM line, no CPL row, nothing for parity to disagree with:
+    **Fixed in `tools/handroutes/u53-power-probe-points.json`, with no new
+    parts.** Vias already existed on both rails with a `/GND` via between them,
+    so opening the mask over three of them buys it — no footprints, no BOM line,
+    no CPL row, nothing for parity to disagree with:
 
     | | net | position | to ground |
     |---|---|---|---|
-    | TP1 SCLK | `/SCLK_C_MCU` | 152.460, 93.750 | 5.06 mm |
-    | TP2 MOSI | `/MOSI_C_MCU` | 149.750, 95.260 | 2.03 mm |
-    | TP3 MISO | `/MISO_C` | 148.730, 92.990 | 3.83 mm |
-    | TP4 CS | `/CS_C` | 150.290, 91.950 | 5.20 mm |
-    | TP5 GND | `/GND` | 148.430, 96.810 | — |
+    | TP1 +5V | `/+5V` | 126.251, 107.730 | 5.03 mm |
+    | TP2 +3V3 | `/+3V3` | 135.508, 110.254 | 5.07 mm |
+    | TP3 GND | `/GND` | 130.442, 110.508 | — |
 
-    Two things to know before trusting a trace. **TP1/TP2 are on the MCU side of
-    R32/R35**, because `/SCLK_C` and `/MOSI_C` have no via — so they show what
-    the MCU launches, which under source-series termination is a half-amplitude
-    step for one round trip. Correct, and alarming if unexpected. And **a 0.6 mm
-    via is a small target** — fine tip and a sprung ground lead, not a clip.
-    **Cost: 2 `silk_over_copper` warnings**, taking `--severity-all` from 0 to 2
-    (errors, unconnected and parity stay 0). Accepted deliberately: the
-    silk-clear alternative vias sit 7.25 and 8.85 mm from ground instead of 3.83
-    and 5.20, and ground-lead inductance is the documented way this exact
-    measurement goes wrong. The warning means the fab clips silk off exposed
-    copper — correct over a probe point — leaving a ~0.6 mm gap in two outlines.
+    These two rails are what answers the bring-up question. `/+5V` sits
+    downstream of the ideal-diode ORing, so it reads live whether the board is
+    fed from the barrel jack or USB — "input power reached the board". `/+3V3`
+    is the buck's output — "U3 is actually switching". Together they separate a
+    dead supply from a dead regulator from a dead MCU, which is precisely the
+    split you cannot make by looking at an unlit board.
+    All three are clear of silk and none sits under a component courtyard, so
+    **the board stays at 0 violations** at `--severity-all`. A 0.6 mm via is a
+    small target — fine tip and a sprung ground lead, not a clip; MP1–MP4 remain
+    for a bigger ground.
+    *An earlier revision of this fix probed the centre-panel SPI bus instead,
+    reasoning from the U9 clock-walk procedure's TP1–TP5. That target was
+    inferred rather than asked for, and it was wrong — no test pads on the screen
+    bus. Retargeted to the rails 2026-08-03. Note the consequence: the U9 soak's
+    "scope TP1/TP3, ground on TP5" branch is still not executable as written on
+    Board3, and that remains open.*
 25. **[REFUTED] "The Tag-Connect -NL has no legs, so SWD must be hand-held."**
     (dft + simplicity) The board is not the constraint. H2's footprint carries
     **3 NPTH holes at 0.9906 mm** — the locating holes a *legged* TC2030-IDC
