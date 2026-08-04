@@ -249,13 +249,33 @@ All five measured 2026-08-03.
     **The bare-copper +5 V probe point now exists** — U53 untented a `/+5V` via
     at (126.251, 107.730) with a local ground 5.03 mm away, plus `/+3V3`. See
     (24).
-    **No power-on indicator, still true.** All eight LEDs are telltales: each
-    sits between `/+5V` and a `/TTn_LED_K` cathode driven by the expanders, so
-    **nothing lights without firmware**. A board with a dead MCU, a wrong option
-    byte or a stalled I2C bus looks exactly like an unpowered one. The probe
-    points make that diagnosable with a meter, which is most of the value; an
-    actual indicator LED still costs two new parts, a schematic edit and a KTD12
-    GUI sync, and remains a judgement call.
+    **No power-on indicator: true, and DECLINED 2026-08-04 (Kevin).** All eight
+    LEDs are telltales — each sits between `/+5V` and a `/TTn_LED_K` cathode
+    driven by the expanders, so **nothing lights without firmware**. A board with
+    a dead MCU, a wrong option byte or a stalled I2C bus looks exactly like an
+    unpowered one. The TP1–TP3 probe points now make that diagnosable with a
+    meter, which is most of the value an indicator would have added.
+    **Do not re-raise this as an oversight — it was costed and turned down.** The
+    design was worked out in full and is recorded here so nobody repeats it:
+
+    | | part | already on board as | R | current | output |
+    |---|---|---|---|---|---|
+    | +5V | Emerald green `C516142` | LED1/LED2 | 1 kΩ `C21190` | 2.0 mA | ~130 mcd |
+    | +3V3 | Orange `C5246349` | LED5 | 1 kΩ `C21190` | 1.3 mA | ~117 mcd |
+
+    Anode on the rail, cathode through the resistor to ground — the resistor
+    replacing the AW9523B's current sink. **Zero new BOM lines**: all four part
+    numbers are already fitted elsewhere, so it would have added 4 designators
+    and nothing else.
+    The colour choice is the non-obvious part and is worth keeping. Vf rules most
+    of the range out on a 3.3 V rail — green, blue and white are 3.2–3.4 V and
+    simply will not light. Of the three that fit (orange 2.2 V, red 2.4 V, yellow
+    2.4 V), **orange is the only one bright enough to match the green**: at 1.8 cd
+    against red's 270 mcd and yellow's 210 mcd, it is the sole low-Vf part that
+    does not look dim beside a 1.3 cd emerald green.
+    Cost of doing it: new components and new nets, i.e. the one change shape that
+    requires **KTD12 — a GUI *Update PCB from Schematic*** — plus placement and
+    routing. That, not the parts, is why it was declined.
 24. **[PARTLY REFUTED, remainder FIXED] "Zero test points and 222/222 vias
     tented — no bare ground reference for a scope probe."** (dft)
     **The ground half is wrong.** `MP1`–`MP4` are **5.00 × 5.00 mm bare-copper
