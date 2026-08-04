@@ -203,12 +203,45 @@ they were less reliable about is what the numbers mean.
     *Also note for the 12 V design: 30 V is not enough for a real automotive
     input either. Load dump needs a proper front end (TVS + clamp); F1's rating
     must not be what carries it.* See the carrier plan's Outstanding Questions.
-17. **[CONFIRMED] CAN termination resistors are 0603/100 mW.** All four
-    (R10/R14/R15/R24, 60.4 Ω) are `R0603`. Termination is R10+R14 in series
+17. **[FIXED] CAN termination resistors are 0603/100 mW.** All four
+    (R10/R14/R15/R24, 60.4 Ω) were `R0603`. Termination is R10+R14 in series
     (120.8 Ω) across CANH–CANL with the jumper in the CANH leg. A CANH-to-12 V
-    short drives ~99 mA through the pair — **~1.19 W total, ~0.6 W each, about
-    6× a 0603's rating**. Real for a vehicle, but only when the H1/H3 jumper is
-    fitted, i.e. only when this board is a bus end.
+    short drives 78–87 mA through the pair at a realistic CANL of 1.5–2.5 V —
+    **0.37–0.46 W each, 3.7–4.6× a 0603's rating**; 0.60 W each in the
+    double-fault case where CANL is simultaneously grounded. Real for a
+    vehicle, but only when the H1/H3 jumper is fitted, i.e. only when this
+    board is a bus end. Not a functional defect today — thick film fails
+    *open*, so the bus loses termination and keeps running, and the TJA1051
+    survives bus shorts by ISO 11898-2 — but the board is going in a car.
+
+    Fixed in `tools/handroutes/u57-can-termination-power.json`: all four go to
+    **C3959530, Panasonic ERJP06F60R4V, 0805, 500 mW, 400 V anti-surge**, which
+    covers the single-fault case at 1.1–1.35×. Note the part matters more than
+    the size — a common 0805 is 125 mW and an uprated one 250 mW, both still
+    over.
+
+    **The 1206 (660 mW) was tried first and rejected on measurement, not
+    taste.** It does not fit: R10 fouled R14 and R24 fouled P2, and R15 cannot
+    be a vertical 1206 at all — it needs 5.116 mm between `/CAN2_RX` (y=127.333)
+    and `/CAN2_TX` (y=131.579) and there are 4.246 mm — so it must rotate and
+    move 2.5 mm east, which drags `/CAN2_TERM` across `/CAN2_TX`. Every
+    arrangement ended in a three-net re-layout of the corner, to buy margin on
+    a fault that needs two simultaneous harness shorts.
+
+    **R24 was the interesting one.** Even as an 0805 it had no legal position:
+    a 168-point 2D sweep found nothing, best +0.051 mm against a 0.1016 mm
+    rule. It is pinned — `/CAN2_L` must run west at y=130 to P2.2, so R24 sits
+    west of where `/CAN2_TX` steps down, and P2 blocks any further west. And
+    the dogleg cannot move either: west of x≈132 `/CAN2_TX` must stay above
+    `/CAN2_L` and below `/CAN2_RX`, and east of x≈134 it is at y=131.579, so
+    the step is forced into exactly R24's pocket. The fix was to **drop the
+    dogleg to the Bottom layer** — three segments re-laid identically with a
+    via at each end, `/CAN2_TX` length unchanged at 44.459 mm — after which
+    R24 does not move at all. R10 and R14 do not move either, nor do their
+    tracks; only R15 shifts 0.70 mm north. Bottom in that pocket was empty,
+    and `/CAN2_RX` already layer-hops through the same corner on Inner2.
+
+    DRC 0/0/0, ERC 1127 unchanged, BOM 41 / CPL 140 symmetric.
 18. **[CONFIRMED exactly] `SCLK_R` runs 32 mm parallel to `MISO_R` at 0.389 mm
     on Inner2.** Measured **32.74 mm at 0.389 mm edge-to-edge** — exact. A
     second corridor of **54.73 mm at 0.557 mm** also exists, so if anything the

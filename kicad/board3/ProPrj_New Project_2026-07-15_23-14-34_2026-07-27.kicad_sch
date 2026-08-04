@@ -24717,7 +24717,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:R0603"
+		(property "Footprint" "JLCImport:ERJP06F60R4V"
 			(at 120.65 187.96 0)
 			(hide yes)
 			(show_name no)
@@ -24728,7 +24728,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/FRC0603F60R4TS/3279349.html"
+		(property "Datasheet" "https://item.szlcsc.com/142685.html"
 			(at 120.65 187.96 0)
 			(hide yes)
 			(show_name no)
@@ -24740,7 +24740,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Description" "Type:Thick Film Resistor Resistance:60.4Ω Tolerance:±1% Tolerance:±1% Power(Watts):100mW Voltage-Supply(Max):75V Temperature Coefficient:±100ppm/℃ Temperature Coefficient:±100ppm/℃ Operating Temperature:-55℃~+155℃ Operating Temperature:-55℃~+155℃"
+		(property "Description" "Type:Thick Film Resistor Resistance:60.4Ω Tolerance:±1% Power(Watts):500mW Voltage-Supply(Max):400V Temperature Coefficient:±100ppm/℃ Operating Temperature:-55℃~+155℃"
 			(at 120.65 187.96 0)
 			(hide yes)
 			(show_name no)
@@ -24752,7 +24752,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "FRC0603F60R4TS"
+		(property "Manufacturer Part" "ERJP06F60R4V"
 			(at 120.65 187.96 0)
 			(hide yes)
 			(show_name no)
@@ -24764,7 +24764,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "FOJAN(富捷)"
+		(property "Manufacturer" "PANASONIC"
 			(at 120.65 187.96 0)
 			(hide yes)
 			(show_name no)
@@ -24776,7 +24776,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C2933247"
+		(property "Supplier Part" "C3959530"
 			(at 120.65 187.96 0)
 			(hide yes)
 			(show_name no)
@@ -24800,7 +24800,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "60.4Ω ±1% 100mW 厚膜电阻"
+		(property "LCSC Part Name" "ERJP06F60R4V"
 			(at 120.65 187.96 0)
 			(hide yes)
 			(show_name no)
@@ -26904,7 +26904,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:R0603"
+		(property "Footprint" "JLCImport:ERJP06F60R4V"
 			(at 91.44 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -26915,7 +26915,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/FRC0603F60R4TS/3279349.html"
+		(property "Datasheet" "https://item.szlcsc.com/142685.html"
 			(at 91.44 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -26927,7 +26927,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Description" "Type:Thick Film Resistor Resistance:60.4Ω Tolerance:±1% Tolerance:±1% Power(Watts):100mW Voltage-Supply(Max):75V Temperature Coefficient:±100ppm/℃ Temperature Coefficient:±100ppm/℃ Operating Temperature:-55℃~+155℃ Operating Temperature:-55℃~+155℃"
+		(property "Description" "Type:Thick Film Resistor Resistance:60.4Ω Tolerance:±1% Power(Watts):500mW Voltage-Supply(Max):400V Temperature Coefficient:±100ppm/℃ Operating Temperature:-55℃~+155℃"
 			(at 91.44 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -26939,7 +26939,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "FRC0603F60R4TS"
+		(property "Manufacturer Part" "ERJP06F60R4V"
 			(at 91.44 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -26951,7 +26951,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "FOJAN(富捷)"
+		(property "Manufacturer" "PANASONIC"
 			(at 91.44 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -26963,7 +26963,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C2933247"
+		(property "Supplier Part" "C3959530"
 			(at 91.44 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -26987,7 +26987,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "60.4Ω ±1% 100mW 厚膜电阻"
+		(property "LCSC Part Name" "ERJP06F60R4V"
 			(at 91.44 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -45523,7 +45523,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:R0603"
+		(property "Footprint" "JLCImport:ERJP06F60R4V"
 			(at 106.68 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -45534,7 +45534,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/FRC0603F60R4TS/3279349.html"
+		(property "Datasheet" "https://item.szlcsc.com/142685.html"
 			(at 106.68 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -45546,7 +45546,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Description" "Type:Thick Film Resistor Resistance:60.4Ω Tolerance:±1% Tolerance:±1% Power(Watts):100mW Voltage-Supply(Max):75V Temperature Coefficient:±100ppm/℃ Temperature Coefficient:±100ppm/℃ Operating Temperature:-55℃~+155℃ Operating Temperature:-55℃~+155℃"
+		(property "Description" "Type:Thick Film Resistor Resistance:60.4Ω Tolerance:±1% Power(Watts):500mW Voltage-Supply(Max):400V Temperature Coefficient:±100ppm/℃ Operating Temperature:-55℃~+155℃"
 			(at 106.68 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -45558,7 +45558,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "FRC0603F60R4TS"
+		(property "Manufacturer Part" "ERJP06F60R4V"
 			(at 106.68 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -45570,7 +45570,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "FOJAN(富捷)"
+		(property "Manufacturer" "PANASONIC"
 			(at 106.68 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -45582,7 +45582,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C2933247"
+		(property "Supplier Part" "C3959530"
 			(at 106.68 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -45606,7 +45606,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "60.4Ω ±1% 100mW 厚膜电阻"
+		(property "LCSC Part Name" "ERJP06F60R4V"
 			(at 106.68 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -49374,7 +49374,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:R0603"
+		(property "Footprint" "JLCImport:ERJP06F60R4V"
 			(at 134.62 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -49385,7 +49385,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/FRC0603F60R4TS/3279349.html"
+		(property "Datasheet" "https://item.szlcsc.com/142685.html"
 			(at 134.62 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -49397,7 +49397,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Description" "Type:Thick Film Resistor Resistance:60.4Ω Tolerance:±1% Tolerance:±1% Power(Watts):100mW Voltage-Supply(Max):75V Temperature Coefficient:±100ppm/℃ Temperature Coefficient:±100ppm/℃ Operating Temperature:-55℃~+155℃ Operating Temperature:-55℃~+155℃"
+		(property "Description" "Type:Thick Film Resistor Resistance:60.4Ω Tolerance:±1% Power(Watts):500mW Voltage-Supply(Max):400V Temperature Coefficient:±100ppm/℃ Operating Temperature:-55℃~+155℃"
 			(at 134.62 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -49409,7 +49409,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer Part" "FRC0603F60R4TS"
+		(property "Manufacturer Part" "ERJP06F60R4V"
 			(at 134.62 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -49421,7 +49421,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Manufacturer" "FOJAN(富捷)"
+		(property "Manufacturer" "PANASONIC"
 			(at 134.62 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -49433,7 +49433,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Supplier Part" "C2933247"
+		(property "Supplier Part" "C3959530"
 			(at 134.62 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -49457,7 +49457,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "LCSC Part Name" "60.4Ω ±1% 100mW 厚膜电阻"
+		(property "LCSC Part Name" "ERJP06F60R4V"
 			(at 134.62 199.39 0)
 			(hide yes)
 			(show_name no)

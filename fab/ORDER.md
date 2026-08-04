@@ -86,18 +86,24 @@ holes is not a cosmetic error. Do not "helpfully" merge them when uploading.
 
 ## Board state
 
-As of 2026-08-03, after U50:
+As of 2026-08-04, after U57:
 
 - DRC **0 errors, 0 warnings, 0 unconnected, 0 schematic parity** (run in place,
   `--severity-all --schematic-parity`)
-- BOM 42 lines / CPL 140 rows, symmetric
+- BOM 41 lines / CPL 140 rows, symmetric — the tool is the authority on this
+  number, not this file; it read 42 here from 2026-08-03 while the committed
+  BOM was already 41
 - Every via-in-pad remaining is deliberate (U4's exposed-pad thermal vias, Q2's
   plane stitches, U1.93's documented exception)
 
-**Re-upload the gerbers if you are ordering after 2026-08-03.** U50 moved the
+**Re-upload the gerbers if you are ordering after 2026-08-04.** U50 moved the
 four panel-SPI series resistors (R33/R34/R36/R37) to their MCU pins and re-cut
 their nets, so any zip built before that describes different copper. The CPL
 changed too — those four parts moved and their rotations went 90° → 180°/0°.
+U57 then took the four CAN termination resistors (R10/R14/R15/R24) from 0603 to
+0805 — **a different LCSC part, C3959530, so the BOM changed as well as the
+copper** — moved R15 0.70 mm, and put two vias and a short Bottom-layer run
+into `/CAN2_TX`.
 `gerbers-jlcpcb.zip` is a build artefact and is not tracked; regenerate with
 `"C:/Program Files/KiCad/10.0/bin/python.exe" tools/kicad_fab.py kicad/board3`.
 

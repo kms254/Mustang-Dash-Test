@@ -478,6 +478,39 @@ R42's `/GND` pad to a single thermal spoke — `starved_thermal`, invisible to t
 airwire count, which stayed 0 throughout. Budget three DRC iterations for a part
 relocation, not one.
 
+**When a part cannot be upsized, check whether the net blocking it can change
+LAYER before you re-lay the corner.** U57 (2026-08-04) took the four CAN
+termination resistors to a 500 mW 0805. R24 had *no* legal position — a
+168-point 2D sweep found nothing better than +0.051 mm against a 0.1016 mm rule
+— because `/CAN2_TX` boxed the pocket on three sides at once. Moving R24 was
+impossible (`/CAN2_L` must run west at y=130 to P2.2, and P2 blocks further
+west) and so was moving the dogleg (west of x≈132 TX must stay above `/CAN2_L`
+and below `/CAN2_RX`; east of x≈134 it is at y=131.579 — the step is forced into
+exactly that pocket). Dropping the three dogleg segments to **Bottom**, re-laid
+identically with a via at each end, cleared it in one edit: `/CAN2_TX` length
+unchanged at 44.459 mm, R24 not moved at all. Look for the layer hop before
+accepting a multi-net re-layout — and check whether a neighbouring net already
+does it (`/CAN2_RX` hops through the same corner on Inner2, so this was the
+corner's existing idiom, not a new trick).
+
+Two more from the same unit, both cheap to miss:
+**JLCImport footprints can arrive with no courtyard at all** — both candidates
+here did, while all 148 parts already on the board have one, so author it (at a
+0.25 mm pad margin, also enclosing the silk) *before* measuring any fit, or
+every clearance number is against nothing. And **swapping a land pattern
+re-seats the reference designator**, which is a silkscreen change nobody asks
+for: R10's ref moved 0.38 mm outward going 0603 → 0805 and landed on R14,
+touching at 0.000 mm. `move_fp_text` moves a footprint *field* (as opposed to
+`move_silk`, which is board-level text); note the ref rotates with the part, so
+for a vertical part the text is taller than the body and only the sides are
+viable.
+
+**Prefer the package that fits over the package with the most margin.** The
+1206 (660 mW) was the first choice here and was rejected on measurement: it
+cascaded into rotating R15, moving it 2.5 mm, and dragging `/CAN2_TERM` across
+`/CAN2_TX` — a three-net re-layout, to buy margin on a *double* fault. The 0805
+covered the single-fault case for two vias.
+
 Two consequences worth carrying: `tools/kicad_handroute.py` now has **`renet`**
 (reassign copper between nets without re-laying it, so a split run keeps its
 integer nanometres) and **rotation / absolute placement** in `move_footprints` —
