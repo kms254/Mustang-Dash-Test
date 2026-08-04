@@ -51,11 +51,27 @@ and do not:
 
 ## Known risk at order time
 
-**U1 (STM32H755ZIT6, `C730212`) stock.** Reviewed and **accepted by Kevin,
-2026-08-02.** It is ~64% of the per-board component cost ($27.26 of ~$42.31) and
-its only variant `C1343604` is at 0. This is the pattern that hit U2, which went
-2,163 → 4 units in seven days, with no substitution available. Check stock before
-ordering; if it has gone, the order is blocked regardless of everything above.
+**U1 (STM32H755ZIT6, `C730212`) stock — RE-CHECKED 2026-08-03: 25 units.**
+It was 37 on 2026-08-02. Down a third in a day, and this is the part that gates
+the order: ~64% of per-board component cost ($27.26 of ~$42.31), Extended
+(feeder fee), and its only variant `C1343604` is at 0.
+
+**There is no drop-in substitute.** Checked 2026-08-03 against the same package
+and subcategory: the single close match is `C730144` STM32H723ZET6 (3259 in
+stock, $12.43) and it is **not a substitution** — single-core Cortex-M7 against
+the H755's dual-core M7+M4, 512 KB flash against 2 MB, different I/O count.
+Adopting it is a redesign, not a swap.
+
+This is the pattern that hit U2, which went 2,163 → 4 units in seven days.
+**Check stock immediately before ordering.** If it has gone, the order is blocked
+regardless of everything above, and the decision becomes buy-elsewhere-and-consign
+or wait.
+
+**Panelisation.** No component-free rail is provided on any board edge and none
+is designed in. At 250 × 50 mm this is a long, narrow board; if JLC's assembly
+line requires rails they add them themselves, but it is worth confirming at quote
+rather than discovering it as a hold. Nothing in the board files declares an
+intent either way.
 
 ## Board state
 
