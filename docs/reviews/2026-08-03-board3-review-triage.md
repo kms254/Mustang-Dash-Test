@@ -34,24 +34,45 @@ Status key: `[FIXED]` `[CONFIRMED]` (survived refutation) `[REFUTED]`
 
 ---
 
-## 2. Fab package and docs — cheap, mostly self-inflicted, do before ordering
+## 2. Fab package and docs — CLOSED 2026-08-03
 
-2. **[CONFIRMED] The gerber zip predates the board** and contains none of U45's
-   16 silk labels. (fab-readiness) `fab/ORDER.md` points at it as the upload
-   file. **Just regenerate under KiCad's own interpreter.**
-3. **[UNVERIFIED ×2 lenses] `.gbrjob` references 11 filenames not in the zip.**
+All seven verified against the regenerated package. Five were real and are fixed;
+one was already settled; one was wrong.
+
+2. **[FIXED] The gerber zip predated the board** and contained none of U45's
+   16 silk labels. (fab-readiness) Regenerated under KiCad's own interpreter.
+   Note this recurs by design — the zip is a gitignored build artefact, so it is
+   stale the moment copper moves. U50 restaled it; regenerated again.
+3. **[FIXED] `.gbrjob` referenced 11 filenames not in the zip.**
    (fab-readiness + dfm-fab — independent convergence, the signal that made the
-   diode CRITICAL credible last time.) Likely fixed by (2).
-4. **[UNVERIFIED] `fab/ORDER.md` omits copper weight** — a real order-form field
-   that changes price and capability. (dfm-fab)
-5. **[UNVERIFIED] `ORDER.md` says 13 THT components; the lens counted 12.**
-   (dfm-fab) One of us is wrong — I measured 13, excluding H2 and MP1–MP4.
-6. **[UNVERIFIED] H2 has two silk lines at 0.120 mm, below the 0.15 minimum.**
-   (dfm-fab) In the Tag-Connect footprint this branch added.
-7. **[UNVERIFIED] `kicad/README.md` still documents 7 bodiless exemptions** (now
-   8) and a stale 3D-model directory. (fab-readiness)
-8. **[UNVERIFIED] Drill map ships inside the order archive with no declared
-   function.** (fab-readiness)
+   diode CRITICAL credible last time.) Real: `kicad_fab.py` wrote the `.gbrjob`
+   *before* canonicalising the layer names, so every reference pointed at a
+   pre-rename filename. Fixed at source; the job file is now rewritten after the
+   rename. Audited: 11 `FilesAttributes`, **0 missing from the zip**.
+4. **[FIXED] `fab/ORDER.md` omitted copper weight.** (dfm-fab) Now states 1 oz
+   (35 µm) outer and inner, with the reason it is not free to change.
+5. **[SETTLED — 12] `ORDER.md` said 13 THT components; the lens counted 12.**
+   (dfm-fab) The lens was right. `ORDER.md` lists 12 and names the two exclusions
+   that look like they belong and do not (H2 is a cable, MP1–MP4 are board
+   features), so the disagreement cannot recur silently.
+6. **[REFUTED] "H2 has two silk lines at 0.120 mm, below the 0.15 minimum."**
+   (dfm-fab) Measured in both the library footprint and the board instance
+   (KTD26 — they can disagree): **both lines are 0.1500 mm**, exactly at the
+   minimum, not 0.120. The figure was wrong. Consistent with DRC, which reports
+   0 violations at `--severity-all`.
+   *Adjacent, checked because the sweep surfaced it:* 25 silk shapes on the board
+   report width 0.0000 mm — D10/D11, LED1–LED8, P1/P2, U11/U12. All 25 are
+   **filled polygons** (pin-1 and polarity markers), where the outline width is
+   never plotted. Not a defect, recorded so the next sweep does not re-raise it.
+7. **[FIXED] `kicad/README.md` documented 7 bodiless exemptions** (now 8) and a
+   stale 3D-model directory. (fab-readiness) Reads 8 with the breakdown, and the
+   model path matches `EASYEDA_MODELS/`.
+8. **[FIXED] Drill map shipped inside the order archive with no declared
+   function.** (fab-readiness) True: `-drl_map.gbr` was the one file in the zip
+   neither declared in the `.gbrjob` nor readable as fab input — the machine
+   drills from the Excellon `.drl`. Now excluded from the upload zip and still
+   generated into `fab/gerbers/` for humans. **Every file in the archive now has
+   a declared function**: 11 declared gerbers, the job file, the drill.
 
 ## 3. Procurement / order form
 
@@ -191,7 +212,8 @@ byte-identical to the tracked files.
 
 ## Suggested order of work
 
-1. §2 (2)–(8) — bounded, mostly self-inflicted, no board risk
+1. ~~§2 (2)–(8)~~ — **closed 2026-08-03.** Five fixed, one already settled, one
+   refuted (H2's silk is 0.15 mm, not 0.120).
 2. §3 (9) — check U1 stock; it can block the order outright
 3. ~~Decide (11), (12), (22)~~ — **all three closed.** (22) fixed 2026-08-03
    (`5V ONLY`); (12) refuted on the datasheet, no copper; (11) fixed 2026-08-03
