@@ -139,13 +139,32 @@ they were less reliable about is what the numbers mean.
     **3.86 mm** (C60), so VIO was missed, not traded away. NXP asks for 100 nF
     at both. Fixing means two new parts, a schematic edit and a KTD12 GUI sync
     — the expensive shape of change, for a modest EMI/RXD-integrity gain.
-15. **[CONFIRMED — the one with a reliability argument] NRST filtering and
-    pull-up are 87–89 mm from the pin.** Measured from U1.27: **C46 88.97 mm,
-    R49 86.68 mm**, SW6 81.54 mm. Violates layout guide §3 item 13 ("C46 at
-    NRST") *and* ST's own recommended NRST protection, which puts the 100 nF at
-    the pin. It matters because the H7's internal filter only rejects pulses
-    under ~300 ns; a longer glitch on an 89 mm antenna in a car resets the dash.
-    Same fix shape as U50 — move two parts, no schematic change.
+15. **[FIXED, as far as the crystal allows] NRST filtering was 87–89 mm from the
+    pin.** Measured from U1.27: **C46 88.97 mm**, R49 86.68 mm, SW6 81.54 mm.
+    Violates layout guide §3 item 13 ("C46 at NRST") *and* ST's own recommended
+    NRST protection. It matters because the H7's internal filter only rejects
+    pulses under ~300 ns; a longer glitch on an 89 mm antenna in a car resets the
+    dash.
+    **C46 cannot reach the pin, and that is a placement conflict, not an
+    oversight.** NRST is pin 27, between OSC_IN (25), OSC_OUT (26) and the
+    crystal — and **X1's courtyard overlaps U1's** (161.748 vs U1's 162.095), so
+    there is no channel east of pin 27 at all. The nearest free 0603 pocket is
+    7.20 mm and reaching it means crossing the crystal courtyard. §3's own
+    priority order ranks the crystal and VDDA filter *above* C46, so the layout
+    followed the ranking and C46 lost.
+    Moving X1 was costed and rejected: X1.1 is already **2.047 mm** from OSC_IN,
+    and any displacement that frees pin 27 makes that worse while pushing X1
+    into C9/C45/C8. Kevin's call, 2026-08-03: **leave X1 in the ideal location.**
+    Fixed in `tools/handroutes/u52-nrst-filter-to-mcu.json`: C46 moves to the
+    first clear spot outside U1's footprint, **88.97 → 29.89 mm** straight
+    (35.1 mm routed), using the existing escape via so the board gains none.
+    **R49 deliberately stays** — a 10 kΩ pull-up is a DC hold, not a filter; at
+    DC it pulls the net high wherever it sits, and the transient path belongs to
+    the capacitor.
+    *Separate finding, not in the review:* `/OSC_OUT` routes **11.17 mm** to a
+    pin 4.18 mm away, because XI and XO are diagonally opposite on this 4-pad
+    package so only one can face U1. Rotating X1 just swaps which net is long.
+    Fixing it needs a footprint with adjacent XI/XO — an open part decision.
 16. **[NOT VERIFIED — needs the derating curve] F1's derated hold current has
     ~1.1× margin.** F1 is `1812L300_30GR`, 3 A hold at 23 °C, against a stated
     1.5–2 A worst case. The *direction* is real: PTC hold current derates
