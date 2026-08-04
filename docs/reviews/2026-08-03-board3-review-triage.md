@@ -318,8 +318,11 @@ constraint.
     and that is widely stocked as Basic at this value. This is the cheapest
     change on the entire list: identical value, identical footprint, identical
     nets, so it is a **pure supplier-metadata swap** — no geometry, no `Value`
-    change on the board, no GUI sync (the U10 precedent). Pending a Basic C0G
-    18 pF being confirmed in stock.
+    change on the board, no GUI sync (the U10 precedent).
+    **Replacement identified and in stock: `C1647`**, Samsung CL10C180JB8NNNC,
+    18 pF 50 V **C0G ±5%** 0603, **Basic + preferred**, 550,609 in stock at
+    $0.0109. C0G is what a crystal load cap wants, and ±5% on 18 pF is ±0.9 pF —
+    under half a picofarad on CL, i.e. a few ppm. Ready to execute.
 37. **[CONFIRMED — and mis-filed as "simplification"; it is a fit risk]** SW1–SW4
     and SW6/SW7 are the same part (`C5340169`, HX TS4538CJ) on **two different
     land patterns**, and the difference is not cosmetic:
@@ -336,8 +339,22 @@ constraint.
     of radial slack, so the wrong one needs the leads splayed or pinched to seat.
     These are hand-soldered, so it will probably go in — and probably not sit
     flat.
-    **Unresolved: which one is correct.** Needs the HX TS4538CJ drawing. This is
-    the one item in §7 that is not a cost question.
+    **Unresolved: which one is correct, and it is blocked here.** The HX
+    TS4538CJ datasheet was fetched
+    (`wmsc.lcsc.com/.../2212291730_hanxia-HX-TS4538CJ-250gf-009_C5340169.pdf`),
+    but its dimensioned drawing is **vector**, not a raster image — the only
+    embedded image on the page is the vendor logo, and the numeric callouts do
+    not survive text extraction (they come out as single glyphs interleaved with
+    the spec table). This box has no PDF rasteriser: no `pdftoppm`, and
+    installing poppler needs a sudo password. **Someone has to open the PDF and
+    read the lead span by eye.**
+    Scale of the risk while it is open: 1.0 mm drills against a tact-switch lead
+    of roughly 0.5–0.6 mm leaves ~0.2–0.25 mm of radial slack, and the error is
+    0.2 mm per side — so the wrong footprint probably still seats, just at the
+    limit and possibly not flat. Low, but not zero, and cheap to settle.
+    This is the one item in §7 that is not a cost question.
+    *Also noted while checking: `C5340169` is Extended with **6,046 in stock**,
+    and the board uses six of them — worth a glance before ordering.*
 
 ## 8. Refuted — do not act on these
 
