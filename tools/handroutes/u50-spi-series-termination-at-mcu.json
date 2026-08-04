@@ -1,0 +1,203 @@
+{
+  "$comment": [
+    "U50 -- move the four panel-SPI 33 ohm source-series resistors from the FPC",
+    "connectors to their MCU pins. Review item 11 (CONFIRMED, seven-lens review",
+    "2026-08-03), and a violation of docs/hardware/board3-pcb-layout-guide.md:120-122",
+    "and of the carrier plan, both of which say these sit AT the MCU pin.",
+    "",
+    "Measured before the edit, straight-line driver pad -> resistor pad:",
+    "  R33 /SCLK_L PB13  93.20 mm     R36 /MOSI_L PB15  89.99 mm",
+    "  R34 /SCLK_R PE2   88.82 mm     R37 /MOSI_R PE6   91.49 mm",
+    "R32/R35 (centre, 10.21/6.51 mm) are already compliant and are NOT touched --",
+    "FPC2 sits beside U1, so their stubs were always short.",
+    "",
+    "Why it matters here and not at the bench's proven clock: the design target is",
+    "24-30 MHz (BT817 ceiling; docs/solutions/architecture-patterns/",
+    "dash-carrier-pcb-buffered-spi-topology-30mhz-clock-contract.md). Driver->panel",
+    "is ~300 mm including the project's own ~200 mm FFC figure, so the round trip is",
+    "~3.6-3.9 ns -- the same order as an STM32H7 edge (tr/tf 4.2 ns at OSPEEDR=01,",
+    "~1-2.5 ns at high/very-high). Source-series termination only absorbs the",
+    "returning reflection when it is AT the driver.",
+    "",
+    "SHAPE OF THE EDIT. The long run is not re-laid. Each net is split where the",
+    "resistor now sits, and everything beyond it is RENAMED to the connector-side",
+    "net with its integer nanometres intact -- re-adding it would round every",
+    "endpoint through millimetres and move copper that is already DRC-clean. Only",
+    "the short pieces around each new resistor are new. Each vacated site gets a",
+    "bridge where the part used to stand.",
+    "",
+    "THE BRIDGES CANNOT BE ON THE TOP LAYER. Every one of these four resistors had",
+    "another net routed UNDER its body, through the 1.507 mm gap between its pads:",
+    "/GND weaves along the whole connector-side resistor row at y~93.73, and /MISO_L",
+    "crosses R36's site at y=93.752. A straight top bridge produced exactly four",
+    "tracks_crossing errors on the first application. Top detours are boxed in --",
+    "that /GND run continues west to (244.460,91.325) and east to (253.480,93.736)",
+    "-- so each bridge drops to the BOTTOM layer with a via at each end. Bottom is",
+    "the layout guide's secondary routing layer; Inner1 is the solid GND reference",
+    "and is deliberately not used.",
+    "",
+    "Two bridges could not keep the vacated pad centres, because a through via is",
+    "checked on all four layers: /TT2_LED_K runs vertically on Bottom at x=49.600,",
+    "0.057 mm from R36's pair, and the /MISO_R Inner2 diagonal passes 0.161 mm from",
+    "R34's south via. R36's pair therefore shifts 0.493 mm west to x=49.050, and",
+    "R34's south via moves to (245.990,92.700); each is reached by a short top stub.",
+    "",
+    "R36's NORTH via then has to leave y=94.4975 as well, and that one was found by",
+    "DRC rather than by arithmetic: at x=49.050 it sits 1.158 mm due east of R42's",
+    "/GND pad 2 and pinched the top pour down to a single thermal spoke",
+    "(starved_thermal, min 2). It is at y=95.150 instead, clear of the spoke lane.",
+    "Airwires stayed 0 throughout -- a poured net absorbs the connection either way,",
+    "which is why starved_thermal is the check that matters here.",
+    "",
+    "WEST pair (R33/R36) is nearly free: both escapes already run ~14 mm west of U1",
+    "on the Top layer at y=101.25 and y=102.25, so the resistors drop straight onto",
+    "their own traces at rot 180 (pad1 = _MCU net = east, toward the MCU). They are",
+    "staggered 3.30 mm in x because their courtyards (3.080 x 1.495) overlap in y at",
+    "1.0 mm pitch.",
+    "",
+    "EAST pair (R34/R37) cannot be done on the Top layer. U1 pins 1 and 5 are boxed",
+    "in by a /GND trace -- a horizontal leg at y=119.276 (x 159.760..162.554), a",
+    "diagonal to (163.570,118.260), then a vertical at x=163.570 up to y=113.031 --",
+    "so the escapes dive to an inner layer after only 2.586 and 1.381 mm. Both",
+    "resistors therefore sit east of that barrier and tap the inner run with one via",
+    "each side. Stub from the driver stays ~5-6 mm, i.e. ~0.04 ns: electrically",
+    "at the pin.",
+    "",
+    "R34 is collinear: the Inner2 run is nearly horizontal (163.031,117.896) ->",
+    "(222.379,117.988), so the two vias land ON the original line (y interpolated at",
+    "117.898 and 117.903) and no copper moves sideways.",
+    "",
+    "R37 is the one place geometry had to give. Its Inner1 run is an exact 45",
+    "degree diagonal (y = 278.931 - x), and a horizontal 0603 cannot sit on a 45",
+    "degree line -- any non-45 part displaces the run. The return leg",
+    "(168.100,113.900) -> (182.501,96.430) therefore converges back onto the",
+    "original endpoint instead of running parallel, so the deviation is ~2.17 mm",
+    "perpendicular at the start and zero at the end, and the segment after it is",
+    "untouched. Clearance along that leg was checked before laying it: nearest",
+    "obstruction 1.702 mm (/+3V3 via at 176.900,105.900) against 0.5286 required.",
+    "",
+    "Via drill is 0.25 to match the other 221 vias, so fab/ORDER.md's 0.20 mm",
+    "minimum-hole answer (set by the single BTN1 via) is unaffected. Tenting is left",
+    "to the board default, which tents front and back."
+  ],
+  "steps": [
+    {
+      "step": "1/4  R33 /SCLK_L -- PB13, 93.20 mm -> 2.45 mm",
+      "delete": [
+        {"net": "SCLK_L_MCU", "layers": ["Top Layer"], "vias": false,
+         "bbox": [130.0, 100.5, 140.0, 102.0]}
+      ],
+      "renet": [
+        {"from": "SCLK_L_MCU", "to": "SCLK_L", "bbox": [44.0, 93.0, 131.0, 102.0]}
+      ],
+      "move_footprints": [
+        {"ref": "R33", "to": [136.000, 101.250], "rot": 180}
+      ],
+      "add": [
+        {"net": "SCLK_L_MCU", "layer": "Top Layer", "width": 0.254,
+         "points": [[139.200, 101.250], [136.7535, 101.250]]},
+        {"net": "SCLK_L", "layer": "Top Layer", "width": 0.254,
+         "points": [[135.2465, 101.250], [130.453, 101.250]]},
+        {"net": "SCLK_L", "layer": "Bottom Layer", "width": 0.254,
+         "points": [[46.241, 94.4975], [46.241, 92.9905]]}
+      ],
+      "add_vias": [
+        {"net": "SCLK_L", "at": [46.241, 94.4975], "diameter": 0.6, "drill": 0.25},
+        {"net": "SCLK_L", "at": [46.241, 92.9905], "diameter": 0.6, "drill": 0.25}
+      ]
+    },
+    {
+      "step": "2/4  R36 /MOSI_L -- PB15, 89.99 mm -> 5.75 mm",
+      "delete": [
+        {"net": "MOSI_L_MCU", "layers": ["Top Layer"], "vias": false,
+         "bbox": [129.0, 101.5, 140.0, 103.0]}
+      ],
+      "renet": [
+        {"from": "MOSI_L_MCU", "to": "MOSI_L", "bbox": [49.0, 93.0, 130.5, 103.0]}
+      ],
+      "move_footprints": [
+        {"ref": "R36", "to": [132.700, 102.250], "rot": 180}
+      ],
+      "add": [
+        {"net": "MOSI_L_MCU", "layer": "Top Layer", "width": 0.254,
+         "points": [[139.200, 102.250], [133.4535, 102.250]]},
+        {"net": "MOSI_L", "layer": "Top Layer", "width": 0.254,
+         "points": [[131.9465, 102.250], [129.691, 102.250]]},
+        {"net": "MOSI_L", "layer": "Top Layer", "width": 0.254,
+         "points": [[49.543, 94.4975], [49.050, 95.150]]},
+        {"net": "MOSI_L", "layer": "Bottom Layer", "width": 0.254,
+         "points": [[49.050, 95.150], [49.050, 92.9905]]},
+        {"net": "MOSI_L", "layer": "Top Layer", "width": 0.254,
+         "points": [[49.050, 92.9905], [49.543, 92.9905]]}
+      ],
+      "add_vias": [
+        {"net": "MOSI_L", "at": [49.050, 95.150], "diameter": 0.6, "drill": 0.25},
+        {"net": "MOSI_L", "at": [49.050, 92.9905], "diameter": 0.6, "drill": 0.25}
+      ]
+    },
+    {
+      "step": "3/4  R34 /SCLK_R -- PE2, 88.82 mm -> 4.55 mm, vias on the Inner2 line",
+      "delete": [
+        {"net": "SCLK_R_MCU", "layers": ["Inner2"], "vias": false,
+         "bbox": [162.0, 117.0, 223.0, 119.0]}
+      ],
+      "renet": [
+        {"from": "SCLK_R_MCU", "to": "SCLK_R", "bbox": [200.0, 90.0, 260.0, 125.0]}
+      ],
+      "move_footprints": [
+        {"ref": "R34", "to": [166.000, 117.920], "rot": 0}
+      ],
+      "add": [
+        {"net": "SCLK_R_MCU", "layer": "Inner2", "width": 0.254,
+         "points": [[163.031, 117.896], [164.350, 117.898]]},
+        {"net": "SCLK_R_MCU", "layer": "Top Layer", "width": 0.254,
+         "points": [[164.350, 117.898], [165.2465, 117.920]]},
+        {"net": "SCLK_R", "layer": "Top Layer", "width": 0.254,
+         "points": [[166.7535, 117.920], [167.700, 117.903]]},
+        {"net": "SCLK_R", "layer": "Inner2", "width": 0.254,
+         "points": [[167.700, 117.903], [222.379, 117.988]]},
+        {"net": "SCLK_R", "layer": "Bottom Layer", "width": 0.254,
+         "points": [[246.2405, 94.4975], [245.990, 92.700]]},
+        {"net": "SCLK_R", "layer": "Top Layer", "width": 0.254,
+         "points": [[245.990, 92.700], [246.2405, 92.9905]]}
+      ],
+      "add_vias": [
+        {"net": "SCLK_R_MCU", "at": [164.350, 117.898], "diameter": 0.6, "drill": 0.25},
+        {"net": "SCLK_R", "at": [167.700, 117.903], "diameter": 0.6, "drill": 0.25},
+        {"net": "SCLK_R", "at": [246.2405, 94.4975], "diameter": 0.6, "drill": 0.25},
+        {"net": "SCLK_R", "at": [245.990, 92.700], "diameter": 0.6, "drill": 0.25}
+      ]
+    },
+    {
+      "step": "4/4  R37 /MOSI_R -- PE6, 91.49 mm -> 5.23 mm, converging return leg",
+      "delete": [
+        {"net": "MOSI_R_MCU", "layers": ["Inner1"], "vias": false,
+         "bbox": [162.0, 96.0, 183.0, 117.0]}
+      ],
+      "renet": [
+        {"from": "MOSI_R_MCU", "to": "MOSI_R", "bbox": [175.0, 90.0, 260.0, 100.0]}
+      ],
+      "move_footprints": [
+        {"ref": "R37", "to": [166.500, 113.900], "rot": 0}
+      ],
+      "add": [
+        {"net": "MOSI_R_MCU", "layer": "Inner1", "width": 0.254,
+         "points": [[162.181, 116.750], [164.900, 114.031]]},
+        {"net": "MOSI_R_MCU", "layer": "Top Layer", "width": 0.254,
+         "points": [[164.900, 114.031], [165.7465, 113.900]]},
+        {"net": "MOSI_R", "layer": "Top Layer", "width": 0.254,
+         "points": [[167.2535, 113.900], [168.100, 113.900]]},
+        {"net": "MOSI_R", "layer": "Inner1", "width": 0.254,
+         "points": [[168.100, 113.900], [182.501, 96.430]]},
+        {"net": "MOSI_R", "layer": "Bottom Layer", "width": 0.254,
+         "points": [[249.5425, 94.4975], [249.536, 92.984]]}
+      ],
+      "add_vias": [
+        {"net": "MOSI_R_MCU", "at": [164.900, 114.031], "diameter": 0.6, "drill": 0.25},
+        {"net": "MOSI_R", "at": [168.100, 113.900], "diameter": 0.6, "drill": 0.25},
+        {"net": "MOSI_R", "at": [249.5425, 94.4975], "diameter": 0.6, "drill": 0.25},
+        {"net": "MOSI_R", "at": [249.536, 92.984], "diameter": 0.6, "drill": 0.25}
+      ]
+    }
+  ]
+}
