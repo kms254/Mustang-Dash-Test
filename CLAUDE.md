@@ -28,7 +28,7 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   pure header, or the platform files.
   Needs host `gcc`; Git Bash has none, so **on Windows run
   `wsl -- bash -lc "./tests/run-tests.sh"`** (or the VS Code task
-  "Tests: invariant suite"). All 14/14 pass.
+  "Tests: invariant suite"). All 15/15 pass (2026-08-03).
 - Boot splash: a 2000 ms animated splash (spec vendored in `assets/splash/`)
   plays at power-up, then crossfades directly into the dash. Splash assets are
   **ASTC bitmaps embedded in the firmware image** (`tools/make_splash_flash.py`,
@@ -451,6 +451,29 @@ freerouting **could not route TT2 at all** — the mouth needed copper moved,
 and the final TT2/TT5/TT7 restack was laid by hand from complete window
 dumps with exact clearance math (track-track 0.3556, track-via 0.5286,
 via-via 0.7016 center-to-center at 0.254 mm/0.1016 mm rules).
+
+**Moving a two-pad part off its site is not free: something is already routed
+through the gap it leaves.** U50 (2026-08-03) moved the four panel-SPI series
+resistors R33/R34/R36/R37 ~90 mm to their MCU pins, per the layout guide §4 and
+the carrier plan. Each vacated 0603 needs a *bridge* joining the two nets its
+pads used to join — and on Board3 all four sites had another net running through
+that 1.507 mm gap (`/GND` weaves along the whole connector-side resistor row at
+y~93.73; `/MISO_L` crosses R36's). A straight top bridge produced exactly four
+`tracks_crossing` errors, and top detours are boxed in, so the bridges drop to
+**Bottom** (the guide's secondary-routing layer — never Inner1, the GND
+reference). Two of them then could not keep the vacated pad centres, because a
+through via is judged on all four layers: `/TT2_LED_K` runs on Bottom 0.057 mm
+away, and a `/MISO_R` Inner2 diagonal 0.161 mm. And one *legal* via still pinched
+R42's `/GND` pad to a single thermal spoke — `starved_thermal`, invisible to the
+airwire count, which stayed 0 throughout. Budget three DRC iterations for a part
+relocation, not one.
+
+Two consequences worth carrying: `tools/kicad_handroute.py` now has **`renet`**
+(reassign copper between nets without re-laying it, so a split run keeps its
+integer nanometres) and **rotation / absolute placement** in `move_footprints` —
+older plan text saying it "has no rotate op" describes the tool as it was. And a
+pure relocation needs **no schematic edit and therefore no KTD12 GUI sync**: the
+part stays between the same two nets, so only its footprint moves.
 
 **Never window-filter board dumps by an object's reference point.** Ask whether
 the SHAPE intersects the window, never whether some representative point is

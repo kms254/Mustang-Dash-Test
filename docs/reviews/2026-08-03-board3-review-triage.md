@@ -63,14 +63,40 @@ Status key: `[FIXED]` `[CONFIRMED]` (survived refutation) `[REFUTED]`
 
 ## 4. Board electrical — real engineering decisions, none blocking DRC
 
-11. **[CONFIRMED → MEDIUM] Panel SPI series termination is at the connector,
-    ~90 mm from the driver.** (adversarial-ee) Verifier reproduced the geometry
+11. **[FIXED] Panel SPI series termination was at the connector, ~90 mm from the
+    driver.** (adversarial-ee) Verifier reproduced the geometry
     (93.2 / 88.8 / 90.0 / 91.5 mm) and confirmed it contradicts
     `docs/hardware/board3-pcb-layout-guide.md:120-122`, but downgraded severity.
-    Source-series termination only works at the driver. **Fixing means moving
-    four resistors and re-routing.**
-12. **[UNVERIFIED] U48 shipped half** — `/VBUS` still has no overcurrent
-    protection and R4 has no divider lower leg. (adversarial-ee)
+    Re-measured independently and every figure reproduced to 0.01 mm. Two things
+    the review missed: **R32/R35 (centre) were already compliant** at 10.21 and
+    6.51 mm — FPC2 sits beside U1 — so only four of six were wrong; and the same
+    "at the MCU pin" requirement is stated twice more in the carrier plan, so
+    this was a layout deviation from an explicit spec, not a judgement call.
+    Fixed in `tools/handroutes/u50-spi-series-termination-at-mcu.json`: driver
+    stubs are now **2.45 / 5.75 / 4.80 / 6.08 mm**. No schematic change — the
+    resistors stay between the same two nets — so no GUI sync (KTD12) was needed.
+12. **[REFUTED → NOT-A-DEFECT] "U48 shipped half"** — `/VBUS` has no overcurrent
+    protection and R4 has no divider lower leg. (adversarial-ee) Both
+    *observations* are true; neither is a defect.
+    - **PA9 is 5 V tolerant.** The STM32H7 pin table gives PA9 I/O structure
+      `FT_u` (`FT` = 5 V tolerant I/O; `_u` = supplied by VDD33USB), additional
+      function `OTG_FS_VBUS`. VDD33USB is connected — U1 pin 91 → `/+3V3`.
+      Absolute max for FT pins is `Min(VDD,VDDA,VDD33USB,VBAT) + 4.0` = **7.3 V**
+      against 5.0 V applied.
+    - **Injection current is zero, not merely "within limits".** `IINJ(PIN)` is
+      **−5/+0 mA** for FT pins, footnoted *"positive injection is not possible on
+      these I/Os"* — an FT pin has no clamp diode to VDD, which is what makes it
+      5 V tolerant. ST specifies FT_u leakage out to `VIN ≤ 5.5 V` (≤5 µA, i.e.
+      ≤50 mV across R4), so this is a characterised operating condition.
+    - R4 is therefore a belt-and-braces series limiter, exactly as U48 intended.
+      Had PA9 been non-FT it would still have covered it: (5.0−3.6)/10k =
+      **140 µA against 5 mA**, 36× margin.
+    - `/VBUS` is a *negotiated* rail — R6/R7 feed a CH224K PD trigger (U4) whose
+      CFG1 is tied high, selecting **5 V**. Even a hypothetical 20 V contract
+      gives 1.64 mA through R4, still inside ±5 mA.
+    - No OCP on `/VBUS` is true (F1 is only in the barrel path) and is normal for
+      a USB-C **sink**: the source provides OCP by spec. Optional hardening, not
+      a fix.
 13. **[UNVERIFIED] `+3V3` is 100% 10 mil against the layout guide's ≥30 mil.**
 14. **[UNVERIFIED] TJA1051 VIO has no bypass within 23 mm.**
 15. **[UNVERIFIED] NRST filtering and pull-up are 87–89 mm from the pin.**
@@ -167,5 +193,14 @@ byte-identical to the tracked files.
 
 1. §2 (2)–(8) — bounded, mostly self-inflicted, no board risk
 2. §3 (9) — check U1 stock; it can block the order outright
-3. Decide (11), (12), (22) — the three with real electrical weight
+3. ~~Decide (11), (12), (22)~~ — **all three closed.** (22) fixed 2026-08-03
+   (`5V ONLY`); (12) refuted on the datasheet, no copper; (11) fixed 2026-08-03
+   by moving R33/R34/R36/R37 to their MCU pins.
 4. Everything else: verify before acting, given the 6-of-6 refutation rate
+
+**Running score on this list: of the 4 serious items actually measured against
+the board, 3 were refuted and 1 held.** Items 11 and 12 came from the same lens
+(adversarial-ee) and the same unit (U48/U8 layout); one was a real deviation from
+an explicit written spec, the other dissolved on one line of a datasheet. The
+preamble's warning holds — but note it cuts both ways: (11) was *downgraded* by
+its verifier and was nonetheless the one worth fixing.
