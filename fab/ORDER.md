@@ -86,12 +86,12 @@ holes is not a cosmetic error. Do not "helpfully" merge them when uploading.
 
 ## Board state
 
-As of 2026-08-04, after U57:
+As of 2026-08-04, after U58:
 
 - DRC **0 errors, 0 warnings, 0 unconnected, 0 schematic parity** (run in place,
   `--severity-all --schematic-parity`)
-- BOM 41 lines / CPL 140 rows, symmetric — the tool is the authority on this
-  number, not this file; it read 42 here from 2026-08-03 while the committed
+- BOM 41 lines / CPL 142 rows, symmetric — the tool is the authority on these
+  numbers, not this file; it read 42 here from 2026-08-03 while the committed
   BOM was already 41
 - Every via-in-pad remaining is deliberate (U4's exposed-pad thermal vias, Q2's
   plane stitches, U1.93's documented exception)
@@ -103,7 +103,10 @@ changed too — those four parts moved and their rotations went 90° → 180°/0
 U57 then took the four CAN termination resistors (R10/R14/R15/R24) from 0603 to
 0805 — **a different LCSC part, C3959530, so the BOM changed as well as the
 copper** — moved R15 0.70 mm, and put two vias and a short Bottom-layer run
-into `/CAN2_TX`.
+into `/CAN2_TX`. U58 added **two more parts** (C72/C73, TJA1051 VIO bypass):
+no new BOM line — they are the 100 nF Basic part already fitted 41× — but the
+**CPL grew from 140 to 142 rows**, so an assembly order placed against an older
+CPL will leave both unfitted.
 `gerbers-jlcpcb.zip` is a build artefact and is not tracked; regenerate with
 `"C:/Program Files/KiCad/10.0/bin/python.exe" tools/kicad_fab.py kicad/board3`.
 

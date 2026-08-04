@@ -139,12 +139,46 @@ they were less reliable about is what the numbers mean.
     *(A graph walk was attempted to identify the trunk and produced nonsense —
     1 of 74 sink pads resolved as reachable, inflating every downstream count.
     The bound above is topology-free and does not depend on it.)*
-14. **[CONFIRMED] TJA1051 VIO has no bypass within 23 mm.** Measured: U8.5 →
-    nearest `/+3V3` cap **23.19 mm**, U9.5 → **26.95 mm**. The contrast is the
-    tell — VCC on the same parts is decoupled at **4.71 mm** (C59) and
-    **3.86 mm** (C60), so VIO was missed, not traded away. NXP asks for 100 nF
-    at both. Fixing means two new parts, a schematic edit and a KTD12 GUI sync
-    — the expensive shape of change, for a modest EMI/RXD-integrity gain.
+14. **[FIXED] TJA1051 VIO has no bypass within 23 mm.** Re-measured pad-centre
+    to cap-centre: U8.5 → nearest `/+3V3` cap **22.891 mm** (C7), U9.5 →
+    **26.299 mm** (C35). The contrast is the tell — VCC on the same parts is
+    decoupled at **4.252 mm** by C59/C60, so VIO was missed, not traded away.
+    Pin 5 confirmed as VIO by *function*, not pin number (KTD27): pin 3 is
+    `/+5V` = VCC and pin 5 is `/+3V3` = VIO, which is the TJA1051**T/3**
+    pinout. And `/+3V3` is tracks with no pour anywhere (item 13), so no plane
+    capacitance was quietly covering for it.
+
+    Fixed in `tools/handroutes/u58-tja1051-vio-bypass.json`: **22.891 →
+    3.509 mm** and **26.299 → 2.358 mm**. The part costs nothing — C14663
+    (100 nF 0603, JLCPCB **Basic**) is already fitted 41× here, so the BOM stays
+    at 41 lines and C72/C73 just join that group; CPL 140 → 142. `/GND` is
+    poured on Top at both sites, so each cap's pad 2 lands on the fill through a
+    thermal: **no via and no track on the return path**, which is the half of a
+    bypass loop that matters.
+
+    **C72 needed a layer hop, and the reason is one diagonal.** `/CAN1_H` runs
+    (177.794,122.000)→(183.636,127.842) — the line `x − y = 55.794` — and it
+    separates U8.5 from every open pocket north of the part, with P1's courtyard
+    closing the west (0.677 mm gap vs a 2.790 mm 0603 courtyard). A search over
+    4 rotations and ~37,000 positions found the nearest spot with a clean
+    Top-only route at **7.08 mm** — half the benefit given up to avoid a via. So
+    the feed hops to Bottom instead. The constrained end is the second via: it
+    must clear the diagonal above *and* the `/CAN1_RX` Bottom run at y=128.023
+    below, and `/CAN1_RX` passes **0.072 mm** from the pin's own y — which is
+    why a Bottom approach straight to the pad is impossible. At x=182.4 that
+    window is 0.14 mm tall; at x=181.0 it opens to 1.54 mm.
+
+    **This did not need the KTD12 GUI sync.** Both sides were applied by hand —
+    symbols, wires and labels into the `.kicad_sch` (netlist verified: C72.1 /
+    C73.1 on `/+3V3`, C72.2 / C73.2 on `/GND`), footprints and pad nets via the
+    new `place_parts` op, which refuses to invent a net. DRC 0/0/**0 schematic
+    parity** is what proves the two halves agree.
+
+    ERC 1127 → 1137. All +10 are the schematic's existing noise classes in exact
+    proportion — 2 symbols → +2 `lib_symbol_issues`, 4 pins → +4 `pin_to_pin`,
+    4 wires → +4 `unconnected_wire_endpoint`, one each, matching the baseline's
+    465 endpoint warnings for 463 wires. No new class, and the netlist and
+    parity checks are clean.
 15. **[FIXED, as far as the crystal allows] NRST filtering was 87–89 mm from the
     pin.** Measured from U1.27: **C46 88.97 mm**, R49 86.68 mm, SW6 81.54 mm.
     Violates layout guide §3 item 13 ("C46 at NRST") *and* ST's own recommended

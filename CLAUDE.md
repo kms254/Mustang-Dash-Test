@@ -478,6 +478,31 @@ R42's `/GND` pad to a single thermal spoke — `starved_thermal`, invisible to t
 airwire count, which stayed 0 throughout. Budget three DRC iterations for a part
 relocation, not one.
 
+**Adding a NEW part does not always need the KTD12 GUI sync either.** U58
+(2026-08-04) added two bypass capacitors — symbol, wires, labels *and* footprint
+— entirely from scripts, and DRC's `--schematic-parity` came back 0. The recipe:
+clone an existing symbol block of the *same LCSC part* in the `.kicad_sch` (so
+every supplier field is inherited rather than retyped), shift every `(at …)` in
+the block by one delta, regenerate its uuids, swap the reference in both the
+Reference property and the `(instances …)` path; then add wires and labels
+copying the pattern an existing instance uses. Verify with **`kicad-cli sch
+export netlist`** and confirm the new pins land on the intended nets — that is
+the ground truth, not the ERC count. The board half is `place_parts` in
+`kicad_handroute.py`, which **refuses to invent a net**, so it can only place a
+part onto nets that already exist. Note `place_parts` is NOT `add_footprints`:
+the latter places board-only items (fiducials, bare pads) and marks them
+`FP_BOARD_ONLY` and excluded from BOM and CPL — the exact opposite of what a
+real part needs.
+
+Two things that make this cheap or expensive: **a part already on the BOM is
+nearly free** (C14663 was fitted 41× already, so the BOM stayed at 41 lines and
+only the CPL grew), and **ERC will rise — check the shape, not the number.**
+U58 took it 1127 → 1137, and all ten were the schematic's existing noise in
+exact proportion: one `lib_symbol_issues` per symbol, one `pin_to_pin` per pin,
+one `unconnected_wire_endpoint` per wire, matching a baseline of 465 endpoint
+warnings for 463 wires. A new *class* of violation would have been the signal;
+a proportional rise is not.
+
 **When a part cannot be upsized, check whether the net blocking it can change
 LAYER before you re-lay the corner.** U57 (2026-08-04) took the four CAN
 termination resistors to a 500 mW 0805. R24 had *no* legal position — a
