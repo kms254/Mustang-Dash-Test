@@ -321,26 +321,38 @@ All five measured 2026-08-03.
     **3 NPTH holes at 0.9906 mm** — the locating holes a *legged* TC2030-IDC
     cable drops into. `-NL` describes which **cable** you buy, not what the land
     pattern supports; buy the legged variant and it is hands-free. Nothing to fix.
-26. **[CONFIRMED — NOT fixable with silk; needs a placement change]** P1/P2 carry
-    no CANH/CANL pin identification. (dft) The connectors *are* identified by bus
-    — `CAN1` 10.5 mm from P1, `CAN2` 11.0 mm from P2, plus `TERM1`/`TERM2` — but
-    nothing says which screw terminal is H. CAN is differential, so a swap simply
-    does not work and does not announce itself.
-    **There is nowhere to put the label.** P1/P2 are boxed in on all four sides:
+26. **[FIXED — by moving parts, not by finding space]** P1/P2 carried no
+    CANH/CANL pin identification. (dft) The connectors were identified by *bus*
+    (`CAN1`/`CAN2`, `TERM1`/`TERM2`) but nothing said which screw is H. CAN is
+    differential, so a swap does not work and does not announce itself — it just
+    looks like a dead bus.
+    **There was nowhere to print.** P1/P2 were boxed in on all four sides:
     | side | obstruction | gap |
     |---|---|---|
-    | above | H1/H3 termination jumper (y 120.40–123.57) | **0.61 mm** |
-    | left | resistors ending x 168.5 | **0.94 mm** |
-    | right | part starting x 181.5 | **0.97 mm** |
-    | below | board edge at y 135.13 | **0.28 mm** |
-    A 1.0 mm label needs ~1.4 mm with margin, so none of those fit. And anything
-    placed *inside* the courtyard prints underneath the terminal-block body and
-    is invisible once the part is fitted — worse than nothing, because it looks
-    like the board was labelled.
-    **So this is a placement question, not a silk question.** Options: move H1/H3
-    up to open the band above P1/P2, or accept and rely on the schematic. Not
-    actioned — it needs a decision, and moving the termination jumpers is a real
-    change to a routed area.
+    | above | H1/H3 termination jumper | **0.61 mm** |
+    | left | resistors | **0.94 mm** |
+    | right | next part | **0.97 mm** |
+    | below | board edge | **0.28 mm** |
+    against the ~1.4 mm a 1.0 mm character needs. Inside the courtyard it would
+    print under the terminal-block body — invisible once assembled, and worse
+    than nothing because the board would *look* labelled.
+    **Fixed in `tools/handroutes/u56-can-pin-silk.json` by making the space.**
+    H1/H3 move up 1.0 mm, opening the band from 0.61 → **1.61 mm**. There was
+    ample room: 9.94 mm above H1 before U2, 13.33 mm above H3 before C38.
+    Two things came with it that footprint-moving alone would have missed:
+    - **TERM1/TERM2 had to move too.** They sat 1.28 mm above the jumpers they
+      label, so the new courtyard would have overlapped the text.
+    - **Four stubs had to be re-laid.** H1/H3's pads are 2.00 mm square, so a
+      1.0 mm move lands the old track ends *exactly on the new pad edge* — a
+      connection too marginal to leave to a DRC opinion. Each segment ending on
+      a jumper pad was re-added with that endpoint at the new pad centre.
+    Labels are at each pad's own x, so each reads directly above the screw it
+    names. Content verified by **function**: P1.1/P2.1 are `/CAN1_H`,`/CAN2_H`,
+    P1.2/P2.2 are `/CAN1_L`,`/CAN2_L` — then checked again from the opposite
+    direction, nearest-pad-to-each-label, 4/4 agree.
+    Verified: DRC 0/0/0, exactly the 4 jumper nets changed (segment and via
+    counts unchanged), BOM 41 / CPL 140 symmetric. No schematic change, so no
+    KTD12 sync.
 27. **[FIXED] The eight telltales carry no TT1–TT8 identification.** (dft)
     Fixed in `tools/handroutes/u55-telltale-silk.json`, 1.0 mm text on a 0.15 mm
     stroke to match U45's sixteen labels.

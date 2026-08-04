@@ -209,6 +209,35 @@ def apply_step(board, spec: dict, tracks: list, dry: bool):
             if not dry:
                 track.SetNet(dst)
 
+    for rule in spec.get("move_silk", []):
+        # Move a BOARD-level silk text (not a footprint field). Matched on its
+        # exact string, with an optional "at" to disambiguate when the same
+        # legend appears twice -- TERM1/TERM2 are distinct, but CAN1/CAN2 style
+        # pairs are one edit away from being ambiguous, so the guard is cheap.
+        want = rule["text"]
+        near = rule.get("at")
+        dx, dy = rule["by"]
+        hits = []
+        for d in board.GetDrawings():
+            if not hasattr(d, "GetText") or d.GetText() != want:
+                continue
+            if near is not None:
+                p = d.GetPosition()
+                if abs(p.x - to_nm(near[0])) > to_nm(0.5) or \
+                   abs(p.y - to_nm(near[1])) > to_nm(0.5):
+                    continue
+            hits.append(d)
+        if len(hits) != 1:
+            raise SystemExit(
+                f"move_silk {want!r}: matched {len(hits)} items, expected exactly 1 "
+                f"-- add or correct 'at' to disambiguate")
+        pos = hits[0].GetPosition()
+        moved = pcbnew.VECTOR2I(pos.x + to_nm(dx), pos.y + to_nm(dy))
+        if not dry:
+            hits[0].SetPosition(moved)
+        print(f"  ~ silk {want!r} by ({dx},{dy}) -> "
+              f"({moved.x/NM:.3f},{moved.y/NM:.3f})")
+
     for rule in spec.get("add_silk", []):
         # Board-level silkscreen text. Defaults match the 16 labels U45 placed
         # (1.0 mm high, 0.15 mm stroke) so the board reads as one hand -- and

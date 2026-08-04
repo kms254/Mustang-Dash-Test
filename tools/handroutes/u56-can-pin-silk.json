@@ -1,0 +1,96 @@
+{
+  "$comment": [
+    "U56 -- make room above P1/P2 and label the CAN screw terminals H and L.",
+    "Review item 26, which U55 could not fix because there was nowhere to print.",
+    "",
+    "THE PROBLEM. CAN is differential, so wiring H and L backwards does not work",
+    "and does not announce itself -- it just looks like a dead bus. The board",
+    "already says which connector is which bus (CAN1/CAN2, TERM1/TERM2), but",
+    "nothing says which of the two screws is H. P1/P2 were boxed in on all four",
+    "sides: H1/H3's termination jumper left 0.61 mm above, resistors 0.94 mm to",
+    "the left, another part 0.97 mm to the right, and the board edge 0.28 mm",
+    "below -- against the ~1.4 mm a 1.0 mm character needs. Anything inside the",
+    "courtyard prints under the terminal-block body and is invisible once the",
+    "part is fitted, which is worse than no label at all.",
+    "",
+    "THE FIX IS PLACEMENT, NOT SILK. H1 and H3 move up 1.0 mm, which opens the",
+    "band above P1/P2 from 0.61 to 1.61 mm. There is room to do it: the nearest",
+    "thing above H1 is U2 at 9.94 mm and above H3 is C38 at 13.33 mm, so 1.0 mm",
+    "is nothing. Every position below was checked against pads, silk, courtyards",
+    "and the board edge with a 0.20 mm margin BEFORE being written.",
+    "",
+    "TERM1/TERM2 HAVE TO MOVE TOO. They sit only 1.28 mm above the jumpers they",
+    "label, so leaving them put would have the new courtyard overlap the text.",
+    "They move up 1.0 mm with the parts they belong to, keeping the same gap.",
+    "",
+    "THE FOUR STUBS HAVE TO BE RE-LAID, and this is the part that would have",
+    "been missed by moving the footprints alone. H1/H3's pads are 2.00 x 2.00 mm,",
+    "so a 1.0 mm move lands the existing track ends EXACTLY on the new pad edge --",
+    "not inside it. That is a connection that may or may not survive a DRC",
+    "opinion and definitely should not be left to one. Each of the four segments",
+    "that terminates on a jumper pad is deleted and re-added with that endpoint",
+    "at the new pad centre; the far endpoint of each is unchanged, so nothing",
+    "downstream moves.",
+    "",
+    "  /CAN1_H     Top     (176.27,122.00)->(177.79,122.00)  start -> y 121.00",
+    "  /CAN1_TERM  Bottom  (166.87,127.35)->(173.73,122.00)  end   -> y 121.00",
+    "  /CAN2_H     Bottom  (123.73,122.00)->(123.73,128.73)  start -> y 121.00",
+    "  /CAN2_TERM  Top     (126.27,122.00)->(130.84,126.57)  start -> y 121.00",
+    "",
+    "LABEL CONTENT, verified from the netlist by FUNCTION rather than by pin",
+    "order (KTD27 -- this is the check U45 skipped and shipped a CRITICAL for):",
+    "",
+    "  P1.1 = /CAN1_H  -> 'H'      P1.2 = /CAN1_L  -> 'L'",
+    "  P2.1 = /CAN2_H  -> 'H'      P2.2 = /CAN2_L  -> 'L'",
+    "",
+    "Each label sits at its own pad's x, in the opened band at y=123.40, so it",
+    "reads directly above the screw it names rather than as a group legend.",
+    "",
+    "No schematic change: nothing moves between nets, so no KTD12 GUI sync."
+  ],
+  "steps": [
+    {
+      "step": "1/3  lift the termination jumpers and their legends 1.0 mm",
+      "move_footprints": [
+        {"ref": "H1", "by": [0.0, -1.0]},
+        {"ref": "H3", "by": [0.0, -1.0]}
+      ],
+      "move_silk": [
+        {"text": "TERM1", "at": [175.01, 119.12], "by": [0.0, -1.0]},
+        {"text": "TERM2", "at": [124.99, 119.15], "by": [0.0, -1.0]}
+      ]
+    },
+    {
+      "step": "2/3  re-land the four stubs on the moved jumper pads",
+      "delete": [
+        {"net": "CAN1_H", "layers": ["Top Layer"], "vias": false,
+         "bbox": [176.10, 121.85, 177.95, 122.15]},
+        {"net": "CAN1_TERM", "layers": ["Bottom Layer"], "vias": false,
+         "bbox": [166.70, 121.85, 173.90, 127.50]},
+        {"net": "CAN2_H", "layers": ["Bottom Layer"], "vias": false,
+         "bbox": [123.60, 121.85, 123.90, 128.90]},
+        {"net": "CAN2_TERM", "layers": ["Top Layer"], "vias": false,
+         "bbox": [126.10, 121.85, 130.99, 126.72]}
+      ],
+      "add": [
+        {"net": "CAN1_H", "layer": "Top Layer", "width": 0.254,
+         "points": [[176.270, 121.000], [177.790, 122.000]]},
+        {"net": "CAN1_TERM", "layer": "Bottom Layer", "width": 0.254,
+         "points": [[166.870, 127.350], [173.730, 121.000]]},
+        {"net": "CAN2_H", "layer": "Bottom Layer", "width": 0.254,
+         "points": [[123.730, 121.000], [123.730, 128.730]]},
+        {"net": "CAN2_TERM", "layer": "Top Layer", "width": 0.254,
+         "points": [[126.270, 121.000], [130.840, 126.570]]}
+      ]
+    },
+    {
+      "step": "3/3  label each screw terminal in the opened band",
+      "add_silk": [
+        {"text": "H", "at": [172.460, 123.400]},
+        {"text": "L", "at": [177.540, 123.400]},
+        {"text": "H", "at": [122.460, 123.400]},
+        {"text": "L", "at": [127.540, 123.400]}
+      ]
+    }
+  ]
+}
