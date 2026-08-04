@@ -22,6 +22,10 @@ An edit is a single spec, or {"steps": [spec, spec, ...]} applied in order:
                   "points": [[x,y], [x,y], ...]}],
     "add_vias": [{"net": "USB_DM_CONN", "at": [x,y], "diameter": 0.6, "drill": 0.3}],
     "move_fp_text": [{"ref": "R10", "field": "reference", "to": [x,y]}],
+    "place_parts": [{"ref": "C72", "fpid": "lib:C0603", "libpath": "…/lib.pretty",
+                     "value": "100nF", "at": [x,y], "rot": 90,
+                     "nets": {"1": "+3V3", "2": "GND"}}],   # a part WITH a symbol
+    "add_footprints": [{"ref": "FID1", "lib": "…", "name": "…", "at": [x,y]}],  # board-only
     "untent_vias": [{"at": [x,y], "net": "SCLK_C", "label": "TP1"}],
     "add_silk":  [{"text": "TT1", "at": [x,y], "height": 1.0, "thickness": 0.15}],
     "replace_footprints": [{"ref": "SW1", "fpid": "lib:FOOTPRINT",
@@ -302,6 +306,58 @@ def apply_step(board, spec: dict, tracks: list, dry: bool):
                 continue
             print(f"      pad{pad.GetNumber()} {o.GetPosition().x/NM:8.3f} -> "
                   f"{pad.GetPosition().x/NM:8.3f} mm   net {pad.GetNetname()}")
+
+    for rule in spec.get("place_parts", []):
+        # Place a NEW part that HAS a symbol -- as opposed to "add_footprints"
+        # below, which places board-only items (fiducials, bare pads) and marks
+        # them FP_BOARD_ONLY / excluded from BOM and CPL. These two are not
+        # variants of each other: this one must appear in the BOM and must match
+        # a symbol, that one must do neither.
+        #
+        # KTD12 says schematic->board sync is GUI-only, and it still is -- this
+        # does not sync anything. It is the board half of the documented "apply
+        # both sides by hand" route: the symbol, its wires and its labels go into
+        # the .kicad_sch, and the footprint plus its pad nets go here.
+        # --schematic-parity is what proves the two halves agree.
+        #
+        # Nets must ALREADY exist on the board (this places a part onto existing
+        # nets -- a decoupling cap, a termination). Inventing a net here would be
+        # the duplicate-net corruption the KiCad MCP produces; refuse instead.
+        ref = rule["ref"]
+        lib, name = rule["fpid"].split(":", 1)
+        if any(f.GetReference() == ref for f in board.GetFootprints()):
+            raise SystemExit(f"{ref} already exists on the board -- refusing")
+        fp = pcbnew.FootprintLoad(rule["libpath"], name)
+        if fp is None:
+            raise SystemExit(f"could not load {name!r} from {rule['libpath']!r}")
+        fp.SetReference(ref)
+        fp.SetValue(rule.get("value", ""))
+        x, y = rule["at"]
+        fp.SetPosition(pcbnew.VECTOR2I(to_nm(x), to_nm(y)))
+        fp.SetOrientationDegrees(rule.get("rot", 0))
+        fp.SetFPID(pcbnew.LIB_ID(lib, name))
+        want = {str(k): v.lstrip("/") for k, v in rule.get("nets", {}).items()}
+        have = {p.GetNumber() for p in fp.Pads()}
+        missing = [n for n in want if n not in have]
+        if missing:
+            raise SystemExit(f"{ref}: footprint has no pad(s) {missing} -- refusing")
+        unassigned = [n for n in have if n not in want]
+        if unassigned:
+            raise SystemExit(f"{ref}: pad(s) {unassigned} left with no net -- refusing")
+        for pad in fp.Pads():
+            netname = want[pad.GetNumber()]
+            if netname not in netmap:
+                raise SystemExit(
+                    f"{ref}.{pad.GetNumber()}: net {netname!r} does not exist on the "
+                    f"board -- refusing to invent it")
+            pad.SetNet(netmap[netname])
+        if not dry:
+            board.Add(fp)
+        print(f"  + {ref}  {rule['fpid']}  at ({x},{y}) rot {rule.get('rot', 0)}"
+              f"  value {rule.get('value','')!r}")
+        for pad in sorted(fp.Pads(), key=lambda p: p.GetNumber()):
+            q = pad.GetPosition()
+            print(f"      pad{pad.GetNumber()} ({q.x/NM:8.3f},{q.y/NM:8.3f})  net {pad.GetNetname()}")
 
     for rule in spec.get("untent_vias", []):
         # Open the solder mask over a via so it becomes a probe point. The board
