@@ -114,6 +114,38 @@ Board2 is a bench-style carrier: the MCU is a socketed Teensy module, CAN rides 
 - Telltale series resistor values for the 0805 LEDs (computed at U7 from the selected LEDs' Vf).
 - Exact buck regulator part and CAN connector style (selected at U1/U6 from JLC basic-library stock at that moment).
 
+**Possible future change — HSE bypass instead of a crystal (recorded 2026-08-03, not blocking)**
+
+- **Option:** replace `X1` (4-pad crystal) and its load caps `C41`/`C42` with a crystal
+  **oscillator (XO)** and run the H7 in **HSE bypass** (`RCC_HSE_BYPASS`): one clock
+  into `OSC_IN`, `OSC_OUT` unused.
+- **Why it came up.** The as-routed `/OSC_OUT` is **11.17 mm** to a pin **4.18 mm**
+  away. That is structural, not sloppy: on every 4-pad SMD crystal package the
+  pinout is 1=XI, 2=GND, 3=XO, 4=GND with **XI and XO diagonally opposite**, so only
+  one of them can face U1, and the layout guide forbids routing under the crystal.
+  Rotating `X1` only swaps which net is long.
+- **Shopping the part does not fix it.** All 756 in-stock 25 MHz 4-pad parts share
+  that mapping. The only different mapping is a **2-pad** crystal, and that was
+  evaluated and rejected: the sole viable in-stock SMD option (`C112569`,
+  SMD5032-2P) is **double the footprint area** of the current 3225 — in the exact
+  corner already so tight it exiled `C46` to the far side of the board — and it
+  loses the two case-ground pads §3 wants grounded locally. Note also that the
+  fitted `C9006` is the **only Basic/no-fee 25 MHz crystal in the catalogue** (1
+  basic, 0 preferred, 755 extended), so any crystal change adds a per-order fee.
+- **Why it is NOT being done now.** 11 mm of trace is ~1–1.5 pF of stray against a
+  12 pF load — a few ppm of pull, on a ±20 ppm part, for an application whose
+  tightest timing requirement is CAN at ~0.5%. Two orders of magnitude of headroom.
+  `OSC_OUT` is also a driven, low-impedance node, so it is the *less* pickup-prone
+  of the two. Untidy, not harmful.
+- **What it would buy if revisited:** one clock line instead of two, the asymmetry
+  gone by construction, and `C41`/`C42` out of U1's east edge — which is the same
+  congestion that forced U52's compromise on the NRST filter cap.
+- **What it would cost:** an XO is an extended part at higher unit price, needs its
+  own VDD decoupling, draws mA rather than µA, and requires the firmware to select
+  bypass mode. Board-side it is a schematic change, so it carries a KTD12 GUI sync.
+- **Trigger to revisit:** a measured HSE problem on the mule (start-up failure,
+  frequency out of spec, or EMI traced to the oscillator) — not on principle.
+
 Formerly-open items now resolved in the Planning Contract: crystal choice (KTD4 — DFU is crystal-free on this family), pin-table verification and center-CS question (KTD1 — generic-carrier base, datasheet-confirmed), unused-SMPS strapping (KTD3), CAN termination form (KTD5), and the K7803 module replacement (KTD3 — discrete SMD buck).
 
 ### Sources / Research
