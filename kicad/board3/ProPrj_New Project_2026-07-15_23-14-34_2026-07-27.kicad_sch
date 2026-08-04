@@ -28167,7 +28167,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:SW-TH_4P-L4.5-W4.5-P3.00-LS5.4"
+		(property "Footprint" "ProPrj_New-easyedapro:SW-TH_4P-L4.5-W4.5-P3.00-LS5.0"
 			(at 425.45 256.54 0)
 			(hide yes)
 			(show_name no)
@@ -28934,7 +28934,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:SW-TH_4P-L4.5-W4.5-P3.00-LS5.4"
+		(property "Footprint" "ProPrj_New-easyedapro:SW-TH_4P-L4.5-W4.5-P3.00-LS5.0"
 			(at 374.65 256.54 0)
 			(hide yes)
 			(show_name no)
@@ -29465,7 +29465,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:SW-TH_4P-L4.5-W4.5-P3.00-LS5.4"
+		(property "Footprint" "ProPrj_New-easyedapro:SW-TH_4P-L4.5-W4.5-P3.00-LS5.0"
 			(at 450.85 256.54 0)
 			(hide yes)
 			(show_name no)
@@ -43460,7 +43460,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:SW-TH_4P-L4.5-W4.5-P3.00-LS5.4"
+		(property "Footprint" "ProPrj_New-easyedapro:SW-TH_4P-L4.5-W4.5-P3.00-LS5.0"
 			(at 400.05 256.54 0)
 			(hide yes)
 			(show_name no)
@@ -53278,7 +53278,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "hanxia(韩下)"
+		(property "Manufacturer" "hanxia"
 			(at 382.27 274.32 0)
 			(hide yes)
 			(show_name no)
@@ -55178,7 +55178,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "hanxia(韩下)"
+		(property "Manufacturer" "hanxia"
 			(at 408.94 274.32 0)
 			(hide yes)
 			(show_name no)

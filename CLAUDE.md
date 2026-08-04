@@ -428,6 +428,16 @@ PD0–PD7 are freed. Lamp bit l drives TT(l+1); DIM regs 0x2C–0x2F on both ICs
   item collide with itself ("no feasible spot" that looks like tight
   geometry). Exclude by coordinates/value. Mutation through any proxy
   still works; only identity breaks.
+- **The staged-copy trap has an ERC form, and it is nastier because the
+  filename is the hidden dependency.** `kicad-cli sch erc` resolves the
+  footprint library table through the `.kicad_pro` **whose name matches the
+  schematic's**. A baseline copied out as `_erc_baseline.kicad_sch` therefore
+  loads no project at all and reports **141 phantom `footprint_link_issues`**
+  on Board3 — making an ERC-neutral edit look like it removed 154 violations.
+  Copying into the project *directory* is not enough; the sidecar has to match
+  by name. To baseline a schematic edit, put the HEAD version back at the real
+  path, run ERC, then restore your copy — anything else compares a project to
+  a non-project.
 - Headless DRC on a staged board copy needs the FULL sidecar set:
   `.kicad_pro`, `.kicad_dru`, **`fp-lib-table` + the `.pretty` dirs** —
   without the last two, kicad-cli reports mass `lib_footprint_issues`

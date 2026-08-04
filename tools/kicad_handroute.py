@@ -113,6 +113,14 @@ def layer_id(board, name: str) -> int:
     raise SystemExit(f"unknown copper layer: {name!r}")
 
 
+# Removed board items must outlive SaveBoard. Letting a removed SWIG proxy be
+# garbage-collected frees the underlying C++ object and corrupts the session --
+# unrelated proxies turn into raw SwigPyObjects. apply_step's locals die before
+# main() saves, so this deliberately leaks at module scope for the process
+# lifetime. The "memory leak ... no destructor" warnings are this working.
+_KEEPALIVE: list = []
+
+
 def apply_step(board, spec: dict, tracks: list, dry: bool):
     netmap = {net.GetNetname().lstrip("/"): net
               for net in board.GetNetsByNetcode().values()}
@@ -183,6 +191,47 @@ def apply_step(board, spec: dict, tracks: list, dry: bool):
                   f"({end.x/NM:8.3f},{end.y/NM:8.3f})")
             if not dry:
                 track.SetNet(dst)
+
+    for rule in spec.get("replace_footprints", []):
+        # Swap a footprint for a different land pattern, keeping everything that
+        # is NOT the land pattern: position, rotation, side, reference, value,
+        # attributes, and the net on every pad matched BY PAD NUMBER (KTD27 --
+        # never by order). pcbnew.FootprintLoad returns a bare FPID with no
+        # library nickname, which reads as a lib_footprint_mismatch and stops
+        # KiCad resolving the library at all, so the full FPID is set explicitly.
+        ref = rule["ref"]
+        lib, name = rule["fpid"].split(":", 1)
+        old = next((f for f in board.GetFootprints() if f.GetReference() == ref), None)
+        if old is None:
+            raise SystemExit(f"no footprint {ref!r} on the board")
+        nets = {p.GetNumber(): p.GetNet() for p in old.Pads()}
+        new = pcbnew.FootprintLoad(rule["libpath"], name)
+        if new is None:
+            raise SystemExit(f"could not load {name!r} from {rule['libpath']!r}")
+        new.SetReference(old.GetReference())
+        new.SetValue(old.GetValue())
+        new.SetPosition(old.GetPosition())
+        new.SetOrientation(old.GetOrientation())
+        new.SetLayer(old.GetLayer())
+        new.SetAttributes(old.GetAttributes())
+        new.SetFPID(pcbnew.LIB_ID(lib, name))
+        missing = [n for n in nets if n not in {p.GetNumber() for p in new.Pads()}]
+        if missing:
+            raise SystemExit(f"{ref}: new footprint has no pad(s) {missing} -- refusing")
+        for pad in new.Pads():
+            if pad.GetNumber() in nets:
+                pad.SetNet(nets[pad.GetNumber()])
+        if not dry:
+            board.Remove(old)
+            board.Add(new)
+            _KEEPALIVE.append(old)
+        print(f"  * {ref}: {old.GetFPIDAsString()} -> {rule['fpid']}")
+        for pad in sorted(new.Pads(), key=lambda p: p.GetNumber()):
+            o = next((p for p in old.Pads() if p.GetNumber() == pad.GetNumber()), None)
+            if o is None:
+                continue
+            print(f"      pad{pad.GetNumber()} {o.GetPosition().x/NM:8.3f} -> "
+                  f"{pad.GetPosition().x/NM:8.3f} mm   net {pad.GetNetname()}")
 
     for rule in spec.get("untent_vias", []):
         # Open the solder mask over a via so it becomes a probe point. The board

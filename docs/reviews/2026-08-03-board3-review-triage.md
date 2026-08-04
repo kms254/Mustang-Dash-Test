@@ -420,22 +420,41 @@ constraint.
     of radial slack, so the wrong one needs the leads splayed or pinched to seat.
     These are hand-soldered, so it will probably go in — and probably not sit
     flat.
-    **Unresolved: which one is correct, and it is blocked here.** The HX
-    TS4538CJ datasheet was fetched
-    (`wmsc.lcsc.com/.../2212291730_hanxia-HX-TS4538CJ-250gf-009_C5340169.pdf`),
-    but its dimensioned drawing is **vector**, not a raster image — the only
-    embedded image on the page is the vendor logo, and the numeric callouts do
-    not survive text extraction (they come out as single glyphs interleaved with
-    the spec table). This box has no PDF rasteriser: no `pdftoppm`, and
-    installing poppler needs a sudo password. **Someone has to open the PDF and
-    read the lead span by eye.**
-    Scale of the risk while it is open: 1.0 mm drills against a tact-switch lead
-    of roughly 0.5–0.6 mm leaves ~0.2–0.25 mm of radial slack, and the error is
-    0.2 mm per side — so the wrong footprint probably still seats, just at the
-    limit and possibly not flat. Low, but not zero, and cheap to settle.
-    This is the one item in §7 that is not a cost question.
-    *Also noted while checking: `C5340169` is Extended with **6,046 in stock**,
-    and the board uses six of them — worth a glance before ordering.*
+    **SETTLED FROM THE VENDOR DRAWING, and SW1–SW4 were the wrong ones.** The HX
+    TS4538CJ datasheet's recommended PCB pattern is dimensioned **5 mm × 3 mm,
+    holes ø1** — the LS5.0 footprint exactly. SW6/SW7 were right all along.
+    Reading it needed a rasteriser: the drawing is vector, the only embedded
+    image on the page is the vendor logo, and the callouts do not survive text
+    extraction. `pip install pymupdf` renders it; poppler needs a sudo password.
+    **It is a fit defect, not a margin.** The same drawing specifies the leads as
+    **4-ø0.95 ±0.1 into ø1.0 holes** — 0.025 mm of radial slack at nominal and
+    *none* at the +0.1 lead tolerance. There is nothing to absorb 0.2 mm per side
+    with, so SW1–SW4 would not have seated without splaying the leads. (My
+    earlier estimate of "probably still seats" assumed a 0.5–0.6 mm lead and was
+    wrong by a factor of two.)
+    **Root cause found:** SW1–SW4 were placed from a *different library symbol* —
+    `4.5X4.5X4.5WATERPROOF TACT SWITCH DIP 260G`, whose 5.4 mm land pattern is
+    presumably right for that part — and the value and supplier fields were then
+    overridden to the TS4538CJ without the footprint following.
+    **Fixed in `tools/handroutes/u54-button-land-pattern.json`.** All six buttons
+    now measure 5.000 × 3.000 mm. Position, rotation, reference, value and
+    attributes preserved; nets carried across by pad number. The schematic's
+    Footprint field was updated in the same change — a board-only edit would have
+    left `--schematic-parity` disagreeing, which is the only check that compares
+    a footprint to its symbol.
+    **Three things came free with it:**
+    - **The BOM lost a line, 42 → 41.** The same LCSC part was being ordered as
+      two lines (4 + 2) purely because of the footprint split. This is what
+      `kicad_lcsc.py duplicates` was hinting at with "41 distinct LCSC codes, 42
+      value+footprint keys"; it now reads 41 and 41.
+    - **Item 33 relaxed.** Both pads move inward, so SW→R28–R31 courtyard
+      clearance goes **0.45 → 0.65 mm**.
+    - The `hanxia` / `hanxia(韩下)` manufacturer split that the merge exposed was
+      normalised to the ASCII spelling, removing a cp1252 encoding hazard.
+    Verified: DRC 0/0/0, ERC unchanged at 1127, nets unchanged, BOM/CPL
+    symmetric at 41/140.
+    *Also noted: `C5340169` is Extended with **6,046 in stock** and the board
+    uses six — worth a glance before ordering.*
 
 ## 8. Refuted — do not act on these
 
