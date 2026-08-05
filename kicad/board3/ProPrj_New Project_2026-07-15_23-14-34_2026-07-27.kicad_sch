@@ -35592,7 +35592,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL21A106KAYNNNE")
+		(lib_id "ProPrj_New-easyedapro:CL21A226MAQNNNE")
 		(at 298.45 110.49 0)
 		(unit 1)
 		(body_style 0)
@@ -44726,7 +44726,7 @@
 	)
 
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL21A106KAYNNNE")
+		(lib_id "ProPrj_New-easyedapro:CL21A226MAQNNNE")
 		(at 356.87 120.65 0)
 		(unit 1)
 		(body_style 0)
@@ -53499,7 +53499,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CL21A106KAYNNNE")
+		(lib_id "ProPrj_New-easyedapro:CL21A226MAQNNNE")
 		(at 369.57 109.22 0)
 		(unit 1)
 		(body_style 0)
@@ -59375,7 +59375,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
+		(lib_id "ProPrj_New-easyedapro:CL10A105KB8NNNC")
 		(at 95.0 372.0 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -59717,7 +59717,7 @@
 		)
 	)
 	(symbol
-		(lib_id "ProPrj_New-easyedapro:CC0603KRX7R9BB104")
+		(lib_id "ProPrj_New-easyedapro:CL10A105KB8NNNC")
 		(at 95.0 388.0 0)
 		(unit 1)
 		(exclude_from_sim no)
