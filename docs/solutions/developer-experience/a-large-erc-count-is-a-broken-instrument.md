@@ -405,11 +405,14 @@ alone — which is also what the library-load check verifies.
   here were entirely real. The discriminator that survives both cases is whether
   the message names a **resource the checker could not resolve** (configuration)
   or a **property of objects it read fine** (design).
-- The campaign lives on branch `fix/board3-review-section4` and is **not merged
-  as of this writing** — PR #24 is merged but ends before these commits, and no
-  open PR yet carries them. Five commits for six classes, each with its own
-  netlist check; `pin_not_driven` never got one because it fell out with the pin
-  types, and the last commit bundles the final two classes.
+- The campaign lives on branch `fix/board3-review-section4`, carried by **PR #25
+  (open, unmerged as of this writing)**. PR #24 is merged off the same branch and
+  does *not* contain these commits — its list ends before them, so "merged" and
+  "on the head branch" are both true of it while "landed in #24" is false; see
+  [verifying every part of a claim](../design-patterns/verifying-every-part-of-a-claim-does-not-verify-the-claim.md).
+  Five commits for six classes, each with its own netlist check; `pin_not_driven`
+  never got one because it fell out with the pin types, and the last commit
+  bundles the final two classes.
 - `.github/workflows/kicad-drc-erc.yml` — now four absolute gates and no
   ratchet: ERC at `--severity-all`, DRC through the staged rules, library-load,
   and schematic parity. The comments on the ERC and DRC steps record why each
