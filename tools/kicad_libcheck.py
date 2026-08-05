@@ -232,6 +232,105 @@ def main() -> int:
     if not miss:
         print("  none")
 
+    # ---- 5: instance fields agree with the symbol their lib_id names ---------
+    # A GUI "Update Symbols from Library" rewrites instance fields from the
+    # library. Where the two disagree, that silently reverts the part -- and
+    # --schematic-parity only catches the footprint half, so a Supplier Part
+    # revert ships. 19 instances diverged on 2026-08-04, 12 of them on sourcing
+    # fields, including F1 reverting from the 3 A PTC to the 200 mA one. All
+    # were reconciled, so this can be an absolute gate rather than a ratchet.
+    print("\ninstances whose fields disagree with their lib_id's symbol:")
+    libsyms: dict[str, dict[str, str]] = {}
+    for nick, uri in sym_tbl:
+        path = Path(uri.replace("${KIPRJMOD}", str(root)))
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        d, i, instr = 0, 0, False
+        while i < len(text):
+            c = text[i]
+            if instr:
+                if c == "\\":
+                    i += 2
+                    continue
+                if c == '"':
+                    instr = False
+            elif c == '"':
+                instr = True
+            elif c == "(":
+                d += 1
+                if d == 2:
+                    m = re.match(r'\(symbol "([^"]+)"', text[i:i + 400])
+                    if m:
+                        j, dd, q = i, 0, False
+                        while j < len(text):
+                            ch = text[j]
+                            if q:
+                                if ch == "\\":
+                                    j += 2
+                                    continue
+                                if ch == '"':
+                                    q = False
+                            elif ch == '"':
+                                q = True
+                            elif ch == "(":
+                                dd += 1
+                            elif ch == ")":
+                                dd -= 1
+                                if dd == 0:
+                                    break
+                            j += 1
+                        libsyms[f"{nick}:{m.group(1)}"] = {
+                            k: v for k, v in re.findall(
+                                r'\(property "([^"]+)" "([^"]*)"', text[i:j + 1])}
+            elif c == ")":
+                d -= 1
+            i += 1
+
+    WATCH = ("Supplier Part", "Footprint", "Manufacturer Part", "Value")
+    diverged = 0
+    for f in scs:
+        text = f.read_text(encoding="utf-8")
+        for m in re.finditer(r"\r?\n\t\(symbol\r?\n", text):
+            st = m.start() + (2 if text[m.start():m.start() + 2] == "\r\n" else 1)
+            dd, j, q = 0, st, False
+            while j < len(text):
+                ch = text[j]
+                if q:
+                    if ch == "\\":
+                        j += 2
+                        continue
+                    if ch == '"':
+                        q = False
+                elif ch == '"':
+                    q = True
+                elif ch == "(":
+                    dd += 1
+                elif ch == ")":
+                    dd -= 1
+                    if dd == 0:
+                        break
+                j += 1
+            blk = text[st:j + 1]
+            lid = re.search(r'\(lib_id "([^"]+)"\)', blk)
+            ref = re.search(r'\(property "Reference" "([^"]+)"', blk)
+            if not lid or not ref or lid.group(1) not in libsyms:
+                continue
+            inst = {k: v for k, v in re.findall(r'\(property "([^"]+)" "([^"]*)"', blk)}
+            lib = libsyms[lid.group(1)]
+            bad = [w for w in WATCH
+                   if lib.get(w, "") != "" and inst.get(w, "") != lib.get(w, "")]
+            if bad:
+                diverged += 1
+                print(f"  {ref.group(1):6s} {lid.group(1).split(':')[-1][:34]:36s} {','.join(bad)}")
+                for w in bad:
+                    problems.append(
+                        f"{ref.group(1)}.{w}: instance {inst.get(w,'')!r} but its "
+                        f"symbol says {lib.get(w,'')!r} -- an Update Symbols from "
+                        f"Library would silently revert it")
+    if not diverged:
+        print("  none")
+
     print()
     if problems:
         print(f"FAIL -- {len(problems)} problem(s):")

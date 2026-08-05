@@ -798,10 +798,20 @@ reviewers against each other is worth as much as running either one.
     the `lib_symbols` cache, and had **identical pin geometry** (±5.08, angle
     0/180, length 2.54), so no wire moved.
 
-    **Result: 19 → 7 diverging instances, and 0 on Supplier Part or Footprint.**
-    The remaining 7 differ only on `Value` (e.g. C41 reads `18pF` where the
-    library reads `CL10C180JB8NNNC`), which is cosmetic and does not reach the
-    BOM.
+    *Three more library symbols' `Value` corrected* (C41/C42, R10/R14/R15/R24,
+    LED3 — 7 instances). Same rule, same safety: each symbol was used only by
+    the instances that disagreed with it. Note the house convention is not
+    "electrical value everywhere" — SW1–SW4 legitimately carry the MPN in
+    `Value` — so each symbol was matched to its own instances rather than to a
+    style.
+
+    **Result: 19 → 0. Every one of 137 instances now agrees with its symbol**,
+    on Supplier Part, Footprint, Manufacturer Part and Value alike.
+
+    Because it is zero, `tools/kicad_libcheck.py` now gates on it **absolutely**
+    rather than as a ratchet. Verified both ways: the real project exits 0, and
+    a copy with F1's supplier reverted in the library exits 1 with
+    `F1.Supplier Part: instance 'C48985875' but its symbol says 'C960026'`.
 
     Verified against a captured baseline at every step: **netlist identical**
     (228 nets, zero membership changes), DRC 0/0/0, ERC 1009 unchanged, BOM
