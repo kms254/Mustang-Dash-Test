@@ -34,15 +34,19 @@ What it checks
 --------------
 1. Every library named in `sym-lib-table` / `fp-lib-table` resolves to a path
    that exists (`${KIPRJMOD}` expanded to the project directory).
-2. Every SYMBOL library actually loads, probed through `kicad-cli`. Note that
-   command exits 0 whether or not the load succeeded, so the stdout text is the
-   result -- never `$?`.
+2. Every SYMBOL library actually loads, probed through `kicad-cli`, judged on
+   the output TEXT rather than the return code -- see `library_loads`.
 3. No symbol or footprint name contains a colon. This is the preventive half:
    it names the offending symbol directly instead of making you bisect a
    400 KB library to find out why it will not load.
 4. Every library nickname referenced by the schematic or the board is actually
    registered in the corresponding table. (`Board3:TC2030-IDC-NL` was in use
    while `Board3` was in neither table.)
+5. Every instance's fields agree with the symbol its `lib_id` names. A GUI
+   "Update Symbols from Library" rewrites instance fields FROM the library, so
+   a divergence is a silent revert waiting to happen -- and `--schematic-parity`
+   only covers the footprint half, so a stale `Supplier Part` would reach the
+   BOM. 19 instances diverged when this was first run.
 
 Exit codes: 0 clean, 1 something is wrong.
 """
@@ -125,7 +129,16 @@ def footprint_names(pretty: Path) -> list[str]:
 
 
 def library_loads(cli: str, lib: Path, probe: str) -> tuple[bool, str]:
-    """kicad-cli exits 0 either way -- the stdout text is the result."""
+    """Judge the load by the output TEXT, never by the return code.
+
+    kicad-cli 10.0.5 does distinguish: 0 on success, 1 for a missing symbol,
+    2 for "Unable to load library". But the code is fragile in a way the text
+    is not -- `$?` after any pipe (`| tee`, `| cat`) is the LAST command's
+    status, which silently turns a failure into a success without
+    `set -o pipefail`. That is exactly how this probe was first misread as
+    "exits 0 either way". Matching the text survives both that mistake and a
+    future KiCad renumbering its exit codes.
+    """
     r = subprocess.run(
         [cli, "sym", "export", "svg", "--symbol", probe, "-o",
          str(Path(lib).parent / "__libcheck_tmp__"), str(lib)],
