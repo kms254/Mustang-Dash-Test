@@ -120,15 +120,28 @@ run measured annular rings against a 0.1 mm default the board was never designed
 to — and a 0.10 mm ring introduced during routing went unreported the entire
 time.
 
-**A live instance remains open in this repo.** `.github/workflows/kicad-drc-erc.yml`
-runs `kicad-cli pcb drc` directly with `--severity-error --exit-code-violations`,
-against `kicad/board3/*.kicad_pcb`. It does not invoke `tools/kicad_verify.py`
-and passes no baseline, so it enforces a zero-violation bar on a board whose
-measured floor is 36. The board's tracked `.kicad_pro` was synced to the real
-rules, so the numbers are at least comparable — but the bar is still unreachable
-by construction. That workflow's own header says *"a check that cries wolf is a
-check people learn to merge past"*, which is the argument against the flags in
-the step below it.
+**That instance is now closed, and how it closed is the point.** This doc
+previously recorded a live one: `.github/workflows/kicad-drc-erc.yml` ran
+`kicad-cli pcb drc` with `--exit-code-violations` and no baseline, enforcing a
+zero-violation bar on a board whose measured floor was 36 — unreachable by
+construction. It was not fixed by relaxing the bar. The raw `kicad-cli` call was
+demoted to an informational report that writes `drc.json` and gates nothing, and
+the gate moved to `tools/kicad_verify.py --baseline … --contract count`, which
+fails on a per-type increase from the floor.
+
+The choice is per check, not per pipeline, and the deciding question is whether
+zero is a state the artifact could actually occupy.
+
+**On this repo the answer eventually became "yes" everywhere, and the ratchets
+were retired.** For a period the workflow ran both kinds side by side — ratcheted
+DRC and ERC deltas against a baseline, beside absolute gates for schematic parity
+and library loading — which is still the shape to copy when a floor is genuinely
+real. But the floor here was not permanent: ERC went 1009 → 0 and DRC to 0 at all
+severities under the project's own staged rules, so both deltas became absolute
+and the baseline checkouts they fed were deleted as dead weight. The durable
+lesson is the middle step, not the end state: **a ratchet is justified by a claim
+about the artifact, and claims expire.** Re-measure the floor before renewing the
+ratchet, or you will still be gating against a defect somebody already fixed.
 
 **A resolved instance, in warning form.** The thesis applies to standing
 warnings as well as red gates: U2's `lib_footprint_mismatch` sat at "1" through
@@ -188,6 +201,8 @@ reach any of them.
 
 ## Related
 
+- [A colon in one symbol name makes the entire library unloadable](../integration-issues/kicad-colon-in-symbol-name-makes-library-unloadable.md) — the inverse polarity of this doc's thesis: a gate that is permanently *green* and structurally unable to report the class it was meant to catch, because the finding was a warning and the gate filtered to errors. Also the absolute gate that closed this doc's live instance
+- [A large ERC count is a broken instrument](../developer-experience/a-large-erc-count-is-a-broken-instrument.md) — **this doc's deciding question applied to the ERC gate, answering the other way.** That gate was ratcheted on the premise that an imported schematic carries warning noise no edit can clear; all 1009 violations were then cleared without one net moving, so zero *is* a state this artifact can occupy. The gate has since been rewritten absolute at `--severity-all`, and the DRC gate followed for the same reason once its floor was re-measured at 0. Worth carrying: a ratchet justified by inherited noise is a claim about the artifact, and claims expire — re-test the premise before renewing the ratchet
 - [Refill zones before measuring a headlessly routed board](../developer-experience/refill-zones-before-measuring-a-headlessly-routed-board.md) — the other way a DRC number arrives precise and wrong
 - [Calibrate an automated reviewer on a confirmed defect](../design-patterns/calibrate-an-automated-reviewer-on-a-confirmed-defect.md) — the calibration rot this doc's advisory docstring refers to
 - [Migrating a board from EasyEDA Pro to KiCad loses data silently](../integration-issues/easyeda-pro-to-kicad-migration-silent-data-loss.md) — where the 41-violation baseline comes from

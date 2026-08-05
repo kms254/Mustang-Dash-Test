@@ -245,6 +245,7 @@ same measurement as any other.
 
 ## Related
 
+- [A colon in one symbol name makes the entire library unloadable](kicad-colon-in-symbol-name-makes-library-unloadable.md) — a further loss from this same import, found months later: the exported symbol library carried a name containing KiCad's LIB_ID separator, which made the whole library unloadable while every downstream artefact stayed correct
 - [Verifying EasyEDA design state by reading the .eprj2 project file](../developer-experience/easyeda-eprj2-agent-verification.md) — the same SQLite file, read for verification rather than migration
 - [Authoring a full schematic through the EasyEDA MCP bridge](../developer-experience/easyeda-bridge-schematic-authoring-workflow.md) — the bridge's own limits, which motivated evaluating KiCad in the first place
 - ["DRC clean and measured" is not "assemblable"](../conventions/drc-clean-and-measured-is-not-assemblable.md) — the fab-package pass that surfaced the last two losses, long after the board verified clean

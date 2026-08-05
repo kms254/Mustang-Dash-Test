@@ -507,7 +507,11 @@ down without one net moving -- the netlist was byte-identical against a baseline
 at every one of six steps -- so treat a large ERC count as a broken instrument,
 not as a property of the design.
 
-What it actually was, in order of size:
+The classes handled, in order of size. **These do not sum to 1009 and are not
+meant to** -- the six below total 1013, because `power_pin_not_driven` was not in
+the baseline at all: the pin retype *created* it. The 1009 is the first five plus
+2 `lib_symbol_mismatch` (469+372+100+55+11+2). Expect a correct fix to surface a
+new class, and check the shape of the rise rather than the total.
 
   469  unconnected_wire_endpoint -- every net label sat at its wire's MIDPOINT,
        leaving the far end dangling. Moved each label onto the free end. 16 of
@@ -522,10 +526,12 @@ What it actually was, in order of size:
        12 switch second-poles, DC1's sleeve). No-connect flags make "unused" an
        assertion instead of an accident.
    55  pin_not_driven -- fell out with the pin types.
-   11  endpoint_off_grid -- the AW9523B reset networks, F1 and LED2 placed at
-       round coordinates (60, 95, 130, 170 x 372, 388) that are not multiples of
-       1.27. Seven of eight had NO wire on the off-grid pin: they connect by a
-       label sitting directly on it, so the labels had to move with the symbol.
+   11  endpoint_off_grid -- 8 symbol pins + 3 wire ends. Seven of the symbols
+       (the AW9523B reset networks and F1) sit at round coordinates
+       (60, 95, 130, 170 x 372, 388) that are not multiples of 1.27; the eighth,
+       LED2, is ON grid in x and off only in y. Seven of eight had NO wire on the
+       off-grid pin: they connect by a label sitting directly on it, so the
+       labels had to move with the symbol.
     6  power_pin_not_driven -- appeared only after the pin types were right, and
        is what PWR_FLAG is for. The symbol went into the project's own
        Board3.kicad_sym rather than KiCad's global `power` library, so the
@@ -569,14 +575,19 @@ missing. Removing the one unused symbol fixed it: **ERC 1131 → 1009**.
 Diagnose it with `kicad-cli sym export svg --symbol <name> <lib>`; it prints
 `Unable to load library`. Control it against a stock library
 (`share/kicad/symbols/Device.kicad_sym`) so you know the invocation is right —
-and note the exit code is **0 either way**, so check the text, not `$?`. Things
-that were NOT the cause here, each tested and cleared: CRLF line endings, a
-UTF-8 BOM, duplicate symbol names, unbalanced parens, a stale library table, a
-global-table nickname shadow. Non-ASCII names (Chinese) and `/` in names are
-fine; only the colon is fatal.
+and **judge it by the printed text, not `$?`**. The exit code does distinguish
+(0 ok, 1 missing symbol, 2 unable to load), but `$?` after any pipe is the last
+command's status, so a `| tee` or `| cat` in the probe turns the failure into a
+success without `set -o pipefail` — that is how this was first misread as
+"exits 0 either way". Things that were NOT the cause here, each tested and
+cleared: CRLF line endings, a UTF-8 BOM, duplicate symbol names, unbalanced
+parens, a stale library table, a global-table nickname shadow. Non-ASCII names
+(Chinese) and `/` in names are fine; only the colon is fatal.
 
 Same file also revealed `Board3.kicad_sym` was never registered in
 `sym-lib-table` while `Board3:TC2030-IDC-NL` was in use. Both fixed 2026-08-04.
+`tools/kicad_libcheck.py` now gates all of this in CI; full write-up in
+`docs/solutions/integration-issues/kicad-colon-in-symbol-name-makes-library-unloadable.md`.
 
 **Repointing a `lib_id` headless works for some parts and NOT others, and the
 only thing that reliably tells you which is the netlist diff.** Export
