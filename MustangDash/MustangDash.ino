@@ -404,8 +404,13 @@ static const uint8_t BL_STEADY = 128U;
  * the actual bench (2026-07-10): flash init returned 0x01, all 9 font
  * inflates failed GETPTR verification, and corrupted REG_CMDB_SPACE reads
  * dragged fps to 25 with faults=0 -- writes mostly survived, reads did not.
- * 8 MHz is the verified operating point until the U9 soak walks it up --
- * fps alone never accepts an operating point. */
+ * fps alone never accepts an operating point.
+ *
+ * 8 MHz was the Teensy-era operating point. The value below is 13.5 MHz and
+ * the justification is on its own line; this block is kept for the 24 MHz
+ * failure signature, which is the reusable part. Do not read the paragraph
+ * above as describing the current constant -- it did for a while, and a doc
+ * cited it as "current tree" while the constant said otherwise. */
 static const uint32_t DASH_SPI_RUN_HZ = 13500000UL; /* 13.5 MHz: proven for TWO panels (center 7" + one 5" side)
     once the grounds are clean -- 2026-07-23, fps=59, faults=0,0,0, eve=ok,ok, both DLs full. IMPORTANT: an
     earlier same-night "three-point clock walk" (13.5 retire / 3.375 too-slow-retire / 6.75 renders-but-faults)

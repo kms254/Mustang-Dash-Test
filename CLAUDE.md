@@ -123,10 +123,15 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   INT not wired → poll.
 - Panel logic on 3.3 V, backlight on external 5 V, shared ground.
 - SPI: mode 0, MSB-first, **≤ 11 MHz during every panel's EVE_init()** (we init
-  at 8 MHz), then one bus-wide "raise" to `DASH_SPI_RUN_HZ` — **8 MHz, bench-
-  verified**. 24 MHz failed read AND write integrity on this wiring
-  (2026-07-10: white screen, flash init 0x01, all font inflates failed,
-  fps 25 with faults=0). Walk it up only via U9's read-integrity soak.
+  at 8 MHz), then one bus-wide "raise" to `DASH_SPI_RUN_HZ` — now
+  **13.5 MHz** (`MustangDash.ino`), proven 2026-07-23 on TWO panels at fps 59,
+  faults 0. 8 MHz was the Teensy-era value and this line asserted it for weeks
+  after the constant changed; **read the constant, not this sentence.** 24 MHz
+  failed read AND write integrity on the Teensy wiring (2026-07-10: white
+  screen, flash init 0x01, all font inflates failed, fps 25 with faults=0) —
+  that failure signature is still the reusable part. Note the two-panel
+  crosstalk that once blamed the clock was a **floating panel ground**; the
+  clock was never the limiter.
 
 ## Library gotchas (verified against the headers)
 

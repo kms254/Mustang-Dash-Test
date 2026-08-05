@@ -12,7 +12,7 @@ applies_when:
   - "supporting several selectable themes/asset sets that must not all occupy RAM_G at once"
   - "deciding whether a soft/gradient asset can be shipped downscaled and rendered via bitmap transform without visible loss"
   - "needing a build-time budget check plus a runtime verification that decoded totals match the plan"
-last_updated: 2026-07-10
+last_updated: 2026-08-05
 tags:
   - ram-g
   - memory-budget
@@ -36,14 +36,31 @@ tags:
 > splash-specific numbers and load-order details below as a historical case
 > study of the technique.
 
-> **Scope note (2026-07-21):** counter-note to the above — the splash is back
-> in RAM_G. The 2026-07-21 MCU-direct rewrite stages the embedded ASTC pack
-> straight from MCU flash to RAM_G at boot (the panel's QSPI flash is no
-> longer used at all); peak resident footprint is the custom fonts (~285 KB)
-> plus the largest theme (~301 KB), roughly 586 KB of the 1 MiB budget. This
-> budgeting technique governs that footprint again — see
+> **Scope note (2026-07-21, figures corrected 2026-08-05):** counter-note to
+> the above — the splash is back in RAM_G. The MCU-direct rewrite stages the
+> embedded ASTC pack straight from MCU flash to RAM_G at boot (the panel's QSPI
+> flash is no longer used at all), so this budgeting technique governs that
+> footprint again. See
 > `docs/solutions/architecture-patterns/bt817-flash-resident-astc-assets.md`
 > for the pack format, which now targets RAM_G instead of panel flash.
+>
+> **The budget is nearly full, and this note previously said it was half
+> empty.** It claimed a ~586 KB peak (fonts ~285 KB + largest theme ~301 KB).
+> The tree says otherwise — `MustangDash/splash_render.h:34-38`:
+>
+> > *"Blue/red carry 4x4 backgrounds (theme ~741 KB, peak **~1,026 KB** of the
+> > center's 1 MiB — **~22 KB headroom**, and blue is the shipping default);
+> > checkered stays 6x6 (peak ~706 KB)."*
+>
+> 98% utilisation, not 56%. The 2026-07-21 quality trial moved both
+> photographic backgrounds from 8x8 to 4x4 ASTC — four times the bytes — and
+> the generator records the constraint in the same breath: *"fits RAM_G only
+> while no street layer stages"* (`tools/make_splash_flash.py:85`).
+>
+> A doc about budgeting to avoid a silent overflow was itself carrying a
+> 440 KB understatement of its own subject. Take the peak from
+> `splash_render.h`, which is maintained beside the code that allocates it, and
+> treat any figure written here as of its date.
 
 ## Context
 

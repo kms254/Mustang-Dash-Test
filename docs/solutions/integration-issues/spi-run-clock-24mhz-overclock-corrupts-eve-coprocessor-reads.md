@@ -158,18 +158,35 @@ Before (pre-fix):
 static const uint32_t DASH_SPI_RUN_HZ = 24000000UL;
 ```
 
-After (current tree, `MustangDash/MustangDash.ino:137-145`):
+After, **as of 2026-07-10 on the Teensy 4.1** — this was the fix at the time:
 ```c
-/* Post-init SPI operating point (R11/KTD8). All three EVE_init()s run at the
- * conservative 8 MHz; the bus then rises to this once. 24 MHz was the first
- * candidate (panels rated 30 MHz post-config) but FAILED read integrity on
- * the actual bench (2026-07-10): flash init returned 0x01, all 9 font
- * inflates failed GETPTR verification, and corrupted REG_CMDB_SPACE reads
- * dragged fps to 25 with faults=0 -- writes mostly survived, reads did not.
- * 8 MHz is the verified operating point until the U9 soak walks it up --
- * fps alone never accepts an operating point. */
 static const uint32_t DASH_SPI_RUN_HZ = 8000000UL;
 ```
+
+> **This doc labelled that block "current tree" until 2026-08-05, and it was
+> not.** The constant is **13.5 MHz** (`MustangDash/MustangDash.ino`), set
+> 2026-07-23 on the NUCLEO-F767ZI and proven on two panels at fps 59,
+> faults 0. Two things follow, and the second is the more useful one:
+>
+> **The platform changed underneath the number.** On the F767 the SPI clock is
+> prescaler-quantized — 6.75 / 13.5 / 27 / 54 MHz, and requests round *down* —
+> so "walk it up gradually" is not available; you get the next step or nothing.
+> 27 MHz did not degrade politely the way 24 MHz did here: it **hard-wedged the
+> firmware**, serial fully dead, recovered only by reflash. See
+> [F767 SPI prescaler quantization](f767-spi-prescaler-quantization-27mhz-hard-wedge.md),
+> whose "What Didn't Work" is literally *expecting the failure signature
+> documented below*.
+>
+> **And the original clock walk blamed the wrong thing.** An earlier
+> three-point walk concluded 6.75 MHz was the only render-capable step and
+> blamed SPI crosstalk. That was confounded by a **floating panel ground** —
+> the clock was never the limiter, grounding was. See
+> [multi-panel shared ground IR drop](multi-panel-shared-ground-ir-drop-floats-spi-reference.md).
+> A clock-step failure is a *symptom*; check the reference before believing the
+> frequency.
+
+The 24 MHz failure signature below is the durable part and is unaffected by
+either of those.
 
 Banner excerpts, corrupt (24 MHz) vs. healthy (8 MHz):
 
