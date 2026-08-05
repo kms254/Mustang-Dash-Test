@@ -500,6 +500,32 @@ replaced had it hidden, so U57 silently put four designators on a board whose
 other 146 footprints print none. `F.Fab` is not in `kicad_fab.py`'s exported
 layer set, so silk is what the assembler actually sees.
 
+**A COLON IN A SYMBOL NAME SILENTLY INVALIDATES THE WHOLE LIBRARY.**
+`ProPrj_New-easyedapro.kicad_sym` contained one symbol named
+`CAPACITOR_THT:CP_RADIAL_D8.0MM_P2.50MM`. A colon is the library/symbol
+separator in a KiCad ID, so KiCad refused to load the library **at all** — all
+93 other symbols with it. Nothing looked wrong for months: every symbol renders
+from the schematic's own `lib_symbols` cache, so the sheet, the netlist, the
+BOM and DRC were all fine. It surfaced only when *Change Symbol* was tried and
+reported `*** symbol not found ***` even for a part changing to the symbol it
+already used.
+
+The tell was 124 `lib_symbol_issues` in ERC saying "library not found" at a path
+where the file plainly exists — "not found" there means *failed to load*, not
+missing. Removing the one unused symbol fixed it: **ERC 1131 → 1009**.
+
+Diagnose it with `kicad-cli sym export svg --symbol <name> <lib>`; it prints
+`Unable to load library`. Control it against a stock library
+(`share/kicad/symbols/Device.kicad_sym`) so you know the invocation is right —
+and note the exit code is **0 either way**, so check the text, not `$?`. Things
+that were NOT the cause here, each tested and cleared: CRLF line endings, a
+UTF-8 BOM, duplicate symbol names, unbalanced parens, a stale library table, a
+global-table nickname shadow. Non-ASCII names (Chinese) and `/` in names are
+fine; only the colon is fatal.
+
+Same file also revealed `Board3.kicad_sym` was never registered in
+`sym-lib-table` while `Board3:TC2030-IDC-NL` was in use. Both fixed 2026-08-04.
+
 **Repointing a `lib_id` headless is possible, and MATCHING PIN NUMBERS DOES NOT
 MEAN IT IS SAFE.** Three things have to agree, not one: pin numbers, pin
 *geometry* (the `(at …)` coordinate is the connection point — `length` extends
