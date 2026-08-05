@@ -1,5 +1,18 @@
 {
   "$comment": [
+    "CORRECTION 2026-08-04 (adversarial re-review): two claims below need qualifying. (1) 'Only the",
+    "anti-surge ERJ-P06 clears it' is too strong -- C6681294 (YAGEO",
+    "SR0805FR-4760R4L, 500 mW, $0.029, 3,684 in stock) is a second 500 mW",
+    "0805. Not worth re-importing a footprint for $0.06, but the field is not",
+    "as narrow as stated. (2) The 0.37-0.46 W is a DOMINANT-BIT PEAK, not a",
+    "continuous load: with the bus recessive and CANH clamped to 12 V the",
+    "termination pulls CANL to within ~80 mV of it (~24 uW), and the receiver",
+    "reads recessive, so the fault does not announce itself. Traffic-averaged",
+    "is roughly 0.1-0.2 W. The part choice stands -- peak-sized, and the double",
+    "fault is genuinely DC -- but the stated margin compared a peak against a",
+    "continuous rating. Also note the 500 mW is rated at 70 C and derates to",
+    "~0.41 W at 85 C; inside Board3's <=70 C envelope the margin holds.",
+    "",
     "U57 -- the four CAN termination resistors go from a 100 mW 0603 to a 500 mW",
     "0805, and /CAN2_TX's dogleg drops to the Bottom layer to make room for one",
     "of them. Review item 17.",
@@ -94,38 +107,139 @@
     {
       "step": "1/3  swap all four to the 500 mW anti-surge 0805; only R15 moves",
       "replace_footprints": [
-        {"ref": "R10", "fpid": "JLCImport:ERJP06F60R4V", "libpath": "kicad/board3/JLCImport.pretty"},
-        {"ref": "R14", "fpid": "JLCImport:ERJP06F60R4V", "libpath": "kicad/board3/JLCImport.pretty"},
-        {"ref": "R15", "fpid": "JLCImport:ERJP06F60R4V", "libpath": "kicad/board3/JLCImport.pretty"},
-        {"ref": "R24", "fpid": "JLCImport:ERJP06F60R4V", "libpath": "kicad/board3/JLCImport.pretty"}
+        {
+          "ref": "R10",
+          "fpid": "JLCImport:ERJP06F60R4V",
+          "libpath": "kicad/board3/JLCImport.pretty"
+        },
+        {
+          "ref": "R14",
+          "fpid": "JLCImport:ERJP06F60R4V",
+          "libpath": "kicad/board3/JLCImport.pretty"
+        },
+        {
+          "ref": "R15",
+          "fpid": "JLCImport:ERJP06F60R4V",
+          "libpath": "kicad/board3/JLCImport.pretty"
+        },
+        {
+          "ref": "R24",
+          "fpid": "JLCImport:ERJP06F60R4V",
+          "libpath": "kicad/board3/JLCImport.pretty"
+        }
       ],
       "move_footprints": [
-        {"ref": "R15", "to": [136.500, 129.300]}
+        {
+          "ref": "R15",
+          "to": [
+            136.5,
+            129.3
+          ]
+        }
       ],
       "move_fp_text": [
-        {"ref": "R10", "field": "reference", "to": [161.000, 130.000]}
+        {
+          "ref": "R10",
+          "field": "reference",
+          "to": [
+            161.0,
+            130.0
+          ]
+        }
       ]
     },
     {
       "step": "2/3  lift /CAN2_TX's dogleg off Top, and free R15's TERM stub",
       "delete": [
-        {"net": "CAN2_TX", "layers": ["Top Layer"], "vias": false,
-         "bbox": [131.800, 128.400, 134.100, 131.700]},
-        {"net": "CAN2_TERM", "layers": ["Top Layer"], "vias": false,
-         "bbox": [136.400, 129.100, 136.600, 129.300]}
+        {
+          "net": "CAN2_TX",
+          "layers": [
+            "Top Layer"
+          ],
+          "vias": false,
+          "bbox": [
+            131.8,
+            128.4,
+            134.1,
+            131.7
+          ]
+        },
+        {
+          "net": "CAN2_TERM",
+          "layers": [
+            "Top Layer"
+          ],
+          "vias": false,
+          "bbox": [
+            136.4,
+            129.1,
+            136.6,
+            129.3
+          ]
+        }
       ]
     },
     {
       "step": "3/3  re-lay the dogleg on Bottom, and re-land R15's TERM stub",
       "add": [
-        {"net": "CAN2_TX", "layer": "Bottom Layer", "width": 0.254,
-         "points": [[133.946, 131.579], [132.930, 130.563], [132.930, 129.547], [131.914, 128.531]]},
-        {"net": "CAN2_TERM", "layer": "Top Layer", "width": 0.254,
-         "points": [[136.500, 129.182], [136.500, 128.300]]}
+        {
+          "net": "CAN2_TX",
+          "layer": "Bottom Layer",
+          "width": 0.254,
+          "points": [
+            [
+              133.946,
+              131.579
+            ],
+            [
+              132.93,
+              130.563
+            ],
+            [
+              132.93,
+              129.547
+            ],
+            [
+              131.914,
+              128.531
+            ]
+          ]
+        },
+        {
+          "net": "CAN2_TERM",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              136.5,
+              129.182
+            ],
+            [
+              136.5,
+              128.3
+            ]
+          ]
+        }
       ],
       "add_vias": [
-        {"net": "CAN2_TX", "at": [133.946, 131.579], "diameter": 0.6, "drill": 0.25},
-        {"net": "CAN2_TX", "at": [131.914, 128.531], "diameter": 0.6, "drill": 0.25}
+        {
+          "net": "CAN2_TX",
+          "at": [
+            133.946,
+            131.579
+          ],
+          "diameter": 0.6,
+          "drill": 0.25
+        },
+        {
+          "net": "CAN2_TX",
+          "at": [
+            131.914,
+            128.531
+          ],
+          "diameter": 0.6,
+          "drill": 0.25
+        }
       ]
     }
   ]

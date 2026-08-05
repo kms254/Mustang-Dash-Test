@@ -478,6 +478,38 @@ R42's `/GND` pad to a single thermal spoke — `starved_thermal`, invisible to t
 airwire count, which stayed 0 throughout. Budget three DRC iterations for a part
 relocation, not one.
 
+**DRC IS BLIND TO A SAME-NET SOLDER-MASK MERGE, and untenting a via is how you
+hit it.** `solder_mask_bridge` only fires between apertures of *different* nets.
+U53 untented a `/+3V3` via 0.0295 mm from a `/+3V3` pad — below the 0.100 mm
+minimum mask web — so KiCad dropped the web and the exported `F_Mask.gbr` carries
+one merged 1.41 × 1.31 mm opening instead of a discrete via aperture and a
+discrete pad aperture. That is an open barrel next to paste: a starved or
+tombstoned joint. DRC reported 0/0/0 truthfully for two weeks. **Before untenting
+anything, measure the mask dam to every nearby aperture, same net included**, and
+check the plotted gerber actually contains a separate region for it. On Board3
+the only genuinely clean `/+3V3` via was 14 mm from the others; distance between
+probe points costs nothing next to this.
+
+Two related traps from the same review, both about *what you measured rather than
+what you concluded*: **a via's courtyard test must use the polygon, not the
+bounding box** — two reviewers proposed replacement vias that a bbox test called
+clear and a polygon test put inside U1's and U9's courtyards — and **a footprint
+swap can change a field's VISIBILITY, not just its position.**
+`JLCImport:ERJP06F60R4V` ships its Reference visible where the `R0603` it
+replaced had it hidden, so U57 silently put four designators on a board whose
+other 146 footprints print none. `F.Fab` is not in `kicad_fab.py`'s exported
+layer set, so silk is what the assembler actually sees.
+
+**When you update a symbol's fields, update its `lib_id` too.** Board3 review
+item 37 was exactly this defect — instance fields overridden while `lib_id` still
+named the old part — and the fix for it then created two more instances of it
+(U57's resistors, the C41/C42 swap). One GUI *Update Symbols from Library*
+reverts the supplier field on all of them while the board keeps the new land
+pattern. `--schematic-parity` catches the footprint half and **nothing catches
+the supplier half**; where the footprint is unchanged (C41/C42) no check sees it
+at all. Cloning an existing instance of the *right* part avoids this for free,
+which is why C72/C73 came out clean.
+
 **Adding a NEW part does not always need the KTD12 GUI sync either.** U58
 (2026-08-04) added two bypass capacitors — symbol, wires, labels *and* footprint
 — entirely from scripts, and DRC's `--schematic-parity` came back 0. The recipe:

@@ -1,5 +1,15 @@
 {
   "$comment": [
+    "CORRECTION 2026-08-04 (adversarial re-review): the claim below that this is 'the one conductor on the",
+    "rail that fails the project's own written rule' is FALSE. The guide row",
+    "it cites covers 'Input (jack/USB) -> ideal diodes -> +5V', i.e. both",
+    "inputs, and /VBUS carries 0.254 and 0.260 mm segments plus a 0.400 x",
+    "3.592 mm run into Q1. The widening done here is still correct and its",
+    "arithmetic still reproduces; the scope claim was too broad. /VBUS has not",
+    "had the trunk walk that made this net's number trustworthy -- it runs on",
+    "three layers through four vias, so some narrow segments may be parallel",
+    "rather than series. Triage item 50.",
+    "",
     "U51 -- widen the /+5V_BARREL neck. Review item 20 (drc-routing), CONFIRMED:",
     "the reviewer's geometry reproduced exactly, 0.620 mm over 7.30 mm at",
     "(50.840,123.520)->(45.680,118.360).",
@@ -56,14 +66,51 @@
     {
       "step": "1/1  /+5V_BARREL fuse-to-FET: 0.620 -> 1.524 mm, tapering to 0.900 past Q2.4",
       "delete": [
-        {"net": "+5V_BARREL", "layers": ["Top Layer"], "vias": false,
-         "bbox": [45.600, 118.300, 50.845, 123.525]}
+        {
+          "net": "+5V_BARREL",
+          "layers": [
+            "Top Layer"
+          ],
+          "vias": false,
+          "bbox": [
+            45.6,
+            118.3,
+            50.845,
+            123.525
+          ]
+        }
       ],
       "add": [
-        {"net": "+5V_BARREL", "layer": "Top Layer", "width": 1.524,
-         "points": [[50.840, 123.520], [48.719, 121.399]]},
-        {"net": "+5V_BARREL", "layer": "Top Layer", "width": 0.900,
-         "points": [[48.719, 121.399], [45.680, 118.360]]}
+        {
+          "net": "+5V_BARREL",
+          "layer": "Top Layer",
+          "width": 1.524,
+          "points": [
+            [
+              50.84,
+              123.52
+            ],
+            [
+              48.719,
+              121.399
+            ]
+          ]
+        },
+        {
+          "net": "+5V_BARREL",
+          "layer": "Top Layer",
+          "width": 0.9,
+          "points": [
+            [
+              48.719,
+              121.399
+            ],
+            [
+              45.68,
+              118.36
+            ]
+          ]
+        }
       ]
     }
   ]

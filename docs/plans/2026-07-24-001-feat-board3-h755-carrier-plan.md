@@ -139,6 +139,36 @@ Board2 is a bench-style carrier: the MCU is a socketed Teensy module, CAN rides 
   voltage rating on a board whose successor needs *more* of it — so the amp was
   left on the table deliberately. Revisit at the 12 V design, not before.
 
+**The CAN connectors have no transient protection, and that belongs with the 12 V
+front end (recorded 2026-08-04, decided: no change on Board3)**
+
+- Measured from the netlist: `/CAN1_H` has exactly **three nodes** — the P1 screw
+  terminal, the H1 termination jumper, and U8's bus pin. `/CAN1_L` likewise. There
+  is **no TVS, no ESD array, no common-mode choke and no filtering** on either bus
+  on this board.
+- **Why the transceiver's own protection is not the answer.** The TJA1051's
+  integrated bus protection covers **pin-level ESD** (IEC 61000-4-2) and the
+  ±58 V bus-fault case. It does not cover **system-level** events on a vehicle
+  harness — ISO 7637-2 conducted transients (pulse 1 ≈ −100 V, pulse 2a ≈ +50 V)
+  and ISO 10605 exceed that rating. The failure is a dead transceiver on a board
+  that passed every bench test.
+- **Decision (Kevin, 2026-08-04): no change on Board3.** This is a bench carrier
+  and the CAN screw terminals will see a bench harness, not a car. Recorded here
+  so it stops being re-discovered as a novel finding by each review — it is a
+  known gap, deferred deliberately, exactly like F1's rating above.
+- **Shape of the change when the 12 V revision happens:** a bidirectional CAN
+  TVS/ESD array at each connector, ~24 V VRWM (sized for the double-battery
+  jumpstart case, not the 12 V nominal), and low enough capacitance not to skew
+  the pair — under ~15 pF per line. Same design pass as the load-dump TVS above;
+  both are "what makes the harness survivable", and neither is a connector change.
+- **Consequence for review item 17, worth stating because the two arguments
+  collide:** U57 upgraded the termination resistors on the reasoning that "the
+  board is going in a car." Applied consistently, that premise says the
+  unprotected part is the **transceiver**, not the resistor — and a resistor that
+  fails open is a graceful failure where a dead transceiver is not. The resistor
+  change was cheap and is kept; the ordering of the two was not principled, and
+  the automotive revision should do this one first.
+
 **Possible future change — HSE bypass instead of a crystal (recorded 2026-08-03, not blocking)**
 
 - **Option:** replace `X1` (4-pad crystal) and its load caps `C41`/`C42` with a crystal

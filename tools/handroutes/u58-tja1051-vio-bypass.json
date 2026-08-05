@@ -1,5 +1,16 @@
 {
   "$comment": [
+    "CORRECTION 2026-08-04 (adversarial re-review): the return-path claim below is true at U8 and FALSE at",
+    "U9. C73's own pad does land in the Top /GND fill, but U9.2 -- the",
+    "transceiver's ground pin -- is NOT in any Top fill polygon: it reaches the",
+    "pour through 2.43 mm of 0.254 mm track, and C73's pad sits in a different",
+    "fill island again. So the C73->U9 loop is not via-free or track-free the",
+    "way C72->U8 is. Consequence is ~4 mV and nothing measurable, but the claim",
+    "was load-bearing here and was never checked at the IC end. Separately: the",
+    "two-via feed is justified below as clearly better than the rejected 7.08 mm",
+    "Top-only placement. By routed inductance it is roughly a wash (~4.3 nH",
+    "against ~2.6 nH). The placement is defensible; that reason for it is not.",
+    "",
     "U58 -- the two TJA1051 transceivers get the VIO bypass capacitor they were",
     "missing. Review item 14, the last board item on the pre-fab list.",
     "",
@@ -74,31 +85,121 @@
     {
       "step": "1/2  place both bypass caps onto the existing /+3V3 and /GND nets",
       "place_parts": [
-        {"ref": "C72", "fpid": "ProPrj_New-easyedapro:C0603",
-         "libpath": "kicad/board3/ProPrj_New-easyedapro.pretty",
-         "value": "100nF", "at": [182.650, 124.595], "rot": 90,
-         "nets": {"1": "+3V3", "2": "GND"}},
-        {"ref": "C73", "fpid": "ProPrj_New-easyedapro:C0603",
-         "libpath": "kicad/board3/ProPrj_New-easyedapro.pretty",
-         "value": "100nF", "at": [110.400, 128.583], "rot": -90,
-         "nets": {"1": "+3V3", "2": "GND"}}
+        {
+          "ref": "C72",
+          "fpid": "ProPrj_New-easyedapro:C0603",
+          "libpath": "kicad/board3/ProPrj_New-easyedapro.pretty",
+          "value": "100nF",
+          "at": [
+            182.65,
+            124.595
+          ],
+          "rot": 90,
+          "nets": {
+            "1": "+3V3",
+            "2": "GND"
+          }
+        },
+        {
+          "ref": "C73",
+          "fpid": "ProPrj_New-easyedapro:C0603",
+          "libpath": "kicad/board3/ProPrj_New-easyedapro.pretty",
+          "value": "100nF",
+          "at": [
+            110.4,
+            128.583
+          ],
+          "rot": -90,
+          "nets": {
+            "1": "+3V3",
+            "2": "GND"
+          }
+        }
       ]
     },
     {
       "step": "2/2  feed each pad 1; both GND pads take the Top pour by thermal",
       "add": [
-        {"net": "+3V3", "layer": "Top Layer", "width": 0.254,
-         "points": [[182.650, 125.295], [183.000, 126.000]]},
-        {"net": "+3V3", "layer": "Bottom Layer", "width": 0.254,
-         "points": [[183.000, 126.000], [181.000, 126.700]]},
-        {"net": "+3V3", "layer": "Top Layer", "width": 0.254,
-         "points": [[181.000, 126.700], [182.400, 128.095]]},
-        {"net": "+3V3", "layer": "Top Layer", "width": 0.254,
-         "points": [[110.400, 127.883], [110.400, 127.333]]}
+        {
+          "net": "+3V3",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              182.65,
+              125.295
+            ],
+            [
+              183.0,
+              126.0
+            ]
+          ]
+        },
+        {
+          "net": "+3V3",
+          "layer": "Bottom Layer",
+          "width": 0.254,
+          "points": [
+            [
+              183.0,
+              126.0
+            ],
+            [
+              181.0,
+              126.7
+            ]
+          ]
+        },
+        {
+          "net": "+3V3",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              181.0,
+              126.7
+            ],
+            [
+              182.4,
+              128.095
+            ]
+          ]
+        },
+        {
+          "net": "+3V3",
+          "layer": "Top Layer",
+          "width": 0.254,
+          "points": [
+            [
+              110.4,
+              127.883
+            ],
+            [
+              110.4,
+              127.333
+            ]
+          ]
+        }
       ],
       "add_vias": [
-        {"net": "+3V3", "at": [183.000, 126.000], "diameter": 0.6, "drill": 0.25},
-        {"net": "+3V3", "at": [181.000, 126.700], "diameter": 0.6, "drill": 0.25}
+        {
+          "net": "+3V3",
+          "at": [
+            183.0,
+            126.0
+          ],
+          "diameter": 0.6,
+          "drill": 0.25
+        },
+        {
+          "net": "+3V3",
+          "at": [
+            181.0,
+            126.7
+          ],
+          "diameter": 0.6,
+          "drill": 0.25
+        }
       ]
     }
   ]

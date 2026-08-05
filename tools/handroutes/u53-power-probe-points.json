@@ -1,5 +1,16 @@
 {
   "$comment": [
+    "CORRECTION 2026-08-04 (adversarial re-review): the claim below that none of these vias sits under a",
+    "component courtyard is FALSE for TP2 (/+3V3). Its copper lapped 0.234 mm",
+    "into C34's courtyard, and worse, its mask aperture was 0.0295 mm from",
+    "C34's pad -- below the 0.100 mm minimum web, so the two merged into one",
+    "opening in the exported gerber. That is a solder-theft path into an MCU",
+    "rail decoupler, and DRC could not see it because both are on /+3V3 and",
+    "solder_mask_bridge only fires between different nets. TP2 moved to",
+    "(121.314,99.332) in U59. The claim was made by testing the via CENTRE",
+    "instead of its shape -- the exact error CLAUDE.md's window-query rule",
+    "exists to prevent, in the unit that cites it.",
+    "",
     "U53 -- give the power rails probe points. Review items 23/24 (dft).",
     "",
     "WHAT THE FINDING ACTUALLY ASKED FOR. The DFT lens's complaint was about",
@@ -53,9 +64,30 @@
     {
       "step": "1/1  open the mask over three vias -> +5V, +3V3 and a local ground",
       "untent_vias": [
-        {"at": [126.251, 107.730], "net": "+5V",  "label": "TP1 +5V"},
-        {"at": [135.508, 110.254], "net": "+3V3", "label": "TP2 +3V3"},
-        {"at": [130.442, 110.508], "net": "GND",  "label": "TP3 GND"}
+        {
+          "at": [
+            126.251,
+            107.73
+          ],
+          "net": "+5V",
+          "label": "TP1 +5V"
+        },
+        {
+          "at": [
+            135.508,
+            110.254
+          ],
+          "net": "+3V3",
+          "label": "TP2 +3V3"
+        },
+        {
+          "at": [
+            130.442,
+            110.508
+          ],
+          "net": "GND",
+          "label": "TP3 GND"
+        }
       ]
     }
   ]
