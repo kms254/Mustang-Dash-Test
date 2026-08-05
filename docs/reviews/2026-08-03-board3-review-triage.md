@@ -750,65 +750,79 @@ reviewers against each other is worth as much as running either one.
 
 ### Open — needs the GUI
 
-48. **[OPEN] `lib_id` divergence on ten designators.** U57 and the C41/C42 swap
-    each created a fresh instance of the defect item 37 existed to fix: the
-    instance fields were updated and the `lib_id` was not.
+48. **[CLOSED 2026-08-04 — every sourcing-critical divergence resolved]**
+    `lib_id` divergence.
 
-    | designators | `lib_id` resolves to | library says | instance says |
-    |---|---|---|---|
-    | R10/R14/R15/R24 | `FRC0603F60R4TS` | `C2933247` + `R0603` | `C3959530` + 0805 |
-    | C41/C42 | `CC0603FRNPO9BN180` | `C527046` | `C1647` |
-    | SW1–SW4 | wrong switch symbol | `C39832248` + LS5.4 | `C5340169` + LS5.0 |
+    An instance's fields and the symbol its `lib_id` names had drifted apart, so
+    a GUI *Update Symbols from Library* would silently revert supplier fields
+    while the board kept the current land pattern. `--schematic-parity` catches
+    the footprint half; **nothing catches the supplier half**, and where the
+    footprint is unchanged no check sees it at all.
 
-    A GUI *Update Symbols from Library* reverts the supplier field on all ten
-    while the board keeps the new land patterns. `--schematic-parity` catches the
-    footprint half; **nothing catches the supplier half**, and for C41/C42 the
-    footprint is identical either way, so no check sees it at all. C72/C73 are
-    clean — cloning C59 happened to pick up the right symbol.
+    **Measuring first changed the plan twice, and the measurement is the useful
+    part of this item.** It began as "repoint ten instances at the right
+    symbols". Then:
 
-    Fix is **GUI *Change Symbol* on ten designators**, schematic-only: no
-    footprint change, no net change, no *Update PCB from Schematic*, no routing.
+    - It was not ten. **19 instances diverged, 12 on Supplier Part or
+      Footprint** — SW1–SW4 were four of twelve, so the original plan would have
+      fixed a third and left F1, C70/C71, C29–C31, DC1 and U2 exposed.
+    - **The instance was the correct side in every case.** The diverging parts
+      are the ones earlier units deliberately re-specified — F1 is U32's 3 A
+      PTC, SW1–SW4 are U54's switch. The *library* was stale, carrying the
+      EasyEDA import's originals.
+    - It only became a live hazard that same day. Until the colon-named symbol
+      was removed (item 45's sibling, see §9) the library would not load at all,
+      so *Update Symbols from Library* was a no-op for every part in it.
 
-    **Verified 2026-08-04 — all three targets exist and are safe to switch to:**
+    **Fixed in two halves, by the safer route each time — the library, not the
+    schematic.**
 
-    | designators | change `lib_id` to | pins | Footprint | Supplier Part |
-    |---|---|---|---|---|
-    | R10/R14/R15/R24 | `JLCImport:ERJP06F60R4V` | 1,2 ↔ 1,2 | agrees | agrees |
-    | C41/C42 | `JLCImport:CL10C180JB8NNNC` | 1,2 ↔ 1,2 | agrees | agrees |
-    | SW1–SW4 | `ProPrj_New-easyedapro:HX TS4538CJ 250GF 009` | 1–4 ↔ 1–4 | agrees | agrees |
+    *Four stale library symbols rewritten* (7 instances: F1, SW1–SW4, DC1, U2).
+    Valid only because every instance pointing at each symbol wanted the same
+    values, which was checked first:
 
-    **Do NOT let the dialog reset field values.** Change Symbol offers to
-    overwrite the instance's fields from the library; for all ten the instance is
-    the *more* correct side. `Value` and `Manufacturer` still differ (the library
-    copies carry the MPN in `Value`, or an empty string, and a Chinese-suffixed
-    manufacturer name) — untick anything that updates or resets a field, so only
-    the `lib_id` and the symbol body change.
+    | symbol | was | now |
+    |---|---|---|
+    | `JLCImport:BSMD1812-200-30V` | `C960026` | `C48985875` + the 3 A PTC land pattern |
+    | `…WATERPROOF TACT SWITCH DIP 260G` | `C39832248` + LS5.4 | `C5340169` + LS5.0 |
+    | `…DC-005-5.5*2.5` | `C9900017043` | `C720558` |
+    | `…W25Q512JVEIQ TR` | `C7389628` | `C97522` |
 
-    `Footprint` and `Supplier Part` were made to agree first, so an accidental
-    reset cannot now break the two that matter. That took one library edit:
-    `JLCImport:CL10C180JB8NNNC` pointed at its own imported footprint, while
-    C41/C42 deliberately use the generic `ProPrj_New-easyedapro:C0603` — same
-    land pattern, which is why item 37's swap needed no board sync.
+    *Five `lib_id`s repointed* (C70/C71 → `CL10A105KB8NNNC`, C29–C31 →
+    `CL21A226MAQNNNE`). These could not be fixed by writing the library:
+    `CC0603KRX7R9BB104` is shared by 40 instances at `C14663` and 2 at `C15849`,
+    and `CL21A106KAYNNNE` by 1 at `C15850` and 3 at `C45783`. One symbol cannot
+    carry two part numbers, and in both the majority matched the symbol's own
+    name — so it was the odd instances pointing at the wrong symbol. Both target
+    symbols already existed with matching Value and Footprint, were already in
+    the `lib_symbols` cache, and had **identical pin geometry** (±5.08, angle
+    0/180, length 2.54), so no wire moved.
 
-    **Afterwards**, from the repo root:
+    *Three more library symbols' `Value` corrected* (C41/C42, R10/R14/R15/R24,
+    LED3 — 7 instances). Same rule, same safety: each symbol was used only by
+    the instances that disagreed with it. Note the house convention is not
+    "electrical value everywhere" — SW1–SW4 legitimately carry the MPN in
+    `Value` — so each symbol was matched to its own instances rather than to a
+    style.
 
-    ```
-    kicad-cli sch export netlist "<schematic>" -o /tmp/after.net
-    kicad-cli pcb drc "<board>" --severity-all --schematic-parity --format json -o /tmp/drc.json
-    "C:/Program Files/KiCad/10.0/bin/python.exe" tools/kicad_fab.py kicad/board3
-    ```
+    **Result: 19 → 0. Every one of 137 instances now agrees with its symbol**,
+    on Supplier Part, Footprint, Manufacturer Part and Value alike.
 
-    Expect the netlist unchanged, DRC still 0/0/0, and BOM 41 / CPL 142. Check the
-    switches by pin **function**, not number (KTD27) — both switch symbols number
-    pins 1–4 but name them differently (`1_1..4_4` vs `A_1..D_4`), so a silent
-    re-map would look fine in the pin table and wrong on the bench.
+    Because it is zero, `tools/kicad_libcheck.py` now gates on it **absolutely**
+    rather than as a ratchet. Verified both ways: the real project exits 0, and
+    a copy with F1's supplier reverted in the library exits 1 with
+    `F1.Supplier Part: instance 'C48985875' but its symbol says 'C960026'`.
 
-    *Note on how this was verified:* the first check reported the switch symbol
-    missing from the project library. That was a parser bug — the library indents
-    with tabs and the check assumed two spaces. It is present. Worth recording
-    because it is the same failure mode as reading a `.kicad_pcb` with regex.*
+    Verified against a captured baseline at every step: **netlist identical**
+    (228 nets, zero membership changes), DRC 0/0/0, ERC 1009 unchanged, BOM
+    **byte-identical**, CPL 142, `lcsc check`/`duplicates`/`libcheck` all pass,
+    host tests 15/15.
 
-### Recorded as considered — no change
+    **The durable lesson is the gate, not any theory.** A `lib_id` repoint is
+    only safe if the exported netlist is identical afterwards. DRC, ERC and
+    schematic-parity all stayed clean earlier the same day across a text edit
+    that silently disconnected SW1–SW4 — cause still unexplained, which is
+    exactly why the netlist diff is the control and not a substitute for it.
 
 49. **[ACCEPTED] No transient protection on either CAN connector.** `/CAN1_H` has
     exactly three nodes — screw terminal, jumper, transceiver pin — and there is

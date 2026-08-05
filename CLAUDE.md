@@ -500,6 +500,118 @@ replaced had it hidden, so U57 silently put four designators on a board whose
 other 146 footprints print none. `F.Fab` is not in `kicad_fab.py`'s exported
 layer set, so silk is what the assembler actually sees.
 
+**ERC on Board3 is 0. It was 1009, and the reason that mattered is that nobody
+could read it.** 124 of those warnings were saying an entire symbol library was
+unloadable, and they sat unread for months inside the noise. The whole 1009 came
+down without one net moving -- the netlist was byte-identical against a baseline
+at every one of six steps -- so treat a large ERC count as a broken instrument,
+not as a property of the design.
+
+The classes handled, in order of size. **These do not sum to 1009 and are not
+meant to** -- the six below total 1013, because `power_pin_not_driven` was not in
+the baseline at all: the pin retype *created* it. The 1009 is the first five plus
+2 `lib_symbol_mismatch` (469+372+100+55+11+2). Expect a correct fix to surface a
+new class, and check the shape of the rise rather than the total.
+
+  469  unconnected_wire_endpoint -- every net label sat at its wire's MIDPOINT,
+       leaving the far end dangling. Moved each label onto the free end. 16 of
+       those wires dangled at BOTH ends: 2.54 mm stubs carrying a label and
+       touching nothing, in eight supply/GND pairs -- the ghosts of deleted
+       two-pin parts, including where U42 removed the CAN common-mode caps.
+  372  pin_to_pin -- the EasyEDA import typed all 338 pins `unspecified` or
+       `input`. Retyped from the pin's own name: two-terminal parts, connectors,
+       switches and the crystal are `passive`; IC supplies `power_in`; GPIO
+       `bidirectional`; anything ambiguous left `passive`, which asserts nothing.
+  100  pin_not_connected -- genuinely unused pins (60 spare STM32 GPIO, 27 FPC,
+       12 switch second-poles, DC1's sleeve). No-connect flags make "unused" an
+       assertion instead of an accident.
+   55  pin_not_driven -- fell out with the pin types.
+   11  endpoint_off_grid -- 8 symbol pins + 3 wire ends. Seven of the symbols
+       (the AW9523B reset networks and F1) sit at round coordinates
+       (60, 95, 130, 170 x 372, 388) that are not multiples of 1.27; the eighth,
+       LED2, is ON grid in x and off only in y. Seven of eight had NO wire on the
+       off-grid pin: they connect by a label sitting directly on it, so the
+       labels had to move with the symbol.
+    6  power_pin_not_driven -- appeared only after the pin types were right, and
+       is what PWR_FLAG is for. The symbol went into the project's own
+       Board3.kicad_sym rather than KiCad's global `power` library, so the
+       schematic still resolves from the project alone.
+
+**Two mechanics worth reusing.** ERC's JSON gives every item a **uuid** that maps
+exactly to the object in the file, and a **pos in mm/100** -- both authoritative,
+unlike reconstructing symbol placement yourself, which disagreed with ERC on ~2%
+of endpoints here. And when a computed answer is uncertain, **ask ERC**: move the
+label to one end, re-run, and whatever is still flagged had the other end free.
+That converges in two passes and a wrong pass costs nothing.
+
+**INDENTATION IS NOT AN ANCHOR IN KICAD FILES.** This cost five separate wrong
+answers in one session. The EasyEDA export indents with tabs, `kicad_lcsc` with
+two spaces, and a cache entry copied from one into the other lands at
+`"		  (symbol"` -- two tabs AND two spaces. Patterns that bit: `^	\(symbol`
+reported a whole library as empty; `\(pin \w+ \w+\s*
+` dropped 9 symbols
+because the importer puts the pin on one line; `
+	\(symbol
+` matched nothing
+in a CRLF file read with `newline=""`. Match structure -- parse to the balanced
+paren and test depth -- never leading whitespace. Related: a bare `\(xy ...\)`
+pattern also matches the polyline graphics INSIDE symbol definitions, whose
+coordinates are symbol-local; editing those corrupts every part's artwork.
+
+**A COLON IN A SYMBOL NAME SILENTLY INVALIDATES THE WHOLE LIBRARY.**
+`ProPrj_New-easyedapro.kicad_sym` contained one symbol named
+`CAPACITOR_THT:CP_RADIAL_D8.0MM_P2.50MM`. A colon is the library/symbol
+separator in a KiCad ID, so KiCad refused to load the library **at all** — all
+93 other symbols with it. Nothing looked wrong for months: every symbol renders
+from the schematic's own `lib_symbols` cache, so the sheet, the netlist, the
+BOM and DRC were all fine. It surfaced only when *Change Symbol* was tried and
+reported `*** symbol not found ***` even for a part changing to the symbol it
+already used.
+
+The tell was 124 `lib_symbol_issues` in ERC saying "library not found" at a path
+where the file plainly exists — "not found" there means *failed to load*, not
+missing. Removing the one unused symbol fixed it: **ERC 1131 → 1009**.
+
+Diagnose it with `kicad-cli sym export svg --symbol <name> <lib>`; it prints
+`Unable to load library`. Control it against a stock library
+(`share/kicad/symbols/Device.kicad_sym`) so you know the invocation is right —
+and **judge it by the printed text, not `$?`**. The exit code does distinguish
+(0 ok, 1 missing symbol, 2 unable to load), but `$?` after any pipe is the last
+command's status, so a `| tee` or `| cat` in the probe turns the failure into a
+success without `set -o pipefail` — that is how this was first misread as
+"exits 0 either way". Things that were NOT the cause here, each tested and
+cleared: CRLF line endings, a UTF-8 BOM, duplicate symbol names, unbalanced
+parens, a stale library table, a global-table nickname shadow. Non-ASCII names
+(Chinese) and `/` in names are fine; only the colon is fatal.
+
+Same file also revealed `Board3.kicad_sym` was never registered in
+`sym-lib-table` while `Board3:TC2030-IDC-NL` was in use. Both fixed 2026-08-04.
+`tools/kicad_libcheck.py` now gates all of this in CI; full write-up in
+`docs/solutions/integration-issues/kicad-colon-in-symbol-name-makes-library-unloadable.md`.
+
+**Repointing a `lib_id` headless works for some parts and NOT others, and the
+only thing that reliably tells you which is the netlist diff.** Export
+`kicad-cli sch export netlist` before and after and require identical net
+membership — nothing else in the toolchain will tell you, and DRC, parity and
+ERC all stayed clean over a change that silently disconnected four parts.
+
+It worked for R10/R14/R15/R24 (pin geometry identical) and C41/C42 (pins moved
+1.27 mm inward, a known constant, so the four wires landing on them were moved
+by exactly that delta — after checking each pin carried exactly one wire, with
+no junction and no label anchored at the point). Useful detail while doing that:
+a pin's `(at …)` coordinate IS its connection point; `length` extends inward
+from there, so do not add it.
+
+It did NOT work for SW1–SW4, whose pins move 2.54 mm outward. All four lost
+every connection even though their wires were moved by that delta. **The cause
+is not established.** Ruled out by measurement afterwards: it is not a
+multi-unit/single-unit mismatch (both symbols are one unit with pins 1–4 — the
+`A/B/C/D` in the netlist were pin *names*), and it is not cache-versus-library
+drift (both put the pins at ±7.62). An earlier version of this note asserted the
+multi-unit explanation; that was wrong. Do the switches in the GUI, and treat
+"the netlist diff is the gate" as the durable lesson rather than any particular
+theory of why.
+
 **When you update a symbol's fields, update its `lib_id` too.** Board3 review
 item 37 was exactly this defect — instance fields overridden while `lib_id` still
 named the old part — and the fix for it then created two more instances of it

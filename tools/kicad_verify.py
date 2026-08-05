@@ -23,6 +23,7 @@ import argparse
 import collections
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -67,14 +68,35 @@ def _rules_project(board: Path, workdir: Path) -> Path:
     dru = board.with_suffix(".kicad_dru")
     if dru.is_file():
         staged.with_suffix(".kicad_dru").write_bytes(dru.read_bytes())
+
+    # Library tables and the .pretty dirs. Without these, kicad-cli cannot
+    # resolve a single footprint library and reports ~120 phantom
+    # lib_footprint_issues ("library not found") -- which is exactly why this
+    # function's output used to be safe only at --severity-error. Staging them
+    # is what makes an all-severities run mean anything, and the phantoms are
+    # not merely noise: they MASK the real lib_footprint_mismatch findings
+    # underneath. See docs/solutions/developer-experience/
+    # stage-project-sidecars-for-headless-drc.md.
+    for name in ("fp-lib-table", "sym-lib-table"):
+        table = board.parent / name
+        if table.is_file():
+            (workdir / name).write_bytes(table.read_bytes())
+    for pretty in board.parent.glob("*.pretty"):
+        if pretty.is_dir():
+            shutil.copytree(pretty, workdir / pretty.name, dirs_exist_ok=True)
     return staged
 
 
 def run_drc(board: Path, workdir: Path) -> tuple[collections.Counter, int]:
     staged = _rules_project(board, workdir)
     report = workdir / (board.stem + ".drc.json")
+    # --severity-all, not --severity-error. A severity filter is a blind spot,
+    # not a setting: the ERC gate ran errors-only for months while 124 warnings
+    # saying a whole symbol library would not load sat inside it, invisible by
+    # construction. This is only safe because _rules_project now stages the
+    # library tables -- without them an all-severities run is mostly phantoms.
     subprocess.run(
-        [_kicad_cli(), "pcb", "drc", "--severity-error", "--format", "json",
+        [_kicad_cli(), "pcb", "drc", "--severity-all", "--format", "json",
          "-o", str(report), str(staged)],
         capture_output=True, text=True,
     )

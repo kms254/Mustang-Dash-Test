@@ -44,40 +44,40 @@ jobs:
           echo "pcb=$(ls kicad/board3/*.kicad_pcb | head -1)" >> "$GITHUB_OUTPUT"
           echo "sch=$(ls kicad/board3/*.kicad_sch | head -1)" >> "$GITHUB_OUTPUT"
 
-      # The DRC bar is a delta, not an absolute. Board3 came out of the EasyEDA
-      # Pro importer carrying 41 error-severity violations -- courtyard overlaps
-      # and edge clearances that no layout work removes -- so a zero-violation
-      # gate is unreachable by construction and would only teach people to merge
-      # past a red check (KTD3). This is that import, checked out beside the
-      # working tree so the inherited violations can be attributed to it.
-      - name: Check out the import baseline
-        uses: actions/checkout@v4
-        with:
-          ref: 52586d44e4490d43a20e6fb8543b4e6f641bfd61
-          path: import-baseline
-
-      # Ratchet: PRs compare against their own base, so every improvement locks
-      # in at merge and the slack between "current" and "import baseline" can
-      # never be silently spent. Pushes to main keep the import-baseline floor.
-      - name: Check out the PR base (ratchet baseline)
-        if: github.event_name == 'pull_request'
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          path: pr-base
-
-      - name: Pick comparison baseline
-        id: base
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "dir=pr-base" >> "$GITHUB_OUTPUT"
-          else
-            echo "dir=import-baseline" >> "$GITHUB_OUTPUT"
-          fi
+      # NOTE ON THE BASELINE THAT USED TO LIVE HERE. Board3 came out of the
+      # EasyEDA Pro importer carrying 41 error-severity violations, so both the
+      # DRC and ERC gates were deltas against a checked-out baseline (the import
+      # commit 52586d4, or the PR base). Every one of those has since been
+      # cleared -- ERC 1009 -> 0 and DRC to 0 at --severity-all under the real
+      # rules -- so both gates are now absolute and nothing consumes a baseline.
+      # The two checkout steps and the baseline picker were removed rather than
+      # left dead: they cloned the repo twice per run to feed a comparison no
+      # step made any more. Restore from history if a floor ever genuinely
+      # returns, but prefer fixing the design -- see
+      # docs/solutions/developer-experience/a-large-erc-count-is-a-broken-instrument.md
 
       # Informational: the raw report that ships in the artifact. It measures
       # against the board's own .kicad_pro, and it no longer carries
       # --exit-code-violations -- the step below is the gate.
+      # A KiCad library can be present, well-formed, and still refuse to load --
+      # and NOTHING else here notices, because the schematic renders every symbol
+      # from its own lib_symbols cache. ProPrj_New-easyedapro.kicad_sym was
+      # unloadable for months: sheet correct, netlist correct, BOM correct, DRC
+      # 0/0/0 the whole time. One symbol in it was named
+      # "CAPACITOR_THT:CP_RADIAL_D8.0MM_P2.50MM", and a colon is the
+      # library/symbol separator in a KiCad ID, so KiCad rejected all 94 symbols.
+      #
+      # ERC did say so -- 124 lib_symbol_issues -- but that check is a WARNING and
+      # the ERC gate below ran --severity-error at the time. It was invisible by
+      # construction. That gate is now absolute at --severity-all, so this is a
+      # second line rather than the only one -- and it is still worth its own
+      # step, because it names the offending symbol instead of reporting that
+      # every part in the library went missing.
+      # This step is absolute rather than ratcheted: a library either loads or it
+      # does not.
+      - name: Every declared symbol library actually loads
+        run: python3 tools/kicad_libcheck.py kicad/board3
+
       - name: DRC report
         run: |
           kicad-cli pcb drc \
@@ -116,59 +116,61 @@ jobs:
           sys.exit(1)
           PY
 
-      # Fails on NEW violations only, compared per type so a falling total
-      # cannot hide a class that did not exist before. Both boards are measured
-      # through tools/kicad_rules.json, never their own .kicad_pro.
-      - name: DRC delta (per-type, ratcheted)
-        # --contract count is per-type "no worse than the baseline". On PRs the
-        # baseline is the PR base, so improvements lock in at merge; on pushes
-        # it is the import-baseline floor. Instance-identity churn between
-        # distant states is lawful (parts move); adjacent-state gates during
-        # work keep kicad_verify's identity default, where a swap cannot hide.
+      # ABSOLUTE. This was a per-type ratchet against a baseline, on the premise
+      # that the EasyEDA import left an unclearable floor (measured 36 at the
+      # time). That premise is now false: measured through tools/kicad_rules.json
+      # -- the real rules, never the board's own .kicad_pro -- the board reports
+      # 0 violations and 0 unconnected at --severity-all with the library
+      # sidecars staged. Zero is reachable, so zero is the bar.
+      #
+      # kicad_verify still supports --baseline and --contract for interactive
+      # work, where attributing a pre-existing violation is genuinely useful.
+      # It is the CI GATE that has no business carrying a floor. If this ever
+      # needs a baseline again, that is the signal something regressed -- fix
+      # the board, do not re-ratchet the gate.
+      - name: DRC gate (absolute, staged rules)
         run: |
-          python3 tools/kicad_verify.py \
-            "${{ steps.find.outputs.pcb }}" \
-            --baseline "${{ steps.base.outputs.dir }}/${{ steps.find.outputs.pcb }}" \
-            --contract count
+          python3 tools/kicad_verify.py "${{ steps.find.outputs.pcb }}"
 
-      - name: ERC delta (per-type on PRs, total on the main floor)
-        # The schematic carries a known ERC debt (unflagged unused pins), so
-        # --exit-code-violations would fail on ANY run forever. PRs are gated
-        # per type against their own base -- a category cannot regress behind
-        # another's improvement. The push-to-main floor stays a total against
-        # the import baseline because of one known pre-existing wrinkle
-        # (pin_not_driven 70 -> 71 inside a net-improved total); tighten it to
-        # per-type once that +1 is attributed and cleared.
+      # ABSOLUTE, and at --severity-all. This was a ratchet at --severity-error,
+      # justified by "the schematic carries a known ERC debt (unflagged unused
+      # pins)" -- and that premise is now false. All 1009 violations were driven
+      # to zero without one net moving (netlist byte-identical: 228 nets, no
+      # membership change), so zero is a state this schematic can occupy, and a
+      # gate that only has to not-grow can never make anyone read the report.
+      #
+      # The severity is the load-bearing half. At --severity-error this gate was
+      # STRUCTURALLY unable to report the one real defect in the pile: the 124
+      # lib_symbol_issues saying a whole symbol library would not load are a
+      # WARNING, so they were invisible by construction for months while this
+      # check ran green on every push. A filter is a blind spot, not a setting.
+      #
+      # If this ever needs a baseline again, that is the signal something
+      # regressed -- fix the schematic, do not re-ratchet the gate.
+      # docs/solutions/developer-experience/a-large-erc-count-is-a-broken-instrument.md
+      - name: ERC gate (absolute, all severities)
         if: always()
         run: |
           kicad-cli sch erc \
-            --severity-error \
+            --severity-all \
             --format json \
             -o erc.json \
             "${{ steps.find.outputs.sch }}"
-          kicad-cli sch erc \
-            --severity-error \
-            --format json \
-            -o erc-base.json \
-            "${{ steps.base.outputs.dir }}/${{ steps.find.outputs.sch }}"
-          EVENT="${{ github.event_name }}" python3 - <<'PY'
-          import collections, json, os, sys
-          def counts(path):
-              d = json.load(open(path))
-              c = collections.Counter()
-              for s in d.get('sheets', []):
-                  for v in s.get('violations', []):
-                      c[v.get('type')] += 1
-              return c
-          cur, base = counts('erc.json'), counts('erc-base.json')
-          print('ERC current :', sum(cur.values()), dict(cur))
-          print('ERC baseline:', sum(base.values()), dict(base))
-          if os.environ.get('EVENT') == 'pull_request':
-              worse = {k: (cur[k], base.get(k, 0)) for k in cur if cur[k] > base.get(k, 0)}
-              for k, (c, b) in sorted(worse.items()):
-                  print(f'::error::ERC {k}: {c} exceeds base {b}')
-              sys.exit(1 if worse else 0)
-          sys.exit(0 if sum(cur.values()) <= sum(base.values()) else 1)
+          python3 - <<'PY'
+          import collections, json, sys
+          d = json.load(open('erc.json', encoding='utf-8'))
+          items = [v for s in d.get('sheets', []) for v in s.get('violations', [])]
+          if not items:
+              print('ERC: clean (0 violations at --severity-all)')
+              sys.exit(0)
+          for kind, n in collections.Counter(i.get('type') for i in items).most_common():
+              print(f'  {n:4d}  {kind}')
+          for i in items[:25]:
+              print(f"    - [{i.get('severity')}] {i.get('description', '')}")
+          if len(items) > 25:
+              print(f'    ... and {len(items) - 25} more')
+          print(f'\n::error::ERC is not clean: {len(items)} violation(s).')
+          sys.exit(1)
           PY
 
       # The BOM comes from the schematic and the CPL from the board, and both
