@@ -719,6 +719,35 @@ stops KiCad resolving the library at all, so `lib_footprint_mismatch` silently
 tests nothing; and `pcbnew.FootprintLoad()` returns exactly such a bare FPID, so
 set it explicitly after any scripted footprint swap.
 
+**KiCad runs NO silkscreen test unless a `silk_clearance` rule exists in the
+`.kicad_dru`.** Board3's `.kicad_pro` carries `min_silk_clearance: 0.15` and
+`silk_over_copper`/`silk_overlap`/`silk_edge_clearance` all armed at `warning`.
+All of it is inert. DRC reported **0** at `--severity-all` while JLCPCB's DFM
+returned **81 red errors** (50 silkscreen-to-pad, 31 silkscreen-to-hole) on the
+same board. Add one rule and the same board reports **199 `silk_over_copper` +
+199 `silk_overlap`** — measured 2026-08-05, three settings that look configured
+and check nothing. Probe any check you believe is running by asserting something
+the board must fail; a value in the project file is not evidence the test exists.
+
+Three related facts from the same session, each measured:
+- **The findings are all near misses**, 0.031–0.1495 mm against 0.15, median
+  shortfall 36 µm, **no actual overlaps** — across 19 footprint types and 18
+  board-level graphics.
+- **The fab already clips it.** `kicad_fab.py` passes `--subtract-soldermask`
+  (silk gerber 303,034 chars with it, 74,252 without), so nothing prints on a
+  pad and the board is buildable. The defect is that the design claims markings
+  it will not get, and the clipped remainder still sits at 0 mm from the mask
+  edge.
+- **`GetEffectivePolygon()` needs a layer argument in KiCad 10**, and the
+  polygon it returns is INSCRIBED in a round pad — so distances measured against
+  it run a few microns optimistic, enough to leave ~3.8 µm residual violations
+  after trimming to exactly 0.15. Budget a margin. Do not wrap the call in a
+  bare `except`: swallowing that `TypeError` made a trimmer report "0 lines need
+  trimming" on a board with 199 violations.
+
+Plan: `docs/plans/2026-08-05-001-fix-board3-silkscreen-clearance-plan.md`.
+Tool: `tools/kicad_silk_trim.py` (lines only; circles/arcs/polygons pending).
+
 **`footprint_symbol_field_mismatch` is deliberately set to `ignore`.** KiCad wants
 every symbol field mirrored onto the footprint. Mirroring them was tried
 (2026-08-03) and reverted: Board3's supplier metadata lives on the *symbol* by
