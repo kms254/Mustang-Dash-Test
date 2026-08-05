@@ -592,6 +592,18 @@ def main() -> int:
     # operator clicks past into a board assembled with parts missing.
     if no_cpl or no_bom:
         return EXIT_ERROR
+    # A missing layer is equally an ERROR, and this gate exists because the
+    # degraded run is silent otherwise. Without pcbnew (a bare `python` rather
+    # than KiCad's own -- this module has no self-reexec) the gerbers keep the
+    # board's own layer names, so Edge.Cuts ships as "Multi-Layer.gbr", the
+    # rotation audit never runs, and every required layer reads MISSING. All of
+    # that was printed and none of it reached the exit code, so a wrapper or CI
+    # step gating on status alone saw a degraded package as success.
+    if missing_layers:
+        print("\nfab export failed: the gerber set is incomplete (see MISSING above).\n"
+              "If every layer is missing, this was almost certainly run without pcbnew "
+              "-- re-run under KiCad's own interpreter.", file=sys.stderr)
+        return EXIT_ERROR
     return EXIT_INCOMPLETE if (unsourced or unplaceable) else EXIT_OK
 
 

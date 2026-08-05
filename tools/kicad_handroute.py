@@ -292,6 +292,16 @@ def apply_step(board, spec: dict, tracks: list, dry: bool):
         missing = [n for n in nets if n not in {p.GetNumber() for p in new.Pads()}]
         if missing:
             raise SystemExit(f"{ref}: new footprint has no pad(s) {missing} -- refusing")
+        # And the other direction, which is the one that bites silently: a pad the
+        # NEW footprint has and the old one did not (an exposed tab, or simply the
+        # wrong FPID) would be skipped by the loop below and ship on net 0. The
+        # check has to be symmetric -- place_parts gets this right, and this did
+        # not until a review caught it.
+        extra = [p.GetNumber() for p in new.Pads() if p.GetNumber() not in nets]
+        if extra:
+            raise SystemExit(
+                f"{ref}: new footprint has pad(s) {extra} the old one did not -- "
+                f"they would carry no net. Refusing.")
         for pad in new.Pads():
             if pad.GetNumber() in nets:
                 pad.SetNet(nets[pad.GetNumber()])
@@ -364,27 +374,38 @@ def apply_step(board, spec: dict, tracks: list, dry: bool):
         # default tents every via front and back, which is right for 229 of them
         # and wrong for the handful you need to put a scope on. Selection is by
         # exact position because a via has no name to address it by.
+        # "tent": true reverses it -- putting the mask back over a via that should
+        # never have been opened. U59 needed that: an untented via 0.0295 mm from
+        # a pad on the SAME net merges apertures, and solder_mask_bridge only
+        # fires between different nets, so DRC cannot see it.
         x, y = rule["at"]
         want = (to_nm(x), to_nm(y))
         tol = to_nm(rule.get("tolerance", 0.01))
-        for track in tracks:
-            if track.Type() != pcbnew.PCB_VIA_T:
-                continue
-            pos = track.GetPosition()
-            if abs(pos.x - want[0]) > tol or abs(pos.y - want[1]) > tol:
-                continue
-            if rule.get("net") and track.GetNetname().lstrip("/") != rule["net"].lstrip("/"):
-                raise SystemExit(
-                    f"via at ({x},{y}) is on {track.GetNetname()!r}, "
-                    f"not {rule['net']!r} -- refusing to untent the wrong one")
-            if not dry:
-                track.SetFrontTentingMode(pcbnew.TENTING_MODE_NOT_TENTED)
-                track.SetBackTentingMode(pcbnew.TENTING_MODE_NOT_TENTED)
-            print(f"  o untented {track.GetNetname():<13} via at ({x},{y})"
-                  f"{'  ' + rule['label'] if rule.get('label') else ''}")
-            break
-        else:
-            raise SystemExit(f"no via within {rule.get('tolerance', 0.01)} mm of ({x},{y})")
+        # Collect ALL matches rather than taking the first. A wider tolerance in a
+        # dense via cluster can match two, and silently opening the mask over the
+        # wrong one is not something the operator would see. Same guard move_silk
+        # already makes.
+        hits = [t for t in tracks
+                if t.Type() == pcbnew.PCB_VIA_T
+                and abs(t.GetPosition().x - want[0]) <= tol
+                and abs(t.GetPosition().y - want[1]) <= tol]
+        if len(hits) != 1:
+            raise SystemExit(
+                f"via at ({x},{y}): matched {len(hits)} vias within "
+                f"{rule.get('tolerance', 0.01)} mm, expected exactly 1")
+        track = hits[0]
+        if rule.get("net") and track.GetNetname().lstrip("/") != rule["net"].lstrip("/"):
+            raise SystemExit(
+                f"via at ({x},{y}) is on {track.GetNetname()!r}, "
+                f"not {rule['net']!r} -- refusing to touch the wrong one")
+        tent = bool(rule.get("tent"))
+        mode = pcbnew.TENTING_MODE_TENTED if tent else pcbnew.TENTING_MODE_NOT_TENTED
+        if not dry:
+            track.SetFrontTentingMode(mode)
+            track.SetBackTentingMode(mode)
+        print(f"  o {'re-tented' if tent else 'untented'} {track.GetNetname():<13} "
+              f"via at ({x},{y})"
+              f"{'  ' + rule['label'] if rule.get('label') else ''}")
 
     for rule in spec.get("move_footprints", []):
         ref = rule["ref"]
@@ -420,24 +441,47 @@ def apply_step(board, spec: dict, tracks: list, dry: bool):
         # both rebuild or re-place the field it edits.
         ref = rule["ref"]
         which = rule.get("field", "reference").lower()
+        # Validate rather than falling through to Value(). An unrecognised name --
+        # "designator" is the obvious one, since kicad_fab.py uses that word for
+        # the same thing -- would otherwise silently move the WRONG field and
+        # report the typo back as if it had worked.
+        if which not in ("reference", "value"):
+            raise SystemExit(
+                f"move_fp_text {ref}: unknown field {rule.get('field')!r} -- "
+                f"expected 'reference' or 'value'")
         for footprint in board.GetFootprints():
             if footprint.GetReference() != ref:
                 continue
             item = footprint.Reference() if which == "reference" else footprint.Value()
             pos = item.GetPosition()
-            if "to" in rule:
-                x, y = rule["to"]
-                moved = pcbnew.VECTOR2I(to_nm(x), to_nm(y))
-                how = f"to ({x},{y})"
+            what = []
+            if "to" in rule or "by" in rule:
+                if "to" in rule:
+                    x, y = rule["to"]
+                    moved = pcbnew.VECTOR2I(to_nm(x), to_nm(y))
+                    what.append(f"to ({x},{y})")
+                else:
+                    dx, dy = rule["by"]
+                    moved = pcbnew.VECTOR2I(pos.x + to_nm(dx), pos.y + to_nm(dy))
+                    what.append(f"by ({dx},{dy})")
+                if not dry:
+                    item.SetPosition(moved)
             else:
-                dx, dy = rule["by"]
-                moved = pcbnew.VECTOR2I(pos.x + to_nm(dx), pos.y + to_nm(dy))
-                how = f"by ({dx},{dy})"
-            if not dry:
-                item.SetPosition(moved)
-                if "angle" in rule:
-                    item.SetTextAngleDegrees(rule["angle"])
-            print(f"  ~ {ref} {which} {how} -> ({moved.x/NM:.3f},{moved.y/NM:.3f})")
+                moved = pos
+            if "angle" in rule and not dry:
+                item.SetTextAngleDegrees(rule["angle"])
+            # Visibility is part of this operation because a land-pattern swap can
+            # change it: a library that ships its Reference visible turns a hidden
+            # designator into printed silk nobody asked for.
+            if "visible" in rule:
+                what.append(f"visible={rule['visible']}")
+                if not dry:
+                    item.SetVisible(bool(rule["visible"]))
+            if not what:
+                raise SystemExit(
+                    f"move_fp_text {ref}: needs 'to', 'by' or 'visible' -- nothing to do")
+            print(f"  ~ {ref} {which} {', '.join(what)} -> "
+                  f"({moved.x/NM:.3f},{moved.y/NM:.3f})")
             break
         else:
             raise SystemExit(f"no footprint {ref!r} on the board")
