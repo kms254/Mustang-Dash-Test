@@ -96,6 +96,13 @@ because the dump enumerated only `GetTracks()`.
 | Pad | Bounding-box **overlap** against `pad.GetBoundingBox()` | The centre can sit outside while copper reaches in |
 | Footprint | Bounding-box overlap against `fp.GetBoundingBox()` | Same as pads, at part scale |
 | Via | Centre ± radius, **on every layer it spans** | A via is a disc on all its layers; a layer-filtered query hides it (see [search every copper layer before placing a via](search-every-copper-layer-before-placing-a-via.md)) |
+| **Courtyard** | The **polygon**, never the bounding box | A courtyard is frequently non-rectangular, so a bbox test both over- and under-reports. U59 proposed two replacement vias that a bbox test called clear and a polygon test put inside U1's and U9's courtyards |
+
+**The bounding box is the right test for a pad or a footprint and the wrong test
+for a courtyard**, which is easy to conflate because all three are "an object
+with extent". A pad's copper is its bounding box to within a rounding; a
+courtyard is an authored polygon that can be any shape. When the question is
+"does this land inside a keep-clear region", use the region's own geometry.
 
 ```python
 # Pads: overlap on the pad's own extent, never containment of its origin.
@@ -126,10 +133,29 @@ Note also what did *not* catch it. The window dump is the map a hand route is
 derived from; if the map is wrong, the clearance arithmetic downstream is
 flawless and the answer is still wrong. Only DRC caught it, at the end.
 
+### It recurred three more times after this doc was written
+
+Each in a unit that had the rule available, and one of them in a unit that
+*cites this doc while breaking it*:
+
+| Unit | The test that was used | Cost |
+|---|---|---|
+| **U51** | Pad **corners**, with an early `break`, instead of the pad shape | A uniform widening of `/+5V_BARREL` swallowed Q2's gate pad — a short, on the very net the rule warns about. Correct test was `EffectivePolygon` |
+| **U53** | A via's **centre** instead of its shape | Claimed "none under a component courtyard"; TP2's solder mask merged with C34's pad and shipped as a real defect until U59 |
+| **U59** | A courtyard **bounding box** instead of the polygon | Two proposed replacement vias called clear that were actually inside U1's and U9's courtyards |
+
+Three lessons the original write-up did not contain. **A sampled point set is
+still a reference point** — U51 tested four corners rather than one centre and
+failed anyway, because "test more points" is not the same as "test the shape".
+**The rule generalises past window queries** — U51's failure was a clearance
+pre-check, not a window dump, and the same defect appeared because the same
+substitution was made. And **citing the rule is not applying it**: U53 quotes
+this rule in its own spec and then tests a via centre four lines later.
+
 ## When to Apply
 
-- Every windowed geometry dump in routing/placement scripts (`pcbnew`,
-  EasyEDA bridge, any EDA scripting).
+- Every windowed geometry dump in routing/placement scripts (`pcbnew` or any
+  EDA scripting; this project's EasyEDA bridge was retired 2026-07-31).
 - Building obstacle inventories before deriving track paths by hand.
 - Reviewing someone else's board query script. Two patterns are the bug:
   `inwin(sx, sy) or inwin(ex, ey)` for segments, and any range test applied to
@@ -225,7 +251,7 @@ they touch — structurally the overlap test this doc argues for.
 
 ## Related
 
-- CLAUDE.md — "Never window-filter board dumps by endpoint containment" (compressed version) and "Read board facts through `pcbnew`, never regex" (same failure family)
+- CLAUDE.md — "Never window-filter board dumps by an object's reference point" (compressed version) and "Read board facts through `pcbnew`, never regex" (same failure family). **Quote that heading exactly.** It originally read "by endpoint containment", and the narrower wording is what let the rule be read as segments-only and recur on pads; an earlier revision of this doc reproduced the superseded phrasing in this very line
 - `docs/solutions/tooling-decisions/freerouting-headless-integration-for-kicad.md` — the routing session this bug shaped
 - `tools/kicad_shove.py` — uses exact segment math for the same reason (its `GetEffectiveShape().Collide()` lesson is the DRC-side sibling of this query-side rule)
 - [Search every copper layer before placing a via](search-every-copper-layer-before-placing-a-via.md) — the via row of the table above; a via is a disc on every layer it spans, so a layer-filtered query hides it

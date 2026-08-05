@@ -51,14 +51,26 @@ stopped referring to anything.
 
 Commit `9af4cf3` caught this in the router at 17:55 and fixed
 `excluded_net_args()` in `tools/kicad_route.py`. It changed that file and the
-board, and nothing else. **The same defect is live in `tools/kicad_strip.py`,
-which has one commit in its history — `98cf756`, 12:42, three hours and
-fifty-six minutes before the rename that unbound it — and is byte-identical at
-`d5aaa7e`.** Line numbers below are from that file.
+board, and nothing else. **The same defect was live in `tools/kicad_strip.py`,
+which at the time had one commit in its history — `98cf756`, 12:42, three hours
+and fifty-six minutes before the rename that unbound it.** Line numbers below
+are from that file as it stood then.
+
+> **Fixed.** All three rules prescribed below are implemented in
+> `tools/kicad_strip.py` today: `match_key()` normalises the hierarchical path,
+> a hard refusal aborts the run when every held-out net would be destroyed, and
+> the verification counts survivors instead of testing membership in the
+> pre-state. The fix and this document arrived in the same commit, which is why
+> the paragraph above originally read in the present tense — the doc was written
+> from the pre-fix state and never revised once the fix landed beside it. The
+> analysis below is kept as written because the reasoning, not the incident, is
+> the reusable part.
 
 ## Symptoms
 
-Running the census against the current board reproduces every step:
+Running the census against the board **as it stood before the fix** reproduced
+every step. The current tool cannot produce this run — the refusal at step 3
+aborts first:
 
 ```text
 excluded nets  : 20  (0 tracks, 0 vias kept)
@@ -176,12 +188,19 @@ one that survives the next unforeseen rename, because a before/after copper
 census never mentions a name from the JSON at all. It asks the board what
 happened to it.
 
-The blast radius argues the same way. `tools/kicad_strip.py` is the fairness
-pivot for the whole KiCad-versus-EasyEDA comparison — its own docstring says *"if
-they begin from different copper their completion numbers describe different
-problems and the head-to-head is void."* It runs manually, appears in no CI
-workflow, and has no host test. Its self-verification is the entire safety net,
-which is exactly why that net must not be woven from the same thread.
+The blast radius argues the same way. `tools/kicad_strip.py` was the fairness
+pivot for the KiCad-versus-EasyEDA comparison — its own docstring says *"if they
+begin from different copper their completion numbers describe different problems
+and the head-to-head is void."* That comparison is retired (EasyEDA was dropped
+2026-07-31; `kicad/board3` is the design, not a copy), so the stakes it names are
+historical.
+
+**The half that has not expired is the one that matters.** The tool still runs
+manually, still appears in no CI workflow, and still has no host test — so its
+self-verification remains the entire safety net, which is exactly why that net
+must not be woven from the same thread. A guard's independence matters most
+precisely where nothing else is watching, and losing the original justification
+does not restore the missing coverage.
 
 ## Prevention
 

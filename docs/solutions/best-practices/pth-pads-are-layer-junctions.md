@@ -8,6 +8,7 @@ component: tooling
 severity: high
 applies_when:
   - "Deleting or replacing a through-hole part on a routed board"
+  - "MOVING a through-hole part, even by a fraction of a pad width"
   - "Converting THT parts to SMD (footprint swap included)"
   - "Diagnosing airwires that appear after a part deletion"
 tags: [kicad, pth, tht, airwires, layer-junction, deletion, smd-conversion]
@@ -48,6 +49,38 @@ board, audit each of its holes as if it were a via being removed:
 4. **Gate with connectivity, not just DRC.** The airwire count
    (`GetUnconnectedCount` after a zone refill) is the check that catches
    this; clearance DRC stays green throughout because nothing *collides*.
+
+   **But not on a poured net, which is where most of these junctions live.**
+   Four of Board3's five live PTH layer junctions are on `/GND`, which is poured
+   on three layers — and there the airwire count returns zero regardless,
+   because the pour absorbs the connection. Use the DRC census and
+   `starved_thermal` for those, per
+   [an airwire count cannot validate copper changes on a poured net](../developer-experience/airwire-counts-cannot-validate-deleting-copper-on-a-poured-net.md).
+   This doc's own example is the case where the airwire gate works — the
+   fragments were on a *top-layer fill*, not a live pour — which is exactly what
+   makes the limitation easy to miss here.
+
+5. **Moving counts as touching, and the test is not "still inside the pad".**
+   U56 shifted H1/H3 by 1.0 mm on 2.00 mm pads. Every track end stayed within
+   the new pad, so no gate objected — and each one landed *on the pad edge*,
+   which is a connection too marginal to leave to a DRC opinion. All four stubs
+   were re-laid with their endpoints at the new pad centres. A landing that is
+   technically inside and practically on the boundary is a defect that every
+   automated check will pass.
+
+## Worked confirmation — U54, a swap that was safe and was proven so
+
+The procedure's value is not only that it catches disasters. U54 swapped SW1–SW4
+from the LS5.4 to the LS5.0 land pattern on a fully-routed board, and the audit
+is what made that a decision rather than a hope:
+
+> *"Only pad1 (`/BTNn_SW`) and pad4 (`/GND`) are connected on these four; pads 2
+> and 3 are unconnected. The pads move 0.2 mm and the pads are 1.6 mm square, so
+> an existing track ending at the old centre is still 0.6 mm inside the new pad.
+> Nothing needs re-laying."*
+
+SW1.4 and SW2.4 are Top+Bottom junctions — precisely the condition step 1 exists
+to find. The audit said the routing survives, and DRC afterwards agreed at 0/0/0.
 
 ## Why This Matters
 

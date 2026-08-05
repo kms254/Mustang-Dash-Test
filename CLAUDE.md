@@ -442,8 +442,12 @@ PD0–PD7 are freed. Lamp bit l drives TT(l+1); DIM regs 0x2C–0x2F on both ICs
   `.kicad_pro`, `.kicad_dru`, **`fp-lib-table` + the `.pretty` dirs** —
   without the last two, kicad-cli reports mass `lib_footprint_issues`
   "library not found" phantoms (120 on Board3) that also mask the real
-  mismatches. `tools/kicad_verify.py` stages only pro+dru (fine for its
-  error gate; not for `--severity-all` audits).
+  mismatches. `tools/kicad_verify.py` used to stage only pro+dru, which is why
+  it had to run `--severity-error`; since 2026-08-05 it stages the library
+  tables and the `.pretty` dirs too and judges at `--severity-all`. Fix the
+  staging before dropping a severity filter, never the other way round — a
+  filter covering for a staging gap looks like a reasonable local choice right
+  up until it is the reason a whole warning class is unreadable.
 
 **Autorouting Board3 (2026-07-29, all paid for):** `tools/kicad_freeroute.py`
 wraps freerouting headless (portable JRE + jars in `C:\Users\kevin\Tools`).

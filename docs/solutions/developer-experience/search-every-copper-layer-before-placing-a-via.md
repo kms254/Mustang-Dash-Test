@@ -41,13 +41,18 @@ This is not an exotic board. Its inner layers are declared `mixed`, not plane,
 and they carry real signal:
 
 ```text
-F.Cu    3307.7 mm    97 nets
+F.Cu    3307.7 mm    97 nets       (measured 2026-07-27)
 In1.Cu   934.1 mm    23 nets
 In2.Cu   655.7 mm    20 nets
 B.Cu     481.8 mm    19 nets
 ```
 
-Roughly 1,590 mm of routing across 36 nets lives where you cannot see it.
+Roughly 1,590 mm of routing across 36 nets lives where you cannot see it. Those
+figures are a 2026-07-27 snapshot and the board has grown since — U50 relocated
+four resistors ~90 mm with Bottom-layer bridges, U57 dropped a `/CAN2_TX` dogleg
+to Bottom, C46 moved 59 mm, C72/C73 were added. Re-measure before quoting a
+number; the conclusion (most of the inner-layer copper is invisible to the
+renders) has only got stronger.
 
 ## Guidance
 
@@ -80,6 +85,19 @@ def viable(cx, cy, via_d, obstacles, accepted, clearance, hole_floor, drill):
             return False
     return True
 ```
+
+> **This snippet is incomplete and the gap is the one this doc warns about.**
+> `obstacles` is iterated as segments only — **pads are absent from the obstacle
+> set entirely**, so a via placed by this recipe can land in a pad it never saw.
+> Constraint 1's prose says "plus keepouts and rule areas"; the code does not
+> implement it. Build `obstacles` from pads and zones as well as tracks, testing
+> each by its own shape per
+> [window-filter board geometry by shape intersection](clip-test-board-window-queries.md).
+> Two later units hit exactly this: U53 tested a via centre rather than its
+> shape and shipped a solder-mask defect, and U52's candidate at 130.950 passed
+> every copper check and then failed `hole_to_hole` at 0.258 mm against a 0.4995
+> minimum — constraint 3, on a via of the *same net*, because drilling
+> constraints do not care about nets.
 
 Feed it a dense grid over the target region, keep the survivors, then pick from
 them — greedy max-spread for a thermal array, nearest-to-ideal for an escape.
