@@ -1,0 +1,119 @@
+{
+  "$comment": [
+    "U59 -- the three board defects an eight-lens adversarial review found in the",
+    "work of U51..U58. All three were introduced by that work; none was caught by",
+    "DRC, and two of them cannot be.",
+    "",
+    "",
+    "1. TP2's SOLDER MASK MERGES WITH C34's PAD. This is the real one.",
+    "",
+    "U53 untented three vias as rail probe points. Two are fine. The third, TP2 on",
+    "/+3V3 at (135.508,110.254), sits 0.0295 mm from C34 pad 1 -- against the",
+    "board's own 0.100 mm minimum mask width. The dam cannot be plotted and cannot",
+    "be printed: in the exported F_Mask.gbr, TP1 and TP3 each get a discrete",
+    "0.5949 mm circular opening and TP2 gets NO opening at all, only a merged",
+    "1.4084 x 1.3064 mm blob spanning the via and the pad together. KiCad removed",
+    "the sub-minimum web itself.",
+    "",
+    "So at reflow C34's pad-1 paste has an open 0.25 mm barrel 0.33 mm away to",
+    "drain into, while pad 2 (/GND, thermal to the pour) wets normally -- starved",
+    "or open joint, or a tombstoned 0603, on an MCU rail decoupler. The field",
+    "symptom is intermittent, not dead.",
+    "",
+    "DRC CANNOT SEE THIS AND REPORTS 0/0/0 TRUTHFULLY. solder_mask_bridge only",
+    "fires between apertures of DIFFERENT nets, and the via and the pad are both",
+    "/+3V3. Baseline origin/main had zero mask dams below 0.15 mm; U53 created it.",
+    "",
+    "Fix: re-tent TP2, untent the /+3V3 via at (121.314,99.332) instead. That is",
+    "the ONLY /+3V3 via on the board clean on both counts -- 1.3174 mm mask dam,",
+    "1.038 mm clear of any courtyard. Two candidates that look better on mask dam",
+    "alone, (158.702,117.848) and (114.951,126.825), are inside U1's and U9's",
+    "courtyards respectively; that only shows up if the courtyard is tested as a",
+    "POLYGON rather than a bounding box, which is how one reviewer got it wrong.",
+    "",
+    "It moves TP2 from 5.07 mm to 14.4 mm from TP3. That costs nothing: TP2 exists",
+    "for a DMM rail check, not a scope ground.",
+    "",
+    "U53's own note claimed 'none of them under a component courtyard'. TP2's",
+    "copper laps 0.234 mm inside C34's. That claim was made by testing the via",
+    "CENTRE instead of its shape -- the exact error CLAUDE.md's window-query rule",
+    "exists to prevent, made in the unit that cites it.",
+    "",
+    "",
+    "2. C46 IS 502.6 nm FROM A /GND TRACK -- the tightest thing U51..U58 created.",
+    "",
+    "U52 moved C46 to (132.000,113.048). Its pad 1 (/NRST) ends up 0.102103 mm",
+    "from the /GND diagonal (130.442,111.016)->(135.014,115.588), against a",
+    "0.1016 mm rule. Legal by 502.6 nm, and second-tightest on the whole board",
+    "after a pre-existing pair at 71.6 nm.",
+    "",
+    "It is worth the edit because of WHICH net it is. /NRST shorted to /GND holds",
+    "the H7 in permanent reset: the board powers up, both new rail probes read",
+    "good, and nothing renders, with no error and no distinguishing symptom. That",
+    "is precisely the diagnostic hole U52's own rationale argues against.",
+    "",
+    "C46 moves 0.15 mm along the perpendicular to that diagonal -- the minimum",
+    "disturbance that buys real margin, 0.1021 -> 0.2521 mm. The /NRST stub is",
+    "re-laid to the new pad centre; its far end at the existing escape via",
+    "(130.442,113.048) does not move, so nothing upstream changes.",
+    "",
+    "Worth recording why it was missed: U52's clearance work went entirely into",
+    "the VIA question, where it correctly caught a hole_to_hole trap at 0.258 mm",
+    "against a same-net via. It never measured the pad it was about to land.",
+    "",
+    "",
+    "3. FOUR REFERENCE DESIGNATORS APPEARED ON THE SILKSCREEN.",
+    "",
+    "JLCImport:ERJP06F60R4V ships its Reference field VISIBLE; the R0603 instances",
+    "it replaced had it hidden. So U57 left R10/R14/R15/R24 as the only 4 of 150",
+    "footprints with a printed designator, on a board whose convention is to",
+    "silkscreen function (BTN1-4, BOOT, RESET, CAN1/2, TT1-8, H/L) and never",
+    "designators. F.Fab is not in kicad_fab.py's exported layer set, so this is",
+    "what the assembly house actually receives.",
+    "",
+    "Hidden again here, restoring the convention. Note this is the same lesson U57",
+    "already banked -- 'swapping a land pattern re-seats the reference designator'",
+    "-- one step further: it can also un-hide it.",
+    "",
+    "",
+    "NOT FIXED HERE, deliberately, and recorded in the triage instead: the lib_id",
+    "of R10/R14/R15/R24 and C41/C42 still points at the pre-swap symbol, so a GUI",
+    "'Update Symbols from Library' would silently revert their supplier fields",
+    "while the board keeps the new land patterns. --schematic-parity catches the",
+    "footprint half and nothing catches the supplier half. Fixing it is a GUI",
+    "Change Symbol on ten designators; it is schematic-only, with no footprint,",
+    "net or routing consequence."
+  ],
+  "steps": [
+    {
+      "step": "1/3  move the /+3V3 probe point off C34's pad",
+      "untent_vias": [
+        {"at": [135.508, 110.254], "net": "+3V3", "tent": true, "label": "TP2 (was here)"},
+        {"at": [121.314, 99.332], "net": "+3V3", "label": "TP2"}
+      ]
+    },
+    {
+      "step": "2/3  back C46 away from the /GND diagonal, and re-land its stub",
+      "move_footprints": [
+        {"ref": "C46", "to": [131.894, 113.154]}
+      ],
+      "delete": [
+        {"net": "NRST", "layers": ["Top Layer"], "vias": false,
+         "bbox": [130.300, 112.900, 132.150, 113.900]}
+      ],
+      "add": [
+        {"net": "NRST", "layer": "Top Layer", "width": 0.254,
+         "points": [[130.442, 113.048], [131.894, 113.854]]}
+      ]
+    },
+    {
+      "step": "3/3  hide the four designators the 0805 land pattern un-hid",
+      "move_fp_text": [
+        {"ref": "R10", "field": "reference", "visible": false},
+        {"ref": "R14", "field": "reference", "visible": false},
+        {"ref": "R15", "field": "reference", "visible": false},
+        {"ref": "R24", "field": "reference", "visible": false}
+      ]
+    }
+  ]
+}
