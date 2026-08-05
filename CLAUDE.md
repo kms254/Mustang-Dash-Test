@@ -428,6 +428,16 @@ PD0–PD7 are freed. Lamp bit l drives TT(l+1); DIM regs 0x2C–0x2F on both ICs
   item collide with itself ("no feasible spot" that looks like tight
   geometry). Exclude by coordinates/value. Mutation through any proxy
   still works; only identity breaks.
+- **The staged-copy trap has an ERC form, and it is nastier because the
+  filename is the hidden dependency.** `kicad-cli sch erc` resolves the
+  footprint library table through the `.kicad_pro` **whose name matches the
+  schematic's**. A baseline copied out as `_erc_baseline.kicad_sch` therefore
+  loads no project at all and reports **141 phantom `footprint_link_issues`**
+  on Board3 — making an ERC-neutral edit look like it removed 154 violations.
+  Copying into the project *directory* is not enough; the sidecar has to match
+  by name. To baseline a schematic edit, put the HEAD version back at the real
+  path, run ERC, then restore your copy — anything else compares a project to
+  a non-project.
 - Headless DRC on a staged board copy needs the FULL sidecar set:
   `.kicad_pro`, `.kicad_dru`, **`fp-lib-table` + the `.pretty` dirs** —
   without the last two, kicad-cli reports mass `lib_footprint_issues`
@@ -467,6 +477,96 @@ away, and a `/MISO_R` Inner2 diagonal 0.161 mm. And one *legal* via still pinche
 R42's `/GND` pad to a single thermal spoke — `starved_thermal`, invisible to the
 airwire count, which stayed 0 throughout. Budget three DRC iterations for a part
 relocation, not one.
+
+**DRC IS BLIND TO A SAME-NET SOLDER-MASK MERGE, and untenting a via is how you
+hit it.** `solder_mask_bridge` only fires between apertures of *different* nets.
+U53 untented a `/+3V3` via 0.0295 mm from a `/+3V3` pad — below the 0.100 mm
+minimum mask web — so KiCad dropped the web and the exported `F_Mask.gbr` carries
+one merged 1.41 × 1.31 mm opening instead of a discrete via aperture and a
+discrete pad aperture. That is an open barrel next to paste: a starved or
+tombstoned joint. DRC reported 0/0/0 truthfully for two weeks. **Before untenting
+anything, measure the mask dam to every nearby aperture, same net included**, and
+check the plotted gerber actually contains a separate region for it. On Board3
+the only genuinely clean `/+3V3` via was 14 mm from the others; distance between
+probe points costs nothing next to this.
+
+Two related traps from the same review, both about *what you measured rather than
+what you concluded*: **a via's courtyard test must use the polygon, not the
+bounding box** — two reviewers proposed replacement vias that a bbox test called
+clear and a polygon test put inside U1's and U9's courtyards — and **a footprint
+swap can change a field's VISIBILITY, not just its position.**
+`JLCImport:ERJP06F60R4V` ships its Reference visible where the `R0603` it
+replaced had it hidden, so U57 silently put four designators on a board whose
+other 146 footprints print none. `F.Fab` is not in `kicad_fab.py`'s exported
+layer set, so silk is what the assembler actually sees.
+
+**When you update a symbol's fields, update its `lib_id` too.** Board3 review
+item 37 was exactly this defect — instance fields overridden while `lib_id` still
+named the old part — and the fix for it then created two more instances of it
+(U57's resistors, the C41/C42 swap). One GUI *Update Symbols from Library*
+reverts the supplier field on all of them while the board keeps the new land
+pattern. `--schematic-parity` catches the footprint half and **nothing catches
+the supplier half**; where the footprint is unchanged (C41/C42) no check sees it
+at all. Cloning an existing instance of the *right* part avoids this for free,
+which is why C72/C73 came out clean.
+
+**Adding a NEW part does not always need the KTD12 GUI sync either.** U58
+(2026-08-04) added two bypass capacitors — symbol, wires, labels *and* footprint
+— entirely from scripts, and DRC's `--schematic-parity` came back 0. The recipe:
+clone an existing symbol block of the *same LCSC part* in the `.kicad_sch` (so
+every supplier field is inherited rather than retyped), shift every `(at …)` in
+the block by one delta, regenerate its uuids, swap the reference in both the
+Reference property and the `(instances …)` path; then add wires and labels
+copying the pattern an existing instance uses. Verify with **`kicad-cli sch
+export netlist`** and confirm the new pins land on the intended nets — that is
+the ground truth, not the ERC count. The board half is `place_parts` in
+`kicad_handroute.py`, which **refuses to invent a net**, so it can only place a
+part onto nets that already exist. Note `place_parts` is NOT `add_footprints`:
+the latter places board-only items (fiducials, bare pads) and marks them
+`FP_BOARD_ONLY` and excluded from BOM and CPL — the exact opposite of what a
+real part needs.
+
+Two things that make this cheap or expensive: **a part already on the BOM is
+nearly free** (C14663 was fitted 41× already, so the BOM stayed at 41 lines and
+only the CPL grew), and **ERC will rise — check the shape, not the number.**
+U58 took it 1127 → 1137, and all ten were the schematic's existing noise in
+exact proportion: one `lib_symbol_issues` per symbol, one `pin_to_pin` per pin,
+one `unconnected_wire_endpoint` per wire, matching a baseline of 465 endpoint
+warnings for 463 wires. A new *class* of violation would have been the signal;
+a proportional rise is not.
+
+**When a part cannot be upsized, check whether the net blocking it can change
+LAYER before you re-lay the corner.** U57 (2026-08-04) took the four CAN
+termination resistors to a 500 mW 0805. R24 had *no* legal position — a
+168-point 2D sweep found nothing better than +0.051 mm against a 0.1016 mm rule
+— because `/CAN2_TX` boxed the pocket on three sides at once. Moving R24 was
+impossible (`/CAN2_L` must run west at y=130 to P2.2, and P2 blocks further
+west) and so was moving the dogleg (west of x≈132 TX must stay above `/CAN2_L`
+and below `/CAN2_RX`; east of x≈134 it is at y=131.579 — the step is forced into
+exactly that pocket). Dropping the three dogleg segments to **Bottom**, re-laid
+identically with a via at each end, cleared it in one edit: `/CAN2_TX` length
+unchanged at 44.459 mm, R24 not moved at all. Look for the layer hop before
+accepting a multi-net re-layout — and check whether a neighbouring net already
+does it (`/CAN2_RX` hops through the same corner on Inner2, so this was the
+corner's existing idiom, not a new trick).
+
+Two more from the same unit, both cheap to miss:
+**JLCImport footprints can arrive with no courtyard at all** — both candidates
+here did, while all 148 parts already on the board have one, so author it (at a
+0.25 mm pad margin, also enclosing the silk) *before* measuring any fit, or
+every clearance number is against nothing. And **swapping a land pattern
+re-seats the reference designator**, which is a silkscreen change nobody asks
+for: R10's ref moved 0.38 mm outward going 0603 → 0805 and landed on R14,
+touching at 0.000 mm. `move_fp_text` moves a footprint *field* (as opposed to
+`move_silk`, which is board-level text); note the ref rotates with the part, so
+for a vertical part the text is taller than the body and only the sides are
+viable.
+
+**Prefer the package that fits over the package with the most margin.** The
+1206 (660 mW) was the first choice here and was rejected on measurement: it
+cascaded into rotating R15, moving it 2.5 mm, and dragging `/CAN2_TERM` across
+`/CAN2_TX` — a three-net re-layout, to buy margin on a *double* fault. The 0805
+covered the single-fault case for two vias.
 
 Two consequences worth carrying: `tools/kicad_handroute.py` now has **`renet`**
 (reassign copper between nets without re-laying it, so a split run keeps its

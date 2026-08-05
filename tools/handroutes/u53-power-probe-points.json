@@ -1,0 +1,94 @@
+{
+  "$comment": [
+    "CORRECTION 2026-08-04 (adversarial re-review): the claim below that none of these vias sits under a",
+    "component courtyard is FALSE for TP2 (/+3V3). Its copper lapped 0.234 mm",
+    "into C34's courtyard, and worse, its mask aperture was 0.0295 mm from",
+    "C34's pad -- below the 0.100 mm minimum web, so the two merged into one",
+    "opening in the exported gerber. That is a solder-theft path into an MCU",
+    "rail decoupler, and DRC could not see it because both are on /+3V3 and",
+    "solder_mask_bridge only fires between different nets. TP2 moved to",
+    "(121.314,99.332) in U59. The claim was made by testing the via CENTRE",
+    "instead of its shape -- the exact error CLAUDE.md's window-query rule",
+    "exists to prevent, in the unit that cites it.",
+    "",
+    "U53 -- give the power rails probe points. Review items 23/24 (dft).",
+    "",
+    "WHAT THE FINDING ACTUALLY ASKED FOR. The DFT lens's complaint was about",
+    "bring-up diagnosis, not signal integrity: 'a powered healthy board looks",
+    "identical to a dead one' and 'no bare-copper +5 V probe point'. The first",
+    "question at power-up is whether the rails came up, and there was no way to",
+    "answer it without clipping onto a component lead.",
+    "",
+    "An earlier revision of this file probed the centre-panel SPI bus instead",
+    "(SCLK/MOSI/MISO/CS), reasoning from the U9 clock-walk procedure's TP1-TP5.",
+    "That was inferred, not asked for, and it was the wrong target -- Kevin does",
+    "not want test pads on the screen bus. Retargeted 2026-08-03.",
+    "",
+    "PARTLY REFUTING ITEM 24 FIRST: 'no bare ground reference' is not true.",
+    "MP1-MP4 are 5.00 x 5.00 mm bare-copper pads on /GND at the four board",
+    "corners (30,90), (30,130), (270,90), (270,130) -- mask open, no paste, and a",
+    "better ground target than any via. They are simply far from everything, so",
+    "the gap was a LOCAL ground next to whatever you are measuring.",
+    "",
+    "NO NEW PARTS. Vias already exist on both rails with a /GND via between them,",
+    "so opening the mask over three of them buys the whole thing: no footprints,",
+    "no BOM line, no CPL row, no schematic symbol, nothing for schematic parity",
+    "to disagree with. The board default tents every via front and back, which",
+    "stays right for the other 231.",
+    "",
+    "  TP1 +5V   (126.251, 107.730)  /+5V    5.03 mm from ground",
+    "  TP2 +3V3  (135.508, 110.254)  /+3V3   5.07 mm from ground",
+    "  TP3 GND   (130.442, 110.508)  /GND    --",
+    "",
+    "The three sit just west of U1, mid-board, none of them under a component",
+    "courtyard, and all clear of silkscreen -- so unlike the SPI attempt this",
+    "costs NO silk_over_copper warnings and the board stays at 0 violations at",
+    "--severity-all.",
+    "",
+    "Why these two rails answer the question. /+5V is downstream of the",
+    "ideal-diode ORing, so it reads live whether the board is fed from the barrel",
+    "jack or USB -- it says 'input power reached the board'. /+3V3 is the buck's",
+    "output, so it says 'U3 is actually switching'. Together they separate a dead",
+    "supply from a dead regulator from a dead MCU, which is exactly the split you",
+    "cannot make by looking at an unlit board.",
+    "",
+    "A 0.6 mm via is a small target: fine tip and a sprung ground lead, not an",
+    "alligator clip. For a bigger ground, MP1-MP4 are still there.",
+    "",
+    "Not silk-labelled, because kicad_handroute.py has no silk-text operation --",
+    "the same gap that blocks review items 26 and 27. Until that exists these",
+    "three are identified by coordinate here and in the triage doc, and by eye as",
+    "the only bare copper in that area."
+  ],
+  "steps": [
+    {
+      "step": "1/1  open the mask over three vias -> +5V, +3V3 and a local ground",
+      "untent_vias": [
+        {
+          "at": [
+            126.251,
+            107.73
+          ],
+          "net": "+5V",
+          "label": "TP1 +5V"
+        },
+        {
+          "at": [
+            135.508,
+            110.254
+          ],
+          "net": "+3V3",
+          "label": "TP2 +3V3"
+        },
+        {
+          "at": [
+            130.442,
+            110.508
+          ],
+          "net": "GND",
+          "label": "TP3 GND"
+        }
+      ]
+    }
+  ]
+}

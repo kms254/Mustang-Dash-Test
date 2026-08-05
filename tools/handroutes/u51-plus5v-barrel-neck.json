@@ -1,0 +1,117 @@
+{
+  "$comment": [
+    "CORRECTION 2026-08-04 (adversarial re-review): the claim below that this is 'the one conductor on the",
+    "rail that fails the project's own written rule' is FALSE. The guide row",
+    "it cites covers 'Input (jack/USB) -> ideal diodes -> +5V', i.e. both",
+    "inputs, and /VBUS carries 0.254 and 0.260 mm segments plus a 0.400 x",
+    "3.592 mm run into Q1. The widening done here is still correct and its",
+    "arithmetic still reproduces; the scope claim was too broad. /VBUS has not",
+    "had the trunk walk that made this net's number trustworthy -- it runs on",
+    "three layers through four vias, so some narrow segments may be parallel",
+    "rather than series. Triage item 50.",
+    "",
+    "U51 -- widen the /+5V_BARREL neck. Review item 20 (drc-routing), CONFIRMED:",
+    "the reviewer's geometry reproduced exactly, 0.620 mm over 7.30 mm at",
+    "(50.840,123.520)->(45.680,118.360).",
+    "",
+    "This is the fuse-to-FET section: F1.2 -> Q2 source, so it carries the ENTIRE",
+    "+5V rail -- three panel backlights, the telltales, both CAN transceivers and",
+    "the 3V3 buck's input. Confirmed load-bearing by a trunk walk rather than by",
+    "eye: blocking this segment disconnects Q2.1/2/3 from F1.",
+    "",
+    "docs/hardware/board3-pcb-layout-guide.md section 3 sizes this exact path at",
+    "~1.5-2 A and requires 'pour or >=60 mil'. The copper either side already is:",
+    "1.510 and 1.524 mm. Only this 7.30 mm section was left at 24.4 mil, so it is",
+    "an isolated neck rather than an undersized rail.",
+    "",
+    "IPC-2221 at 1 oz, external, 10 C rise: 0.620 mm = 1.69 A, 1.524 mm = 3.25 A.",
+    "At the guide's own 2 A the neck ran ~15 C; at F1's 3 A hold, ~37 C. Not",
+    "dangerous -- which is why this is a widening, not a re-route -- but it is the",
+    "one conductor on the rail that fails the project's own written rule.",
+    "",
+    "Geometry is unchanged: same two endpoints, same layer, same net, only the",
+    "width. Nothing moves, so nothing else can be disturbed.",
+    "",
+    "IT CANNOT BE 60 mil FOR ITS WHOLE LENGTH, and the first attempt proved it by",
+    "shorting. A uniform 1.524 mm was applied and DRC returned shorting_items:",
+    "the widened track swallowed Q2 pad 4 (/GATE_BARREL). The pre-check that let",
+    "it through had tested pad CORNERS with an early break instead of the pad",
+    "shape -- the exact failure the window-query rule in CLAUDE.md describes, made",
+    "on the very net it warns about. Measured properly, with each pad as its",
+    "EffectivePolygon: Q2.4 is 0.596 mm from the centreline and F1.1 is 0.863 mm,",
+    "so a uniform width caps at 0.989 mm.",
+    "",
+    "The constraint is local, though, not global. Clearance profiled every 0.05 mm",
+    "along the run gives max half-width 1.121 at 2.50 mm, 0.836 at 3.00, then it",
+    "collapses to 0.495 at 6.50 where Q2.4 sits. So the run is split: the first",
+    "3.00 mm gets the full 1.524 mm the guide asks for, and the last 4.30 mm gets",
+    "0.900 mm, which is what fits past Q2's gate pad with 45 um to spare.",
+    "",
+    "Result at the guide's 2 A: the binding section goes 15 C -> 8 C rise, inside",
+    "the 10 C design target, and IPC capacity 1.69 -> 2.22 A. Reaching 60 mil for",
+    "the whole length would mean moving Q2 or re-laying its gate escape, which is",
+    "a bigger change than the 7 C buys.",
+    "",
+    "NOTE for anyone re-running the clearance sweep afterwards: the board's",
+    "tightest pair overall (review item 21, 72 nm of margin over the 0.1016 rule)",
+    "is ALSO /+5V_BARREL against /GATE_BARREL -- but it is a different segment,",
+    "over by Q2, and this edit does not touch it. Do not read that 72 nm as",
+    "something U51 caused.",
+    "",
+    "The delete bbox is deliberately tight on the north-east corner: a 0.02 mm",
+    "stub (50.853,123.500)->(50.840,123.520) shares the neck's endpoint and must",
+    "survive, so the box stops at x=50.845."
+  ],
+  "steps": [
+    {
+      "step": "1/1  /+5V_BARREL fuse-to-FET: 0.620 -> 1.524 mm, tapering to 0.900 past Q2.4",
+      "delete": [
+        {
+          "net": "+5V_BARREL",
+          "layers": [
+            "Top Layer"
+          ],
+          "vias": false,
+          "bbox": [
+            45.6,
+            118.3,
+            50.845,
+            123.525
+          ]
+        }
+      ],
+      "add": [
+        {
+          "net": "+5V_BARREL",
+          "layer": "Top Layer",
+          "width": 1.524,
+          "points": [
+            [
+              50.84,
+              123.52
+            ],
+            [
+              48.719,
+              121.399
+            ]
+          ]
+        },
+        {
+          "net": "+5V_BARREL",
+          "layer": "Top Layer",
+          "width": 0.9,
+          "points": [
+            [
+              48.719,
+              121.399
+            ],
+            [
+              45.68,
+              118.36
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}

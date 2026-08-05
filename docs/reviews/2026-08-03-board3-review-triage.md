@@ -49,8 +49,13 @@ one was already settled; one was wrong.
    *before* canonicalising the layer names, so every reference pointed at a
    pre-rename filename. Fixed at source; the job file is now rewritten after the
    rename. Audited: 11 `FilesAttributes`, **0 missing from the zip**.
-4. **[FIXED] `fab/ORDER.md` omitted copper weight.** (dfm-fab) Now states 1 oz
-   (35 µm) outer and inner, with the reason it is not free to change.
+4. **[FIXED, then CORRECTED 2026-08-04] `fab/ORDER.md` omitted copper weight.**
+   (dfm-fab) It was filled in as "1 oz (35 µm) outer and inner" — and the inner
+   half of that was wrong. The stackup gives In1.Cu and In2.Cu
+   `(thickness 0.0175)`, i.e. **0.5 oz**. Answering 1 oz inner moves JLC onto a
+   different build with different dielectrics, which invalidates the 90 Ω USB
+   pair geometry. Corrected; the row now says to read it off the board rather
+   than assume the stack is uniform.
 5. **[SETTLED — 12] `ORDER.md` said 13 THT components; the lens counted 12.**
    (dfm-fab) The lens was right. `ORDER.md` lists 12 and names the two exclusions
    that look like they belong and do not (H2 is a cable, MP1–MP4 are board
@@ -76,11 +81,19 @@ one was already settled; one was wrong.
 
 ## 3. Procurement / order form
 
-9. **[UNVERIFIED] U1 is at 25 units**, variant at 0. `ORDER.md` records 37 as of
-   2026-08-02 — it is falling. (fab-readiness) **Check before ordering; this
-   blocks the order regardless of the board.**
-10. **[UNVERIFIED] No component-free rail on any edge; panelisation for assembly
-    unaddressed.** (dfm-fab)
+9. **[CLOSED — owner's call, 2026-08-04] U1 stock.** Reported as 25 units with
+   the variant at 0, against `ORDER.md`'s 37 from 2026-08-02. Kevin tracks
+   STM32H755 sourcing himself and has dismissed this item; it is not a board
+   fact and nothing in the repo can settle it. **Do not re-raise it** — not in
+   wrap-ups, not in future reviews, not as an order-time caveat.
+10. **[CONFIRMED — order-form item, not a board defect] No component-free rail on
+    any edge.** (dfm-fab) Measured courtyard-to-edge: **left −0.29 mm** (USBC1
+    overhangs, as an edge connector must), **bottom 0.28 mm** (P2), **top and
+    right 2.33 mm**. Three of four edges are populated, and nothing approaches
+    the ~5 mm an assembly conveyor wants. At 250 × 50 mm expect JLC to add rails
+    themselves; the risk is a quote-time hold, not a bad board. Recorded in
+    `fab/ORDER.md` with the measured numbers so it is answered rather than
+    discovered.
 
 ## 4. Board electrical — real engineering decisions, none blocking DRC
 
@@ -118,21 +131,184 @@ one was already settled; one was wrong.
     - No OCP on `/VBUS` is true (F1 is only in the barrel path) and is normal for
       a USB-C **sink**: the source provides OCP by spec. Optional hardening, not
       a fix.
-13. **[UNVERIFIED] `+3V3` is 100% 10 mil against the layout guide's ≥30 mil.**
-14. **[UNVERIFIED] TJA1051 VIO has no bypass within 23 mm.**
-15. **[UNVERIFIED] NRST filtering and pull-up are 87–89 mm from the pin.**
-16. **[UNVERIFIED] F1's derated hold current has ~1.1× margin** against the
-    project's own worst case.
-17. **[UNVERIFIED] CAN termination resistors are 0603/100 mW** — a CANH-to-battery
-    short in a 12 V vehicle exceeds that.
-18. **[UNVERIFIED] `SCLK_R` runs 32 mm parallel to `MISO_R` at 0.389 mm on
-    Inner2.**
-19. **[UNVERIFIED] U42 gave up split termination's common-mode damping.** True by
-    construction — it was the point of the change. Judge whether the trade holds.
-20. **[UNVERIFIED] Post-fuse power path necks to 0.62 mm for 7.3 mm** against
-    F1's 3 A hold. (drc-routing)
-21. **[UNVERIFIED] This branch cut the board's tightest clearance to 72 nm of
-    margin.** (drc-routing) Worth finding which edit did it.
+All nine measured 2026-08-03. **Every geometric figure in this section
+reproduced** — unlike §8, these lenses were reading the board correctly. What
+they were less reliable about is what the numbers mean.
+
+13. **[CONFIRMED — violates the guide, inside the thermal target] `+3V3` is
+    100% 10 mil against the layout guide's ≥30 mil.** True: **no `+3V3` pour
+    exists** (the only pours are `/GND` ×3 and `/+5V` on Inner2), 216 of 221
+    segments are 0.254 mm, and the widest conductor anywhere on the net is
+    0.300 mm — so whatever the topology, the trunk is ≤12 mil. But at the
+    guide's own 0.8 A that is **~8 °C rise**, inside the 10 °C design target,
+    with 1.11× current margin. Rule violated, physics fine. 21 of those
+    segments are on inner layers, where the same width is only 0.44 A.
+    *(A graph walk was attempted to identify the trunk and produced nonsense —
+    1 of 74 sink pads resolved as reachable, inflating every downstream count.
+    The bound above is topology-free and does not depend on it.)*
+14. **[FIXED] TJA1051 VIO has no bypass within 23 mm.** Re-measured pad-centre
+    to cap-centre: U8.5 → nearest `/+3V3` cap **22.891 mm** (C7), U9.5 →
+    **26.299 mm** (C35). The contrast is the tell — VCC on the same parts is
+    decoupled at **4.252 mm** by C59/C60, so VIO was missed, not traded away.
+    Pin 5 confirmed as VIO by *function*, not pin number (KTD27): pin 3 is
+    `/+5V` = VCC and pin 5 is `/+3V3` = VIO, which is the TJA1051**T/3**
+    pinout. And `/+3V3` is tracks with no pour anywhere (item 13), so no plane
+    capacitance was quietly covering for it.
+
+    Fixed in `tools/handroutes/u58-tja1051-vio-bypass.json`: **22.891 →
+    3.509 mm** and **26.299 → 2.358 mm**. The part costs nothing — C14663
+    (100 nF 0603, JLCPCB **Basic**) is already fitted 41× here, so the BOM stays
+    at 41 lines and C72/C73 just join that group; CPL 140 → 142. `/GND` is
+    poured on Top at both sites, so each cap's pad 2 lands on the fill through a
+    thermal: **no via and no track on the return path**, which is the half of a
+    bypass loop that matters.
+
+    **C72 needed a layer hop, and the reason is one diagonal.** `/CAN1_H` runs
+    (177.794,122.000)→(183.636,127.842) — the line `x − y = 55.794` — and it
+    separates U8.5 from every open pocket north of the part, with P1's courtyard
+    closing the west (0.677 mm gap vs a 2.790 mm 0603 courtyard). A search over
+    4 rotations and ~37,000 positions found the nearest spot with a clean
+    Top-only route at **7.08 mm** — half the benefit given up to avoid a via. So
+    the feed hops to Bottom instead. The constrained end is the second via: it
+    must clear the diagonal above *and* the `/CAN1_RX` Bottom run at y=128.023
+    below, and `/CAN1_RX` passes **0.072 mm** from the pin's own y — which is
+    why a Bottom approach straight to the pad is impossible. At x=182.4 that
+    window is 0.14 mm tall; at x=181.0 it opens to 1.54 mm.
+
+    **This did not need the KTD12 GUI sync.** Both sides were applied by hand —
+    symbols, wires and labels into the `.kicad_sch` (netlist verified: C72.1 /
+    C73.1 on `/+3V3`, C72.2 / C73.2 on `/GND`), footprints and pad nets via the
+    new `place_parts` op, which refuses to invent a net. DRC 0/0/**0 schematic
+    parity** is what proves the two halves agree.
+
+    ERC 1127 → 1137. All +10 are the schematic's existing noise classes in exact
+    proportion — 2 symbols → +2 `lib_symbol_issues`, 4 pins → +4 `pin_to_pin`,
+    4 wires → +4 `unconnected_wire_endpoint`, one each, matching the baseline's
+    465 endpoint warnings for 463 wires. No new class, and the netlist and
+    parity checks are clean.
+15. **[FIXED, as far as the crystal allows] NRST filtering was 87–89 mm from the
+    pin.** Measured from U1.27: **C46 88.97 mm**, R49 86.68 mm, SW6 81.54 mm.
+    Violates layout guide §3 item 13 ("C46 at NRST") *and* ST's own recommended
+    NRST protection. It matters because the H7's internal filter only rejects
+    pulses under ~300 ns; a longer glitch on an 89 mm antenna in a car resets the
+    dash.
+    **C46 cannot reach the pin, and that is a placement conflict, not an
+    oversight.** NRST is pin 27, between OSC_IN (25), OSC_OUT (26) and the
+    crystal — and **X1's courtyard overlaps U1's** (161.748 vs U1's 162.095), so
+    there is no channel east of pin 27 at all. The nearest free 0603 pocket is
+    7.20 mm and reaching it means crossing the crystal courtyard. §3's own
+    priority order ranks the crystal and VDDA filter *above* C46, so the layout
+    followed the ranking and C46 lost.
+    Moving X1 was costed and rejected: X1.1 is already **2.047 mm** from OSC_IN,
+    and any displacement that frees pin 27 makes that worse while pushing X1
+    into C9/C45/C8. Kevin's call, 2026-08-03: **leave X1 in the ideal location.**
+    Fixed in `tools/handroutes/u52-nrst-filter-to-mcu.json`: C46 moves to the
+    first clear spot outside U1's footprint, **88.97 → 29.89 mm** straight
+    (35.1 mm routed), using the existing escape via so the board gains none.
+    **R49 deliberately stays** — a 10 kΩ pull-up is a DC hold, not a filter; at
+    DC it pulls the net high wherever it sits, and the transient path belongs to
+    the capacitor.
+    *Separate finding, not in the review:* `/OSC_OUT` routes **11.17 mm** to a
+    pin 4.18 mm away, because XI and XO are diagonally opposite on this 4-pad
+    package so only one can face U1. Rotating X1 just swaps which net is long.
+    Fixing it needs a footprint with adjacent XI/XO — an open part decision.
+16. **[CONFIRMED — accepted for this revision, with a condition] F1's derated
+    hold current has ~1.1× margin.** The reviewer's number was right. 1812L
+    rerating, against a load built up from the rail rather than the guide's
+    hand-wave (3 backlights ≤0.25 A = 0.75, buck input 0.59, telltales 0.16,
+    two CAN transceivers 0.14, expanders 0.01 → **≈1.65 A worst case**):
+
+    | ambient | 23 °C | 40 °C | 50 °C | 60 °C | 70 °C | 85 °C |
+    |---|---|---|---|---|---|---|
+    | hold | 3.00 A | 2.62 A | 2.43 A | 2.25 A | 2.00 A | 1.78 A |
+    | vs 1.65 A | 1.82× | 1.59× | 1.47× | 1.36× | 1.21× | 1.08× |
+
+    At 70 °C the 80%-of-hold rule for guaranteed non-trip gives 1.60 A, **under
+    the 1.65 A load** — and 70 °C is the system's own ceiling anyway (the tact
+    switches are −25/+70 °C).
+    **Decision 2026-08-03 (Kevin): leave F1 as is.** The reasoning is not that
+    the margin is fine — it is that this revision is the wrong place to spend it.
+    - On the bench, where this board actually runs, ambient is 23–40 °C and the
+      margin is **1.6–1.8×**. Ample.
+    - **The 30 V rating is the forward-looking part.** Every same-footprint
+      option above 3 A is **16 V max** (`C22374900` 4 A, `C7542974` 3.5 A), so
+      raising hold current now means *dropping* voltage rating — backwards for a
+      board whose successor takes automotive 12 V. Keeping 30 V in 1812 costs
+      the amp; that is the trade, and it is the right way round here.
+    - **The car version resizes F1 regardless.** At 12 V in, the same power is
+      ~0.76 A, wanting a ~1.5 A part rather than 3 A.
+    **What would reopen this:** running *this* board in a hot cabin. The 70 °C
+    figure is not theoretical — if Board3 itself goes in the car for testing,
+    a hot day with three backlights lit trips it, and the fix is `C22374900`
+    (4 A, same land pattern, value + supplier metadata only, no GUI sync).
+    *Also note for the 12 V design: 30 V is not enough for a real automotive
+    input either. Load dump needs a proper front end (TVS + clamp); F1's rating
+    must not be what carries it.* See the carrier plan's Outstanding Questions.
+17. **[FIXED] CAN termination resistors are 0603/100 mW.** All four
+    (R10/R14/R15/R24, 60.4 Ω) were `R0603`. Termination is R10+R14 in series
+    (120.8 Ω) across CANH–CANL with the jumper in the CANH leg. A CANH-to-12 V
+    short drives 78–87 mA through the pair at a realistic CANL of 1.5–2.5 V —
+    **0.37–0.46 W each, 3.7–4.6× a 0603's rating**; 0.60 W each in the
+    double-fault case where CANL is simultaneously grounded. Real for a
+    vehicle, but only when the H1/H3 jumper is fitted, i.e. only when this
+    board is a bus end. Not a functional defect today — thick film fails
+    *open*, so the bus loses termination and keeps running, and the TJA1051
+    survives bus shorts by ISO 11898-2 — but the board is going in a car.
+
+    Fixed in `tools/handroutes/u57-can-termination-power.json`: all four go to
+    **C3959530, Panasonic ERJP06F60R4V, 0805, 500 mW, 400 V anti-surge**, which
+    covers the single-fault case at 1.1–1.35×. Note the part matters more than
+    the size — a common 0805 is 125 mW and an uprated one 250 mW, both still
+    over.
+
+    **The 1206 (660 mW) was tried first and rejected on measurement, not
+    taste.** It does not fit: R10 fouled R14 and R24 fouled P2, and R15 cannot
+    be a vertical 1206 at all — it needs 5.116 mm between `/CAN2_RX` (y=127.333)
+    and `/CAN2_TX` (y=131.579) and there are 4.246 mm — so it must rotate and
+    move 2.5 mm east, which drags `/CAN2_TERM` across `/CAN2_TX`. Every
+    arrangement ended in a three-net re-layout of the corner, to buy margin on
+    a fault that needs two simultaneous harness shorts.
+
+    **R24 was the interesting one.** Even as an 0805 it had no legal position:
+    a 168-point 2D sweep found nothing, best +0.051 mm against a 0.1016 mm
+    rule. It is pinned — `/CAN2_L` must run west at y=130 to P2.2, so R24 sits
+    west of where `/CAN2_TX` steps down, and P2 blocks any further west. And
+    the dogleg cannot move either: west of x≈132 `/CAN2_TX` must stay above
+    `/CAN2_L` and below `/CAN2_RX`, and east of x≈134 it is at y=131.579, so
+    the step is forced into exactly R24's pocket. The fix was to **drop the
+    dogleg to the Bottom layer** — three segments re-laid identically with a
+    via at each end, `/CAN2_TX` length unchanged at 44.459 mm — after which
+    R24 does not move at all. R10 and R14 do not move either, nor do their
+    tracks; only R15 shifts 0.70 mm north. Bottom in that pocket was empty,
+    and `/CAN2_RX` already layer-hops through the same corner on Inner2.
+
+    DRC 0/0/0, ERC 1127 unchanged, BOM 41 / CPL 140 symmetric.
+18. **[CONFIRMED exactly] `SCLK_R` runs 32 mm parallel to `MISO_R` at 0.389 mm
+    on Inner2.** Measured **32.74 mm at 0.389 mm edge-to-edge** — exact. A
+    second corridor of **54.73 mm at 0.557 mm** also exists, so if anything the
+    finding understates it. Aggressor and victim are the same bus, and SPI
+    samples MISO on the SCLK edge, which is when crosstalk peaks. Unchanged by
+    U50, which re-laid `/SCLK_R` on its original line.
+19. **[TRUE BY CONSTRUCTION] U42 gave up split termination's common-mode
+    damping.** Verified in the netlist: `/CAN1_CT` and `/CAN2_CT` carry only the
+    two resistors — no capacitor to ground. Each pair is now electrically one
+    120.8 Ω differential terminator with a floating centre tap: correct
+    differential termination, no common-mode damping. It was the point of the
+    change; the trade is a judgement, not a defect.
+20. **[FIXED] Post-fuse power path necks to 0.62 mm for 7.3 mm.** (drc-routing)
+    Geometry reproduced exactly, and a trunk walk confirmed it load-bearing
+    (blocking it disconnects Q2's sources from F1 — the whole rail). Widened in
+    `tools/handroutes/u51-plus5v-barrel-neck.json`: 1.524 mm for the first
+    3.00 mm, 0.900 mm for the rest. **15 °C → 8 °C at the guide's 2 A.** It
+    cannot be 60 mil throughout: Q2's gate pad is 0.596 mm from the centreline,
+    capping a uniform width at 0.989 mm.
+21. **[CONFIRMED exactly — informational] The board's tightest clearance is
+    72 nm of margin.** (drc-routing) Swept every track/via pair on every layer:
+    minimum gap **0.101672 mm** against the 0.1016 rule = **+72 nm**, between
+    `/+5V_BARREL` and `/GATE_BARREL` near Q2. It passes, and it is margin
+    against *our own* rule — JLCPCB's capability is ~0.0889 mm, so real fab
+    margin is ~12.8 µm. Not a defect; worth knowing that pair has no room left
+    for a future edit. U51 widened a **different** `/+5V_BARREL` segment.
 22. **[REFUTED → LOW] Barrel input has no OVP and silk says only "DC IN".**
     (adversarial-ee + dft, same issue twice.) Verifier kept the observation and
     demolished the severity. **Still worth marking the voltage** — it was left
@@ -140,39 +316,320 @@ one was already settled; one was wrong.
 
 ## 5. Testability
 
-23. **[UNVERIFIED] No power-on indicator and no bare-copper +5 V probe point.**
-    (dft) A powered healthy board looks identical to a dead one.
-24. **[UNVERIFIED] Zero test points and 222/222 vias tented** — no bare ground
-    reference for a scope probe. (dft)
-25. **[UNVERIFIED ×2 lenses] The Tag-Connect -NL has no legs**, so SWD must be
-    hand-held for a whole session; U49 removed the previous header. (dft +
-    simplicity.) A real ergonomics regression — weigh against the space it saved.
-26. **[UNVERIFIED] P1/P2 carry no CANH/CANL pin identification.** (dft)
-27. **[UNVERIFIED] The eight telltales carry no TT1–TT8 identification.** (dft)
+All five measured 2026-08-03.
+
+23. **[CONFIRMED — probe point half FIXED, indicator half open]** (dft) Two
+    claims in one entry, and they resolved differently.
+    **The bare-copper +5 V probe point now exists** — U53 untented a `/+5V` via
+    at (126.251, 107.730) with a local ground 5.03 mm away, plus `/+3V3`. See
+    (24).
+    **No power-on indicator: true, and DECLINED 2026-08-04 (Kevin).** All eight
+    LEDs are telltales — each sits between `/+5V` and a `/TTn_LED_K` cathode
+    driven by the expanders, so **nothing lights without firmware**. A board with
+    a dead MCU, a wrong option byte or a stalled I2C bus looks exactly like an
+    unpowered one. The TP1–TP3 probe points now make that diagnosable with a
+    meter, which is most of the value an indicator would have added.
+    **Do not re-raise this as an oversight — it was costed and turned down.** The
+    design was worked out in full and is recorded here so nobody repeats it:
+
+    | | part | already on board as | R | current | output |
+    |---|---|---|---|---|---|
+    | +5V | Emerald green `C516142` | LED1/LED2 | 1 kΩ `C21190` | 2.0 mA | ~130 mcd |
+    | +3V3 | Orange `C5246349` | LED5 | 1 kΩ `C21190` | 1.3 mA | ~117 mcd |
+
+    Anode on the rail, cathode through the resistor to ground — the resistor
+    replacing the AW9523B's current sink. **Zero new BOM lines**: all four part
+    numbers are already fitted elsewhere, so it would have added 4 designators
+    and nothing else.
+    The colour choice is the non-obvious part and is worth keeping. Vf rules most
+    of the range out on a 3.3 V rail — green, blue and white are 3.2–3.4 V and
+    simply will not light. Of the three that fit (orange 2.2 V, red 2.4 V, yellow
+    2.4 V), **orange is the only one bright enough to match the green**: at 1.8 cd
+    against red's 270 mcd and yellow's 210 mcd, it is the sole low-Vf part that
+    does not look dim beside a 1.3 cd emerald green.
+    Cost of doing it: new components and new nets, i.e. the one change shape that
+    requires **KTD12 — a GUI *Update PCB from Schematic*** — plus placement and
+    routing. That, not the parts, is why it was declined.
+24. **[PARTLY REFUTED, remainder FIXED] "Zero test points and 222/222 vias
+    tented — no bare ground reference for a scope probe."** (dft)
+    **The ground half is wrong.** `MP1`–`MP4` are **5.00 × 5.00 mm bare-copper
+    pads on `/GND`** at the four board corners — mask open, no paste. That is a
+    better ground target than any test point would have been. What they are not
+    is *near* anything: the closest is ~100 mm from the centre-panel SPI, which
+    defeats the short-ground-spring requirement.
+    **The signal half was right, and mattered more than filed.** There were no
+    signal probe points at all, and the **U9 read-integrity soak** — the
+    project's own acceptance gate for every `DASH_SPI_RUN_HZ` increase — is
+    written against `TP1=SCLK, TP2=MOSI, TP3=MISO, TP4=CS, TP5=GND`. Its "scope
+    TP1/TP3, ground on TP5" branch could not be run as written. (Those names are
+    Board2's, whose buffered topology Board3 dropped.)
+    **Fixed in `tools/handroutes/u53-power-probe-points.json`, with no new
+    parts.** Vias already existed on both rails with a `/GND` via between them,
+    so opening the mask over three of them buys it — no footprints, no BOM line,
+    no CPL row, nothing for parity to disagree with:
+
+    | | net | position | to ground |
+    |---|---|---|---|
+    | TP1 +5V | `/+5V` | 126.251, 107.730 | 5.03 mm |
+    | TP2 +3V3 | `/+3V3` | 135.508, 110.254 | 5.07 mm |
+    | TP3 GND | `/GND` | 130.442, 110.508 | — |
+
+    These two rails are what answers the bring-up question. `/+5V` sits
+    downstream of the ideal-diode ORing, so it reads live whether the board is
+    fed from the barrel jack or USB — "input power reached the board". `/+3V3`
+    is the buck's output — "U3 is actually switching". Together they separate a
+    dead supply from a dead regulator from a dead MCU, which is precisely the
+    split you cannot make by looking at an unlit board.
+    All three are clear of silk and none sits under a component courtyard, so
+    **the board stays at 0 violations** at `--severity-all`. A 0.6 mm via is a
+    small target — fine tip and a sprung ground lead, not a clip; MP1–MP4 remain
+    for a bigger ground.
+    *An earlier revision of this fix probed the centre-panel SPI bus instead,
+    reasoning from the U9 clock-walk procedure's TP1–TP5. That target was
+    inferred rather than asked for, and it was wrong — no test pads on the screen
+    bus. Retargeted to the rails 2026-08-03.*
+
+    **Correction, 2026-08-04 (adversarial re-review).** The note that used to
+    close this item — "the U9 soak's *scope TP1/TP3, ground on TP5* branch is
+    still not executable as written on Board3, and that remains open" — is
+    **wrong**, and was never measured. It is executable, and always was: every
+    centre-panel SPI signal already terminates on an 0603 pad in one row at
+    y = 92.990, with ground 1.51 mm away. The left panel repeats it. Nothing was
+    missing; it was undocumented, so write it on the bring-up card:
+
+    | soak name | net | pad | position |
+    |---|---|---|---|
+    | TP1 SCLK | `/SCLK_C` | R32.2 | 146.190, 92.990 |
+    | TP2 MOSI | `/MOSI_C` | R35.2 | 149.746, 92.990 |
+    | TP3 MISO | `/MISO_C` | R41.1 | 147.968, 92.990 |
+    | TP4 CS   | `/CS_C`   | R45.1 | 151.524, 92.990 |
+    | TP5 GND  | `/GND`    | R41.2 | 147.968, 94.498 |
+
+    **And the fix itself carried a defect.** TP2 (`/+3V3`) was untented at
+    (135.508, 110.254), which is **0.0295 mm** from C34's pad against a 0.100 mm
+    minimum mask width — so the two apertures merged into a single opening in the
+    exported gerber, a solder-theft path into an MCU rail decoupler. Both are
+    `/+3V3` and `solder_mask_bridge` only fires between *different* nets, so DRC
+    reported 0/0/0 truthfully throughout. Moved to (121.314, 99.332) by U59. The
+    claim in `u53-power-probe-points.json` that "none of them [sits] under a
+    component courtyard" was also false — TP2's copper lapped 0.234 mm into
+    C34's — and it was false because the via **centre** was tested instead of its
+    shape, which is the exact error `CLAUDE.md`'s window-query rule exists to
+    prevent.
+25. **[REFUTATION WITHDRAWN 2026-08-04 — the original finding stands]** "The
+    Tag-Connect -NL has no legs, so SWD must be hand-held." (dft + simplicity)
+
+    This was recorded as REFUTED on the reasoning that H2's three 0.9906 mm NPTH
+    holes are what a *legged* TC2030-IDC drops into, so buying the legged cable
+    makes it hands-free. **That is wrong.** Both footprints were diffed:
+
+    - board's `Tag-Connect_TC2030-IDC-NL_..._Vertical`: **3** NPTH holes, 0.9906 mm
+    - legged `Tag-Connect_TC2030-IDC-FP_..._Vertical`: the same three **plus four
+      2.3749 mm leg holes** at (−2.54, ±2.54) and (0.635, ±2.54)
+
+    The board has none of the four, so a legged cable's retaining legs have
+    nowhere to go. U49's own commit message already said so — "the legged variant
+    was measured and has ZERO feasible placements within ±9 mm — its four 2.37 mm
+    leg holes hit the `/NRST` bottom run at every orientation" — and this item
+    contradicted it without checking. **SWD is hand-held on this board.** The
+    bottom side is entirely component-free, so a TC2030 retaining clip has clear
+    space to seat; that is the mitigation, not a different cable.
+26. **[FIXED — by moving parts, not by finding space]** P1/P2 carried no
+    CANH/CANL pin identification. (dft) The connectors were identified by *bus*
+    (`CAN1`/`CAN2`, `TERM1`/`TERM2`) but nothing said which screw is H. CAN is
+    differential, so a swap does not work and does not announce itself — it just
+    looks like a dead bus.
+    **There was nowhere to print.** P1/P2 were boxed in on all four sides:
+    | side | obstruction | gap |
+    |---|---|---|
+    | above | H1/H3 termination jumper | **0.61 mm** |
+    | left | resistors | **0.94 mm** |
+    | right | next part | **0.97 mm** |
+    | below | board edge | **0.28 mm** |
+    against the ~1.4 mm a 1.0 mm character needs. Inside the courtyard it would
+    print under the terminal-block body — invisible once assembled, and worse
+    than nothing because the board would *look* labelled.
+    **Fixed in `tools/handroutes/u56-can-pin-silk.json` by making the space.**
+    H1/H3 move up 1.0 mm, opening the band from 0.61 → **1.61 mm**. There was
+    ample room: 9.94 mm above H1 before U2, 13.33 mm above H3 before C38.
+    Two things came with it that footprint-moving alone would have missed:
+    - **TERM1/TERM2 had to move too.** They sat 1.28 mm above the jumpers they
+      label, so the new courtyard would have overlapped the text.
+    - **Four stubs had to be re-laid.** H1/H3's pads are 2.00 mm square, so a
+      1.0 mm move lands the old track ends *exactly on the new pad edge* — a
+      connection too marginal to leave to a DRC opinion. Each segment ending on
+      a jumper pad was re-added with that endpoint at the new pad centre.
+    Labels are at each pad's own x, so each reads directly above the screw it
+    names. Content verified by **function**: P1.1/P2.1 are `/CAN1_H`,`/CAN2_H`,
+    P1.2/P2.2 are `/CAN1_L`,`/CAN2_L` — then checked again from the opposite
+    direction, nearest-pad-to-each-label, 4/4 agree.
+    Verified: DRC 0/0/0, exactly the 4 jumper nets changed (segment and via
+    counts unchanged), BOM 41 / CPL 140 symmetric. No schematic change, so no
+    KTD12 sync.
+27. **[FIXED] The eight telltales carry no TT1–TT8 identification.** (dft)
+    Fixed in `tools/handroutes/u55-telltale-silk.json`, 1.0 mm text on a 0.15 mm
+    stroke to match U45's sixteen labels.
+    **The mapping was the whole job, and it is not the designator number:**
+
+    | LED1 | LED2 | LED3 | LED4 | LED5 | LED6 | LED7 | LED8 |
+    |---|---|---|---|---|---|---|---|
+    | TT1 | **TT4** | **TT2** | **TT3** | TT5 | TT6 | TT7 | TT8 |
+
+    Three of eight are permuted. Labelling `LED2` as "TT2" would have been wrong
+    on three lamps — which is exactly how U45 put `CENTER` on the `LEFT`
+    connector and became the last review's only CRITICAL. Every label was
+    derived from the net the cathode actually lands on, then **checked again
+    afterwards from the opposite direction**: for each placed label, the nearest
+    LED was found and its `/TTn_LED_K` net compared — 8/8 agree.
+    The physical interleave is why the labels earn their keep: the left cluster
+    carries TT1, TT2, TT5, TT7 and the right carries TT3, TT4, TT6, TT8, so
+    nobody could infer the numbering from the layout.
+    TT6 and TT8 sit to the left and right of their LEDs rather than below,
+    because U12's courtyard (y 97.36–102.64) occupies the space under the right
+    cluster's bottom row. Both remain unambiguous.
+    *`kicad_handroute.py` gained an `add_silk` operation for this — it had none,
+    which is why U45's labels did not come from it. Also `any_layer_id()`, since
+    the existing resolver only walked the copper stack.*
 
 ## 6. DFM margins — thin but legal
 
-28. **[UNVERIFIED] Solder mask webs have zero headroom** (min dam 0.1795 mm).
-29. **[UNVERIFIED] Smallest annular ring sits exactly on the process minimum.**
-30. **[UNVERIFIED] H2's NPTH holes are marked non-plated only by an Excellon
-    comment.**
-31. **[UNVERIFIED] Two 0.75 mm internal cutouts** milled into the board profile.
-32. **[UNVERIFIED] No local fiducials on any 0.5 mm-pitch part** on a 250 mm board.
-33. **[UNVERIFIED] Six through-hole tact switches have 0603 passives 1.10–1.30 mm
-    away.** (dfa)
-34. **[UNVERIFIED] A DRC severity was set to `ignore` in the same branch that
-    armed the guard rails.** (drc-routing) That is
-    `footprint_symbol_field_mismatch`, deliberate and documented in CLAUDE.md —
-    but the lens is right that it deserves visibility.
+All seven measured 2026-08-03. Two refuted, one turned into a live order-form
+constraint.
+
+28. **[CONFIRMED figure, "zero headroom" WRONG — but it constrains the order]**
+    Min solder-mask dam is **0.1795 mm** exactly as claimed (U1.129 ↔ C6.2, a
+    decoupling cap against the QFP), with 51 dams under 0.20 mm. But **0 dams
+    are under 0.10 mm**, and JLCPCB's green mask holds a 0.1 mm dam — so there
+    is ~80 µm of headroom, not zero.
+    **The real consequence is colour.** JLC's non-green masks need **0.25 mm**
+    dams, which all 51 of these would violate. **Green is now a requirement,
+    not a preference**, and `fab/ORDER.md` says so.
+29. **[REFUTED] "Smallest annular ring sits exactly on the process minimum."**
+    Measured: **0.1500 mm** on the single 0.50/0.20 BTN1 via, **0.1750 mm** on
+    every other via. JLC's via annular-ring minimum is ~0.13 mm. Not on the
+    limit — 15% and 35% above it.
+30. **[CONFIRMED, fixed] H2's NPTH holes are distinguished only inside a merged
+    Excellon file.** Real: H2 has 3 NPTH pads (0.9906 mm) and `kicad_fab.py`
+    exported one merged `.drl`, where non-plated holes are separated by a
+    comment rather than by being in their own file. A fab that reads the
+    geometry and skips the comment plates them, and H2's whole purpose is that
+    pogo pins touch **bare** copper. Fixed by exporting separate PTH/NPTH files.
+31. **[REFUTED] "Two 0.75 mm internal cutouts milled into the board profile."**
+    There are none. Edge.Cuts holds exactly 8 items — 4 lines and 4 corner arcs
+    — i.e. a 250 × 50 mm rectangle with R2.5 corners, and nothing else. No
+    internal cutout of any size exists.
+32. **[CONFIRMED, accepted] No local fiducials on any 0.5 mm-pitch part.** Three
+    global fiducials (FID1/FID2/FID3) are spread across the board; the nearest
+    to U1 is FID2 at 20.8 mm. Local fiducials would improve placement accuracy
+    on a 250 mm panel, but JLC places 0.5 mm-pitch QFPs on global fiducials
+    routinely and U1 sits mid-board rather than at a corner. Accepted; revisit
+    only if a build shows placement drift.
+33. **[CONFIRMED, and worse than reported] THT switches sit beside 0603
+    passives.** The review said 1.10–1.30 mm; measured courtyard-to-courtyard it
+    is **0.45 mm** (SW1→R28, SW2→R29, SW3→R30, SW4→R31) and 0.65/0.66 mm for
+    SW6/SW7→R1. JLC hand-solders THT, so an iron tip works within half a
+    millimetre of a 0603. Accepted — moving them means re-routing the button
+    block — but it belongs in the assembly notes.
+34. **[CONFIRMED, already deliberate] A DRC severity is set to `ignore`.**
+    `footprint_symbol_field_mismatch`, documented in CLAUDE.md with its
+    reasoning: Board3's supplier metadata lives on the *symbol* by design, so
+    mirroring it onto footprints creates a second copy that drifts, and it
+    produced 13 `lib_footprint_mismatch` violations when tried. The half that
+    catches real defects, `footprint_symbol_mismatch`, stays armed. The lens is
+    right that it deserves visibility — this entry is that visibility.
 
 ## 7. Simplification candidates
 
-35. **[UNVERIFIED] CAN termination is still four 60.4 Ω Extended parts with two
-    now vestigial.** (simplicity) This is the U42 consolidation deliberately not
-    done — the defect is closed, the cost optimisation is not.
-36. **[UNVERIFIED] C41/C42 are Extended ±1% 18 pF where a Basic+preferred part is
-    identical.** (simplicity)
-37. **[UNVERIFIED] SW1–SW4 and SW6/SW7 are one part on two land patterns.**
+35. **[REFUTED as stated; the optimisation behind it is real] "Four 60.4 Ω
+    Extended parts with two now vestigial."** (simplicity) All four
+    (R10/R14/R15/R24, `C2933247`, 60.4 Ω ±1%, Extended) are **in circuit**:
+    R10+R14 in series make CAN1's 120.8 Ω, R15+R24 make CAN2's. **None is
+    vestigial.** What is true is that U42's removal of the centre-tap caps left
+    each pair electrically equivalent to one resistor, so 2×60.4 Ω could become
+    1×120 Ω — 4 parts → 2.
+    **Deliberately not doing it.** Collapsing the pair destroys the centre tap,
+    which is the only thing that would let the split-termination cap come back if
+    (19) is ever revisited. It also costs a topology change and therefore a KTD12
+    GUI sync, to save two 0603s. Keeping the option is worth more.
+36. **[FIXED] C41/C42 were Extended where a Basic part does the job.** They were
+    `C527046` (YAGEO CC0603FRNPO9BN180, 18 pF ±1% NP0 0603, **Extended**). Now
+    **`C1647`** — Samsung CL10C180JB8NNNC, 18 pF 50 V **C0G ±5%** 0603,
+    **Basic**, 524k in stock at $0.0109. Extended BOM lines 26 → 25.
+    Identical value, footprint and nets, so the board is untouched and there is
+    no GUI sync (the U10 precedent).
+    **The tolerance relaxation is the only real question, and it is fine by 45×.**
+    ±1% → ±5% on an 18 pF pair moves the effective crystal load ±0.45 pF around
+    CL = 12 pF. For a 25 MHz fundamental (C0 ≈ 3 pF, C1 ≈ 5 fF) that is
+    **≈ ±5 ppm** of pull, against ±1 ppm for the ±1% part — so the total budget
+    goes from about ±30 ppm (crystal ±10 initial, ±20 over temperature) to ±35.
+    The tightest consumer on this board is CAN bit timing at roughly ±1580 ppm,
+    and USB does not depend on HSE at all (DFU runs HSI48+CRS, AN2606 §52). The
+    ±1% part was over-specified.
+    `kicad_lcsc.py add C1647` brought the part in properly — symbol, footprint
+    and STEP model in `JLCImport` — and the two instances' supplier fields were
+    repointed to it.
+    **One deliberate loose end.** C41/C42 still carry `lib_id`
+    `ProPrj_New-easyedapro:CC0603FRNPO9BN180`; only their instance fields name
+    the Samsung part. Fully repointing `lib_id` means hand-inserting a symbol
+    definition into the schematic's 60k-line `lib_symbols` cache, which is
+    s-expression surgery for no functional gain — the BOM is generated from
+    instance properties and is correct. The on-disk library symbol was left
+    describing the YAGEO part, because that is what it is. The residual hazard
+    is that a GUI *Update Symbols from Library* would revert the fields; the
+    canonical fix is a GUI *Change Symbol* on C41/C42, whenever the project is
+    next open. Note the board already relies on this same instance-override
+    pattern for SW1–SW4.
+37. **[CONFIRMED — and mis-filed as "simplification"; it is a fit risk]** SW1–SW4
+    and SW6/SW7 are the same part (`C5340169`, HX TS4538CJ) on **two different
+    land patterns**, and the difference is not cosmetic:
+
+    | | footprint | pad X offsets | lead span |
+    |---|---|---|---|
+    | SW1–SW4 | `…-LS5.4` | ±2.700 mm | 5.4 mm |
+    | SW6, SW7 | `…-LS5.0` | ±2.500 mm | 5.0 mm |
+
+    Both agree on the 3.00 mm pitch (pads at y ±1.500) and both use 1.0 mm
+    drills. They disagree by **0.4 mm on lead span, 0.2 mm per side** — and the
+    part has exactly one true lead span, so **one of these two has its holes in
+    the wrong place**. With a ~0.8 mm lead in a 1.0 mm hole there is only ~0.1 mm
+    of radial slack, so the wrong one needs the leads splayed or pinched to seat.
+    These are hand-soldered, so it will probably go in — and probably not sit
+    flat.
+    **SETTLED FROM THE VENDOR DRAWING, and SW1–SW4 were the wrong ones.** The HX
+    TS4538CJ datasheet's recommended PCB pattern is dimensioned **5 mm × 3 mm,
+    holes ø1** — the LS5.0 footprint exactly. SW6/SW7 were right all along.
+    Reading it needed a rasteriser: the drawing is vector, the only embedded
+    image on the page is the vendor logo, and the callouts do not survive text
+    extraction. `pip install pymupdf` renders it; poppler needs a sudo password.
+    **It is a fit defect, not a margin.** The same drawing specifies the leads as
+    **4-ø0.95 ±0.1 into ø1.0 holes** — 0.025 mm of radial slack at nominal and
+    *none* at the +0.1 lead tolerance. There is nothing to absorb 0.2 mm per side
+    with, so SW1–SW4 would not have seated without splaying the leads. (My
+    earlier estimate of "probably still seats" assumed a 0.5–0.6 mm lead and was
+    wrong by a factor of two.)
+    **Root cause found:** SW1–SW4 were placed from a *different library symbol* —
+    `4.5X4.5X4.5WATERPROOF TACT SWITCH DIP 260G`, whose 5.4 mm land pattern is
+    presumably right for that part — and the value and supplier fields were then
+    overridden to the TS4538CJ without the footprint following.
+    **Fixed in `tools/handroutes/u54-button-land-pattern.json`.** All six buttons
+    now measure 5.000 × 3.000 mm. Position, rotation, reference, value and
+    attributes preserved; nets carried across by pad number. The schematic's
+    Footprint field was updated in the same change — a board-only edit would have
+    left `--schematic-parity` disagreeing, which is the only check that compares
+    a footprint to its symbol.
+    **Three things came free with it:**
+    - **The BOM lost a line, 42 → 41.** The same LCSC part was being ordered as
+      two lines (4 + 2) purely because of the footprint split. This is what
+      `kicad_lcsc.py duplicates` was hinting at with "41 distinct LCSC codes, 42
+      value+footprint keys"; it now reads 41 and 41.
+    - **Item 33 relaxed.** Both pads move inward, so SW→R28–R31 courtyard
+      clearance goes **0.45 → 0.65 mm**.
+    - The `hanxia` / `hanxia(韩下)` manufacturer split that the merge exposed was
+      normalised to the ASCII spelling, removing a cp1252 encoding hazard.
+    Verified: DRC 0/0/0, ERC unchanged at 1127, nets unchanged, BOM/CPL
+    symmetric at 41/140.
+    *Also noted: `C5340169` is Extended with **6,046 in stock** and the board
+    uses six — worth a glance before ordering.*
 
 ## 8. Refuted — do not act on these
 
@@ -188,10 +645,29 @@ one was already settled; one was wrong.
     assembly-safe.** Same treatment.
 42. **[REFUTED → LOW] No reference designator reaches the assembler.** Found ~98%
     pre-existing and deliberate, and mischaracterised on three counts.
-43. **[UNVERIFIED, overlaps 40/41] Eight vias sit in pasted, mask-opened pads.**
-    (dfm-fab) Same theme as two findings *refuted* on measurement — treat with
-    corresponding scepticism.
-44. **[UNVERIFIED, overlaps 42] No refdes printed and no fab-package map.** (dft)
+43. **[REFUTED — the scepticism was warranted] "Eight vias sit in pasted,
+    mask-opened pads."** (dfm-fab) The count is right; the risk is not. Measured:
+    8 vias land inside a top pad — **U4 ×5, Q2 ×2, U1 ×1** — and they split into
+    two harmless groups.
+    - **U4 ×5** have `paste = False`. They are the CH224K's exposed-pad thermal
+      vias, and with no paste aperture over them there is nothing to wick.
+    - **Q2 ×2 and U1 ×1** do have paste, which is the case that would matter —
+      and all three are **tented**: U1.93 explicitly (`front/back = 1`), Q2.6 and
+      Q2.7 by inheriting the board default, which is `m_TentViasFront/Back =
+      True`. A tented barrel cannot wick.
+    Exactly the set CLAUDE.md already documents as deliberate (U4's thermal vias,
+    Q2's plane stitches, U1.93's exception). Consistent with 40/41 being refuted.
+44. **[CONFIRMED as fact, accepted — consistent with 42] No refdes printed.**
+    (dft) Measured: **0 of 148** footprints have a visible silk reference, though
+    all 148 have their refdes *assigned* to the top silk layer — they are placed
+    and hidden, not missing. That is what makes it deliberate rather than an
+    oversight, which is what (42) concluded.
+    Not an assembly risk: the assembler places from the CPL, which is symmetric
+    at 140 rows. It is a bench-rework annoyance — you cannot identify R33 on the
+    board by eye. Turning them on is not free either: 148 designators on a dense
+    250 × 50 mm board would collide with pads and each other, and the board
+    already carries the 16 *functional* silk labels from U45, which is the
+    information a human actually needs. Accepted.
 
 ---
 
@@ -226,3 +702,187 @@ the board, 3 were refuted and 1 held.** Items 11 and 12 came from the same lens
 an explicit written spec, the other dissolved on one line of a datasheet. The
 preamble's warning holds — but note it cuts both ways: (11) was *downgraded* by
 its verifier and was nonetheless the one worth fixing.
+
+---
+
+## 9. Adversarial re-review of §2–§8's own fixes (2026-08-04)
+
+Eight lenses run against `fix/board3-review-section4` — the seven PCB lenses plus
+a Python reviewer for the tooling. **The point of this pass was to attack the
+fixes, not the board**, and it worked: three board defects that U51–U58
+introduced, two of which DRC cannot detect by construction.
+
+Method note worth keeping: the lenses disagreed with each other twice and both
+disagreements were settled by measuring. One recommended a replacement via that
+is *inside* U1's courtyard — it tested the bounding box, not the polygon. Another
+retracted four of its own findings, including 49,052 phantom pour necks that were
+an artefact of collinear vertices in KiCad's fill outlines. Cross-checking two
+reviewers against each other is worth as much as running either one.
+
+### Fixed by U59
+
+45. **[FIXED] TP2's solder mask merged with C34's pad — 0.0295 mm dam.** Found by
+    three lenses independently, by three different routes. In the exported
+    `F_Mask.gbr`, TP1 and TP3 each have a discrete 0.5949 mm opening and **TP2
+    has none** — a merged 1.4084 × 1.3064 mm blob spanning via and pad, because
+    KiCad drops a web below `solder_mask_min_width`. Both are `/+3V3`, and
+    `solder_mask_bridge` only fires between *different* nets, so DRC reported
+    0/0/0 truthfully the whole time. Baseline `origin/main` had **zero** dams
+    below 0.15 mm. Moved to (121.314, 99.332): 1.317 mm dam, 1.038 mm courtyard
+    clear. See item 24.
+
+46. **[FIXED] U52 left C46 pad 1 (`/NRST`) 502.6 nm from a `/GND` track.**
+    0.102103 mm against a 0.1016 mm rule — legal, and second-tightest on the
+    board after a pre-existing 71.6 nm pair. Worth the edit for *which* net it
+    is: `/NRST` shorted to `/GND` holds the H7 in reset, so the board powers up,
+    both rail probes read good, and nothing renders — no error, no distinguishing
+    symptom. C46 moved 0.15 mm along the perpendicular, **0.1021 → 0.2521 mm**.
+    U52's clearance work had gone entirely into the *via* question, where it
+    correctly caught a `hole_to_hole` trap, and never measured the pad.
+
+47. **[FIXED] U57 put four reference designators on the silkscreen.**
+    `JLCImport:ERJP06F60R4V` ships its Reference field visible; the `R0603` it
+    replaced had it hidden. R10/R14/R15/R24 became the only 4 of 150 footprints
+    with a printed designator, on a board that silkscreens function and never
+    designators — and `F.Fab` is not in the exported layer set, so that is what
+    the assembly house receives. Hidden again. This is U57's own lesson one step
+    further: a land-pattern swap re-seats the reference **and can un-hide it**.
+
+### Open — needs the GUI
+
+48. **[OPEN] `lib_id` divergence on ten designators.** U57 and the C41/C42 swap
+    each created a fresh instance of the defect item 37 existed to fix: the
+    instance fields were updated and the `lib_id` was not.
+
+    | designators | `lib_id` resolves to | library says | instance says |
+    |---|---|---|---|
+    | R10/R14/R15/R24 | `FRC0603F60R4TS` | `C2933247` + `R0603` | `C3959530` + 0805 |
+    | C41/C42 | `CC0603FRNPO9BN180` | `C527046` | `C1647` |
+    | SW1–SW4 | wrong switch symbol | `C39832248` + LS5.4 | `C5340169` + LS5.0 |
+
+    A GUI *Update Symbols from Library* reverts the supplier field on all ten
+    while the board keeps the new land patterns. `--schematic-parity` catches the
+    footprint half; **nothing catches the supplier half**, and for C41/C42 the
+    footprint is identical either way, so no check sees it at all. C72/C73 are
+    clean — cloning C59 happened to pick up the right symbol.
+
+    Fix is **GUI *Change Symbol* on ten designators**, schematic-only: no
+    footprint change, no net change, no *Update PCB from Schematic*, no routing.
+
+    **Verified 2026-08-04 — all three targets exist and are safe to switch to:**
+
+    | designators | change `lib_id` to | pins | Footprint | Supplier Part |
+    |---|---|---|---|---|
+    | R10/R14/R15/R24 | `JLCImport:ERJP06F60R4V` | 1,2 ↔ 1,2 | agrees | agrees |
+    | C41/C42 | `JLCImport:CL10C180JB8NNNC` | 1,2 ↔ 1,2 | agrees | agrees |
+    | SW1–SW4 | `ProPrj_New-easyedapro:HX TS4538CJ 250GF 009` | 1–4 ↔ 1–4 | agrees | agrees |
+
+    **Do NOT let the dialog reset field values.** Change Symbol offers to
+    overwrite the instance's fields from the library; for all ten the instance is
+    the *more* correct side. `Value` and `Manufacturer` still differ (the library
+    copies carry the MPN in `Value`, or an empty string, and a Chinese-suffixed
+    manufacturer name) — untick anything that updates or resets a field, so only
+    the `lib_id` and the symbol body change.
+
+    `Footprint` and `Supplier Part` were made to agree first, so an accidental
+    reset cannot now break the two that matter. That took one library edit:
+    `JLCImport:CL10C180JB8NNNC` pointed at its own imported footprint, while
+    C41/C42 deliberately use the generic `ProPrj_New-easyedapro:C0603` — same
+    land pattern, which is why item 37's swap needed no board sync.
+
+    **Afterwards**, from the repo root:
+
+    ```
+    kicad-cli sch export netlist "<schematic>" -o /tmp/after.net
+    kicad-cli pcb drc "<board>" --severity-all --schematic-parity --format json -o /tmp/drc.json
+    "C:/Program Files/KiCad/10.0/bin/python.exe" tools/kicad_fab.py kicad/board3
+    ```
+
+    Expect the netlist unchanged, DRC still 0/0/0, and BOM 41 / CPL 142. Check the
+    switches by pin **function**, not number (KTD27) — both switch symbols number
+    pins 1–4 but name them differently (`1_1..4_4` vs `A_1..D_4`), so a silent
+    re-map would look fine in the pin table and wrong on the bench.
+
+    *Note on how this was verified:* the first check reported the switch symbol
+    missing from the project library. That was a parser bug — the library indents
+    with tabs and the check assumed two spaces. It is present. Worth recording
+    because it is the same failure mode as reading a `.kicad_pcb` with regex.*
+
+### Recorded as considered — no change
+
+49. **[ACCEPTED] No transient protection on either CAN connector.** `/CAN1_H` has
+    exactly three nodes — screw terminal, jumper, transceiver pin — and there is
+    no TVS, ESD array, common-mode choke or filtering on either bus. ISO 7637-2
+    harness transients exceed the TJA1051's bus-fault rating, and the
+    transceiver's integrated protection covers pin-level ESD, not system-level
+    events on a vehicle harness.
+
+    **Kevin's call, 2026-08-04: no change on this board.** It is a bench carrier;
+    the automotive front end is already an Outstanding Question in the carrier
+    plan and this belongs with it. Recorded here so it stops being re-found as a
+    novel discovery — it is a known, deferred gap, not an oversight.
+
+    Noted because U57's justification ("the board is going in a car") is the same
+    premise that makes this a gap, and applied consistently it says the
+    unprotected part is the transceiver, not the resistor.
+
+50. **[OPEN, unmeasured] `/VBUS` carries narrower conductors than the neck U51
+    fixed.** The layout-guide row that justified U51 reads "Input (**jack/USB**)
+    → ideal diodes → +5V | ~1.5–2 A | pour or ≥60 mil" — it covers both inputs.
+    U51's write-up claimed the barrel neck was "the one conductor on the rail
+    that fails the project's own written rule." Measured, `/VBUS` has 0.254 and
+    0.260 mm segments, and a 0.400 × 3.592 mm Top run into Q1.
+
+    **Not costed here**, because unlike the barrel path it has had no trunk walk:
+    `/VBUS` runs on Top, Inner1 and Inner2 through four vias, so some of those
+    narrow segments may be parallel rather than series. The single-segment
+    thermal figures are an upper bound, not a verdict. Do the walk before acting
+    — that is exactly what made U51's number trustworthy.
+
+51. **[OPEN, needs the datasheet] ERJ-P06 derating above 70 °C.** The 500 mW is
+    rated at 70 °C and derates linearly to zero at 155 °C — roughly 0.41 W at
+    85 °C. Inside Board3's documented ≤70 °C envelope (item 16 pins the ceiling
+    at the tact switches) the "1.1–1.35×" in U57 holds. It does not hold
+    unconditionally, and the automotive successor is the case where it fails.
+    Confirm the breakpoint from Panasonic AOA0000C331 before quoting it again.
+
+### Claims in the specs that were wrong, now corrected in place
+
+- **U53**: "none of them under a component courtyard" — TP2 lapped 0.234 mm into
+  C34's. It tested the via *centre* instead of its shape.
+- **U51**: "the one conductor on the rail that fails the rule" — see item 50.
+- **U58**: "no via and no track on the return path" — true at U8, false at U9.
+  **U9.2 is not in the Top `/GND` fill at all**; it reaches the pour through
+  2.43 mm of 0.254 mm track, and C73's pad sits in a different fill island. The
+  consequence is ~4 mV and nothing measurable, but the claim was load-bearing in
+  the justification and was never checked at the IC end.
+- **U58**: the two-via feed was justified as better than the rejected 7.08 mm
+  Top-only placement. By routed inductance it is roughly a wash — ~4.3 nH against
+  ~2.6 nH. The placement is still defensible; the reason given for it is not.
+- **U56**: "the far endpoint of each is unchanged" — false for three of four;
+  they land 2–4 µm short and connect on track overlap.
+- **U57**: "only the anti-surge ERJ-P06 clears it" — `C6681294` (YAGEO
+  SR0805FR-4760R4L, 500 mW, 3,684 in stock) also does, at $0.029.
+- **U57**: the 0.37–0.46 W is a **dominant-bit peak**, not a continuous load. With
+  the bus recessive and CANH clamped to 12 V, the termination pulls CANL to
+  within ~80 mV of it — ~24 µW — and the receiver reads recessive, so the fault
+  does not announce itself. Traffic-averaged dissipation is roughly 0.1–0.2 W.
+  The part choice is still right (peak-sized, and the double fault is genuinely
+  DC), but the stated margin compared a peak against a continuous rating.
+
+### Tooling defects found and fixed
+
+- `replace_footprints` left a pad on net 0 if the **new** footprint had a pad the
+  old one lacked. `place_parts`, written in the same session forty lines below,
+  had the symmetric check; this did not. Now refuses.
+- `move_fp_text` silently edited the **Value** field for any unrecognised
+  `"field"` — and `kicad_fab.py` uses the word "Designator" for the same thing,
+  which is the obvious typo. Now validates.
+- `untent_vias` took the first via within tolerance with no ambiguity check. Now
+  refuses on anything but exactly one match, and gained `"tent": true`.
+- `kicad_fab.py` computed `missing_layers`, printed it, and **never let it reach
+  the exit code** — so a run without `pcbnew` (a bare `python`; this module has
+  no self-reexec) produced a package with `Edge.Cuts` named "Multi-Layer.gbr",
+  skipped the rotation audit, and still exited 0. Now an error. CI was never
+  affected: it runs inside the `kicad/kicad:10.0.5` container, where `pcbnew`
+  imports fine.

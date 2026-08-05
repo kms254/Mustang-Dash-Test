@@ -21,6 +21,15 @@ An edit is a single spec, or {"steps": [spec, spec, ...]} applied in order:
     "add":      [{"net": "CAN1_H", "layer": "Top Layer", "width": 0.254,
                   "points": [[x,y], [x,y], ...]}],
     "add_vias": [{"net": "USB_DM_CONN", "at": [x,y], "diameter": 0.6, "drill": 0.3}],
+    "move_fp_text": [{"ref": "R10", "field": "reference", "to": [x,y]}],
+    "place_parts": [{"ref": "C72", "fpid": "lib:C0603", "libpath": "…/lib.pretty",
+                     "value": "100nF", "at": [x,y], "rot": 90,
+                     "nets": {"1": "+3V3", "2": "GND"}}],   # a part WITH a symbol
+    "add_footprints": [{"ref": "FID1", "lib": "…", "name": "…", "at": [x,y]}],  # board-only
+    "untent_vias": [{"at": [x,y], "net": "SCLK_C", "label": "TP1"}],
+    "add_silk":  [{"text": "TT1", "at": [x,y], "height": 1.0, "thickness": 0.15}],
+    "replace_footprints": [{"ref": "SW1", "fpid": "lib:FOOTPRINT",
+                            "libpath": "kicad/board3/lib.pretty"}],
     "add_keepouts": [{"ref": "H2", "at": [x,y], "radius": 0.85,
                       "layers": ["F.Cu","In1.Cu","In2.Cu","B.Cu"]}]
   }
@@ -112,6 +121,28 @@ def layer_id(board, name: str) -> int:
     raise SystemExit(f"unknown copper layer: {name!r}")
 
 
+# Removed board items must outlive SaveBoard. Letting a removed SWIG proxy be
+# garbage-collected frees the underlying C++ object and corrupts the session --
+# unrelated proxies turn into raw SwigPyObjects. apply_step's locals die before
+# main() saves, so this deliberately leaks at module scope for the process
+# lifetime. The "memory leak ... no destructor" warnings are this working.
+_KEEPALIVE: list = []
+
+
+def any_layer_id(board, name: str) -> int:
+    """Resolve ANY layer by name, not just copper.
+
+    layer_id() walks CuStack(), which is right for tracks and vias and useless
+    for silkscreen. Board3 renames its layers ("Top Silkscreen Layer", not
+    "F.SilkS"), so both the board's own name and KiCad's canonical name are
+    accepted -- and layers are always compared by ID afterwards, never by name.
+    """
+    for lid in board.GetEnabledLayers().Seq():
+        if name in (board.GetLayerName(lid), pcbnew.LayerName(lid)):
+            return lid
+    raise SystemExit(f"unknown layer: {name!r}")
+
+
 def apply_step(board, spec: dict, tracks: list, dry: bool):
     netmap = {net.GetNetname().lstrip("/"): net
               for net in board.GetNetsByNetcode().values()}
@@ -183,6 +214,199 @@ def apply_step(board, spec: dict, tracks: list, dry: bool):
             if not dry:
                 track.SetNet(dst)
 
+    for rule in spec.get("move_silk", []):
+        # Move a BOARD-level silk text (not a footprint field). Matched on its
+        # exact string, with an optional "at" to disambiguate when the same
+        # legend appears twice -- TERM1/TERM2 are distinct, but CAN1/CAN2 style
+        # pairs are one edit away from being ambiguous, so the guard is cheap.
+        want = rule["text"]
+        near = rule.get("at")
+        dx, dy = rule["by"]
+        hits = []
+        for d in board.GetDrawings():
+            if not hasattr(d, "GetText") or d.GetText() != want:
+                continue
+            if near is not None:
+                p = d.GetPosition()
+                if abs(p.x - to_nm(near[0])) > to_nm(0.5) or \
+                   abs(p.y - to_nm(near[1])) > to_nm(0.5):
+                    continue
+            hits.append(d)
+        if len(hits) != 1:
+            raise SystemExit(
+                f"move_silk {want!r}: matched {len(hits)} items, expected exactly 1 "
+                f"-- add or correct 'at' to disambiguate")
+        pos = hits[0].GetPosition()
+        moved = pcbnew.VECTOR2I(pos.x + to_nm(dx), pos.y + to_nm(dy))
+        if not dry:
+            hits[0].SetPosition(moved)
+        print(f"  ~ silk {want!r} by ({dx},{dy}) -> "
+              f"({moved.x/NM:.3f},{moved.y/NM:.3f})")
+
+    for rule in spec.get("add_silk", []):
+        # Board-level silkscreen text. Defaults match the 16 labels U45 placed
+        # (1.0 mm high, 0.15 mm stroke) so the board reads as one hand -- and
+        # 0.15 mm is also the process minimum, so do not go below it.
+        text = pcbnew.PCB_TEXT(board)
+        x, y = rule["at"]
+        text.SetText(rule["text"])
+        text.SetPosition(pcbnew.VECTOR2I(to_nm(x), to_nm(y)))
+        text.SetLayer(any_layer_id(board, rule.get("layer", "Top Silkscreen Layer")))
+        text.SetTextHeight(to_nm(rule.get("height", 1.0)))
+        text.SetTextWidth(to_nm(rule.get("width", 1.0)))
+        text.SetTextThickness(to_nm(rule.get("thickness", 0.15)))
+        text.SetHorizJustify(pcbnew.GR_TEXT_H_ALIGN_CENTER)
+        text.SetVertJustify(pcbnew.GR_TEXT_V_ALIGN_CENTER)
+        if rule.get("angle"):
+            text.SetTextAngleDegrees(rule["angle"])
+        if rule.get("mirror"):
+            text.SetMirrored(True)
+        board.Add(text)
+        print(f"  T {rule['text']:<10} {rule.get('layer','Top Silkscreen Layer'):<21} "
+              f"({x:8.3f},{y:8.3f})")
+        added += 1
+
+    for rule in spec.get("replace_footprints", []):
+        # Swap a footprint for a different land pattern, keeping everything that
+        # is NOT the land pattern: position, rotation, side, reference, value,
+        # attributes, and the net on every pad matched BY PAD NUMBER (KTD27 --
+        # never by order). pcbnew.FootprintLoad returns a bare FPID with no
+        # library nickname, which reads as a lib_footprint_mismatch and stops
+        # KiCad resolving the library at all, so the full FPID is set explicitly.
+        ref = rule["ref"]
+        lib, name = rule["fpid"].split(":", 1)
+        old = next((f for f in board.GetFootprints() if f.GetReference() == ref), None)
+        if old is None:
+            raise SystemExit(f"no footprint {ref!r} on the board")
+        nets = {p.GetNumber(): p.GetNet() for p in old.Pads()}
+        new = pcbnew.FootprintLoad(rule["libpath"], name)
+        if new is None:
+            raise SystemExit(f"could not load {name!r} from {rule['libpath']!r}")
+        new.SetReference(old.GetReference())
+        new.SetValue(old.GetValue())
+        new.SetPosition(old.GetPosition())
+        new.SetOrientation(old.GetOrientation())
+        new.SetLayer(old.GetLayer())
+        new.SetAttributes(old.GetAttributes())
+        new.SetFPID(pcbnew.LIB_ID(lib, name))
+        missing = [n for n in nets if n not in {p.GetNumber() for p in new.Pads()}]
+        if missing:
+            raise SystemExit(f"{ref}: new footprint has no pad(s) {missing} -- refusing")
+        # And the other direction, which is the one that bites silently: a pad the
+        # NEW footprint has and the old one did not (an exposed tab, or simply the
+        # wrong FPID) would be skipped by the loop below and ship on net 0. The
+        # check has to be symmetric -- place_parts gets this right, and this did
+        # not until a review caught it.
+        extra = [p.GetNumber() for p in new.Pads() if p.GetNumber() not in nets]
+        if extra:
+            raise SystemExit(
+                f"{ref}: new footprint has pad(s) {extra} the old one did not -- "
+                f"they would carry no net. Refusing.")
+        for pad in new.Pads():
+            if pad.GetNumber() in nets:
+                pad.SetNet(nets[pad.GetNumber()])
+        if not dry:
+            board.Remove(old)
+            board.Add(new)
+            _KEEPALIVE.append(old)
+        print(f"  * {ref}: {old.GetFPIDAsString()} -> {rule['fpid']}")
+        for pad in sorted(new.Pads(), key=lambda p: p.GetNumber()):
+            o = next((p for p in old.Pads() if p.GetNumber() == pad.GetNumber()), None)
+            if o is None:
+                continue
+            print(f"      pad{pad.GetNumber()} {o.GetPosition().x/NM:8.3f} -> "
+                  f"{pad.GetPosition().x/NM:8.3f} mm   net {pad.GetNetname()}")
+
+    for rule in spec.get("place_parts", []):
+        # Place a NEW part that HAS a symbol -- as opposed to "add_footprints"
+        # below, which places board-only items (fiducials, bare pads) and marks
+        # them FP_BOARD_ONLY / excluded from BOM and CPL. These two are not
+        # variants of each other: this one must appear in the BOM and must match
+        # a symbol, that one must do neither.
+        #
+        # KTD12 says schematic->board sync is GUI-only, and it still is -- this
+        # does not sync anything. It is the board half of the documented "apply
+        # both sides by hand" route: the symbol, its wires and its labels go into
+        # the .kicad_sch, and the footprint plus its pad nets go here.
+        # --schematic-parity is what proves the two halves agree.
+        #
+        # Nets must ALREADY exist on the board (this places a part onto existing
+        # nets -- a decoupling cap, a termination). Inventing a net here would be
+        # the duplicate-net corruption the KiCad MCP produces; refuse instead.
+        ref = rule["ref"]
+        lib, name = rule["fpid"].split(":", 1)
+        if any(f.GetReference() == ref for f in board.GetFootprints()):
+            raise SystemExit(f"{ref} already exists on the board -- refusing")
+        fp = pcbnew.FootprintLoad(rule["libpath"], name)
+        if fp is None:
+            raise SystemExit(f"could not load {name!r} from {rule['libpath']!r}")
+        fp.SetReference(ref)
+        fp.SetValue(rule.get("value", ""))
+        x, y = rule["at"]
+        fp.SetPosition(pcbnew.VECTOR2I(to_nm(x), to_nm(y)))
+        fp.SetOrientationDegrees(rule.get("rot", 0))
+        fp.SetFPID(pcbnew.LIB_ID(lib, name))
+        want = {str(k): v.lstrip("/") for k, v in rule.get("nets", {}).items()}
+        have = {p.GetNumber() for p in fp.Pads()}
+        missing = [n for n in want if n not in have]
+        if missing:
+            raise SystemExit(f"{ref}: footprint has no pad(s) {missing} -- refusing")
+        unassigned = [n for n in have if n not in want]
+        if unassigned:
+            raise SystemExit(f"{ref}: pad(s) {unassigned} left with no net -- refusing")
+        for pad in fp.Pads():
+            netname = want[pad.GetNumber()]
+            if netname not in netmap:
+                raise SystemExit(
+                    f"{ref}.{pad.GetNumber()}: net {netname!r} does not exist on the "
+                    f"board -- refusing to invent it")
+            pad.SetNet(netmap[netname])
+        if not dry:
+            board.Add(fp)
+        print(f"  + {ref}  {rule['fpid']}  at ({x},{y}) rot {rule.get('rot', 0)}"
+              f"  value {rule.get('value','')!r}")
+        for pad in sorted(fp.Pads(), key=lambda p: p.GetNumber()):
+            q = pad.GetPosition()
+            print(f"      pad{pad.GetNumber()} ({q.x/NM:8.3f},{q.y/NM:8.3f})  net {pad.GetNetname()}")
+
+    for rule in spec.get("untent_vias", []):
+        # Open the solder mask over a via so it becomes a probe point. The board
+        # default tents every via front and back, which is right for 229 of them
+        # and wrong for the handful you need to put a scope on. Selection is by
+        # exact position because a via has no name to address it by.
+        # "tent": true reverses it -- putting the mask back over a via that should
+        # never have been opened. U59 needed that: an untented via 0.0295 mm from
+        # a pad on the SAME net merges apertures, and solder_mask_bridge only
+        # fires between different nets, so DRC cannot see it.
+        x, y = rule["at"]
+        want = (to_nm(x), to_nm(y))
+        tol = to_nm(rule.get("tolerance", 0.01))
+        # Collect ALL matches rather than taking the first. A wider tolerance in a
+        # dense via cluster can match two, and silently opening the mask over the
+        # wrong one is not something the operator would see. Same guard move_silk
+        # already makes.
+        hits = [t for t in tracks
+                if t.Type() == pcbnew.PCB_VIA_T
+                and abs(t.GetPosition().x - want[0]) <= tol
+                and abs(t.GetPosition().y - want[1]) <= tol]
+        if len(hits) != 1:
+            raise SystemExit(
+                f"via at ({x},{y}): matched {len(hits)} vias within "
+                f"{rule.get('tolerance', 0.01)} mm, expected exactly 1")
+        track = hits[0]
+        if rule.get("net") and track.GetNetname().lstrip("/") != rule["net"].lstrip("/"):
+            raise SystemExit(
+                f"via at ({x},{y}) is on {track.GetNetname()!r}, "
+                f"not {rule['net']!r} -- refusing to touch the wrong one")
+        tent = bool(rule.get("tent"))
+        mode = pcbnew.TENTING_MODE_TENTED if tent else pcbnew.TENTING_MODE_NOT_TENTED
+        if not dry:
+            track.SetFrontTentingMode(mode)
+            track.SetBackTentingMode(mode)
+        print(f"  o {'re-tented' if tent else 'untented'} {track.GetNetname():<13} "
+              f"via at ({x},{y})"
+              f"{'  ' + rule['label'] if rule.get('label') else ''}")
+
     for rule in spec.get("move_footprints", []):
         ref = rule["ref"]
         for footprint in board.GetFootprints():
@@ -204,6 +428,60 @@ def apply_step(board, spec: dict, tracks: list, dry: bool):
             if "rot" in rule:
                 how += f" rot={rule['rot']}"
             print(f"  ~ moved {ref} {how} -> ({moved.x/NM:.3f},{moved.y/NM:.3f})")
+            break
+        else:
+            raise SystemExit(f"no footprint {ref!r} on the board")
+
+    for rule in spec.get("move_fp_text", []):
+        # Move a footprint's Reference/Value FIELD -- not board-level silk, which
+        # is "move_silk". Swapping a land pattern re-seats these fields at the new
+        # library's offsets, so a designator that used to sit clear can land on a
+        # neighbour's silk (U57: R10's ref moved 0.38 mm outward going 0603->0805
+        # and hit R14). Runs after replace_footprints/move_footprints, because
+        # both rebuild or re-place the field it edits.
+        ref = rule["ref"]
+        which = rule.get("field", "reference").lower()
+        # Validate rather than falling through to Value(). An unrecognised name --
+        # "designator" is the obvious one, since kicad_fab.py uses that word for
+        # the same thing -- would otherwise silently move the WRONG field and
+        # report the typo back as if it had worked.
+        if which not in ("reference", "value"):
+            raise SystemExit(
+                f"move_fp_text {ref}: unknown field {rule.get('field')!r} -- "
+                f"expected 'reference' or 'value'")
+        for footprint in board.GetFootprints():
+            if footprint.GetReference() != ref:
+                continue
+            item = footprint.Reference() if which == "reference" else footprint.Value()
+            pos = item.GetPosition()
+            what = []
+            if "to" in rule or "by" in rule:
+                if "to" in rule:
+                    x, y = rule["to"]
+                    moved = pcbnew.VECTOR2I(to_nm(x), to_nm(y))
+                    what.append(f"to ({x},{y})")
+                else:
+                    dx, dy = rule["by"]
+                    moved = pcbnew.VECTOR2I(pos.x + to_nm(dx), pos.y + to_nm(dy))
+                    what.append(f"by ({dx},{dy})")
+                if not dry:
+                    item.SetPosition(moved)
+            else:
+                moved = pos
+            if "angle" in rule and not dry:
+                item.SetTextAngleDegrees(rule["angle"])
+            # Visibility is part of this operation because a land-pattern swap can
+            # change it: a library that ships its Reference visible turns a hidden
+            # designator into printed silk nobody asked for.
+            if "visible" in rule:
+                what.append(f"visible={rule['visible']}")
+                if not dry:
+                    item.SetVisible(bool(rule["visible"]))
+            if not what:
+                raise SystemExit(
+                    f"move_fp_text {ref}: needs 'to', 'by' or 'visible' -- nothing to do")
+            print(f"  ~ {ref} {which} {', '.join(what)} -> "
+                  f"({moved.x/NM:.3f},{moved.y/NM:.3f})")
             break
         else:
             raise SystemExit(f"no footprint {ref!r} on the board")

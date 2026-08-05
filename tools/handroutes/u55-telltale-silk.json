@@ -1,0 +1,63 @@
+{
+  "$comment": [
+    "U55 -- silkscreen the eight telltales with their TT numbers. Review item 27.",
+    "",
+    "THE MAPPING IS THE WHOLE POINT, AND IT IS NOT THE DESIGNATOR NUMBER.",
+    "Read from the netlist, not from the reference designators:",
+    "",
+    "    LED1 -> /TT1_LED_K = TT1        LED5 -> /TT5_LED_K = TT5",
+    "    LED2 -> /TT4_LED_K = TT4  (!)   LED6 -> /TT6_LED_K = TT6",
+    "    LED3 -> /TT2_LED_K = TT2  (!)   LED7 -> /TT7_LED_K = TT7",
+    "    LED4 -> /TT3_LED_K = TT3  (!)   LED8 -> /TT8_LED_K = TT8",
+    "",
+    "Three of eight are permuted. Labelling LED2 as 'TT2' would have been wrong",
+    "on three lamps -- which is exactly how U45 put CENTER on the LEFT connector",
+    "and became the last review's only CRITICAL. Every label below was derived",
+    "from the net a cathode actually lands on (KTD27: verify by FUNCTION).",
+    "",
+    "Physically the numbering is interleaved across the two clusters, which is",
+    "why the labels earn their keep -- nobody could infer this from the layout:",
+    "",
+    "    left cluster  (x 63..77)   TT1 TT2 on the top row, TT5 TT7 below",
+    "    right cluster (x 223..237) TT3 TT4 on the top row, TT6 TT8 below",
+    "",
+    "Firmware side, for whoever is reading a lamp that will not light: lamp bit l",
+    "drives TT(l+1), and the LEDs are current-sunk by the AW9523B expanders --",
+    "west U11 at 0x5B, east U12 at 0x5A -- so there are no series resistors to",
+    "check. Brightness is the dash_calibration.h table, not a resistor value.",
+    "",
+    "PLACEMENT. Top-row labels sit above their LED and bottom-row below, except",
+    "on the right cluster where U12's courtyard (y 97.36..102.64) occupies the",
+    "space under the bottom row -- so TT6 goes to the left of LED6 and TT8 to the",
+    "right of LED8. Both remain unambiguous: the nearest LED to each is the one",
+    "named, by a clear margin, and neither sits between two lamps.",
+    "",
+    "Every position was checked against pads, existing silk and the board edge",
+    "before being written, with a 0.20 mm margin. 1.0 mm text on a 0.15 mm stroke",
+    "matches U45's sixteen labels, and 0.15 mm is also the silkscreen process",
+    "minimum -- do not thin it.",
+    "",
+    "REVIEW ITEM 26 IS NOT IN THIS FILE and is not fixed. P1/P2 cannot take",
+    "per-pin CANH/CANL silk without moving a part: the connectors are boxed in on",
+    "all four sides -- H1/H3's termination jumper leaves a 0.61 mm gap above,",
+    "resistors 0.94 mm to the left, another part 0.97 mm to the right, and the",
+    "board edge 0.28 mm below. Anything inside the courtyard prints underneath",
+    "the terminal block body and is invisible once assembled. Recorded in the",
+    "triage doc as needing a placement change rather than a silk change."
+  ],
+  "steps": [
+    {
+      "step": "1/1  TT1..TT8 by net, not by designator",
+      "add_silk": [
+        {"text": "TT1", "at": [65.000, 86.750]},
+        {"text": "TT2", "at": [74.750, 86.750]},
+        {"text": "TT3", "at": [225.000, 86.750]},
+        {"text": "TT4", "at": [234.750, 86.750]},
+        {"text": "TT5", "at": [65.000, 98.100]},
+        {"text": "TT6", "at": [221.750, 95.500]},
+        {"text": "TT7", "at": [75.000, 98.100]},
+        {"text": "TT8", "at": [236.600, 95.500]}
+      ]
+    }
+  ]
+}

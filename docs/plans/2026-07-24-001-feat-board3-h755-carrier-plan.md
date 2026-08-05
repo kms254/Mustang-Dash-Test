@@ -114,6 +114,93 @@ Board2 is a bench-style carrier: the MCU is a socketed Teensy module, CAN rides 
 - Telltale series resistor values for the 0805 LEDs (computed at U7 from the selected LEDs' Vf).
 - Exact buck regulator part and CAN connector style (selected at U1/U6 from JLC basic-library stock at that moment).
 
+**The in-car revision takes automotive 12 V, and that is a front-end redesign (recorded 2026-08-03)**
+
+- Board3 as built is a **5 V-input bench board**: the barrel jack *is* the 5 V rail
+  (`DC1 → F1 → Q2 → /+5V`), which is why it is silked `5V ONLY`. The version that
+  goes in the car has to accept a **12 V automotive supply** instead.
+- **This is not a connector change.** A vehicle 12 V rail is nominally 9–16 V,
+  reaches ~24 V on a jump start, and carries ISO 7637 transients — load dump is
+  the big one, tens of volts for hundreds of milliseconds. The board's current
+  input path has no headroom for any of that: `U11`/`U12` are **6 V absolute
+  maximum**, and the panels' backlights sit on the same rail.
+- **Minimum shape of the change:** a 12 V→5 V buck ahead of the present rail, plus
+  a real front end — reverse-polarity protection, a TVS sized for load dump, and
+  input filtering. `Q2`'s ideal-diode ORing and `U3`'s 5→3.3 V stage stay
+  downstream of it.
+- **F1 is resized by this, not by the ambient-margin argument.** At 12 V in, the
+  same ~1.65 A of 5 V load draws ~0.76 A, so the input PTC wants ~1.5 A rather
+  than 3 A. And **F1's voltage rating must not be what survives load dump** — a
+  30 V PTC does not clamp a transient; the TVS does. Sizing F1 for automotive
+  volts is the wrong instrument.
+- **Consequence for review item 16, and why it stayed open-but-accepted:** the
+  3 A/30 V part fitted today has only 1.21× margin at 70 °C, and every
+  same-footprint part above 3 A is 16 V max. Raising hold current now would drop
+  voltage rating on a board whose successor needs *more* of it — so the amp was
+  left on the table deliberately. Revisit at the 12 V design, not before.
+
+**The CAN connectors have no transient protection, and that belongs with the 12 V
+front end (recorded 2026-08-04, decided: no change on Board3)**
+
+- Measured from the netlist: `/CAN1_H` has exactly **three nodes** — the P1 screw
+  terminal, the H1 termination jumper, and U8's bus pin. `/CAN1_L` likewise. There
+  is **no TVS, no ESD array, no common-mode choke and no filtering** on either bus
+  on this board.
+- **Why the transceiver's own protection is not the answer.** The TJA1051's
+  integrated bus protection covers **pin-level ESD** (IEC 61000-4-2) and the
+  ±58 V bus-fault case. It does not cover **system-level** events on a vehicle
+  harness — ISO 7637-2 conducted transients (pulse 1 ≈ −100 V, pulse 2a ≈ +50 V)
+  and ISO 10605 exceed that rating. The failure is a dead transceiver on a board
+  that passed every bench test.
+- **Decision (Kevin, 2026-08-04): no change on Board3.** This is a bench carrier
+  and the CAN screw terminals will see a bench harness, not a car. Recorded here
+  so it stops being re-discovered as a novel finding by each review — it is a
+  known gap, deferred deliberately, exactly like F1's rating above.
+- **Shape of the change when the 12 V revision happens:** a bidirectional CAN
+  TVS/ESD array at each connector, ~24 V VRWM (sized for the double-battery
+  jumpstart case, not the 12 V nominal), and low enough capacitance not to skew
+  the pair — under ~15 pF per line. Same design pass as the load-dump TVS above;
+  both are "what makes the harness survivable", and neither is a connector change.
+- **Consequence for review item 17, worth stating because the two arguments
+  collide:** U57 upgraded the termination resistors on the reasoning that "the
+  board is going in a car." Applied consistently, that premise says the
+  unprotected part is the **transceiver**, not the resistor — and a resistor that
+  fails open is a graceful failure where a dead transceiver is not. The resistor
+  change was cheap and is kept; the ordering of the two was not principled, and
+  the automotive revision should do this one first.
+
+**Possible future change — HSE bypass instead of a crystal (recorded 2026-08-03, not blocking)**
+
+- **Option:** replace `X1` (4-pad crystal) and its load caps `C41`/`C42` with a crystal
+  **oscillator (XO)** and run the H7 in **HSE bypass** (`RCC_HSE_BYPASS`): one clock
+  into `OSC_IN`, `OSC_OUT` unused.
+- **Why it came up.** The as-routed `/OSC_OUT` is **11.17 mm** to a pin **4.18 mm**
+  away. That is structural, not sloppy: on every 4-pad SMD crystal package the
+  pinout is 1=XI, 2=GND, 3=XO, 4=GND with **XI and XO diagonally opposite**, so only
+  one of them can face U1, and the layout guide forbids routing under the crystal.
+  Rotating `X1` only swaps which net is long.
+- **Shopping the part does not fix it.** All 756 in-stock 25 MHz 4-pad parts share
+  that mapping. The only different mapping is a **2-pad** crystal, and that was
+  evaluated and rejected: the sole viable in-stock SMD option (`C112569`,
+  SMD5032-2P) is **double the footprint area** of the current 3225 — in the exact
+  corner already so tight it exiled `C46` to the far side of the board — and it
+  loses the two case-ground pads §3 wants grounded locally. Note also that the
+  fitted `C9006` is the **only Basic/no-fee 25 MHz crystal in the catalogue** (1
+  basic, 0 preferred, 755 extended), so any crystal change adds a per-order fee.
+- **Why it is NOT being done now.** 11 mm of trace is ~1–1.5 pF of stray against a
+  12 pF load — a few ppm of pull, on a ±20 ppm part, for an application whose
+  tightest timing requirement is CAN at ~0.5%. Two orders of magnitude of headroom.
+  `OSC_OUT` is also a driven, low-impedance node, so it is the *less* pickup-prone
+  of the two. Untidy, not harmful.
+- **What it would buy if revisited:** one clock line instead of two, the asymmetry
+  gone by construction, and `C41`/`C42` out of U1's east edge — which is the same
+  congestion that forced U52's compromise on the NRST filter cap.
+- **What it would cost:** an XO is an extended part at higher unit price, needs its
+  own VDD decoupling, draws mA rather than µA, and requires the firmware to select
+  bypass mode. Board-side it is a schematic change, so it carries a KTD12 GUI sync.
+- **Trigger to revisit:** a measured HSE problem on the mule (start-up failure,
+  frequency out of spec, or EMI traced to the oscillator) — not on principle.
+
 Formerly-open items now resolved in the Planning Contract: crystal choice (KTD4 — DFU is crystal-free on this family), pin-table verification and center-CS question (KTD1 — generic-carrier base, datasheet-confirmed), unused-SMPS strapping (KTD3), CAN termination form (KTD5), and the K7803 module replacement (KTD3 — discrete SMD buck).
 
 ### Sources / Research

@@ -1,0 +1,74 @@
+{
+  "$comment": [
+    "U52 -- move C46, the NRST filter cap, from the reset button to the MCU end of",
+    "the reset line. Review item 15 (adversarial-ee), CONFIRMED: measured 88.97 mm",
+    "from U1.27 (R49 86.68 mm, SW6 81.54 mm). It violates the layout guide section",
+    "3 item 13 ('C46 at NRST') and ST's own recommended NRST protection, which puts",
+    "the 100 nF at the pin.",
+    "",
+    "Why it matters: the H7's internal NRST filter only rejects pulses shorter than",
+    "~300 ns (datasheet VF(NRST)). Anything longer that couples into the run resets",
+    "the dash, and on a car harness that is a real event -- the same EMI argument",
+    "that made the 30 ms button debounce load-bearing.",
+    "",
+    "C46 CANNOT REACH THE PIN, and that is a placement conflict rather than an",
+    "oversight. NRST is U1 pin 27, sitting between OSC_IN (25), OSC_OUT (26) and",
+    "the crystal. X1's courtyard (x 161.748..165.938) OVERLAPS U1's (right edge",
+    "162.095), so there is no channel east of pin 27 at all; the nearest free 0603",
+    "pocket is 7.20 mm and reaching it means crossing the crystal courtyard on top",
+    "or routing under it, which the guide forbids. The guide's own section 3",
+    "priority order puts the crystal and the VDDA filter ABOVE C46, so the layout",
+    "followed the ranking and C46 is what lost.",
+    "",
+    "Moving X1 was considered and rejected on the numbers: X1.1 is already 2.047 mm",
+    "from OSC_IN, and any displacement that frees pin 27 makes that worse while",
+    "pushing X1 into C9/C45/C8 and dragging C41/C42 along -- degrading the guide's",
+    "highest-priority placement to serve its lowest, in the corner whose failure",
+    "mode (intermittent no-start) is the hardest on this board to diagnose.",
+    "Decision recorded 2026-08-03: leave X1 in the ideal location.",
+    "",
+    "So C46 goes to the first point where /NRST leaves U1's footprint: it runs",
+    "Inner1 west along y=113.048 from the escape via, and (132.000,113.048) is the",
+    "nearest spot outside U1's courtyard that is clear on every layer. Result:",
+    "88.97 -> 35.1 mm of unshunted trace, ~2.5x less antenna and ~2.5x less series",
+    "inductance between the pin and the shunt.",
+    "",
+    "R49 (10 kOhm pull-up) DELIBERATELY DOES NOT MOVE. It is a DC hold, not a",
+    "filter: at DC it pulls the whole net high wherever it sits, and the transient",
+    "path is owned by the capacitor. Moving it would buy nothing and would need a",
+    "new /+3V3 tap at the far end of the board.",
+    "",
+    "NO NEW VIA IS NEEDED, which took two wrong turns to notice. Scanning the",
+    "Inner1 run for a via position clear of foreign copper on all four layers left",
+    "exactly one window, x=130.60..131.30 -- everything else is blocked by the",
+    "/BTN4 Inner1 pair. A first attempt at 132.800 cleared /BTN4 by 0.021 mm and",
+    "would have failed DRC. The second, at 130.950, passed every clearance check",
+    "and then failed on hole_to_hole: 0.258 mm against a 0.4995 minimum, from the",
+    "EXISTING /NRST via 0.508 mm away. Hole-to-hole is a drilling constraint and",
+    "applies even between two vias on the same net, which no copper-clearance",
+    "check will tell you.",
+    "",
+    "That existing via at (130.442,113.048) already spans Top..Bottom, so the Top",
+    "layer is available there for free. The stub simply starts from it, and the",
+    "board gains no via at all.",
+    "",
+    "C46 pad 2 is /GND and connects to the Top ground pour where it lands; the old",
+    "stub from SW6.1 to the vacated pad is deleted with it."
+  ],
+  "steps": [
+    {
+      "step": "1/1  C46 100nF NRST filter: 88.97 mm -> 35.1 mm from U1.27",
+      "delete": [
+        {"net": "NRST", "layers": ["Top Layer"], "vias": false,
+         "bbox": [74.500, 127.500, 78.000, 131.500]}
+      ],
+      "move_footprints": [
+        {"ref": "C46", "to": [132.000, 113.048], "rot": 90}
+      ],
+      "add": [
+        {"net": "NRST", "layer": "Top Layer", "width": 0.254,
+         "points": [[130.442, 113.048], [132.000, 113.748]]}
+      ]
+    }
+  ]
+}
