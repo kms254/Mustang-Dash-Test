@@ -15431,7 +15431,7 @@
 	)
 	(wire
 		(pts
-			(xy 177.8 105.156) (xy 180.34 105.156)
+			(xy 177.8 105.41) (xy 180.34 105.41)
 		)
 		(stroke
 			(width 0)
@@ -16411,7 +16411,7 @@
 	)
 	(wire
 		(pts
-			(xy 110.49 316.23) (xy 112.014 316.23)
+			(xy 110.49 316.23) (xy 111.76 316.23)
 		)
 		(stroke
 			(width 0)
@@ -17791,7 +17791,7 @@
 	)
 	(wire
 		(pts
-			(xy 193.04 105.156) (xy 190.5 105.156)
+			(xy 193.04 105.41) (xy 190.5 105.41)
 		)
 		(stroke
 			(width 0)
@@ -21190,7 +21190,7 @@
 		(uuid "5573608b-35e6-487a-b29e-2b5b5cc49106")
 	)
 	(label "TT4_LED_K"
-		(at 177.8 105.156 0)
+		(at 177.8 105.41 0)
 		(effects
 			(font
 				(size 1.2446 1.2446)
@@ -21390,7 +21390,7 @@
 		(uuid "5fa9df4c-9442-4c04-9d00-d3553fc8330e")
 	)
 	(label "+5V"
-		(at 193.04 105.156 0)
+		(at 193.04 105.41 0)
 		(effects
 			(font
 				(size 1.2446 1.2446)
@@ -21490,7 +21490,7 @@
 		(uuid "68f73f3e-059b-4b13-9863-2ec37f11f94b")
 	)
 	(label "GND"
-		(at 112.014 316.23 0)
+		(at 111.76 316.23 0)
 		(effects
 			(font
 				(size 1.2446 1.2446)
@@ -36810,7 +36810,7 @@
 	)
 	(symbol
 		(lib_id "JLCImport:HL-A-3528U51GC-S1-13HL")
-		(at 185.42 105.156 0)
+		(at 185.42 105.41 0)
 		(unit 1)
 		(body_style 0)
 		(exclude_from_sim no)
@@ -58942,7 +58942,7 @@
 	)
 	(symbol
 		(lib_id "ProPrj_New-easyedapro:0603WAF1002T5E")
-		(at 60.0 372.0 0)
+		(at 59.69 372.11 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -59056,7 +59056,7 @@
 	)
 	(symbol
 		(lib_id "ProPrj_New-easyedapro:CL10A105KB8NNNC")
-		(at 95.0 372.0 0)
+		(at 95.25 372.11 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -59170,7 +59170,7 @@
 	)
 	(symbol
 		(lib_id "JLCImport:1N5819WS")
-		(at 130.0 372.0 180)
+		(at 129.54 372.11 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -59284,7 +59284,7 @@
 	)
 	(symbol
 		(lib_id "ProPrj_New-easyedapro:0603WAF1002T5E")
-		(at 60.0 388.0 0)
+		(at 59.69 388.62 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -59398,7 +59398,7 @@
 	)
 	(symbol
 		(lib_id "ProPrj_New-easyedapro:CL10A105KB8NNNC")
-		(at 95.0 388.0 0)
+		(at 95.25 388.62 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -59512,7 +59512,7 @@
 	)
 	(symbol
 		(lib_id "JLCImport:1N5819WS")
-		(at 130.0 388.0 180)
+		(at 129.54 388.62 180)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -59626,7 +59626,7 @@
 	)
 	(symbol
 		(lib_id "JLCImport:BSMD1812-200-30V")
-		(at 170.0 372.0 0)
+		(at 170.18 372.11 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -59739,7 +59739,7 @@
 		)
 	)
 	(label "+5V"
-		(at 54.92 372.0 0)
+		(at 54.61 372.11 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -59749,7 +59749,7 @@
 		(uuid "40a494fa-5ef4-41cc-b252-73160f7f39a9")
 	)
 	(label "U11_RSTN"
-		(at 65.08 372.0 0)
+		(at 64.77 372.11 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -59759,7 +59759,7 @@
 		(uuid "746b1107-8ae5-4931-a4a4-987334b422e4")
 	)
 	(label "U11_RSTN"
-		(at 89.92 372.0 0)
+		(at 90.17 372.11 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -59769,7 +59769,7 @@
 		(uuid "9b1d2ce6-5048-49b1-9844-0bc67f9fc4a3")
 	)
 	(label "GND"
-		(at 100.08 372.0 0)
+		(at 100.33 372.11 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -59779,7 +59779,7 @@
 		(uuid "56c6fac6-fcbe-4922-99f8-855570cfaffa")
 	)
 	(label "U11_RSTN"
-		(at 124.92 372.0 0)
+		(at 124.46 372.11 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -59789,7 +59789,7 @@
 		(uuid "f7b6b91b-5c32-475a-8b67-36745eb5a11b")
 	)
 	(label "+5V"
-		(at 135.08 372.0 0)
+		(at 134.62 372.11 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -59799,7 +59799,7 @@
 		(uuid "0caeef96-622d-429f-bb00-17c91e3df3ae")
 	)
 	(label "+5V"
-		(at 54.92 388.0 0)
+		(at 54.61 388.62 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -59809,7 +59809,7 @@
 		(uuid "6d62e218-d1ee-46e6-8a69-b2b38ab1ba91")
 	)
 	(label "U12_RSTN"
-		(at 65.08 388.0 0)
+		(at 64.77 388.62 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -59819,7 +59819,7 @@
 		(uuid "535e665f-dd89-47f0-81fa-c0548d82cfb9")
 	)
 	(label "U12_RSTN"
-		(at 89.92 388.0 0)
+		(at 90.17 388.62 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -59829,7 +59829,7 @@
 		(uuid "8244509d-9618-489c-8875-21a1fc2407de")
 	)
 	(label "GND"
-		(at 100.08 388.0 0)
+		(at 100.33 388.62 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -59839,7 +59839,7 @@
 		(uuid "2e867291-0881-49e8-a883-ab7a09be0b8a")
 	)
 	(label "U12_RSTN"
-		(at 124.92 388.0 0)
+		(at 124.46 388.62 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -59849,7 +59849,7 @@
 		(uuid "f7e1aa3e-6903-4209-bca0-794464cc9a4d")
 	)
 	(label "+5V"
-		(at 135.08 388.0 0)
+		(at 134.62 388.62 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -59859,7 +59859,7 @@
 		(uuid "ced895b7-f777-4c65-a790-ff9edb19fe40")
 	)
 	(label "DC1_IN"
-		(at 164.92 372.0 0)
+		(at 165.1 372.11 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -59869,7 +59869,7 @@
 		(uuid "2aabb778-5020-4e34-99fc-521b4dd7ddde")
 	)
 	(label "+5V_BARREL"
-		(at 175.08 372.0 0)
+		(at 175.26 372.11 0)
 		(effects
 			(font
 				(size 1.27 1.27)
