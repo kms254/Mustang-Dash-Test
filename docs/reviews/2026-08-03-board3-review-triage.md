@@ -768,9 +768,45 @@ reviewers against each other is worth as much as running either one.
 
     Fix is **GUI *Change Symbol* on ten designators**, schematic-only: no
     footprint change, no net change, no *Update PCB from Schematic*, no routing.
-    All three target symbols already exist in the tree. Verify by exported
-    netlist and by pin **function** (KTD27) — the two switch symbols number pins
-    1–4 but name them differently (`1_1..4_4` vs `A_1..D_4`).
+
+    **Verified 2026-08-04 — all three targets exist and are safe to switch to:**
+
+    | designators | change `lib_id` to | pins | Footprint | Supplier Part |
+    |---|---|---|---|---|
+    | R10/R14/R15/R24 | `JLCImport:ERJP06F60R4V` | 1,2 ↔ 1,2 | agrees | agrees |
+    | C41/C42 | `JLCImport:CL10C180JB8NNNC` | 1,2 ↔ 1,2 | agrees | agrees |
+    | SW1–SW4 | `ProPrj_New-easyedapro:HX TS4538CJ 250GF 009` | 1–4 ↔ 1–4 | agrees | agrees |
+
+    **Do NOT let the dialog reset field values.** Change Symbol offers to
+    overwrite the instance's fields from the library; for all ten the instance is
+    the *more* correct side. `Value` and `Manufacturer` still differ (the library
+    copies carry the MPN in `Value`, or an empty string, and a Chinese-suffixed
+    manufacturer name) — untick anything that updates or resets a field, so only
+    the `lib_id` and the symbol body change.
+
+    `Footprint` and `Supplier Part` were made to agree first, so an accidental
+    reset cannot now break the two that matter. That took one library edit:
+    `JLCImport:CL10C180JB8NNNC` pointed at its own imported footprint, while
+    C41/C42 deliberately use the generic `ProPrj_New-easyedapro:C0603` — same
+    land pattern, which is why item 37's swap needed no board sync.
+
+    **Afterwards**, from the repo root:
+
+    ```
+    kicad-cli sch export netlist "<schematic>" -o /tmp/after.net
+    kicad-cli pcb drc "<board>" --severity-all --schematic-parity --format json -o /tmp/drc.json
+    "C:/Program Files/KiCad/10.0/bin/python.exe" tools/kicad_fab.py kicad/board3
+    ```
+
+    Expect the netlist unchanged, DRC still 0/0/0, and BOM 41 / CPL 142. Check the
+    switches by pin **function**, not number (KTD27) — both switch symbols number
+    pins 1–4 but name them differently (`1_1..4_4` vs `A_1..D_4`), so a silent
+    re-map would look fine in the pin table and wrong on the bench.
+
+    *Note on how this was verified:* the first check reported the switch symbol
+    missing from the project library. That was a parser bug — the library indents
+    with tabs and the check assumed two spaces. It is present. Worth recording
+    because it is the same failure mode as reading a `.kicad_pcb` with regex.*
 
 ### Recorded as considered — no change
 
