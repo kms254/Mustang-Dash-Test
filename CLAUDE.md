@@ -500,6 +500,21 @@ replaced had it hidden, so U57 silently put four designators on a board whose
 other 146 footprints print none. `F.Fab` is not in `kicad_fab.py`'s exported
 layer set, so silk is what the assembler actually sees.
 
+**Repointing a `lib_id` headless is possible, and MATCHING PIN NUMBERS DOES NOT
+MEAN IT IS SAFE.** Three things have to agree, not one: pin numbers, pin
+*geometry* (the `(at …)` coordinate is the connection point — `length` extends
+inward from it, so do not add it), and **unit structure**. Board3's
+`HX TS4538CJ 250GF 009` is four units of one pin each where the symbol it
+replaces is one unit of four pins; the pin numbers are 1–4 on both sides, which
+is precisely what makes it look safe. It is not — the instance would need four
+separate unit instances. Attempted on SW1–SW4 and all four silently lost every
+connection. **The netlist diff is what catches this**: export
+`kicad-cli sch export netlist` before and after and require identical net
+membership; nothing else in the toolchain will tell you. Where geometry differs
+by a constant (C41/C42's pins moved 1.27 mm inward) the wires landing on those
+pins can be moved by exactly that delta — but check first that each pin carries
+exactly one wire, with no junction and no label anchored at the point.
+
 **When you update a symbol's fields, update its `lib_id` too.** Board3 review
 item 37 was exactly this defect — instance fields overridden while `lib_id` still
 named the old part — and the fix for it then created two more instances of it

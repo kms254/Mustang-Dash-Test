@@ -750,7 +750,8 @@ reviewers against each other is worth as much as running either one.
 
 ### Open — needs the GUI
 
-48. **[OPEN] `lib_id` divergence on ten designators.** U57 and the C41/C42 swap
+48. **[6 of 10 FIXED headless 2026-08-04; SW1–SW4 still need the GUI]** `lib_id`
+    divergence. U57 and the C41/C42 swap
     each created a fresh instance of the defect item 37 existed to fix: the
     instance fields were updated and the `lib_id` was not.
 
@@ -766,8 +767,35 @@ reviewers against each other is worth as much as running either one.
     footprint is identical either way, so no check sees it at all. C72/C73 are
     clean — cloning C59 happened to pick up the right symbol.
 
-    Fix is **GUI *Change Symbol* on ten designators**, schematic-only: no
-    footprint change, no net change, no *Update PCB from Schematic*, no routing.
+    **R10/R14/R15/R24 and C41/C42 were repointed as a text edit** and are done.
+    `SW1–SW4` could not be, and the reason is worth keeping.
+
+    **What made the six safe:** their replacement symbols are single-unit with
+    the same pin *numbers* AND the same pin *geometry* — identical for the
+    resistors, and 1.27 mm inward for the caps, a known constant, so the four
+    wires landing on those pins were moved by exactly that delta. Every affected
+    pin had exactly one wire on it, no junction and no label anchored at the
+    point, all checked before anything was written.
+
+    **Why SW1–SW4 could not be:** `HX TS4538CJ 250GF 009` is a **multi-unit**
+    symbol — four units A–D of one pin each — against the current symbol's single
+    unit of four pins. The pin numbers match (1–4 both sides), which is exactly
+    what makes this trap look safe. It is not: the instance would need four
+    separate unit instances, a different schematic structure. Attempted once, and
+    the netlist diff caught it immediately — all four switches lost every
+    connection (`/BTN1_SW` went from `['R28.1','SW1.1']` to `['R28.1']`, and the
+    unconnected pins came back renamed `SW1-A-Pad1`, `SW1-B-Pad2`…). Reverted.
+
+    **So SW1–SW4 remain a GUI *Change Symbol*.** Schematic-only: no footprint
+    change, no net change, no *Update PCB from Schematic*, no routing. Do not
+    let the dialog reset field values — the instance is the more correct side on
+    `Value` and `Manufacturer`. `Footprint` and `Supplier Part` already agree, so
+    an accidental reset is cosmetic rather than a wrong part ordered.
+
+    Result of the six that landed: netlist **byte-identical** (228 nets, zero
+    membership changes), DRC 0/0/0, ERC **1137 → 1131** — the −6 is one
+    `lib_symbol_issues` per repointed part, which now resolves against a library
+    that exists.
 
     **Verified 2026-08-04 — all three targets exist and are safe to switch to:**
 
