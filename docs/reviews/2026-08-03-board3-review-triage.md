@@ -777,14 +777,23 @@ reviewers against each other is worth as much as running either one.
     pin had exactly one wire on it, no junction and no label anchored at the
     point, all checked before anything was written.
 
-    **Why SW1–SW4 could not be:** `HX TS4538CJ 250GF 009` is a **multi-unit**
-    symbol — four units A–D of one pin each — against the current symbol's single
-    unit of four pins. The pin numbers match (1–4 both sides), which is exactly
-    what makes this trap look safe. It is not: the instance would need four
-    separate unit instances, a different schematic structure. Attempted once, and
-    the netlist diff caught it immediately — all four switches lost every
-    connection (`/BTN1_SW` went from `['R28.1','SW1.1']` to `['R28.1']`, and the
-    unconnected pins came back renamed `SW1-A-Pad1`, `SW1-B-Pad2`…). Reverted.
+    **Why SW1–SW4 could not be — cause NOT established.** Attempted once and the
+    netlist diff caught it immediately: all four switches lost every connection
+    (`/BTN1_SW` went from `['R28.1','SW1.1']` to `['R28.1']`), even though their
+    wires had been moved by the 2.54 mm delta their pins move. Reverted.
+
+    Two explanations were checked afterwards and **both are wrong**, recorded so
+    nobody re-derives them: it is *not* a multi-unit mismatch — both symbols are
+    a single unit with pins 1–4, and the `SW1-A-Pad1` / `SW1-B-Pad2` names in the
+    netlist are pin **names** (`A,B,C,D` on the new symbol against `1,2,3,4` on
+    the old), not units — and it is *not* cache-versus-library drift, since both
+    copies place the pins at ±7.62. An earlier revision of this item asserted the
+    multi-unit reason; it was wrong.
+
+    The durable lesson is the gate, not the theory: **a lib_id repoint is only
+    safe if the exported netlist is identical afterwards**, and DRC, ERC and
+    schematic-parity all stayed clean across a change that disconnected four
+    parts.
 
     **So SW1–SW4 remain a GUI *Change Symbol*.** Schematic-only: no footprint
     change, no net change, no *Update PCB from Schematic*, no routing. Do not

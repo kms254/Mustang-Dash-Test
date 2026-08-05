@@ -78,6 +78,21 @@ jobs:
       # Informational: the raw report that ships in the artifact. It measures
       # against the board's own .kicad_pro, and it no longer carries
       # --exit-code-violations -- the step below is the gate.
+      # A KiCad library can be present, well-formed, and still refuse to load --
+      # and NOTHING else here notices, because the schematic renders every symbol
+      # from its own lib_symbols cache. ProPrj_New-easyedapro.kicad_sym was
+      # unloadable for months: sheet correct, netlist correct, BOM correct, DRC
+      # 0/0/0 the whole time. One symbol in it was named
+      # "CAPACITOR_THT:CP_RADIAL_D8.0MM_P2.50MM", and a colon is the
+      # library/symbol separator in a KiCad ID, so KiCad rejected all 94 symbols.
+      #
+      # ERC did say so -- 124 lib_symbol_issues -- but that check is a WARNING and
+      # the ERC gate below runs --severity-error. It was invisible by construction.
+      # This step is absolute rather than ratcheted: a library either loads or it
+      # does not.
+      - name: Every declared symbol library actually loads
+        run: python3 tools/kicad_libcheck.py kicad/board3
+
       - name: DRC report
         run: |
           kicad-cli pcb drc \

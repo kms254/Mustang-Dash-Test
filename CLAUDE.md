@@ -526,20 +526,28 @@ fine; only the colon is fatal.
 Same file also revealed `Board3.kicad_sym` was never registered in
 `sym-lib-table` while `Board3:TC2030-IDC-NL` was in use. Both fixed 2026-08-04.
 
-**Repointing a `lib_id` headless is possible, and MATCHING PIN NUMBERS DOES NOT
-MEAN IT IS SAFE.** Three things have to agree, not one: pin numbers, pin
-*geometry* (the `(at …)` coordinate is the connection point — `length` extends
-inward from it, so do not add it), and **unit structure**. Board3's
-`HX TS4538CJ 250GF 009` is four units of one pin each where the symbol it
-replaces is one unit of four pins; the pin numbers are 1–4 on both sides, which
-is precisely what makes it look safe. It is not — the instance would need four
-separate unit instances. Attempted on SW1–SW4 and all four silently lost every
-connection. **The netlist diff is what catches this**: export
+**Repointing a `lib_id` headless works for some parts and NOT others, and the
+only thing that reliably tells you which is the netlist diff.** Export
 `kicad-cli sch export netlist` before and after and require identical net
-membership; nothing else in the toolchain will tell you. Where geometry differs
-by a constant (C41/C42's pins moved 1.27 mm inward) the wires landing on those
-pins can be moved by exactly that delta — but check first that each pin carries
-exactly one wire, with no junction and no label anchored at the point.
+membership — nothing else in the toolchain will tell you, and DRC, parity and
+ERC all stayed clean over a change that silently disconnected four parts.
+
+It worked for R10/R14/R15/R24 (pin geometry identical) and C41/C42 (pins moved
+1.27 mm inward, a known constant, so the four wires landing on them were moved
+by exactly that delta — after checking each pin carried exactly one wire, with
+no junction and no label anchored at the point). Useful detail while doing that:
+a pin's `(at …)` coordinate IS its connection point; `length` extends inward
+from there, so do not add it.
+
+It did NOT work for SW1–SW4, whose pins move 2.54 mm outward. All four lost
+every connection even though their wires were moved by that delta. **The cause
+is not established.** Ruled out by measurement afterwards: it is not a
+multi-unit/single-unit mismatch (both symbols are one unit with pins 1–4 — the
+`A/B/C/D` in the netlist were pin *names*), and it is not cache-versus-library
+drift (both put the pins at ±7.62). An earlier version of this note asserted the
+multi-unit explanation; that was wrong. Do the switches in the GUI, and treat
+"the netlist diff is the gate" as the durable lesson rather than any particular
+theory of why.
 
 **When you update a symbol's fields, update its `lib_id` too.** Board3 review
 item 37 was exactly this defect — instance fields overridden while `lib_id` still
