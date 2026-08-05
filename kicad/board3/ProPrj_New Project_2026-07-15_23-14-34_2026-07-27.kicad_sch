@@ -2562,7 +2562,7 @@
 					)
 				)
 			)
-			(property "Value" ""
+			(property "Value" "HX TS4538CJ 250gf 009"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -2572,7 +2572,7 @@
 					)
 				)
 			)
-			(property "Footprint" "ProPrj_New-easyedapro:SW-TH_4P-L4.5-W4.5-P3.00-LS5.4"
+			(property "Footprint" "ProPrj_New-easyedapro:SW-TH_4P-L4.5-W4.5-P3.00-LS5.0"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -2605,7 +2605,7 @@
 					)
 				)
 			)
-			(property "Manufacturer Part" "4.5x4.5x4.5Waterproof Tact Switch DIP 260g"
+			(property "Manufacturer Part" "HX TS4538CJ 250gf 009"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -2627,7 +2627,7 @@
 					)
 				)
 			)
-			(property "Supplier Part" "C39832248"
+			(property "Supplier Part" "C5340169"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -5983,7 +5983,7 @@
 					)
 				)
 			)
-			(property "Value" ""
+			(property "Value" "DC-005-A250"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -6026,7 +6026,7 @@
 					)
 				)
 			)
-			(property "Manufacturer Part" "DC-005-5.5*2.5"
+			(property "Manufacturer Part" "DC-005-A250"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -6037,7 +6037,7 @@
 					)
 				)
 			)
-			(property "Supplier Part" "C9900017043"
+			(property "Supplier Part" "C720558"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -13057,7 +13057,7 @@
 					)
 				)
 			)
-			(property "Value" ""
+			(property "Value" "W25Q256JVEIQ"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -15080,10 +15080,10 @@
     (property "Reference" "F" (at 0 3.016 0)
       (effects (font (size 1.27 1.27)))
     )
-    (property "Value" "BSMD1812-200-30V" (at 0 -3.016 0)
+    (property "Value" "1812L300_30GR" (at 0 -3.016 0)
       (effects (font (size 1.27 1.27)))
     )
-    (property "Footprint" "JLCImport:BSMD1812-200-30V" (at 0 0 0)
+    (property "Footprint" "JLCImport:1812L300_30GR" (at 0 0 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Datasheet" "https://item.szlcsc.com/343302.html" (at 0 0 0)
@@ -15095,13 +15095,13 @@
     (property "ki_keywords" "BHFUSE BSMD1812-200-30V C960026 F1812" (at 0 0 0)
       (effects (font (size 1.27 1.27)) hide)
     )
-    (property "Supplier Part" "C960026" (at 0 0 0)
+    (property "Supplier Part" "C48985875" (at 0 0 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Manufacturer" "BHFUSE" (at 0 0 0)
       (effects (font (size 1.27 1.27)) hide)
     )
-    (property "Manufacturer Part" "BSMD1812-200-30V" (at 0 0 0)
+    (property "Manufacturer Part" "1812L300/30GR" (at 0 0 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Supplier" "LCSC" (at 0 3.016 0)

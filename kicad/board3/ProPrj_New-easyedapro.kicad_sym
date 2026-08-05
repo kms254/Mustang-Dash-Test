@@ -4780,7 +4780,7 @@
 				)
 			)
 		)
-		(property "Value" ""
+		(property "Value" "HX TS4538CJ 250gf 009"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4790,7 +4790,7 @@
 				)
 			)
 		)
-		(property "Footprint" "ProPrj_New-easyedapro:SW-TH_4P-L4.5-W4.5-P3.00-LS5.4"
+		(property "Footprint" "ProPrj_New-easyedapro:SW-TH_4P-L4.5-W4.5-P3.00-LS5.0"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4823,7 +4823,7 @@
 				)
 			)
 		)
-		(property "Manufacturer Part" "4.5x4.5x4.5Waterproof Tact Switch DIP 260g"
+		(property "Manufacturer Part" "HX TS4538CJ 250gf 009"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4845,7 +4845,7 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C39832248"
+		(property "Supplier Part" "C5340169"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9060,7 +9060,7 @@
 				)
 			)
 		)
-		(property "Value" ""
+		(property "Value" "DC-005-A250"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9103,7 +9103,7 @@
 				)
 			)
 		)
-		(property "Manufacturer Part" "DC-005-5.5*2.5"
+		(property "Manufacturer Part" "DC-005-A250"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9114,7 +9114,7 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C9900017043"
+		(property "Supplier Part" "C720558"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -26521,7 +26521,7 @@
 				)
 			)
 		)
-		(property "Value" ""
+		(property "Value" "W25Q256JVEIQ"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -26564,7 +26564,7 @@
 				)
 			)
 		)
-		(property "Manufacturer Part" "W25Q512JVEIQ TR"
+		(property "Manufacturer Part" "W25Q256JVEIQ"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -26586,7 +26586,7 @@
 				)
 			)
 		)
-		(property "Supplier Part" "C7389628"
+		(property "Supplier Part" "C97522"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
