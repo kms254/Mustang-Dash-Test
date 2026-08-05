@@ -100,10 +100,18 @@ new = {k: counts[k] - base_counts.get(k, 0) for k in counts
 return EXIT_NEW_VIOLATIONS if new else EXIT_CLEAN
 ```
 
-Board3 today is **36 against a baseline of 41**. On the total alone that is
-5 better and would pass while hiding any new class beneath the slack. Per type
-it is `NEW = 0`, which is a real claim. The `carried over` line prints the
-baseline classes that did not grow, so demotion never becomes concealment.
+When this was written Board3 stood at **36 against a baseline of 41** — worth
+keeping as the illustration, because it is the case the contract exists for. On
+the total alone 36 is 5 better and would pass while hiding any new class beneath
+the slack. Per type it is `NEW = 0`, which is a real claim. The `carried over`
+line prints the baseline classes that did not grow, so demotion never becomes
+concealment.
+
+**That floor is now 0 and the gate is absolute** (see the closing section). The
+figure above is kept in the past tense on purpose: an earlier revision of this
+doc asserted it in the present, and a later reader — this doc's own author —
+restated "the DRC floor is real" from it without re-measuring. A doc arguing
+that claims expire is exactly where an expired claim does the most damage.
 
 ## Why This Matters
 

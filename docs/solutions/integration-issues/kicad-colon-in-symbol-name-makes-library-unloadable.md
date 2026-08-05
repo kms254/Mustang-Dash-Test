@@ -106,9 +106,12 @@ not structure — right up until the name is also an identifier.
 ## Solution
 
 Delete the offending symbol. It was used **zero times** in the schematic, so
-removal costs nothing. The fix is on branch `fix/board3-review-section4` and is
-**not merged as of this writing** — PR #24 is merged but ends before this commit,
-and no open PR yet carries it.
+removal costs nothing. The fix is on branch `fix/board3-review-section4`, carried
+by **PR #25 (open, unmerged as of this writing)**. Note that PR #24 is merged off
+the same branch and does *not* contain this commit — its commit list ends before
+it. "The PR is merged" and "the commit is on its head branch" are both true here
+and compose into a false claim; see
+[verifying every part of a claim](../design-patterns/verifying-every-part-of-a-claim-does-not-verify-the-claim.md).
 
 **Verify that by enumerating `(lib_id …)`, not by grepping for the name.** Of
 149 `lib_id` references in the `.kicad_sch`, none names it. A grep for the

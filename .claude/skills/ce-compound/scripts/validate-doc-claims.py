@@ -46,6 +46,16 @@ PLACEHOLDER_CHARS = set("<>{}*$")
 PLACEHOLDER_SUBSTRINGS = ("path/to", "...", "…")
 
 SHA_RE = re.compile(r"\b[0-9a-f]{7,40}\b")
+# A UUID is not a commit. `-` is a non-word character, so \b fires at every
+# hyphen and SHA_RE matches the segments of a UUID individually -- the 8- and
+# 12-character ones survive the digit+letter guard below, which was written to
+# exclude dates and decimal ids and has never heard of a UUID. Documented
+# schematic/object identifiers therefore drew two confident "does not resolve
+# to a commit" flags apiece, advising the author to cite a PR number instead.
+# Match UUIDs first and skip any SHA candidate falling inside one.
+UUID_RE = re.compile(
+    r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.I
+)
 BACKTICK_RE = re.compile(r"`([^`\n]+)`")
 MD_LINK_RE = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 SCAFFOLD_RES = (
@@ -251,8 +261,11 @@ def main(argv: list[str]) -> int:
     checked_shas = 0
     seen_shas: set[str] = set()
     if in_git:
+        uuid_spans = [m.span() for m in UUID_RE.finditer(body)]
         for m in SHA_RE.finditer(body):
             sha = m.group(0)
+            if any(a <= m.start() and m.end() <= b for a, b in uuid_spans):
+                continue  # a segment of a UUID, not a commit
             if sha in seen_shas:
                 continue
             if not (any(c.isdigit() for c in sha) and any(c in "abcdef" for c in sha)):

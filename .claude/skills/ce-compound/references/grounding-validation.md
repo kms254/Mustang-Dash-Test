@@ -23,6 +23,7 @@ The script reports flags; you decide each one. Three resolutions — **fix**, **
 | SHA does not resolve | Fabricated or from another repo | Replace with the PR number, or drop |
 | SHA reachable from HEAD only | Local-only commit; SHA will change on rebase/squash merge | Replace with the PR number |
 | SHA reachable from upstream only | Checkout predates the merge | Keep, with a temporal qualifier; verify the landed claim via `gh` |
+| PR merged, but the change is absent from its commit list | Later work pushed to a merged PR's still-live head branch | Contradicted — cite the PR that actually carries the commit (often a later, still-open one), or state the change as unmerged. "Merged" plus "on the head branch" does not entail "in the PR" |
 | SHA exists but unreachable | Rebased-away commit | Replace with the PR number |
 | scaffold ("Learning 3", `{{…}}`) | Drafting-context leak | Always fix — rewrite as a real path or link |
 | relative link unresolved | Wrong target | Fix the path |
@@ -43,7 +44,7 @@ Grep, Glob, git (non-mutating), and gh when available.
 Inputs: the doc content below, the CONCEPTS.md entries below (if any), and
 this staleness context: <INFO line from the mechanical script, or "none">.
 
-Check every factual claim in three categories:
+Check every factual claim in four categories:
 
 1. CODE-BEHAVIOR CLAIMS — assertions about how code behaves: enum values,
    status semantics, limits, defaults, ordering, state transitions. For
@@ -51,17 +52,43 @@ Check every factual claim in three categories:
    defining line(s) with file:line. Verdict: verified (with quote),
    contradicted (with the quote showing otherwise), or unverifiable
    (defining source not found).
+   For every piece of evidence, also state what result would have
+   appeared if the claim were FALSE. If the answer is "the same result",
+   the evidence does not discriminate and the verdict is unverifiable,
+   however true the claim may be — find evidence that can come out the
+   other way. Evidence of absence (a grep returning 0, a count that
+   stayed flat) is where this fails most often.
 
 2. MERGE-STATE CLAIMS — assertions that a change landed ("fixed in",
-   "merged", "shipped in", "resolved by #N"). Primary check: gh pr view
-   <n> --json state,mergedAt,baseRefName (remote truth). Fallback: git
-   reachability from the upstream default branch. Verdict: verified,
-   contradicted (e.g. PR open, not merged), or unverifiable (offline / no
-   gh) — mark unverifiable as "degraded", do not guess.
+   "merged", "shipped in", "resolved by #N"). The primary check has TWO
+   halves and BOTH must pass:
+     (a) did the PR land —
+         gh pr view <n> --json state,mergedAt,baseRefName
+     (b) is THIS change in it —
+         gh pr view <n> --json commits --jq '.commits[].oid'
+         and confirm the implementing commit is listed; or
+         git merge-base --is-ancestor <commit> origin/<baseRefName>
+   (a) ALONE IS INSUFFICIENT and passing it is not evidence for the claim:
+   a merged PR's head branch keeps accepting commits, so "the PR is
+   merged" and "the commit is on its head branch" can both be true of
+   work the PR does not carry. Verdict: verified, contradicted (PR open;
+   or merged but the change is absent from its commit list), or
+   unverifiable (offline / no gh) — mark unverifiable as "degraded", do
+   not guess.
 
 3. INTERNAL COMPLETENESS — countable assertions ("six PRs", "three root
    causes", "all N consumers"). Count the substantiating items in the doc
    itself. Verdict: complete, or short (found M of N).
+
+4. MEASURED-FIGURE CLAIMS — any number the doc presents as a current
+   property of the artifact: a floor, a baseline, a violation count, a
+   timing, a "typical" value. This includes figures the doc inherited
+   from another doc, which is where they go stale unnoticed. Re-run the
+   measurement now. Verdict: current (quote the command and its output),
+   stale (give both numbers), or unverifiable. A figure that cannot be
+   re-measured must be restated with the date it was taken rather than
+   left in the present tense. Note that a gate justified by such a figure
+   is making the same claim, so it expires with it.
 
 Ignore session narrative ("we first tried X") — that describes the
 conversation, not the tree. Ignore style.
