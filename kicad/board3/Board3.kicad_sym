@@ -73,7 +73,7 @@
 					(type none)
 				)
 			)
-			(pin unspecified line
+			(pin passive line
 				(at -5.08 5.08 0)
 				(length 2.54)
 				(name "VCC"
@@ -91,7 +91,7 @@
 					)
 				)
 			)
-			(pin unspecified line
+			(pin passive line
 				(at -5.08 2.54 0)
 				(length 2.54)
 				(name "SWDIO"
@@ -109,7 +109,7 @@
 					)
 				)
 			)
-			(pin unspecified line
+			(pin passive line
 				(at -5.08 0 0)
 				(length 2.54)
 				(name "nRESET"
@@ -127,7 +127,7 @@
 					)
 				)
 			)
-			(pin unspecified line
+			(pin passive line
 				(at -5.08 -2.54 0)
 				(length 2.54)
 				(name "SWCLK"
@@ -145,7 +145,7 @@
 					)
 				)
 			)
-			(pin unspecified line
+			(pin passive line
 				(at -5.08 -5.08 0)
 				(length 2.54)
 				(name "GND"
@@ -163,7 +163,7 @@
 					)
 				)
 			)
-			(pin unspecified line
+			(pin passive line
 				(at -5.08 -7.62 0)
 				(length 2.54)
 				(name "SWO"
