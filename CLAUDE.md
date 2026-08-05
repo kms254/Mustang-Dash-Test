@@ -500,6 +500,58 @@ replaced had it hidden, so U57 silently put four designators on a board whose
 other 146 footprints print none. `F.Fab` is not in `kicad_fab.py`'s exported
 layer set, so silk is what the assembler actually sees.
 
+**ERC on Board3 is 0. It was 1009, and the reason that mattered is that nobody
+could read it.** 124 of those warnings were saying an entire symbol library was
+unloadable, and they sat unread for months inside the noise. The whole 1009 came
+down without one net moving -- the netlist was byte-identical against a baseline
+at every one of six steps -- so treat a large ERC count as a broken instrument,
+not as a property of the design.
+
+What it actually was, in order of size:
+
+  469  unconnected_wire_endpoint -- every net label sat at its wire's MIDPOINT,
+       leaving the far end dangling. Moved each label onto the free end. 16 of
+       those wires dangled at BOTH ends: 2.54 mm stubs carrying a label and
+       touching nothing, in eight supply/GND pairs -- the ghosts of deleted
+       two-pin parts, including where U42 removed the CAN common-mode caps.
+  372  pin_to_pin -- the EasyEDA import typed all 338 pins `unspecified` or
+       `input`. Retyped from the pin's own name: two-terminal parts, connectors,
+       switches and the crystal are `passive`; IC supplies `power_in`; GPIO
+       `bidirectional`; anything ambiguous left `passive`, which asserts nothing.
+  100  pin_not_connected -- genuinely unused pins (60 spare STM32 GPIO, 27 FPC,
+       12 switch second-poles, DC1's sleeve). No-connect flags make "unused" an
+       assertion instead of an accident.
+   55  pin_not_driven -- fell out with the pin types.
+   11  endpoint_off_grid -- the AW9523B reset networks, F1 and LED2 placed at
+       round coordinates (60, 95, 130, 170 x 372, 388) that are not multiples of
+       1.27. Seven of eight had NO wire on the off-grid pin: they connect by a
+       label sitting directly on it, so the labels had to move with the symbol.
+    6  power_pin_not_driven -- appeared only after the pin types were right, and
+       is what PWR_FLAG is for. The symbol went into the project's own
+       Board3.kicad_sym rather than KiCad's global `power` library, so the
+       schematic still resolves from the project alone.
+
+**Two mechanics worth reusing.** ERC's JSON gives every item a **uuid** that maps
+exactly to the object in the file, and a **pos in mm/100** -- both authoritative,
+unlike reconstructing symbol placement yourself, which disagreed with ERC on ~2%
+of endpoints here. And when a computed answer is uncertain, **ask ERC**: move the
+label to one end, re-run, and whatever is still flagged had the other end free.
+That converges in two passes and a wrong pass costs nothing.
+
+**INDENTATION IS NOT AN ANCHOR IN KICAD FILES.** This cost five separate wrong
+answers in one session. The EasyEDA export indents with tabs, `kicad_lcsc` with
+two spaces, and a cache entry copied from one into the other lands at
+`"		  (symbol"` -- two tabs AND two spaces. Patterns that bit: `^	\(symbol`
+reported a whole library as empty; `\(pin \w+ \w+\s*
+` dropped 9 symbols
+because the importer puts the pin on one line; `
+	\(symbol
+` matched nothing
+in a CRLF file read with `newline=""`. Match structure -- parse to the balanced
+paren and test depth -- never leading whitespace. Related: a bare `\(xy ...\)`
+pattern also matches the polyline graphics INSIDE symbol definitions, whose
+coordinates are symbol-local; editing those corrupts every part's artwork.
+
 **A COLON IN A SYMBOL NAME SILENTLY INVALIDATES THE WHOLE LIBRARY.**
 `ProPrj_New-easyedapro.kicad_sym` contained one symbol named
 `CAPACITOR_THT:CP_RADIAL_D8.0MM_P2.50MM`. A colon is the library/symbol

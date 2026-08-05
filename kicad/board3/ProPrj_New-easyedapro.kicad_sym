@@ -26542,7 +26542,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://item.szlcsc.com/datasheet/W25Q512JVEIQ%2520TR/8361477.html"
+		(property "Datasheet" "https://item.szlcsc.com/datasheet/W25Q256JVEIQ/1811142.html"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -26608,7 +26608,7 @@
 				)
 			)
 		)
-		(property "LCSC Part Name" "支持双/四SPI接口的3V、512Mbit 串行闪存"
+		(property "LCSC Part Name" "支持双/四SPI接口的3V、256Mbit 串行闪存"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)

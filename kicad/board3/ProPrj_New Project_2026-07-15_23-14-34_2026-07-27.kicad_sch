@@ -125,6 +125,121 @@
 		      )
 		    )
 		  )
+			(symbol "Board3:PWR_FLAG"
+				(power global)
+				(pin_numbers
+					(hide yes)
+				)
+				(pin_names
+					(offset 0)
+					(hide yes)
+				)
+				(exclude_from_sim no)
+				(in_bom yes)
+				(on_board yes)
+				(in_pos_files yes)
+				(duplicate_pin_numbers_are_jumpers no)
+				(property "Reference" "#FLG"
+					(at 0 1.905 0)
+					(show_name no)
+					(do_not_autoplace no)
+					(hide yes)
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(property "Value" "PWR_FLAG"
+					(at 0 3.81 0)
+					(show_name no)
+					(do_not_autoplace no)
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(property "Footprint" ""
+					(at 0 0 0)
+					(show_name no)
+					(do_not_autoplace no)
+					(hide yes)
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(property "Datasheet" ""
+					(at 0 0 0)
+					(show_name no)
+					(do_not_autoplace no)
+					(hide yes)
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(property "Description" "Special symbol for telling ERC where power comes from"
+					(at 0 0 0)
+					(show_name no)
+					(do_not_autoplace no)
+					(hide yes)
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(property "ki_keywords" "flag power"
+					(at 0 0 0)
+					(show_name no)
+					(do_not_autoplace no)
+					(hide yes)
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(symbol "PWR_FLAG_0_0"
+					(pin power_out line
+						(at 0 0 90)
+						(length 0)
+						(name ""
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+						(number "1"
+							(effects
+								(font
+									(size 1.27 1.27)
+								)
+							)
+						)
+					)
+				)
+				(symbol "PWR_FLAG_0_1"
+					(polyline
+						(pts
+							(xy 0 0) (xy 0 1.27) (xy -1.016 1.905) (xy 0 2.54) (xy 1.016 1.905) (xy 0 1.27)
+						)
+						(stroke
+							(width 0)
+							(type default)
+						)
+						(fill
+							(type none)
+						)
+					)
+				)
+				(embedded_fonts no)
+			)
 		(symbol "ProPrj_New-easyedapro:0603B472K500NT"
 			(exclude_from_sim no)
 			(in_bom yes)
@@ -3708,7 +3823,7 @@
 					)
 				)
 			)
-			(property "LCSC Part Name" "单路 0603磁珠 阻抗120Ω100MHz"
+			(property "LCSC Part Name" "单路 0603磁珠 阻抗120Ω@100MHz"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -60903,5 +61018,299 @@
 	(no_connect
 		(at 455.93 254)
 		(uuid "7b468188-d525-4210-a18c-dd54944a283f")
+	)
+	(symbol
+		(lib_id "Board3:PWR_FLAG")
+		(at 50.8 417.83 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "948d6999-30f8-4bec-8d92-a44feaf9d798")
+		(property "Reference" "#FLG1"
+			(at 50.8 414.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 50.8 415.925 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "8f2ad30c-40c2-45f4-9eb8-2f9f1261978d")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "#FLG1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(label "+3V3"
+		(at 50.8 417.83 0)
+		(effects
+			(font
+				(size 1.2446 1.2446)
+			)
+			(justify left bottom)
+		)
+		(uuid "66474cbb-34a4-4a7c-97f6-ff01f6f9bb0c")
+	)
+	(symbol
+		(lib_id "Board3:PWR_FLAG")
+		(at 71.12 417.83 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "427a056d-f283-419e-9031-b7ed63edf553")
+		(property "Reference" "#FLG2"
+			(at 71.12 414.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 71.12 415.925 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "4e2b00a4-1a7e-4297-883f-822ebcb71c03")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "#FLG2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(label "+5V"
+		(at 71.12 417.83 0)
+		(effects
+			(font
+				(size 1.2446 1.2446)
+			)
+			(justify left bottom)
+		)
+		(uuid "9e0d6e0b-8c02-41ab-a3fa-70a188e94b10")
+	)
+	(symbol
+		(lib_id "Board3:PWR_FLAG")
+		(at 91.44 417.83 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "eddd1fb8-d683-4091-bc60-6c92fcbe20aa")
+		(property "Reference" "#FLG3"
+			(at 91.44 414.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 91.44 415.925 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "af6bcc6a-ac61-4058-b7c1-b88169816aa2")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "#FLG3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(label "GND"
+		(at 91.44 417.83 0)
+		(effects
+			(font
+				(size 1.2446 1.2446)
+			)
+			(justify left bottom)
+		)
+		(uuid "2d0e215d-dea6-4e12-84f3-80a6dde57003")
+	)
+	(symbol
+		(lib_id "Board3:PWR_FLAG")
+		(at 111.76 417.83 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "a33921fc-c0be-4899-a435-0754b7bea4ea")
+		(property "Reference" "#FLG4"
+			(at 111.76 414.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 111.76 415.925 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "bece7c9c-96ca-4fa0-af5d-50faa109141b")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "#FLG4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(label "VDDA"
+		(at 111.76 417.83 0)
+		(effects
+			(font
+				(size 1.2446 1.2446)
+			)
+			(justify left bottom)
+		)
+		(uuid "2cc593f6-68d8-440c-ab83-a3dbfab7e5ed")
+	)
+	(symbol
+		(lib_id "Board3:PWR_FLAG")
+		(at 132.08 417.83 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "84b342ff-7035-4a3b-b5e9-7a556c1b579a")
+		(property "Reference" "#FLG5"
+			(at 132.08 414.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 132.08 415.925 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "dbe5a9bb-33bb-4330-8b1b-4ed5b126c915")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "#FLG5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(label "CH224_VDD"
+		(at 132.08 417.83 0)
+		(effects
+			(font
+				(size 1.2446 1.2446)
+			)
+			(justify left bottom)
+		)
+		(uuid "f6993d2d-5445-4c68-b9c6-bff5f6a31786")
+	)
+	(symbol
+		(lib_id "Board3:PWR_FLAG")
+		(at 152.4 417.83 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "eed6ab40-881c-48e0-82a6-ce0c1d31b63b")
+		(property "Reference" "#FLG6"
+			(at 152.4 414.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 152.4 415.925 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "431cd4e4-40b1-47fd-9c8c-246abd3198ba")
+		)
+		(instances
+			(project "ProPrj_New Project_2026-07-15_23-14-34_2026-07-27"
+				(path "/fb87f69c-c36c-4b39-96d5-10bd05706112"
+					(reference "#FLG6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(label "CH224_VSNS"
+		(at 152.4 417.83 0)
+		(effects
+			(font
+				(size 1.2446 1.2446)
+			)
+			(justify left bottom)
+		)
+		(uuid "bb2b5e46-0970-4eb1-8dfb-d18df8bca541")
 	)
 )
