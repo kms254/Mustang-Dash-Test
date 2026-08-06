@@ -301,10 +301,10 @@ overlap look like an impossible 13 mm-away collision.
 **In:** silkscreen geometry, the `.kicad_dru` rule, the footprint libraries, the
 trimmer.
 
-**Out:** the `Silkscreen line width` warnings in JLC's report (25 items inherit
-the board default of 0.1 mm against JLC's 0.15 minimum) — related, separately
-decidable, and it slightly *worsens* clearance, so it should not be entangled
-with this. Also out: `Solder mask opening exposing trace` (52) and `Negative
+**Out:** ~~the `Silkscreen line width` warnings in JLC's report (25 items inherit
+the board default of 0.1 mm against JLC's 0.15 minimum)~~ — measured and
+answered above; the premise was false and the `.kicad_pro` defaults are fixed.
+Also out: `Solder mask opening exposing trace` (52) and `Negative
 soldermask expansion` (80) from the same DFM report, which are the U53 mask
 family and want their own measurement.
 
@@ -323,12 +323,45 @@ family and want their own measurement.
 5. ✅ No regression: 150 footprints, 229 nets, 2780 tracks, 238 vias, 7 zones,
    660 pads — identical before and after, as silk edits must be.
 
-**Not addressed here, and still open:** JLC's 25 *silkscreen line width*
-warnings (0.1 mm against its 0.15 mm minimum). It is coupled to this work rather
-than independent — widening a line spends the clearance this plan just bought,
-and a shape needs centreline room for both or it can satisfy neither. The
-trimmer will not narrow below `MIN_SILK_WIDTH_MM` (0.16) for that reason, but it
-does not widen the already-thin ones either.
+### Silkscreen line width: the premise was wrong, and the cause is unconfirmed
+
+This plan recorded JLC's 25 *silkscreen line width* warnings as "25 items
+inherit the board default of 0.1 mm". **Nothing on Board3 is below 0.15 mm** —
+measured on both the pristine and the current board:
+
+```
+shape widths : 0.0 (x25)  0.15  0.152  0.1524  0.1525  0.2  0.203  0.254  0.3  0.4
+text strokes : 0.0 (x4)   0.15  0.152  0.1525
+shapes < 0.15 mm : 0        text < 0.15 mm : 0
+```
+
+The 0.1 mm is real but it is a **`.kicad_pro` default for newly-created items**
+(`silk_line_width`, `silk_text_thickness`), not a property of anything drawn.
+Reading a setting as a population is the same mistake as reading
+`min_silk_clearance` as an active check — twice in one file, in opposite
+directions.
+
+**Fixed anyway, because it is a live trap rather than a present defect:** both
+defaults are raised 0.1 → 0.15, so silk drawn in the GUI tomorrow cannot arrive
+below the fab minimum. No existing geometry changes; DRC stays 0/0.
+
+**What JLC actually flagged is not established.** The strongest candidate is the
+board's **25 zero-width silk polygons** (all on F.SilkS — the polarity bands and
+pin-1 markers), which export `%ADD22C,0.000000*` into the front silk gerber. The
+count matches exactly, but the evidence does not close:
+
+- the aperture is selected **14 times, not 25**, and every selection is
+  immediately followed by `G36*` (region begin), where the Gerber spec says the
+  aperture is unused — so nothing is actually stroked at zero width;
+- the polygons are correct as geometry: filled regions are what a cathode band
+  should be;
+- and giving them a real width is **not free** — a stroke straddles the outline,
+  so it would grow D10/D11's bands outward from their already-tightest 0.1000 mm.
+
+So this may well be a false positive in JLC's parser reacting to a 0.000 mm
+aperture *definition*. **Settle it with JLC's DFM item list before changing any
+polygon**, rather than inferring from counts — the last two confident readings
+of JLC's published figures in this repo both had to be retracted.
 
 ## Outstanding Questions
 

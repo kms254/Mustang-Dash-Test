@@ -783,6 +783,20 @@ field's visibility": the operation edits more of the part than it advertises.
 Also mirror only the types that actually changed — writing all 30 rewrote the
 uuid of every property in 20-odd files that no edit touched.
 
+**A `.kicad_pro` default describes NEW items, not existing ones — and this file
+has now read a setting as a population in both directions.** JLC's 25
+"silkscreen line width" warnings were recorded as "25 items inherit the board
+default of 0.1 mm". Nothing on Board3 is below 0.15 mm; the 0.1 is real but it
+is `silk_line_width` / `silk_text_thickness`, the width the GUI gives silk you
+draw *tomorrow*. Both are raised to 0.15 because that is a live trap, not
+because anything inherited it. What JLC actually flagged is **not established** —
+the best candidate is the 25 zero-width silk polygons (the polarity bands and
+pin-1 markers) which export `%ADD22C,0.000000*` into the front silk gerber, but
+that aperture is selected 14 times, not 25, and always immediately before a
+`G36` region where it strokes nothing. Get the DFM item list before acting;
+widening those polygons would grow D10/D11's bands out from their already
+tightest 0.1000 mm.
+
 State (2026-08-05): silk-to-pad **233 pairs → 6**, all six documented
 exceptions in the `.kicad_dru` held to their measured worst rather than muted —
 D10/D11's cathode bands at 0.1000 mm from their own pad (a polarity marker is
