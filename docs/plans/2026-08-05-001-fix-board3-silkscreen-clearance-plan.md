@@ -127,6 +127,41 @@ Three classes to settle:
 **Verify:** a rendered before/after of every affected footprint, reviewed by
 eye. Silk exists to be read; a DRC number cannot tell you it is still legible.
 
+### U0. BLOCKER, found 2026-08-05: per-instance trimming defeats U3
+
+Attempted in this order — U1 (angular clipping) landed, the trim ran on the
+board, then the mirror was written. It got as far as **199 → 8 violations**
+before U3 exposed a contradiction the plan did not anticipate.
+
+**Trimming each placement against its neighbours makes instances of one
+footprint type diverge.** After the trim, `C0805` had **11 instances with 4
+distinct silk geometries**; eight more types diverged the same way. That is
+*correct per-board geometry* — each placement really does have different
+neighbours — and it is structurally incompatible with a single library
+definition. Route 1's premise ("fix the library and every instance inherits")
+only holds if the trim depends solely on the footprint's **own** pads.
+
+So the two goals cannot both be met by the current trimmer:
+
+| | Clearance correct everywhere | Library-mirrorable |
+|---|---|---|
+| Trim vs. all nearby pads | yes | **no** — instances diverge |
+| Trim vs. own pads only | partially | yes |
+
+**The redesign this implies.** Trim against the footprint's own pads only —
+that is a property of the type, identical for every placement, and mirrors
+cleanly. Then handle the residue (silk close to a *neighbouring* part's pad)
+separately: as board-level per-instance edits, or by moving the parts, or by
+accepting it with a recorded reason. Measure the residue first; it may be small
+enough that the type-level fix does nearly all the work.
+
+`tools/kicad_silk_mirror.py` already reports divergence rather than silently
+picking a winner, so it will confirm when the redesign has fixed this: the
+divergent list must be empty before any mirror is written.
+
+The board was reverted; the gate is back to 0 violations / 0 unconnected. The
+trimmer and the mirror are landed and unapplied.
+
 ### U3. Mirror into the footprint libraries
 
 Apply the same geometry to `kicad/board3/*.pretty/*.kicad_mod` so future

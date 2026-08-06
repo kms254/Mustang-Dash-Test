@@ -151,6 +151,55 @@ def clear_intervals(sx, sy, ex, ey, keepouts):
     return [(a, b) for a, b in spans if (b - a) * length >= MIN_KEEP_NM]
 
 
+def clear_arcs(cx, cy, radius, a0, a1, keepouts):
+    """Angular sub-intervals of an arc/circle that clear every keepout.
+
+    Same walk-and-bisect as clear_intervals, in angle instead of along a
+    parameter. a0..a1 are radians and may wrap; a full circle passes
+    a1 = a0 + 2*pi. Returns [(start_rad, end_rad), ...] in the same sweep
+    direction, dropping survivors whose ARC LENGTH is below MIN_KEEP_NM --
+    a 0.1 mm stub of a circle is ink noise exactly as a short line is.
+    """
+    span = a1 - a0
+    arclen = abs(span) * radius
+    if arclen <= 0:
+        return []
+
+    def blocked(u):                       # u in 0..1 along the sweep
+        th = a0 + span * u
+        px, py = cx + radius * math.cos(th), cy + radius * math.sin(th)
+        for rings, limit in keepouts:
+            if dist_point_poly(px, py, rings) < limit:
+                return True
+        return False
+
+    steps = max(8, int(arclen / STEP_NM) + 1)
+    flags = [blocked(i / steps) for i in range(steps + 1)]
+
+    def refine(lo, hi):
+        want = blocked(lo)
+        while (hi - lo) * arclen > REFINE_NM:
+            mid = (lo + hi) / 2
+            if blocked(mid) == want:
+                lo = mid
+            else:
+                hi = mid
+        return hi if want else lo
+
+    spans, start = [], None
+    for i in range(steps + 1):
+        u = i / steps
+        if not flags[i] and start is None:
+            start = refine((i - 1) / steps, u) if i else 0.0
+        elif flags[i] and start is not None:
+            spans.append((start, refine((i - 1) / steps, u)))
+            start = None
+    if start is not None:
+        spans.append((start, 1.0))
+    return [(a0 + span * a, a0 + span * b) for a, b in spans
+            if (b - a) * arclen >= MIN_KEEP_NM]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("board")
@@ -176,20 +225,35 @@ def main() -> int:
     per_fp = collections.Counter()
     edits = []
 
-    for fp in board.GetFootprints():
-        for g in list(fp.GraphicalItems()):
+    # Footprint graphics, then board-level ones. Board drawings belong to no
+    # footprint, so there is no library half to mirror -- they are edited here
+    # or not at all.
+    owners = [(fp, list(fp.GraphicalItems())) for fp in board.GetFootprints()]
+    owners.append((board, [d for d in board.GetDrawings()
+                           if d.GetLayer() in silk_layers]))
+
+    for fp, items in owners:
+        for g in items:
             lay = g.GetLayer()
             if lay not in silk_layers or g.GetClass() != "PCB_SHAPE":
                 continue
             shape = g.ShowShape()
-            if shape != "Line":
-                # measure whether it is even in violation before reporting it
+            if shape not in ("Line", "Circle", "Arc"):
+                # A Polygon on silk is usually a polarity band or a pin-1 dot;
+                # cutting it destroys the meaning the marker exists to carry.
                 deferred[shape] += 1
                 continue
             half = g.GetWidth() / 2.0
             limit = (args.clearance + args.margin) * NM + half
-            s, e = g.GetStart(), g.GetEnd()
             mask_layer = mask_of[lay]
+
+            if shape == "Line":
+                s, e = g.GetStart(), g.GetEnd()
+                box = (min(s.x, e.x), min(s.y, e.y), max(s.x, e.x), max(s.y, e.y))
+            else:
+                c, r = g.GetCenter(), g.GetRadius()
+                box = (c.x - r, c.y - r, c.x + r, c.y + r)
+
             keep = []
             for pad in pads_by_mask[mask_layer]:
                 key = (id(pad), mask_layer)
@@ -198,22 +262,34 @@ def main() -> int:
                 rings = poly_cache[key]
                 if not rings:
                     continue
-                # cheap reject: bounding box of the pad vs the segment box
                 bb = pad.GetBoundingBox()
-                pad_x1, pad_y1 = bb.GetLeft() - limit, bb.GetTop() - limit
-                pad_x2, pad_y2 = bb.GetRight() + limit, bb.GetBottom() + limit
-                if max(s.x, e.x) < pad_x1 or min(s.x, e.x) > pad_x2:
+                if box[2] < bb.GetLeft() - limit or box[0] > bb.GetRight() + limit:
                     continue
-                if max(s.y, e.y) < pad_y1 or min(s.y, e.y) > pad_y2:
+                if box[3] < bb.GetTop() - limit or box[1] > bb.GetBottom() + limit:
                     continue
                 keep.append((rings, limit))
             if not keep:
                 continue
-            spans = clear_intervals(s.x, s.y, e.x, e.y, keep)
-            if len(spans) == 1 and spans[0] == (0.0, 1.0):
-                continue
-            edits.append((fp, g, spans, s, e))
-            per_fp[fp.GetFPIDAsString()] += 1
+
+            if shape == "Line":
+                s, e = g.GetStart(), g.GetEnd()
+                spans = clear_intervals(s.x, s.y, e.x, e.y, keep)
+                if len(spans) == 1 and spans[0] == (0.0, 1.0):
+                    continue
+                edits.append(("line", fp, g, spans, s, e))
+            else:
+                c, r = g.GetCenter(), g.GetRadius()
+                if shape == "Circle":
+                    a0, a1 = 0.0, 2.0 * math.pi
+                else:
+                    s, e = g.GetStart(), g.GetEnd()
+                    a0 = math.atan2(s.y - c.y, s.x - c.x)
+                    a1 = a0 + math.radians(g.GetArcAngle().AsDegrees())
+                spans = clear_arcs(c.x, c.y, r, a0, a1, keep)
+                if len(spans) == 1 and abs((spans[0][1] - spans[0][0]) - (a1 - a0)) < 1e-9:
+                    continue
+                edits.append(("arc", fp, g, spans, (c, r), None))
+            per_fp[fp.GetFPIDAsString() if hasattr(fp, "GetFPIDAsString") else "<board-level>"] += 1
             if not spans:
                 deleted += 1
             else:
@@ -221,9 +297,9 @@ def main() -> int:
                 kept += len(spans)
 
     print(f"board            : {args.board.split('/')[-1]}")
-    print(f"lines trimmed    : {trimmed}   (into {kept} pieces)")
-    print(f"lines removed    : {deleted}   (no clear span >= {MIN_KEEP_NM/NM} mm)")
-    print(f"deferred shapes  : {dict(deferred)}   (circles/arcs/polygons untouched)")
+    print(f"shapes trimmed   : {trimmed}   (into {kept} pieces)")
+    print(f"shapes removed   : {deleted}   (no clear span >= {MIN_KEEP_NM/NM} mm)")
+    print(f"deferred shapes  : {dict(deferred)}   (polarity/pin-1 markers, left alone)")
     print("\nby footprint type:")
     for fpid, n in per_fp.most_common():
         print(f"  {n:4d}  {fpid}")
@@ -232,14 +308,26 @@ def main() -> int:
         print("\n(report only -- pass --apply to write)")
         return 0
 
-    for fp, g, spans, s, e in edits:
-        for a, b in spans:
-            new = g.Duplicate()
-            new.SetStart(pcbnew.VECTOR2I(int(s.x + (e.x - s.x) * a),
-                                         int(s.y + (e.y - s.y) * a)))
-            new.SetEnd(pcbnew.VECTOR2I(int(s.x + (e.x - s.x) * b),
-                                       int(s.y + (e.y - s.y) * b)))
-            fp.Add(new)
+    for kind, fp, g, spans, a_data, b_data in edits:
+        if kind == "line":
+            s, e = a_data, b_data
+            for a, b in spans:
+                new = g.Duplicate()
+                new.SetStart(pcbnew.VECTOR2I(int(s.x + (e.x - s.x) * a),
+                                             int(s.y + (e.y - s.y) * a)))
+                new.SetEnd(pcbnew.VECTOR2I(int(s.x + (e.x - s.x) * b),
+                                           int(s.y + (e.y - s.y) * b)))
+                fp.Add(new)
+        else:
+            c, r = a_data
+            for a0, a1 in spans:
+                new = g.Duplicate()
+                new.SetShape(pcbnew.SHAPE_T_ARC)
+                mid = (a0 + a1) / 2.0
+                pt = lambda th: pcbnew.VECTOR2I(int(round(c.x + r * math.cos(th))),
+                                                int(round(c.y + r * math.sin(th))))
+                new.SetArcGeometry(pt(a0), pt(mid), pt(a1))
+                fp.Add(new)
         fp.Remove(g)
         _KEEPALIVE.append(g)
 
