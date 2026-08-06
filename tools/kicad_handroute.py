@@ -660,6 +660,15 @@ def refill_under_real_rules(board_path: Path) -> int:
         board = pcbnew.LoadBoard(str(staged))
         pcbnew.ZONE_FILLER(board).Fill(board.Zones())
         pcbnew.SaveBoard(str(board_path), board)
+        # CLAUDE.md: rebuild connectivity after every fill and before every
+        # count. GetConnectivity() alone can read pre-fill state. Evidence
+        # status 2026-08-05: a faithful reproduction of the documented
+        # trial-removal loop on Board3 (one board object, 40 iterations of
+        # remove-fill-count) found ZERO disagreement with and without this
+        # call on KiCad 10.0.5. Kept because the incidents behind the rule
+        # were real and cost a repair session, and the call is free -- but
+        # do not cite it as load-bearing without re-measuring.
+        board.BuildConnectivity()
         connectivity = board.GetConnectivity()
         connectivity.RecalculateRatsnest()
         try:

@@ -67,9 +67,11 @@ artefact changing. Nothing in this project's normal loop — render, netlist, BO
 fab package, DRC — touches it.
 
 **Why CI never caught it.** The ERC gate in
-`.github/workflows/kicad-drc-erc.yml` runs `--severity-error`, and
+`.github/workflows/kicad-drc-erc.yml` ran `--severity-error` at the time, and
 `lib_symbol_issues` is a **warning**. It was invisible by construction, not by
 accident. No amount of running that gate more often would ever have found it.
+(That gate is now absolute at `--severity-all`, so this class fails the build
+directly — see the note under *a severity filter is a blind spot* below.)
 
 ## What Didn't Work
 

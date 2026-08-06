@@ -1,12 +1,12 @@
 /*
  * dash_panels.h - static descriptor table for the three BT817 panels driven
- * by one Teensy 4.1 (center RVT70H + left/right RVT50H side panels, plan
+ * by one MCU (center RVT70H + left/right RVT50H side panels, plan
  * U1 of docs/plans/2026-07-10-002-feat-side-panels-plan.md).
  *
  * Host-testable in tests/test_dash_panels.c before any wiring or EVE_init()
  * call touches real silicon -- the dash_math.h / splash_timeline.h pattern.
  * No Arduino or EVE library dependencies; stdint only, so this compiles on
- * host gcc as well as the Teensy toolchain.
+ * host gcc as well as the embedded toolchain.
  *
  * Values are transcribed from libraries/FT800-FT813/src/EVE_config.h:
  *   - CENTER timings: the EVE_RVT70H block (bench-proven; REG_ID == 0x7C,
@@ -67,14 +67,14 @@ typedef struct {
     uint16_t pclk_freq;  /* REG_PCLK_FREQ form (REG_PCLK=1); 0 = unused */
 
     /* which SPI peripheral drives this panel: an index into the target's
-     * bus table (STM32 migration plan U5). On the shared-bus Teensy wiring
+     * bus table (STM32 migration plan U5). On the shared-bus wiring
      * every index maps to the one hardware SPI; on the STM32 carrier each
      * panel gets its own peripheral, so indices are 0/1/2 by role. Pure
      * data here -- the .ino owns the index -> SPIClass* mapping. */
     uint8_t  bus_index;
 } DashPanelDesc;
 
-/* Pin budget note: PD hops 17 -> 20/21 because Teensy 4.1 pins 18/19 are
+/* Pin budget note: PD hops 17 -> 20/21 because pins 18/19 are
  * the primary I2C pair (SDA0/SCL0) -- deliberately left free for future
  * I2C peripherals (e.g. an ambient-light sensor driving dash_brightness).
  * With CAN on 0/1/22/23, telltales on 2-9, and buttons on 24-27, they are

@@ -69,8 +69,34 @@ it costs a respin.
 ## Examples
 
 Before: C67 at (144.5, 86.3), courtyard 0.32 mm from FPC2's north face —
-DRC-clean, mechanically blocking. After: C67 as a 0603 at (140.35, 92.70),
-southwest of the connector body, all gates unchanged and the runway clear.
+DRC-clean, mechanically blocking. After: moved southwest of the connector body,
+all gates unchanged and the runway clear.
+
+C67 has since grown back to an 0805 (U36, 22 µF bulk) and now sits at
+(139.850, 92.700) — **2.965 mm west of FPC2's courtyard, still entirely outside
+the runway**. That is the stronger version of this example: the part returned to
+the same neighbourhood in a larger package and the convention still held,
+because the constraint being respected was the runway rather than a particular
+coordinate. Current state, measured: all three FPC north runways are 2.726 mm
+deep to the board edge and completely free of components.
+
+**The convention extends past cable clearance in two directions this doc
+originally missed.**
+
+*Mating access is not only about the cable.* U49 costed the legged TC2030 debug
+header and found **zero feasible placements within ±9 mm** — its four 2.37 mm
+leg holes hit the `/NRST` bottom run at every orientation. The resolution was
+mechanical, not electrical: SWD is hand-held on this board, and because the
+bottom side is entirely component-free, a retaining clip has clear space to
+seat. No copper gate participates in that decision at any point.
+
+*A connector needs label space as well as cable space.* U56 found P1/P2, the CAN
+screw terminals, boxed in on all four sides — 0.61 mm above, 0.94 left, 0.97
+right, 0.28 to the board edge below, against the ~1.4 mm a 1.0 mm character
+needs. The fix was to move H1/H3 up 1.0 mm to open the space. An unlabelled CAN
+terminal is a silent failure in the field (H and L reversed looks like a dead
+bus), so silkscreen room belongs in the approach-zone budget alongside the
+cable.
 
 ## Related
 

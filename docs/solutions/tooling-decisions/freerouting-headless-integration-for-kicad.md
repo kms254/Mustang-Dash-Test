@@ -15,6 +15,16 @@ tags: [freerouting, autorouting, kicad, dsn, ses, pcbnew, headless]
 
 # Freerouting headless integration for KiCad — version choice and the four traps
 
+> **Status: valid, but not the entry point for Board3.** This recipe is for a
+> from-scratch or bulk route. Every board change since 2026-07-31 has gone
+> through `tools/kicad_handroute.py` and a committed spec in
+> `tools/handroutes/`, and the board is now at 0 airwires and 0 violations —
+> there are no unrouted nets for an autorouter to take. That is this doc's own
+> conclusion arriving on schedule, not a contradiction of it: it already ends by
+> saying locked-copper autorouting cannot route a net whose pocket requires
+> existing copper to move, and that the next move is displacement by hand. Read
+> on for the tooling contract; start routing work at `tools/handroutes/`.
+
 ## Context
 
 Closing Board3's last airwire (TT2, PR kms254/Mustang-Dash-Test#11) meant driving
@@ -112,6 +122,8 @@ at app.freerouting.board.PolylineTrace.combine(PolylineTrace.java:180)
 ## Related
 
 - `tools/kicad_freeroute.py` — the codified recipe (module docstring repeats the traps)
+- `tools/kicad_handroute.py` and `tools/handroutes/` — where routing work on this board actually starts now: surgical edits from a committed spec, with the reasoning recorded in each spec's `$why` block
+- `tools/kicad_verify.py` — the gate to check a route against. Both CI design gates went absolute on 2026-08-05, and the verifier now stages the library sidecars and judges at `--severity-all`; `--baseline` survives for interactive attribution
 - `docs/solutions/developer-experience/clip-test-board-window-queries.md` — the query bug that shaped the same routing session
 - `docs/solutions/developer-experience/refill-zones-before-measuring-a-headlessly-routed-board.md` — zone hygiene for the same headless pipeline
 - CLAUDE.md "Autorouting Board3" block — compressed version of this doc

@@ -120,8 +120,21 @@ transfer of authority. Restate the rule precisely:
 > **Design rules come from `tools/kicad_rules.json`, never from the
 > `.kicad_pro`. The project file is a synced copy of it, not a second source.**
 
-The earlier wording — treat the project file as untrusted — is now wrong in its
-reasoning and right in its conclusion. Nothing enforces the sync. KiCad rewrites
+**That claim has since been falsified in one direction, and the failure is worth
+more than the rule.** On 2026-08-02, `d74143a` raised five DRC guard rails to
+JLC's published limits — including `min_hole_clearance` from 0.1016 to 0.2 —
+by editing the `.kicad_pro` and the `.kicad_dru`, and never touching
+`tools/kicad_rules.json`. Since the verifier does
+`rules.update(spec["rules_mm"])` on a staged copy, the staged run *overwrites*
+the raised value with the stale one. For that key the project file was current
+and the rules file was stale: the copy outranked its own source.
+
+So the sync is directional in intent and bidirectional in practice. The rule
+survives — one file must be authoritative — but it needs its enforcement clause:
+**a change to a design rule is not done until it appears in
+`tools/kicad_rules.json`**, because that is the only copy the gate reads.
+
+Nothing enforces the sync. KiCad rewrites
 the project file on ordinary GUI activity: commit `1941588` exists only because
 opening Board Setup materialised three zero-valued placeholder rows in the
 pre-defined size lists. A GUI session is exactly when the rules could quietly go
@@ -193,10 +206,30 @@ min_hole_to_hole        0.25       0.5
 Measured against the imported column an untouched Board3 reports 544
 violations, 503 of them clearance, all sitting in a 0.117–0.197 mm band just
 under a 0.2 mm rule the board was never drawn to. Against the real column the
-same board reports 41 — the baseline every later DRC delta is taken from.
+same board reported 41 at the time — which became the baseline every later DRC
+delta was taken from.
+
+**That baseline is retired.** Board3 now measures 0 violations and 0 unconnected
+under the same real rules, and both CI design gates went absolute on 2026-08-05:
+the ratchet, its two baseline checkouts and the picker were deleted, because a
+floor that has been cleared makes a ratchet pass while asserting nothing. The
+544-vs-41 contrast above is still the right illustration of *why* the rules file
+exists — it is the measurement that proved the imported rules were fiction — but
+41 is a historical figure, not a bar anything is judged against.
 
 ## Related
 
 - [Migrating a board from EasyEDA Pro to KiCad loses data silently](../integration-issues/easyeda-pro-to-kicad-migration-silent-data-loss.md) — why the rules had to be reconstructed into `tools/kicad_rules.json` in the first place
 - [Search every copper layer before placing a via](search-every-copper-layer-before-placing-a-via.md) — the same staged-rules requirement, applied to via placement instead of zone fills
 - [A gate that cannot pass gets waved through](../conventions/a-gate-that-cannot-pass-gets-waved-through.md) — what else goes wrong when the rule file and the checker disagree
+
+**The rest of the family.** This doc was the first of a set that has since grown
+to eight, and several of them cite it while it cited none of them. All are the
+same shape — *the measurement was not measuring what you thought* — and each
+names a different way to be fooled:
+
+- [Call BuildConnectivity() before counting airwires](build-connectivity-before-counting-airwires.md) — the in-memory version of this doc's own trap, and one this doc's reference implementation does not yet apply
+- [Headless DRC judges the board plus its sidecar files](stage-project-sidecars-for-headless-drc.md) — the same staging requirement for the *library* tables rather than the rules
+- [An airwire count cannot validate copper changes on a poured net](airwire-counts-cannot-validate-deleting-copper-on-a-poured-net.md) — a correct number answering a different question
+- [Window-filter board geometry by shape intersection](clip-test-board-window-queries.md) — the obstacle map itself being incomplete
+- [pcbnew SWIG proxies defeat identity checks](pcbnew-swig-proxies-defeat-identity-checks.md) — the object you compared is not the object you meant

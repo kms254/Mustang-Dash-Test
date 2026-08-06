@@ -7,16 +7,23 @@ results out as a single flash-image "pack", and emits:
 
   MustangDash/splash_flash.h   address table + the embedded provisioning pack
 
-The firmware provisions the pack into the panel's QSPI flash once (compare
-header, CMD_FLASHUPDATE on mismatch) and then renders every splash asset
-directly from flash -- RAM_G is no longer used by the splash.
+The firmware stages the pack from its own flash into RAM_G at boot, with a
+16-byte readback spot-check per asset. The panel's QSPI flash is NOT used:
+rendering directly from it hits a per-frame bandwidth ceiling above ~40 KB per
+asset, so the provision-then-render path was deleted 2026-07-21. The addresses
+below are the pack's historical flash address space (base 4096), kept because
+the layout is what the staging code walks.
 
 Pipeline (BRT_AN_033 BT81X Series Programming Guide, v2.8):
   * Backgrounds (3): full-res 1024x600. The gradient is reconstructed in
     float to kill 8-bit banding before compression: two passes of the
     edge-clamped box blur (radius 12) on float32 RGB, no ordered dither
-    (Bayer noise fights block compression). Encoded ASTC 8x8.
-  * All other assets: RGBA passed to the encoder as-is. Encoded ASTC 4x4.
+    (Bayer noise fights block compression).
+  * Block size is PER ASSET, from the ASSETS table below -- not a fixed
+    "backgrounds 8x8" rule. The 2026-07-21 quality trial put both
+    photographic backgrounds at 4x4 and checkered at 6x6, which is four
+    times the bytes and the reason RAM_G now runs at ~98% on the shipping
+    theme. Read the table, never this paragraph, for what an asset uses.
   * Encoder: astcenc -cl <in> <out> {4x4|8x8} -thorough -j 1 -silent
     (fixed flags, single-threaded: output is deterministic for the pinned
     binary; re-running must produce a byte-identical header).
@@ -276,11 +283,13 @@ def emit_header(assets, pack, crc):
         " * Boot-splash ASTC assets: flash-image address table + provisioning pack.",
         " * Source PNGs live in assets/splash/ (vendored design export).",
         " *",
-        " * The pack lives in the panel's QSPI flash at SPLASH_FLASH_BASE; sector 0",
-        " * (flash 0..4095, vendor flashfast BLOB) is never written. Assets are",
-        " * ASTC (backgrounds 8x8, alpha elements 4x4), blocks already in EVE's",
-        " * 2x2 tile order, each asset 64-byte aligned for direct rendering via",
-        " * BITMAP_SOURCE flash addressing (addr / 32).",
+        " * Addresses are the pack's historical flash address space, base 4096;",
+        " * the panel's QSPI flash is NOT used at boot -- the pack is embedded in",
+        " * the MCU image and staged to RAM_G. Block sizes are per-asset (see the",
+        " * ASSETS table in the generator), NOT a fixed backgrounds-8x8 rule: the",
+        " * 2026-07-21 quality trial put both photographic backgrounds at 4x4 and",
+        " * checkered at 6x6. Blocks are already in EVE's 2x2 tile order and each",
+        " * asset is 64-byte aligned.",
         " */",
         "",
         "#pragma once",
@@ -357,7 +366,7 @@ def emit_header(assets, pack, crc):
         "};",
         "",
         "/* The entire flash image (header + assets + padding), embedded for",
-        " * one-time provisioning via CMD_FLASHUPDATE. Teensy 4.1 PROGMEM is",
+        " * one-time provisioning via CMD_FLASHUPDATE. PROGMEM is",
         " * memory-mapped flash, so this costs no RAM. */",
         f"static const uint8_t splash_flash_pack[{len(pack)}UL] PROGMEM = {{",
     ]

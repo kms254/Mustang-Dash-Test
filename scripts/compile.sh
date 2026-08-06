@@ -1,36 +1,39 @@
 #!/usr/bin/env bash
-# Compile the MustangDash sketch for the Teensy 4.1.
+# Compile the MustangDash firmware for the STM32 target.
 #
-# Requires arduino-cli with a Teensy platform installed under the FQBN
-# teensy:avr:teensy41 (Teensyduino, or the minimal offline platform described
-# in BUILD.md). The vendored EVE library in ./libraries is passed explicitly so
-# you do not have to copy it into your Arduino sketchbook.
+# The primary target is the NUCLEO-F767ZI three-panel mule; the H755 carrier
+# (env h743) builds from the same source. Both are PlatformIO environments in
+# platformio.ini, and PlatformIO resolves the toolchain and the STM32 Arduino
+# core itself -- nothing to install by hand, no sketchbook to sync.
+#
+#   ./scripts/compile.sh                 # default env (nucleo_f767)
+#   ./scripts/compile.sh h743            # the carrier target
+#   ./scripts/compile.sh nucleo_f767 -v  # extra args pass through to pio
+#
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-FQBN="teensy:avr:teensy41"
-OUT="./build"
+ENV="${1:-nucleo_f767}"
+[ $# -gt 0 ] && shift
 
-# Sync the committed platform definition into the sketchbook before building,
-# so the tracked files in tools/teensy-avr-platform/ are the source of truth
-# the compile actually exercises (not a stale manual copy). Skipped when the
-# sketchbook has no offline platform dir (e.g. a real Teensyduino install).
-SB="$(arduino-cli config get directories.user 2>/dev/null || true)"
-PLATFORM_DIR="$SB/hardware/teensy/avr"
-if [ -n "$SB" ] && [ -d "$PLATFORM_DIR/cores/teensy4" ]; then
-    install -m 0644 tools/teensy-avr-platform/boards.txt "$PLATFORM_DIR/boards.txt"
-    install -m 0644 tools/teensy-avr-platform/platform.txt "$PLATFORM_DIR/platform.txt"
-    # The no-op ctags shim lives inside the platform (see platform.txt's
-    # runtime.tools.ctags.path={runtime.platform.path}/tools-bin).
-    install -m 0755 -D tools/teensy-avr-platform/ctags-shim.sh "$PLATFORM_DIR/tools-bin/ctags"
+# PlatformIO lives in its own venv on this workstation (bootstrapped from the
+# portable Python the VS Code extension ships -- there is no system Python).
+PIO="${PIO:-}"
+if [ -z "$PIO" ]; then
+    for candidate in \
+        "$HOME/.platformio/penv/Scripts/pio.exe" \
+        "$HOME/.platformio/penv/bin/pio" \
+        "$(command -v pio 2>/dev/null || true)"
+    do
+        if [ -n "$candidate" ] && [ -x "$candidate" ]; then PIO="$candidate"; break; fi
+    done
+fi
+if [ -z "$PIO" ]; then
+    echo "pio not found. Set PIO=/path/to/pio, or install PlatformIO." >&2
+    exit 1
 fi
 
-arduino-cli compile \
-    --clean \
-    -b "$FQBN" \
-    --libraries ./libraries \
-    --output-dir "$OUT" \
-    ./MustangDash
+"$PIO" run -e "$ENV" "$@"
 
 echo
-echo "Built: $OUT/MustangDash.ino.hex"
+echo "Built env '$ENV' -> .pio/build/$ENV/firmware.bin"

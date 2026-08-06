@@ -74,6 +74,41 @@ Apply it uniformly — the accept path, the revert path, and any baseline
 measurement taken at script start. A baseline captured without the rebuild can
 disagree with every later measurement taken with it.
 
+### Evidence status, re-measured 2026-08-05: could not reproduce
+
+Two things were found on that date and they point in opposite directions, so
+both are recorded rather than one being allowed to settle it.
+
+**The rule was not being followed anywhere.** A repo-wide search returned **zero**
+calls to `BuildConnectivity()` — in `kicad_handroute`, `kicad_freeroute`,
+`kicad_route`, `kicad_shove` or `kicad_strip`, all of which count airwires and
+one of which gates every board edit. The rule had lived in `CLAUDE.md` and in
+this doc for six days without reaching a single line of code. That gap is now
+closed.
+
+**And the failure would not reproduce.** Two attempts on Board3 with KiCad
+10.0.5, both measuring with and without the call:
+
+- fresh board per measurement, 0 / 5 / 25 / 100 `/GND` tracks removed — identical
+  counts in all four;
+- the documented pattern faithfully: **one** board object, a 40-iteration
+  trial-removal loop of remove → fill → count — **zero disagreements**, sequences
+  identical element for element.
+
+So on this board and this KiCad, the call changes nothing measurable. It was
+added anyway: the incidents above were real, cost a diagnosis session and a
+repair bridge, and the call is free. But **do not cite it as load-bearing
+without re-measuring** — and if you are debugging a wrong airwire count, this is
+now a weak suspect rather than a strong one. Either KiCad's behaviour changed
+between the incident and now, or the original diagnosis attributed the two
+failures to the wrong cause. That question is open.
+
+The first attempt above is worth its own note: it reloaded the board before each
+measurement, which by construction cannot show accumulated staleness, and it
+returned a clean "no difference" that looked like a result. The reproduction
+only became meaningful once it matched the *loop* the incidents actually
+happened in.
+
 Two supporting rules from the same session:
 
 - **Measure the baseline first.** An absolute `== 0` guard assumes the board

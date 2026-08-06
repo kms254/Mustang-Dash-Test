@@ -26,6 +26,22 @@
   (condition "(A.Reference == 'U12' && B.Reference == 'LED6') || (A.Reference == 'LED6' && B.Reference == 'U12')")
   (constraint courtyard_clearance (min -0.4mm)))
 
+# JLC publishes TWO hole-to-track limits and KiCad's min_hole_clearance is a
+# single value, so one of them cannot be expressed globally: via-to-track is
+# 0.2 mm, PTH-to-track is 0.28 mm (0.35 recommended). The global rule carries
+# 0.2 because that is the binding limit for the tightest hole on this board
+# (0.2730 mm, a via). This rule adds the stricter PTH case on top.
+#
+# It catches nothing today -- measured 2026-08-05, the tightest PTH-to-track is
+# 0.4547 mm at SW6.2 against /BTN2 on Inner1, and NO pad sits in the 0.20-0.28
+# band a global 0.2 rule would wave through. That is the same argument U38/U43
+# made when it raised five rails to the fab's real limits: "None of these was a
+# present defect. They were checks that COULD NOT catch a defect." A board with
+# 43 PTH pads should not rely on the via limit to police them.
+(rule pth_hole_to_track_jlc
+  (condition "A.Pad_Type == 'Through-hole' || B.Pad_Type == 'Through-hole'")
+  (constraint hole_clearance (min 0.28mm)))
+
 # USBC1 is a mid-mount connector: its retention slots are routed cutouts
 # inside its own manufacturer footprint, and its pads plus the local
 # shield stitching legitimately sit closer to those slots than the

@@ -629,6 +629,15 @@ class Shover:
         filler = pcbnew.ZONE_FILLER(self.b)
         filler.Fill(self.b.Zones())
         pcbnew.SaveBoard(out_path, self.b)
+        # CLAUDE.md: rebuild connectivity after every fill and before every
+        # count. GetConnectivity() alone can read pre-fill state. Evidence
+        # status 2026-08-05: a faithful reproduction of the documented
+        # trial-removal loop on Board3 (one board object, 40 iterations of
+        # remove-fill-count) found ZERO disagreement with and without this
+        # call on KiCad 10.0.5. Kept because the incidents behind the rule
+        # were real and cost a repair session, and the call is free -- but
+        # do not cite it as load-bearing without re-measuring.
+        self.b.BuildConnectivity()
         conn = self.b.GetConnectivity()
         conn.RecalculateRatsnest()
         try:

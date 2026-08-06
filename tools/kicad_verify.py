@@ -5,16 +5,26 @@ Two independent checks, because neither catches the other's failures. DRC alone
 passes a board that silently dropped a net; a connectivity check alone passes a
 board whose copper is unmanufacturable.
 
-Both are measured against a BASELINE board, not in isolation. Board3 carries 41
-pre-existing violations -- courtyard overlaps and edge clearances that have
-nothing to do with routing -- and reporting a routed board's raw total as though
-the router caused all of it is how a 33-violation result gets published as 74.
+Both are ABSOLUTE by default: a clean board reports zero. That was not always
+true -- Board3 once carried 41 inherited violations (courtyard overlaps and edge
+clearances that had nothing to do with routing), so measurement was against a
+baseline and --baseline was effectively mandatory. Those are cleared, the board
+reports 0/0, and CI gates at zero with no baseline at all. --baseline and
+--contract survive for interactive work, where attributing a pre-existing
+violation while you edit is still useful.
 
 Rules come from tools/kicad_rules.json, never from the board's own .kicad_pro.
 The EasyEDA Pro importer writes KiCad's stock defaults there, and measuring
 against those produces 503 phantom clearance violations on a clean board.
 
-  python tools/kicad_verify.py routed.kicad_pcb --baseline baseline.kicad_pcb
+That direction has a failure mode worth knowing: because _rules_project() does
+rules.update(spec["rules_mm"]), this file OVERWRITES the staged project's value
+for every key it names. A design rule raised in the .kicad_pro and not mirrored
+here is silently reverted for the duration of the check -- so a rule change is
+not done until it lands in kicad_rules.json.
+
+  python tools/kicad_verify.py routed.kicad_pcb                      # absolute
+  python tools/kicad_verify.py routed.kicad_pcb --baseline old.kicad_pcb
 """
 
 from __future__ import annotations

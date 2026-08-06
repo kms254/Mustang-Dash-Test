@@ -11,6 +11,7 @@ applies_when:
   - "Any trial-removal loop that gates on GetUnconnectedCount() or the ratsnest"
   - "Cleaning up dangling stubs, duplicate taps, or 'obviously covered' copper"
   - "Reviewing a copper deletion whose only stated evidence is 'airwires still zero'"
+  - "ADDING a via or track near a pad on a poured net — an addition can starve a thermal just as a deletion can"
 tags: [kicad, pcbnew, zones, pour, airwires, ratsnest, drc, starved-thermal, ground]
 ---
 
@@ -60,11 +61,22 @@ What to use instead, strongest first:
 1. **Run a fill-aware DRC and read the whole census, not just `unconnected_items`.**
    `starved_thermal` is the check that catches the substitution, because it is
    the one that knows the difference between "attached" and "attached well
-   enough". Use all severities so warnings are not filtered away:
+   enough".
 
    ```bash
-   kicad-cli pcb drc BOARD.kicad_pcb --format json --severity-all -o report.json
+   python tools/kicad_verify.py BOARD.kicad_pcb
    ```
+
+   Use the project's own verifier rather than a bare `kicad-cli` call: it stages
+   the real design rules *and* the library sidecars, which is what makes the
+   census trustworthy, and it is the same instrument CI runs. It judges at
+   `--severity-all`.
+
+   One caveat on that flag, because the obvious reason is not the operative one
+   here: on this board `starved_thermal` is configured as an **error**, so
+   `--severity-error` would also catch it. All-severities matters for classes
+   that are only ever warnings — it is not what makes *this* check work. Verify
+   the severity on your own board before relying on either.
 
 2. **Ask what the pour is now carrying.** If a deletion moves a pad from a
    dedicated tap to thermal-relief spokes, that is a real electrical change —
@@ -76,12 +88,37 @@ What to use instead, strongest first:
    than by what it did not break.** `python tools/kicad_measure.py BOARD --against BEFORE`
    prints every net whose segment count, via count, length or layer set moved.
 
+## The rule is about edits near a poured pad, not about deletions
+
+The title says *deleting*, and that framing is too narrow — it was written from
+the incident rather than from the mechanism. **An addition starves a thermal
+just as readily.**
+
+U50 relocated four panel-SPI resistors and added a via at x=49.050, which landed
+1.158 mm east of R42's `/GND` pad 2 and pinched the top pour down to a single
+thermal spoke. `starved_thermal`, minimum 2. The spec records the diagnosis in
+the doc's own words:
+
+> *"Airwires stayed 0 throughout — a poured net absorbs the connection either
+> way, which is why `starved_thermal` is the check that matters here."*
+
+Nothing was removed. The pour simply had less room to reach the pad, and the
+count that would have told you is the same count that cannot. Read every rule
+below as applying to **any copper edit in the neighbourhood of a pad on a poured
+net** — added, removed, moved, or widened.
+
 ## Why This Matters
 
 This failure mode is self-concealing in a way most are not. A guard that throws
 false negatives gets caught by its own noise; this one returns the *correct*
 number and lets a wrong conclusion be drawn from it. There is no error to
 notice, no anomaly to investigate, and the copper is already gone.
+
+**CI now catches this specific failure, which changes what this doc is for.**
+The DRC gate went absolute at zero on 2026-08-05 and runs through
+`tools/kicad_verify.py`, so a `starved_thermal` finding fails the build. That
+makes the discipline here a *local* one: it is what keeps you from burning a CI
+round, and what tells you why the failure means something when it arrives.
 
 It also targets ground specifically — the net most likely to be poured, most
 likely to look redundant, and least likely to be re-examined, because "it's all

@@ -2,7 +2,7 @@
  * Invariant test: the triple-dash panel descriptor table (dash_panels.h)
  * pins the control pins, resolutions, and full display-timing rows for the
  * center (RVT70H) and two side (RVT50H) BT817 panels driven by one
- * Teensy 4.1 (plan U1 of docs/plans/2026-07-10-002-feat-side-panels-plan.md).
+ * one MCU (plan U1 of docs/plans/2026-07-10-002-feat-side-panels-plan.md).
  *
  * Authority note: the CENTER row is checked against
  * libraries/FT800-FT813/src/EVE_config.h's EVE_RVT70H block, which is
@@ -34,7 +34,7 @@ static void expect(int cond, const char *msg)
     }
 }
 
-/* pin reserved -- {0..9, 22..27} (Teensy 4.1 SD/other-peripheral pins in
+/* pin reserved -- {0..9, 22..27} (SD/other-peripheral pins in
  * this project's wiring plan) or the SPI trio {11,12,13} (SCLK/MISO/MOSI,
  * shared by all three panels and never available as a CS/PD line). */
 static int pin_reserved(uint8_t pin)

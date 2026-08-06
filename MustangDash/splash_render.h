@@ -314,7 +314,7 @@ void run_splash(const ThemeDesc *theme)
     for (;;)
     {
         const uint32_t now = millis() - t0;
-        const uint32_t t = min(now, (uint32_t) SPLASH_DURATION_MS); /* cast: STM32 std::min needs matching types; Teensy macro unaffected */
+        const uint32_t t = min(now, (uint32_t) SPLASH_DURATION_MS); /* cast: STM32 std::min needs matching types */
 
         eve_frame_begin(0x000000UL);
         draw_splash_elements(theme, t, 255U);

@@ -6,7 +6,7 @@ Update this file whenever a task uncovers something non-obvious.
 ## What this project is
 
 First-light / bring-up firmware for a **Riverdi SM-RVT70HSBNWN00** (7" 1024×600
-IPS, **BT817 / EVE4**, no touch) on a **Teensy 4.1**, using the
+IPS, **BT817 / EVE4**, no touch) on an **STM32**, using the
 RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
 `libraries/FT800-FT813`.
 
@@ -14,21 +14,20 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   in `MustangDash/dash_render.h` (dash) and `MustangDash/splash_render.h`
   (splash), single-TU headers included only by the `.ino`; they are EVE-bound,
   **not** pure headers, and not host-tested
-- Build: `./scripts/compile.sh` → `teensy:avr:teensy41`, `--libraries ./libraries`
-  (also syncs `tools/teensy-avr-platform/` into the sketchbook first — the
-  tracked files are the source of truth; the sync self-skips on a real
-  Teensyduino install, so it is safe to run anywhere)
-- Build (VS Code): `platformio.ini` drives the PlatformIO Build/Upload/Monitor
-  buttons. Parallel path to `compile.sh`, not a replacement — see BUILD.md.
+- Build: `./scripts/compile.sh` → PlatformIO, default env `nucleo_f767`
+  (a thin wrapper around `pio run -e <env>`; pass an env name to pick another,
+  e.g. `./scripts/compile.sh h743`)
+- Build (VS Code): `platformio.ini` drives the Build/Upload/Monitor buttons —
+  the same path `compile.sh` takes, not a parallel one. See BUILD.md.
 - Tests: `./tests/run-tests.sh` — host-side invariant tests pinning the display
   profile, wiring pins, backlight wave, splash timeline, dash math/sim/serial/
   odometer logic, font-format invariants, the splash flash-pack layout, the
-  trip/mode button gestures, and the ctags-shim contract. Run them after
-  touching `EVE_config.h`, the Teensy4 target header, any `MustangDash/*.h`
+  trip/mode button gestures, and telltale calibration. Run them after
+  touching `EVE_config.h`, the STM32 target header, any `MustangDash/*.h`
   pure header, or the platform files.
   Needs host `gcc`; Git Bash has none, so **on Windows run
   `wsl -- bash -lc "./tests/run-tests.sh"`** (or the VS Code task
-  "Tests: invariant suite"). All 15/15 pass (2026-08-03).
+  "Tests: invariant suite"). All 14/14 pass (2026-08-05).
 - Boot splash: a 2000 ms animated splash (spec vendored in `assets/splash/`)
   plays at power-up, then crossfades directly into the dash. Splash assets are
   **ASTC bitmaps embedded in the firmware image** (`tools/make_splash_flash.py`,
@@ -48,7 +47,7 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   renderers; the serial protocol (115200; `ok`/`err` acks are the ONLY output
   after boot, with one documented exception: `flashwipe really` prints a
   pre-erase warning line) overrides any channel — the `/dash` skill wraps it. Odometer
-  persists in Teensy EEPROM (CRC8 record). Alarm takeover preempts both
+  persists in MCU-local storage (CRC8 record). Alarm takeover preempts both
   modes; the oil-pressure alarm is gated on rpm ≥ 500 (engine running).
 - TRACK simulation (2026-07-22): a **physically-modelled lap of High Plains
   Raceway**, not a driving cycle. Lap position integrates road speed over a
@@ -87,7 +86,7 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   selects a range-sweep fixture that exercises the full speedo dial, all six
   gears, and the tach's red zone — none of which a real HPR lap reaches.
   Plan: `docs/plans/2026-07-22-001-feat-hpr-lap-simulation-plan.md`.
-- USER button (`PC13` on the Nucleo, pin 24 on Teensy): **short press toggles
+- USER button (`PC13` on the Nucleo): **short press toggles
   TRACK/STREET, hold ≥1 s resets the trip.** Gesture logic is a pure header
   (`dash_button.h`), host-tested. The 30 ms debounce is load-bearing — a single
   EMI glitch on a car harness must not zero the trip. In the real car the mode
@@ -123,19 +122,24 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   INT not wired → poll.
 - Panel logic on 3.3 V, backlight on external 5 V, shared ground.
 - SPI: mode 0, MSB-first, **≤ 11 MHz during every panel's EVE_init()** (we init
-  at 8 MHz), then one bus-wide "raise" to `DASH_SPI_RUN_HZ` — **8 MHz, bench-
-  verified**. 24 MHz failed read AND write integrity on this wiring
-  (2026-07-10: white screen, flash init 0x01, all font inflates failed,
-  fps 25 with faults=0). Walk it up only via U9's read-integrity soak.
+  at 8 MHz), then one bus-wide "raise" to `DASH_SPI_RUN_HZ` — now
+  **13.5 MHz** (`MustangDash.ino`), proven 2026-07-23 on TWO panels at fps 59,
+  faults 0. 8 MHz was the Teensy-era value and this line asserted it for weeks
+  after the constant changed; **read the constant, not this sentence.** 24 MHz
+  failed read AND write integrity on the Teensy wiring (2026-07-10: white
+  screen, flash init 0x01, all font inflates failed, fps 25 with faults=0) —
+  that failure signature is still the reusable part. Note the two-panel
+  crosstalk that once blamed the clock was a **floating panel ground**; the
+  clock was never the limiter.
 
 ## Library gotchas (verified against the headers)
 
 - **Profile is `EVE_RVT70H`**, NOT `EVE_RiTFT70`. `EVE_RVT70H` = 1024×600 BT817
   (EVE_GEN 4); `EVE_RiTFT70` = 800×480 BT81x. Set in `src/EVE_config.h` right
   after the include guard (works in the Arduino IDE without `-D` flags).
-- Pins live in `src/EVE_target/EVE_target_Arduino_Teensy4.h` (guarded
+- Pins live in `src/EVE_target/EVE_target_Arduino_STM32_generic.h` (guarded
   `#if !defined`, so `-D EVE_CS=` / `-D EVE_PDN=` still override). Target is
-  auto-selected from the `ARDUINO_TEENSY41` compiler define.
+  auto-selected from the `ARDUINO_ARCH_STM32` compiler define.
 - Upstream ships only a PlatformIO `library.json`. We added `library.properties`
   so the Arduino IDE / arduino-cli use the `src/` layout. Keep it.
 - API names actually used (confirmed in `EVE_commands.h` / `EVE.h`):
@@ -143,55 +147,24 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   `EVE_memWrite8(REG_PWM_DUTY, ...)`, `EVE_cmd_dl`, `EVE_color_rgb`,
   `EVE_cmd_text(x, y, font, EVE_OPT_CENTER, "...")`, `EVE_execute_cmd()`.
   Font 31 is the largest built-in ROM font. Read headers before adding calls.
-- `EVE_DMA` is enabled for Teensy 4, but plain (non-`_burst`) display-list calls
+- `EVE_DMA` is defined on the STM32 target, but plain (non-`_burst`) display-list calls
   transfer directly over SPI — fine for first light.
-
-## Build environment (this cloud sandbox only)
-
-The web sandbox **blocks `pjrc.com` and `downloads.arduino.cc`** (egress 403), so
-the normal Teensyduino install is impossible here. A minimal offline
-`teensy:avr:teensy41` platform was assembled — see `BUILD.md` and
-`tools/teensy-avr-platform/`. Key points if you need to rebuild it:
-
-- `arduino-cli`: `go build` from the github clone (a plain `go install` fails on
-  its `replace` directives).
-- ARM toolchain: system `gcc-arm-none-eabi` (`apt`) — it *does* have the
-  `thumb/v7e-m+dp/hard` multilib (Cortex-M7 hard-float), so it links Teensy 4.1.
-- Core + SPI: `git clone` PaulStoffregen/cores (`teensy4/`) and PaulStoffregen/SPI.
-- `.ino` prototype generation uses a **no-op `ctags` shim** (the arduino-ctags
-  fork isn't downloadable offline). Consequence: **declare function prototypes
-  in `.ino` files before use** — stock exuberant/universal ctags don't emit the
-  return type, so real auto-prototyping is unavailable here.
-- The `Error initializing instance:` index/discovery lines from arduino-cli are
-  harmless offline noise.
-
-On a normal workstation, just install Teensyduino and ignore all of the above.
 
 ## Build environment (Kevin's Windows workstation)
 
-Nothing above applies here: network is open, and real Teensyduino is installed.
-
-- Teensyduino via Arduino IDE Board Manager: `teensy:avr` **1.62.0**,
-  `teensy-compile` 15.2.1. Sketchbook (`Documents/Arduino`) is empty, which is
-  fine — `compile.sh` passes `--libraries ./libraries` explicitly.
-- `arduino-cli` **1.5.1** on PATH (`winget install ArduinoSA.CLI`), at
-  `C:\Program Files\Arduino CLI\`. It defaults to the same `%LOCALAPPDATA%\Arduino15`
-  data dir the IDE uses, so it inherits the Teensy platform for free.
-- Arduino IDE also bundles its own `arduino-cli` at
-  `…/Programs/Arduino IDE/resources/app/lib/backend/resources/arduino-cli.exe`.
-  Works, but lives inside the IDE install tree — prefer the PATH one.
-- PlatformIO core lives at `~/.platformio/penv`. It was bootstrapped from the
-  **portable Python the VS Code extension ships predownloaded**
+- **PlatformIO is the build.** Core at `~/.platformio/penv`, bootstrapped from
+  the portable Python the VS Code extension ships predownloaded
   (`assets/predownloaded/python-portable-windows_amd64-*.tar.gz`) — there is no
   system Python on this box, only the Microsoft Store alias stub, so do not
-  reach for `python -m pip`.
-- PlatformIO's `teensy41` board defines `ARDUINO_TEENSY41` (verified via
-  `pio run -t envdump`), so the EVE target header auto-selects correctly. It
-  resolves `framework-arduinoteensy 1.162.0` + `toolchain-…-teensy 15.2.1`,
-  matching Teensyduino 1.62.0 — hence byte-identical output to `compile.sh`.
+  reach for `python -m pip`. `scripts/compile.sh` finds it there or on PATH;
+  override with `PIO=`.
+- `pio run -e nucleo_f767` is the default target; `h743` is the carrier.
+  PlatformIO resolves the STM32 Arduino core and toolchain itself.
 - PIO's `.ino` → `.cpp` conversion does its own prototype generation, so the
-  sketch's explicit prototypes are redundant here but harmless. Keep them: the
-  offline arduino-cli path still depends on them.
+  sketch's explicit prototypes are belt-and-braces. Keep them anyway — they
+  cost nothing and keep the file readable top-to-bottom.
+- Windows has **no host C compiler at all** (no gcc/clang/cl/MSYS2/MinGW), so
+  the host tests run under WSL. See below.
 - **CRLF vs WSL.** `core.autocrlf=true` is set globally, so `.sh` files check out
   with CRLF. Git Bash silently tolerates the `\r`; WSL's bash does not
   (``/usr/bin/env: 'bash\r'``). `.gitattributes` pins `*.sh` to `eol=lf`.
@@ -442,8 +415,12 @@ PD0–PD7 are freed. Lamp bit l drives TT(l+1); DIM regs 0x2C–0x2F on both ICs
   `.kicad_pro`, `.kicad_dru`, **`fp-lib-table` + the `.pretty` dirs** —
   without the last two, kicad-cli reports mass `lib_footprint_issues`
   "library not found" phantoms (120 on Board3) that also mask the real
-  mismatches. `tools/kicad_verify.py` stages only pro+dru (fine for its
-  error gate; not for `--severity-all` audits).
+  mismatches. `tools/kicad_verify.py` used to stage only pro+dru, which is why
+  it had to run `--severity-error`; since 2026-08-05 it stages the library
+  tables and the `.pretty` dirs too and judges at `--severity-all`. Fix the
+  staging before dropping a severity filter, never the other way round — a
+  filter covering for a staging gap looks like a reasonable local choice right
+  up until it is the reason a whole warning class is unreadable.
 
 **Autorouting Board3 (2026-07-29, all paid for):** `tools/kicad_freeroute.py`
 wraps freerouting headless (portable JRE + jars in `C:\Users\kevin\Tools`).
@@ -714,6 +691,35 @@ ratcheted. Two related traps: an FPID written without its library nickname
 stops KiCad resolving the library at all, so `lib_footprint_mismatch` silently
 tests nothing; and `pcbnew.FootprintLoad()` returns exactly such a bare FPID, so
 set it explicitly after any scripted footprint swap.
+
+**KiCad runs NO silkscreen test unless a `silk_clearance` rule exists in the
+`.kicad_dru`.** Board3's `.kicad_pro` carries `min_silk_clearance: 0.15` and
+`silk_over_copper`/`silk_overlap`/`silk_edge_clearance` all armed at `warning`.
+All of it is inert. DRC reported **0** at `--severity-all` while JLCPCB's DFM
+returned **81 red errors** (50 silkscreen-to-pad, 31 silkscreen-to-hole) on the
+same board. Add one rule and the same board reports **199 `silk_over_copper` +
+199 `silk_overlap`** — measured 2026-08-05, three settings that look configured
+and check nothing. Probe any check you believe is running by asserting something
+the board must fail; a value in the project file is not evidence the test exists.
+
+Three related facts from the same session, each measured:
+- **The findings are all near misses**, 0.031–0.1495 mm against 0.15, median
+  shortfall 36 µm, **no actual overlaps** — across 19 footprint types and 18
+  board-level graphics.
+- **The fab already clips it.** `kicad_fab.py` passes `--subtract-soldermask`
+  (silk gerber 303,034 chars with it, 74,252 without), so nothing prints on a
+  pad and the board is buildable. The defect is that the design claims markings
+  it will not get, and the clipped remainder still sits at 0 mm from the mask
+  edge.
+- **`GetEffectivePolygon()` needs a layer argument in KiCad 10**, and the
+  polygon it returns is INSCRIBED in a round pad — so distances measured against
+  it run a few microns optimistic, enough to leave ~3.8 µm residual violations
+  after trimming to exactly 0.15. Budget a margin. Do not wrap the call in a
+  bare `except`: swallowing that `TypeError` made a trimmer report "0 lines need
+  trimming" on a board with 199 violations.
+
+Plan: `docs/plans/2026-08-05-001-fix-board3-silkscreen-clearance-plan.md`.
+Tool: `tools/kicad_silk_trim.py` (lines only; circles/arcs/polygons pending).
 
 **`footprint_symbol_field_mismatch` is deliberately set to `ignore`.** KiCad wants
 every symbol field mirrored onto the footprint. Mirroring them was tried
