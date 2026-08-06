@@ -7,16 +7,23 @@ results out as a single flash-image "pack", and emits:
 
   MustangDash/splash_flash.h   address table + the embedded provisioning pack
 
-The firmware provisions the pack into the panel's QSPI flash once (compare
-header, CMD_FLASHUPDATE on mismatch) and then renders every splash asset
-directly from flash -- RAM_G is no longer used by the splash.
+The firmware stages the pack from its own flash into RAM_G at boot, with a
+16-byte readback spot-check per asset. The panel's QSPI flash is NOT used:
+rendering directly from it hits a per-frame bandwidth ceiling above ~40 KB per
+asset, so the provision-then-render path was deleted 2026-07-21. The addresses
+below are the pack's historical flash address space (base 4096), kept because
+the layout is what the staging code walks.
 
 Pipeline (BRT_AN_033 BT81X Series Programming Guide, v2.8):
   * Backgrounds (3): full-res 1024x600. The gradient is reconstructed in
     float to kill 8-bit banding before compression: two passes of the
     edge-clamped box blur (radius 12) on float32 RGB, no ordered dither
-    (Bayer noise fights block compression). Encoded ASTC 8x8.
-  * All other assets: RGBA passed to the encoder as-is. Encoded ASTC 4x4.
+    (Bayer noise fights block compression).
+  * Block size is PER ASSET, from the ASSETS table below -- not a fixed
+    "backgrounds 8x8" rule. The 2026-07-21 quality trial put both
+    photographic backgrounds at 4x4 and checkered at 6x6, which is four
+    times the bytes and the reason RAM_G now runs at ~98% on the shipping
+    theme. Read the table, never this paragraph, for what an asset uses.
   * Encoder: astcenc -cl <in> <out> {4x4|8x8} -thorough -j 1 -silent
     (fixed flags, single-threaded: output is deterministic for the pinned
     binary; re-running must produce a byte-identical header).
