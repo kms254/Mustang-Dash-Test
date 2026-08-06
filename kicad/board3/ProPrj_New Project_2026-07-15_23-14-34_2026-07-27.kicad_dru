@@ -50,3 +50,41 @@
 (rule usbc_slot_edge
   (condition "A.intersectsArea('usbc_slots')")
   (constraint edge_clearance (min 0.2mm)))
+
+# KiCad runs NO silkscreen test unless a silk_clearance rule exists in THIS
+# file. Board3's .kicad_pro carries min_silk_clearance 0.15 and has
+# silk_over_copper / silk_overlap / silk_edge_clearance all armed at warning,
+# and every one of those is inert on its own -- DRC reported 0 at
+# --severity-all while JLCPCB's DFM returned 81 red silkscreen errors on the
+# same board. Three settings that look configured and check nothing.
+#
+# Scoped to pads on purpose. Unconditioned, the constraint also measures silk
+# against F.Courtyard rectangles and Component Marking Layer fields; neither is
+# plotted (kicad_fab.py exports 11 layers and Courtyard is not one), so those
+# findings demand work that cannot change the board JLCPCB builds. Measured
+# 2026-08-05: unconditioned 18 + 199, scoped to pads 9 + 0.
+#
+# Verified to FIRE, not merely to pass: at 0.60mm this same rule reports 199 of
+# each. A rule that reports 0 because it is malformed and one that reports 0
+# because the board is clean are indistinguishable from the passing side.
+(rule jlc_silk_to_pad
+  (condition "B.Type == 'Pad'")
+  (constraint silk_clearance (min 0.15mm)))
+
+# Two documented cases that cannot reach 0.15 mm, held to their measured worst
+# rather than muted. Both are clipped by --subtract-soldermask in the plotted
+# gerber, so nothing prints on a pad either way; what is being accepted is a
+# marking slightly shorter than drawn.
+#
+#   D10/D11  the 1N5819WS cathode bands, 0.1000 mm from their OWN cathode pad.
+#            A polarity marker is the one silk feature whose meaning dies if it
+#            is trimmed, so it is kept whole.
+#   R9       an R0603 whose body outline sits 0.1051 mm from U1.52. R9 is 1 of
+#            31 R0603 placements sharing one library definition, and this board
+#            deliberately packs it against the LQFP-144 (see the R9/R45 QSPI
+#            courtyard allowance above). Trimming this instance alone would
+#            make the type divergent and unmirrorable for a marking that is
+#            unreadable in that gap anyway.
+(rule silk_to_pad_documented_exceptions
+  (condition "B.Type == 'Pad' && (A.Reference == 'D10' || A.Reference == 'D11' || A.Reference == 'R9')")
+  (constraint silk_clearance (min 0.09mm)))

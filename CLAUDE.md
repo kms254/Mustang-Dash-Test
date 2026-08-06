@@ -697,29 +697,104 @@ set it explicitly after any scripted footprint swap.
 `silk_over_copper`/`silk_overlap`/`silk_edge_clearance` all armed at `warning`.
 All of it is inert. DRC reported **0** at `--severity-all` while JLCPCB's DFM
 returned **81 red errors** (50 silkscreen-to-pad, 31 silkscreen-to-hole) on the
-same board. Add one rule and the same board reports **199 `silk_over_copper` +
-199 `silk_overlap`** — measured 2026-08-05, three settings that look configured
-and check nothing. Probe any check you believe is running by asserting something
-the board must fail; a value in the project file is not evidence the test exists.
+same board — three settings that look configured and check nothing. Probe any
+check you believe is running by asserting something the board must fail; a value
+in the project file is not evidence the test exists.
 
-Three related facts from the same session, each measured:
-- **The findings are all near misses**, 0.031–0.1495 mm against 0.15, median
-  shortfall 36 µm, **no actual overlaps** — across 19 footprint types and 18
-  board-level graphics.
+**`kicad-cli pcb drc` applies a per-error-code report limit of 199, and that
+limit is what an earlier revision of this file recorded as a measurement.**
+Adding the rule made the board report "199 `silk_over_copper` + 199
+`silk_overlap`", which was written down as the size of the problem. It is not a
+count. Sweeping the clearance (2026-08-05) settles it: at 0.10 mm
+`silk_over_copper` reads 62, and from 0.15 mm upward **both types read exactly
+199 and stay there at 1.00 mm** — a clearance where nearly every one of the
+board's 586 silk shapes is violating. Every "199 → N" claim was comparing a
+saturated instrument against an unsaturated one. The honest figures come from
+measuring the geometry directly: **233 shape×pad pairs over 169 shapes**, now
+**6**.
+
+**The limit is NOT uniform across types, so never assume a count is unsaturated.**
+In one probe run (`clearance (min 3mm)`) this board reported `clearance` **514**
+while `silk_over_copper`, `silk_overlap` and `drill_out_of_range` all sat at
+exactly **199** in that same report — three different types pinned to the limit
+beside one that sailed past it. Any DRC figure at or near 199 is a lower bound
+until shown otherwise; the cheap check is to make the rule stricter and see
+whether the number moves. A gate at *zero* is unaffected, because zero cannot
+saturate — which is the reason the absolute gates are worth keeping absolute.
+
+Facts that survived re-measurement, and the ones that did not:
 - **The fab already clips it.** `kicad_fab.py` passes `--subtract-soldermask`
   (silk gerber 303,034 chars with it, 74,252 without), so nothing prints on a
   pad and the board is buildable. The defect is that the design claims markings
-  it will not get, and the clipped remainder still sits at 0 mm from the mask
-  edge.
+  it will not get.
+- **"No actual overlaps, 0.031–0.1495 mm" was computed over the capped sample.**
+  Re-measured uncapped, the silk-to-*pad* range holds and there are no true
+  overlaps — but the 0.0000 mm entries in the report are silk-to-*courtyard*,
+  which is a different thing entirely (below).
 - **`GetEffectivePolygon()` needs a layer argument in KiCad 10**, and the
-  polygon it returns is INSCRIBED in a round pad — so distances measured against
-  it run a few microns optimistic, enough to leave ~3.8 µm residual violations
-  after trimming to exactly 0.15. Budget a margin. Do not wrap the call in a
-  bare `except`: swallowing that `TypeError` made a trimmer report "0 lines need
-  trimming" on a board with 199 violations.
+  polygon it returns is INSCRIBED in a round pad, so distances run a few microns
+  optimistic. Do not wrap the call in a bare `except`: swallowing that
+  `TypeError` made the trimmer report "0 lines need trimming" on a board full of
+  them.
+
+**Scope the rule to pads or it measures things that are never fabricated.**
+Unconditioned, `silk_clearance` also tests silk against `F.Courtyard` rectangles
+and Component Marking Layer fields. `kicad_fab.py` plots 11 layers and Courtyard
+is not one, so those findings demand work that cannot change the board JLCPCB
+builds. Measured: unconditioned 18 + 199, `(condition "B.Type == 'Pad'")` 9 + 0.
+Both rules in `board3.kicad_dru` are verified to FIRE — the same rule at 0.60 mm
+reports 199 of each — because a rule that passes because it is malformed and one
+that passes because the board is clean look identical from the passing side.
+
+**Narrow before you trim, and only touch what actually violates.** Clearance is
+edge-to-edge against a stored centreline, so *reducing a line's width buys
+clearance with no geometry change* — it fixed 50 shapes here, including all 24
+board-level outlines around C63/C64/C65, which the previous approach deleted
+outright. Feasible when the centreline sits ≥ 0.225 mm out (0.15 clearance +
+half of JLC's 0.15 mm minimum printable width); below that the geometry has to
+move. And a trimmer must test violation at the *requirement*, not at
+requirement + margin: cutting everything inside 0.17 mm deleted **137 compliant
+shapes**, all 62 R0603 outlines among them (min gap 0.1522 mm — above the limit,
+under limit+margin). The margin exists to stop the inscribed-polygon error
+deciding a borderline cut, not to widen the requirement.
+
+**U0's "blocker" was three bugs in the divergence detector, not a property of
+the board.** `kicad_silk_mirror.silk_signature()` reported that per-instance
+trimming made one type's placements diverge — "C0805, 11 instances, 4 distinct
+geometries" — and the campaign was reverted on it. All three causes were in the
+fingerprint: it subtracted the footprint's position but **never un-rotated**, so
+the four rotations of one library part read as four geometries; it compared
+**exact integers**, so the trimmer's 1 nm absolute-coordinate rounding read as
+divergence; and for **polygons** it fingerprinted `GetStart()`/`GetEnd()`, which
+are not a polygon's outline and came back as raw board coordinates, producing
+"local" deltas of 125–312 mm on parts a few mm across — which is why every type
+carrying a polarity band or pin-1 marker reported divergent. Fixed, all 30 types
+mirror cleanly and the board keeps DRC 0/0. **The un-rotation sign is validated
+against ground truth, not chosen**: un-rotating by *+angle* reproduces the
+`.kicad_mod`'s own coordinates 31/31 on R0603 and 11/11 on C0805 at all four
+rotations, where *−angle* matches only the 0°/180° instances. Re-run that
+comparison before touching the convention.
+
+**`FootprintSave` writes whatever the clone carries, including the designator.**
+Mirroring a placed instance into a library wrote `Reference "R12"` into
+`R0603.kicad_mod`, so every future placement would arrive pre-named R12. Reset
+to `REF**` before saving. Same family as U57's "a footprint swap changed a
+field's visibility": the operation edits more of the part than it advertises.
+Also mirror only the types that actually changed — writing all 30 rewrote the
+uuid of every property in 20-odd files that no edit touched.
+
+State (2026-08-05): silk-to-pad **233 pairs → 6**, all six documented
+exceptions in the `.kicad_dru` held to their measured worst rather than muted —
+D10/D11's cathode bands at 0.1000 mm from their own pad (a polarity marker is
+the one silk feature whose meaning dies when trimmed) and R9 at 0.1051 mm from
+U1.52 (1 of 31 R0603 placements; trimming this instance alone would make the
+type unmirrorable for a marking unreadable in that gap). Board verifies 0/0 with
+the rule armed, and nothing electrical moved: 150 footprints, 229 nets, 2780
+tracks, 238 vias, 660 pads, identical before and after.
 
 Plan: `docs/plans/2026-08-05-001-fix-board3-silkscreen-clearance-plan.md`.
-Tool: `tools/kicad_silk_trim.py` (lines only; circles/arcs/polygons pending).
+Tools: `tools/kicad_silk_trim.py` (narrows, then trims lines/circles/arcs;
+polygons deliberately untouched), `tools/kicad_silk_mirror.py` (board → library).
 
 **`footprint_symbol_field_mismatch` is deliberately set to `ignore`.** KiCad wants
 every symbol field mirrored onto the footprint. Mirroring them was tried
