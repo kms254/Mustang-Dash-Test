@@ -86,10 +86,15 @@ holes is not a cosmetic error. Do not "helpfully" merge them when uploading.
 
 ## Board state
 
-As of 2026-08-04, after U59:
+As of 2026-08-05, after the silkscreen campaign:
 
 - DRC **0 errors, 0 warnings, 0 unconnected, 0 schematic parity** (run in place,
-  `--severity-all --schematic-parity`)
+  `--severity-all --schematic-parity`) — and now **with a silkscreen rule that
+  actually runs**. `min_silk_clearance` in the `.kicad_pro` plus three armed
+  `silk_*` severities were enforcing nothing; the check exists only once a
+  `silk_clearance` rule is in the `.kicad_dru`. Silk-to-pad went **233
+  violations → 6**, all six scoped exceptions carrying their measured worst
+  (D10/D11's cathode bands, R9 against U1.52)
 - BOM 41 lines / CPL 142 rows, symmetric — the tool is the authority on these
   numbers, not this file; it read 42 here from 2026-08-03 while the committed
   BOM was already 41
@@ -100,7 +105,15 @@ As of 2026-08-04, after U59:
   no untented via closer than **0.565 mm** to a pad aperture. DRC alone does not
   cover the first or third of those — see the Via covering row.
 
-**Re-upload the gerbers if you are ordering after 2026-08-04.** U50 moved the
+**Re-upload the gerbers if you are ordering after 2026-08-05.** The silkscreen
+campaign rewrote `F_Silkscreen.gbr` across 160 shapes — 50 narrowed, 88 trimmed,
+22 removed — so any zip built before 2026-08-05 prints markings this board no
+longer draws. **Copper, drills, mask, paste and the BOM/CPL are untouched by
+it** (150 footprints, 229 nets, 2780 tracks, 238 vias, 660 pads, identical), so
+this one is a silkscreen-only re-upload. Everything below still applies to any
+zip older than 2026-08-04.
+
+U50 moved the
 four panel-SPI series resistors (R33/R34/R36/R37) to their MCU pins and re-cut
 their nets, so any zip built before that describes different copper. The CPL
 changed too — those four parts moved and their rotations went 90° → 180°/0°.
