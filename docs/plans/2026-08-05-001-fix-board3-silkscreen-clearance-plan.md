@@ -323,6 +323,43 @@ family and want their own measurement.
 5. ✅ No regression: 150 footprints, 229 nets, 2780 tracks, 238 vias, 7 zones,
    660 pads — identical before and after, as silk edits must be.
 
+### Silkscreen to hole: 30 red, and the recommendation is to leave them
+
+JLC's DFM on the 2026-08-05 package: **81 red → 35** (silkscreen-to-pad 50 → 5,
+silkscreen-to-hole 31 → 30). Silkscreen is still the board's only red; every
+other category is 0.
+
+Silk-to-hole barely moved **by construction**. The rule added in U5 is scoped
+`B.Type == 'Pad'`, and a via is not a pad, so 238 vias were never measured.
+Measured now: **32 collisions, every one against a via**, several negative
+(silk running up to 0.198 mm into the hole).
+
+**They are all over TENTED vias, so there is no open barrel for ink to reach.**
+Three independent measurements agree:
+
+- `F_Mask.gbr` carries **642 regions against 639 pads on F.Mask** — the
+  difference is exactly U53's 3 explicitly untented test-point vias, and **none
+  of the 3 is involved in a silk collision**.
+- The 24 colliding vias are 22 `FROM_RULES` + 2 explicitly `TENTED`; none is
+  `NOT_TENTED`.
+- Every via on the board drills **0.250 mm** (237) or 0.200 mm (1), and all 24
+  colliding ones are 0.250 mm. JLCPCB's own via-covering page puts reliable full
+  coverage at "**0.4 mm or less and no larger than 0.5 mm**", warning that above
+  that "larger vias are not guaranteed to be fully covered; no complaints are
+  accepted regarding this type of defect". Board3 has **zero** colliding vias
+  above 0.4 mm — the entire population sits at 62% of the ideal threshold.
+
+JLC flags them because its DFM compares the silk layer against the drill file
+and cannot see tenting.
+
+**Recommendation: do not chase them, and record why.** Fixing means trimming
+each placement against board-level vias, which is inherently per-instance —
+reintroducing exactly the library divergence U0's fix resolved, so the mirror
+would refuse those types and `lib_footprint_mismatch` would fire permanently.
+That is a real, permanent cost against a defect that does not physically exist.
+Revisit only if the via drill ever grows past 0.4 mm, which is the condition
+that would make it real.
+
 ### Silkscreen line width: the premise was wrong, and the cause is unconfirmed
 
 This plan recorded JLC's 25 *silkscreen line width* warnings as "25 items

@@ -783,6 +783,34 @@ field's visibility": the operation edits more of the part than it advertises.
 Also mirror only the types that actually changed — writing all 30 rewrote the
 uuid of every property in 20-odd files that no edit touched.
 
+**A SLOTTED DRILL IS A CAPSULE, NOT A CIRCLE, and modelling it as one invents
+defects.** A silk-to-hole sweep took every drill as a circle of radius
+`max(w,h)/2`. DC1's pad 3 is a **2.800 × 0.800 mm slot**, so a 0.4 mm
+half-height became 1.4 mm and the tool reported a violation on silk sitting
+1.1 mm clear of the real hole edge. Board3 has **7 slotted drills**; model them
+as a segment swept by a circle — half-length `(max-min)/2` along the long axis,
+radius `min/2`, rotated by the pad's orientation. With that fixed the count went
+33 → 32 and, more to the point, **every remaining one is a via**: the single
+non-via "defect" was the approximation. Same family as the window-query rule
+above — ask whether the SHAPE intersects, never a circle drawn around it.
+
+**JLC's silkscreen-to-hole reds on Board3 are all over TENTED vias and are not
+worth chasing** (measured 2026-08-06, DFM 81 red → 35: silk-to-pad 50 → 5,
+silk-to-hole 31 → 30). The U5 rule is scoped `B.Type == 'Pad'` and a via is not
+a pad, so all 238 went unmeasured; 32 collisions exist and every one is a via.
+Three measurements say the barrel is covered: `F_Mask.gbr` has **642 regions
+against 639 pads on F.Mask** — the difference is exactly U53's 3 untented
+test-point vias, none of which collide; the 24 colliding vias are `FROM_RULES`
+or `TENTED`, never `NOT_TENTED`; and every via on the board drills 0.250 mm
+(237) or 0.200 mm (1), against JLCPCB's published reliable-coverage limit of
+"**0.4 mm or less and no larger than 0.5 mm**" (above which "larger vias are not
+guaranteed to be fully covered; no complaints are accepted"). JLC flags them
+because its DFM compares silk against the drill file and cannot see tenting.
+Fixing them would mean per-instance trimming against board-level vias —
+reintroducing the library divergence U0's fix removed, permanently, for a defect
+that does not physically exist. **Revisit only if a via drill ever exceeds
+0.4 mm.**
+
 **A `.kicad_pro` default describes NEW items, not existing ones — and this file
 has now read a setting as a population in both directions.** JLC's 25
 "silkscreen line width" warnings were recorded as "25 items inherit the board
