@@ -359,7 +359,7 @@ def emit_header(assets, pack, crc):
         "};",
         "",
         "/* The entire flash image (header + assets + padding), embedded for",
-        " * one-time provisioning via CMD_FLASHUPDATE. Teensy 4.1 PROGMEM is",
+        " * one-time provisioning via CMD_FLASHUPDATE. PROGMEM is",
         " * memory-mapped flash, so this costs no RAM. */",
         f"static const uint8_t splash_flash_pack[{len(pack)}UL] PROGMEM = {{",
     ]

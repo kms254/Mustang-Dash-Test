@@ -18,7 +18,7 @@
  *   offset 14: seq         u32 LE  monotonic write counter
  *   offset 18: crc8                CRC-8/MAXIM over bytes 0..17
  *
- * Torn-write protection: the record is kept in TWO slots of the Teensy 4.1's
+ * Torn-write protection: the record is kept in TWO slots of the MCU's
  * 4284-byte emulated EEPROM (DASH_ODO_SLOT_ADDR(0)=0, DASH_ODO_SLOT_ADDR(1)=32;
  * the 32-byte spacing keeps the slots in different emulation strides and
  * leaves room to grow). Each write bumps `seq` and lands in slot (seq % 2),

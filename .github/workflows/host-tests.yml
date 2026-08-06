@@ -8,7 +8,7 @@
 # exactly the kind of friction that turns a green suite into an unrun one.
 #
 # Needs only a host gcc, which ubuntu-latest already has. This does NOT build the
-# firmware: that needs the Teensy toolchain and is a separate concern.
+# firmware: that needs the embedded toolchain and is a separate concern.
 name: Host tests
 
 on:

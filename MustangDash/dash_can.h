@@ -8,7 +8,7 @@
  * command. CAN -> DashState decode is explicitly a follow-on plan.
  *
  * STM32-only (raw STM32duino HAL, enabled by -D HAL_FDCAN_MODULE_ENABLED
- * in the h743 env); the Teensy build compiles the stubs at the bottom.
+ * in the h743 env); builds without FDCAN compile the stubs at the bottom.
  *
  * NOT host-tested: everything here touches HAL registers. Bench-only
  * verification per the plan (U8): `cantest` acks ok across jumpered buses
@@ -174,7 +174,7 @@ static bool dash_can_test(void)
     return false; /* timeout: transceiver, jumper, or termination problem */
 }
 
-#else /* Teensy / non-FDCAN build: CAN hardware lives on the STM32 carrier */
+#else /* non-FDCAN build: CAN hardware lives on the STM32 carrier */
 
 static void dash_can_init(void)
 {

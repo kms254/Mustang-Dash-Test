@@ -196,7 +196,7 @@ static const SplashFlashAsset SPLASH_FLASH_ASSETS[SPLASH_FA_COUNT] = {
 };
 
 /* The entire flash image (header + assets + padding), embedded for
- * one-time provisioning via CMD_FLASHUPDATE. Teensy 4.1 PROGMEM is
+ * one-time provisioning via CMD_FLASHUPDATE. PROGMEM is
  * memory-mapped flash, so this costs no RAM. */
 static const uint8_t splash_flash_pack[1703936UL] PROGMEM = {
     0x4D, 0x44, 0x53, 0x48, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1A, 0x00, 0x0E, 0x00, 0x00, 0x00,

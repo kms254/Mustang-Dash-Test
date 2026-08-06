@@ -1,9 +1,9 @@
 /*
- * MustangDash - Riverdi triple-panel EVE4 dash on a Teensy 4.1
+ * MustangDash - Riverdi triple-panel EVE4 dash on STM32
  *
  * Displays: center SM-RVT70HSBNWN00 (7.0" 1024x600) + left/right
  *           SM-RVT50HQBNWN00 (5.0" 800x480), all BT817 / EVE4, no touch
- * MCU     : Teensy 4.1 (IMXRT1062)
+ * MCU     : STM32 (NUCLEO-F767ZI mule; H755 carrier)
  * Bus     : hardware SPI0 shared by all three (SCLK=13, MISO=12, MOSI=11)
  * Control : per-panel CS/PD from dash_panels.h -- center 14/17, left 15/20,
  *           right 16/21 (INT not connected -> polling only)
@@ -46,16 +46,13 @@
  * plumbing, cluster brightness, fonts, serial pump, odometer EEPROM, and
  * the shared state every header reads.
  *
- * Note: this project also builds offline with a minimal arduino-cli Teensy
- * platform that does not run the arduino .ino prototype generator, so every
- * function below is declared before it is used.
+ * Note: every function below is declared before it is used. PlatformIO does
+ * its own .ino prototype generation, so this is belt-and-braces now, but it
+ * costs nothing and keeps the file readable top-to-bottom.
  */
 
 #include <Arduino.h>
 #include <SPI.h>
-#if defined(ARDUINO_TEENSY41)
-#include <avr/eeprom.h> /* Teensy 4.1 wear-leveled EEPROM emulation (4284 B) */
-#endif
 #include "EVE.h"
 #include "splash_config.h"
 #include "splash_timeline.h"
@@ -71,18 +68,8 @@
 #include "dash_panels.h" /* per-panel pins + timings (host-tested); mapped to EVE_panel_t in setup() */
 #include "dash_telltales.h" /* 8-lamp warning mask (host-tested); pins + lamp test live below */
 #include "dash_calibration.h" /* per-position telltale dim codes (host-tested, plan 2026-07-28-001 U21) */
-#include "dash_can.h" /* FDCAN bring-up to loopback (U7); Teensy compiles stubs */
-#if !defined(ARDUINO_TEENSY41)
+#include "dash_can.h" /* FDCAN bring-up to loopback (U7); stubs where absent */
 #include <Wire.h> /* FM24CL64B I2C FRAM odometer backend (migration plan U6) */
-#endif
-
-/* Teensy 4 USB device state: non-zero once the USB host has configured us
- * (cores/teensy4/usb.c). Zero when running from a wall adapter / car power. */
-extern "C" {
-#if defined(ARDUINO_TEENSY41)
-extern volatile uint8_t usb_configuration;
-#endif
-}
 
 /* Volatile so the compiler cannot fold the table access down to the one
  * compiled theme -- all three theme rows must stay live (plan requirement
@@ -150,9 +137,9 @@ static SPIClass g_spi_left(PB15, PB14, PB13); /* SPI2 */
 static SPIClass g_spi_right(PE6, PE5, PE2);   /* SPI4 */
 static SPIClass *const DASH_SPI_BUSES[DASH_PANEL_COUNT] = { &g_spi_center, &g_spi_left, &g_spi_right };
 
-/* Review fix: dash_panels.h's CS/PD values are Teensy digital numbers; on the
+/* Review fix: dash_panels.h's CS/PD values are canonical digital numbers; on the
  * STM32 variant those same numbers land on USB DP, the telltale port, and the
- * uSD pins. The descriptor table stays host-pure (canonical Teensy data); the
+ * uSD pins. The descriptor table stays host-pure (canonical data); the
  * STM32 build remaps the roles here, clear of USB (PA11/12), lamps (PD0-7),
  * FDCAN (PB5/6/8/9), I2C2 (PB10/11), K1 (PC13), and the SPI pins above.
  * The carrier schematic now owns the assignment (docs/hardware/
@@ -170,13 +157,10 @@ static uint8_t g_active_panel = DASH_PANEL_CENTER; /* which panel the EVE librar
 static uint8_t g_dash_brightness = 0U;             /* ONE cluster brightness (R12); set to BL_STEADY at boot_complete */
 
 /* ---- telltales + switches (migration plan U6) ---- */
-/* Teensy pins follow the pin-budget note in dash_panels.h (telltales 2-9,
+/* Pins follow the pin-budget note in dash_panels.h (telltales 2-9,
  * buttons from 24); STM32 pins are WeAct-mule-valid placeholders until the
  * carrier schematic (plan U2) fixes them. */
-#if defined(ARDUINO_TEENSY41)
-static const uint8_t DASH_LAMP_PINS[DASH_LAMP_COUNT] = { 2, 3, 4, 5, 6, 7, 8, 9 };
-static const uint8_t DASH_SWITCH_TRIP_PIN = 24U;
-#elif defined(DASH_BOARD_NUCLEO_F767)
+#if defined(DASH_BOARD_NUCLEO_F767)
 /* TEMPORARY bench visibility (2026-07-21): lamps 0-2 drive the Nucleo's
  * onboard LEDs -- LD1 green PB0, LD2 blue PB7, LD3 red PB14 -- so the board
  * visibly participates (boot lamp-test lights all three, then live alarm
@@ -406,7 +390,7 @@ static const uint8_t BL_STEADY = 128U;
  * dragged fps to 25 with faults=0 -- writes mostly survived, reads did not.
  * fps alone never accepts an operating point.
  *
- * 8 MHz was the Teensy-era operating point. The value below is 13.5 MHz and
+ * 8 MHz was the earlier operating point. The value below is 13.5 MHz and
  * the justification is on its own line; this block is kept for the 24 MHz
  * failure signature, which is the reusable part. Do not read the paragraph
  * above as describing the current constant -- it did for a while, and a doc
@@ -460,32 +444,18 @@ void setup(void)
      * stays 0 and the loop exits at its 500 ms timeout -- the car boot
      * cost is that bounded window, not the 2 s monitor wait. */
     uint32_t t_start = millis();
-#if defined(ARDUINO_TEENSY41)
-    while ((0U == usb_configuration) && ((millis() - t_start) < 500U))
-    {
-        /* wait for USB enumeration, briefly */
-    }
-    if (0U != usb_configuration)
-    {
-        while (!Serial && ((millis() - t_start) < 2000U))
-        {
-            /* host present: wait up to 2 s total for the monitor to open */
-        }
-    }
-#else
     /* STM32 CDC exposes no cheap "enumerated but monitor closed" signal, so
      * a single bounded wait covers both cases: host present and opening the
      * monitor -> banner captured; car supply -> exits at 500 ms. Bench UX is
-     * slightly worse than the Teensy path (a slow-opening monitor can miss
+     * slightly worse than a native-USB path (a slow-opening monitor can miss
      * the banner); revisit in U6 if it bites. */
     while (!Serial && ((millis() - t_start) < 500U))
     {
         /* wait briefly for a USB host */
     }
-#endif
 
     Serial.println();
-    Serial.println(F("=== MustangDash / Riverdi triple dash (BT817 x3) on Teensy 4.1 ==="));
+    Serial.println(F("=== MustangDash / Riverdi triple dash (BT817 x3) on STM32 ==="));
     static const char *const kPanelNames[DASH_PANEL_COUNT] = { "CENTER", "LEFT", "RIGHT" };
     Serial.printf("Splash theme: %u (0=blue 1=red 2=checkered)\r\n", (unsigned)g_theme);
 
@@ -516,7 +486,7 @@ void setup(void)
         e->cspread = d->cspread;
 #if defined(EVE_PANEL_HAS_BUS)
         e->bus = DASH_SPI_BUSES[d->bus_index]; /* dedicated peripheral per panel */
-        /* review fix: remap CS/PD off the raw Teensy numbers (see the pin
+        /* review fix: remap CS/PD off the raw canonical numbers (see the pin
          * tables above); the descriptor stays canonical, the target adapts */
         e->cs_pin = DASH_CS_PINS[p];
         e->pdn_pin = DASH_PD_PINS[p];
@@ -580,7 +550,7 @@ void setup(void)
     Serial.printf("SPI raised to %.2f MHz requested (prescaler rounds down; read-integrity soak gates the attained operating point)\r\n",
                   (double)DASH_SPI_RUN_HZ / 1000000.0);
 
-    /* Odometer loads regardless of panel state -- it is Teensy-local. */
+    /* Odometer loads regardless of panel state -- it is MCU-local. */
     dash_state_init(&g_dash);
     dash_sim_init(&g_sim);
     dash_lap_flash_reset(&g_lap_flash);
@@ -1039,23 +1009,8 @@ void dash_register_fonts(uint16_t needed)
  * dash_odo.h; this is the only code that touches the EEPROM API ---- */
 /* Storage seam (unique names -- the .ino->cpp prototype hoisting in both
  * build paths would lift any redefinition of the avr eeprom_* names above
- * target guards and collide with <avr/eeprom.h> on Teensy). U6 replaces the
+ * target guards and collide with a platform eeprom header). U6 replaces the
  * STM32 branch with the FM24CL64B I2C FRAM backend. */
-#if defined(ARDUINO_TEENSY41)
-static void odo_storage_init(void)
-{
-    /* Teensy EEPROM needs no bring-up (review fix: consolidated here from a
-     * separate trailing #if block so both backends read as one unit) */
-}
-static void odo_storage_read(void *dst, uint32_t off, size_t n)
-{
-    eeprom_read_block(dst, (const void *)(uintptr_t)off, n);
-}
-static void odo_storage_write(const void *src, uint32_t off, size_t n)
-{
-    eeprom_write_block(src, (void *)(uintptr_t)off, n);
-}
-#else
 /* STM32 backend (U6): FM24CL64B I2C FRAM at 0x50, 16-bit addressing, no
  * write-cycle delay (FRAM writes at bus speed -- no polling, no wear
  * leveling). Probed once at boot; a missing chip (e.g. the bare WeAct
@@ -1130,7 +1085,6 @@ static void odo_storage_write(const void *src, uint32_t off, size_t n)
         Serial.println(F("Odometer FRAM write fault -> RAM shadow for this run"));
     }
 }
-#endif
 
 void odo_eeprom_load(void)
 {

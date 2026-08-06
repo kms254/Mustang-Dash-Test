@@ -1,5 +1,5 @@
 /*
- * Minimal Arduino.h stub for host-compiling EVE_target_Arduino_Teensy4.h in
+ * Minimal Arduino.h stub for host-compiling EVE_target_Arduino_STM32_generic.h in
  * tests/test_eve_pins.c. Only the symbols that header's static inline
  * functions reference. Not a general-purpose stub.
  */

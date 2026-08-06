@@ -1,17 +1,22 @@
 /*
- * Invariant test: the Teensy 4.1 control pins for the EVE display must stay
- * CS = 14 and PD/RST = 17 -- that is how the hardware is physically wired
- * (SCLK=13, MISO=12, MOSI=11 are the fixed SPI0 pins).
+ * Invariant test: the EVE display control pins must stay CS = 10 and
+ * PD/RST = 8 on the STM32 target -- that is how the NUCLEO-F767ZI mule is
+ * physically wired, and the H755 carrier follows it.
  *
- * Compiles the vendored Teensy 4 target header on the host with a minimal
+ * Compiles the vendored STM32 target header on the host with a minimal
  * Arduino.h stub (tests/stubs/):
- *   gcc -std=c11 -fsyntax-only -DARDUINO=10819 -DARDUINO_TEENSY41 \
+ *   gcc -std=c11 -fsyntax-only -DARDUINO=10819 -DARDUINO_ARCH_STM32 \
  *       -I tests/stubs -I libraries/FT800-FT813/src tests/test_eve_pins.c
+ *
+ * These are the DEFAULT pins the header falls back to; both are guarded by
+ * `#if !defined`, so a -D on the build line still overrides them. Pinning the
+ * fallback is what catches an unconfigured build silently changing wiring.
+ *
  */
 
-#include "EVE_target/EVE_target_Arduino_Teensy4.h"
+#include "EVE_target/EVE_target_Arduino_STM32_generic.h"
 
-_Static_assert(EVE_CS == 14, "EVE chip-select must be Teensy pin 14 (hardware wiring)");
-_Static_assert(EVE_PDN == 17, "EVE power-down/reset must be Teensy pin 17 (hardware wiring)");
+_Static_assert(EVE_CS == 10, "EVE chip-select must be pin 10 (hardware wiring)");
+_Static_assert(EVE_PDN == 8, "EVE power-down/reset must be pin 8 (hardware wiring)");
 
 int main(void) { return 0; }
