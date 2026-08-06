@@ -36,10 +36,30 @@ at every step, and every blocked/clear boundary is refined by bisection to
 0.1 um. `GetEffectiveShape().Collide()` is deliberately not used -- CLAUDE.md
 records it under-covering segment midpoints, which is exactly this query.
 
-Only `Line` shapes are trimmed. Circles, arcs and polygons need angular
-clipping and are reported, not touched -- and a polygon on silk is usually a
-polarity or pin-1 marker, where cutting destroys the meaning the marker exists
-to carry.
+Polygons are reported, not touched: a polygon on silk is usually a polarity
+band or a pin-1 marker, where cutting destroys the meaning the marker exists to
+carry. Lines, circles and arcs are trimmed.
+
+Scope: own pads, not every nearby pad
+-------------------------------------
+`--scope own` (the default) trims a footprint's silk against ITS OWN pads only.
+That is not a simplification -- it is what makes the fix mirrorable. Trimming
+each placement against whatever happens to be next to it produces per-placement
+geometry: the first attempt left `C0805` with 11 instances and 4 distinct silk
+outlines, which is correct per-board geometry and impossible for one library
+definition to hold. Own-pad geometry is a property of the TYPE, identical for
+every placement, so `kicad_silk_mirror.py` can write it back.
+
+Measured on Board3 before choosing this: of 169 violating silk shapes, 146 hit
+only their own pads, 5 hit only a neighbour's (X1 x3, R9 x2) and none hit both.
+So own-pad scope reaches 96% of the footprint-owned work, and the residue is
+two footprints rather than a structural problem. `--scope all` keeps the old
+behaviour for measuring that residue; it must not be used on anything destined
+for a library.
+
+Board-level graphics have no library half, so they are always trimmed against
+every nearby pad regardless of --scope. There is no type for them to diverge
+from.
 """
 from __future__ import annotations
 
@@ -58,6 +78,13 @@ CLEARANCE_MM = 0.15
 # violations of ~3.8 um -- correct arithmetic against a slightly wrong shape.
 # Cut this much further so the approximation cannot decide the outcome.
 MARGIN_MM = 0.02
+# Thinnest line the fab will print. JLCPCB publishes 0.15 mm; this carries a
+# little over it so a narrowed line does not land exactly on the limit and
+# become a width violation instead of a clearance one. The two requirements
+# pull against each other -- JLC already flags 25 items on this board for being
+# THINNER than its minimum -- so a shape needs centreline room for both or it
+# cannot be fixed by width at all.
+MIN_SILK_WIDTH_MM = 0.16
 STEP_NM = 5_000          # 5 um walk
 REFINE_NM = 100          # bisect to 0.1 um
 MIN_KEEP_NM = 200_000    # drop surviving stubs under 0.2 mm -- ink noise
@@ -109,6 +136,47 @@ def dist_point_poly(px: float, py: float, rings) -> float:
                 inside = not inside
         if inside:
             return 0.0
+    return best
+
+
+def fpid_of(owner) -> str:
+    """Footprint library id, or the board-level bucket."""
+    return (owner.GetFPIDAsString() if hasattr(owner, "GetFPIDAsString")
+            else "<board-level>")
+
+
+def min_distance(g, shape, rings_list) -> float:
+    """Smallest centreline-to-pad-polygon distance over a whole shape, in nm.
+
+    Walked at the same STEP_NM as the trimmer so the two agree about what is
+    inside a keepout. This answers "does it violate?" separately from "where
+    does it violate?", which is what lets a compliant shape be left untouched.
+    """
+    if shape == "Line":
+        s, e = g.GetStart(), g.GetEnd()
+        length = math.hypot(e.x - s.x, e.y - s.y)
+        n = max(2, int(length / STEP_NM) + 1)
+        pts = [(s.x + (e.x - s.x) * i / n, s.y + (e.y - s.y) * i / n)
+               for i in range(n + 1)]
+    else:
+        c, r = g.GetCenter(), g.GetRadius()
+        if shape == "Circle":
+            a0, span = 0.0, 2.0 * math.pi
+        else:
+            s = g.GetStart()
+            a0 = math.atan2(s.y - c.y, s.x - c.x)
+            span = math.radians(g.GetArcAngle().AsDegrees())
+        n = max(8, int(abs(span) * r / STEP_NM) + 1)
+        pts = [(c.x + r * math.cos(a0 + span * i / n),
+                c.y + r * math.sin(a0 + span * i / n)) for i in range(n + 1)]
+    best = float("inf")
+    for rings in rings_list:
+        for px, py in pts:
+            d = dist_point_poly(px, py, rings)
+            if d < best:
+                best = d
+                if best == 0.0:
+                    return 0.0
     return best
 
 
@@ -207,22 +275,47 @@ def main() -> int:
     ap.add_argument("--clearance", type=float, default=CLEARANCE_MM)
     ap.add_argument("--margin", type=float, default=MARGIN_MM,
                     help="extra cut to absorb pad-polygon approximation error")
+    ap.add_argument("--min-width", type=float, default=MIN_SILK_WIDTH_MM,
+                    help="floor for narrowing: the thinnest line the fab will "
+                         "print. Below this a shape must be trimmed instead.")
+    ap.add_argument("--neighbour-refs", default="",
+                    help="comma-separated references that ALSO trim against "
+                         "other parts' pads. Only safe where divergence cannot "
+                         "result -- a type with a single placement has nothing "
+                         "to diverge from. Naming them here keeps the decision "
+                         "in the command rather than inferred from a count.")
+    ap.add_argument("--scope", choices=("own", "all"), default="own",
+                    help="'own' (default) trims a footprint's silk against its "
+                         "own pads only, which keeps every placement of a type "
+                         "identical and therefore mirrorable into the library. "
+                         "'all' trims against every nearby pad -- correct for "
+                         "this board, divergent across instances, library-hostile.")
     args = ap.parse_args()
+
+    neighbour_refs = {r.strip() for r in args.neighbour_refs.split(",") if r.strip()}
 
     board = pcbnew.LoadBoard(args.board)
     silk_layers = (pcbnew.F_SilkS, pcbnew.B_SilkS)
     mask_of = {pcbnew.F_SilkS: pcbnew.F_Mask, pcbnew.B_SilkS: pcbnew.B_Mask}
 
     pads_by_mask = {m: [] for m in mask_of.values()}
-    for pad in board.GetPads():
-        for m in pads_by_mask:
-            if pad.IsOnLayer(m):
-                pads_by_mask[m].append(pad)
+    own_pads: dict = {}          # footprint uuid -> {mask layer: [pad, ...]}
+    for fp in board.GetFootprints():
+        slot = own_pads.setdefault(str(fp.m_Uuid.AsString()),
+                                   {m: [] for m in mask_of.values()})
+        for pad in fp.Pads():
+            for m in pads_by_mask:
+                if pad.IsOnLayer(m):
+                    pads_by_mask[m].append(pad)
+                    slot[m].append(pad)
     poly_cache = {}
 
-    trimmed = deleted = kept = 0
+    trimmed = deleted = kept = narrowed = 0
     deferred = collections.Counter()
     per_fp = collections.Counter()
+    removed_fp = collections.Counter()
+    narrow_fp = collections.Counter()
+    total_fp = collections.Counter()
     edits = []
 
     # Footprint graphics, then board-level ones. Board drawings belong to no
@@ -237,6 +330,7 @@ def main() -> int:
             lay = g.GetLayer()
             if lay not in silk_layers or g.GetClass() != "PCB_SHAPE":
                 continue
+            total_fp[fpid_of(fp)] += 1
             shape = g.ShowShape()
             if shape not in ("Line", "Circle", "Arc"):
                 # A Polygon on silk is usually a polarity band or a pin-1 dot;
@@ -254,8 +348,18 @@ def main() -> int:
                 c, r = g.GetCenter(), g.GetRadius()
                 box = (c.x - r, c.y - r, c.x + r, c.y + r)
 
-            keep = []
-            for pad in pads_by_mask[mask_layer]:
+            # Board-level drawings (fp is the BOARD) have no library definition
+            # to diverge from, so they always see every pad. A footprint's silk
+            # sees only its own pads under the default scope -- see the module
+            # docstring for why that is the mirrorable choice.
+            if (args.scope == "own" and fp is not board
+                    and fp.GetReference() not in neighbour_refs):
+                candidates = own_pads[str(fp.m_Uuid.AsString())][mask_layer]
+            else:
+                candidates = pads_by_mask[mask_layer]
+
+            near = []
+            for pad in candidates:
                 key = (id(pad), mask_layer)
                 if key not in poly_cache:
                     poly_cache[key] = poly_points(pad, mask_layer)
@@ -267,9 +371,36 @@ def main() -> int:
                     continue
                 if box[3] < bb.GetTop() - limit or box[1] > bb.GetBottom() + limit:
                     continue
-                keep.append((rings, limit))
-            if not keep:
+                near.append(rings)
+            if not near:
                 continue
+
+            # Does it violate the REQUIREMENT, or only the requirement plus the
+            # margin? Cutting everything inside clearance+margin treats a
+            # compliant shape as a defect: on Board3 that deleted 137 shapes
+            # sitting in the 0.150-0.170 band, all 62 R0603 outlines among them
+            # (min gap 0.1522 mm -- above the limit, below limit+margin). The
+            # margin is there to stop the inscribed-polygon error deciding a
+            # borderline cut, not to widen the requirement.
+            d_min = min_distance(g, shape, near)
+            if (d_min - half) / NM >= args.clearance:
+                continue
+
+            # Clearance is edge-to-edge on a stored centreline, so narrowing a
+            # line buys clearance with NO geometry change. Prefer it: it keeps
+            # the marking whole and legible where trimming would break or
+            # delete it. Bounded below by what the fab can print, so this is
+            # only available when the centreline has room for both.
+            max_w = 2.0 * (d_min / NM - args.clearance)
+            if max_w >= args.min_width and g.GetWidth() > args.min_width * NM:
+                new_w = max(args.min_width, min(g.GetWidth() / NM, max_w) - args.margin)
+                if new_w >= args.min_width:
+                    narrowed += 1
+                    narrow_fp[fpid_of(fp)] += 1
+                    edits.append(("width", fp, g, int(round(new_w * NM)), None, None))
+                    continue
+
+            keep = [(rings, limit) for rings in near]
 
             if shape == "Line":
                 s, e = g.GetStart(), g.GetEnd()
@@ -289,26 +420,45 @@ def main() -> int:
                 if len(spans) == 1 and abs((spans[0][1] - spans[0][0]) - (a1 - a0)) < 1e-9:
                     continue
                 edits.append(("arc", fp, g, spans, (c, r), None))
-            per_fp[fp.GetFPIDAsString() if hasattr(fp, "GetFPIDAsString") else "<board-level>"] += 1
+            fpid = fpid_of(fp)
             if not spans:
                 deleted += 1
+                per_fp[fpid] += 0          # ensure the type appears
+                removed_fp[fpid] += 1
             else:
                 trimmed += 1
                 kept += len(spans)
+                per_fp[fpid] += 1
 
     print(f"board            : {args.board.split('/')[-1]}")
+    print(f"scope            : {args.scope} pads   "
+          f"(clearance {args.clearance} mm, margin {args.margin} mm)")
+    print(f"shapes narrowed  : {narrowed}   (>= {args.min_width} mm, geometry unchanged)")
     print(f"shapes trimmed   : {trimmed}   (into {kept} pieces)")
     print(f"shapes removed   : {deleted}   (no clear span >= {MIN_KEEP_NM/NM} mm)")
     print(f"deferred shapes  : {dict(deferred)}   (polarity/pin-1 markers, left alone)")
-    print("\nby footprint type:")
-    for fpid, n in per_fp.most_common():
-        print(f"  {n:4d}  {fpid}")
+    # Removed-vs-trimmed is the number that needs a human. A type whose silk is
+    # entirely removed has had a design decision made for it by a threshold --
+    # plausible for a chip passive, wrong for a connector an assembler orients
+    # by -- so it must be visible here rather than inferred from a total.
+    print("\nby footprint type   (narrowed / trimmed / REMOVED / total on the type)")
+    for fpid in sorted(set(per_fp) | set(removed_fp) | set(narrow_fp),
+                       key=lambda k: -(per_fp[k] + removed_fp[k] + narrow_fp[k])):
+        tot = total_fp[fpid]
+        rem = removed_fp[fpid]
+        flag = "   <-- ALL SILK GONE" if rem and rem == tot else ""
+        print(f"  {narrow_fp[fpid]:4d} / {per_fp[fpid]:4d} / {rem:4d} / {tot:4d}  {fpid}{flag}")
 
     if not args.apply:
         print("\n(report only -- pass --apply to write)")
         return 0
 
     for kind, fp, g, spans, a_data, b_data in edits:
+        if kind == "width":
+            # spans carries the new width in nm for this edit kind. Nothing
+            # moves, so there is no piece to add and nothing to remove.
+            g.SetWidth(spans)
+            continue
         if kind == "line":
             s, e = a_data, b_data
             for a, b in spans:
