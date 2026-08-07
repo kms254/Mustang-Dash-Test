@@ -1,7 +1,7 @@
 ---
 title: "Window-filter board geometry by shape intersection, never by an object's reference point"
 date: 2026-07-29
-last_updated: 2026-08-02
+last_updated: 2026-08-06
 category: developer-experience
 module: kicad/board3
 problem_type: developer_experience
@@ -12,7 +12,8 @@ applies_when:
   - "Building obstacle maps for routing, placement, or clearance work"
   - "Any spatial filter over segments, wires, or edges (schematic or PCB)"
   - "Any spatial filter over pads, footprints, or other objects that have extent"
-tags: [pcbnew, geometry, query, window, clip, liang-barsky, routing, pads, bounding-box]
+  - "Substituting any simpler proxy shape for a real one — a circle for a slot, a box for a polygon"
+tags: [pcbnew, geometry, query, window, clip, liang-barsky, routing, pads, bounding-box, slots]
 ---
 
 # Window-filter board geometry by shape intersection, never by an object's reference point
@@ -97,6 +98,7 @@ because the dump enumerated only `GetTracks()`.
 | Footprint | Bounding-box overlap against `fp.GetBoundingBox()` | Same as pads, at part scale |
 | Via | Centre ± radius, **on every layer it spans** | A via is a disc on all its layers; a layer-filtered query hides it (see [search every copper layer before placing a via](search-every-copper-layer-before-placing-a-via.md)) |
 | **Courtyard** | The **polygon**, never the bounding box | A courtyard is frequently non-rectangular, so a bbox test both over- and under-reports. U59 proposed two replacement vias that a bbox test called clear and a polygon test put inside U1's and U9's courtyards |
+| **Slotted drill** | A **capsule** — a segment swept by a circle: half-length `(max−min)/2` along the long axis, radius `min/2`, rotated by the pad's orientation | A slot is not a circle. `max(w,h)/2` as a radius inflates the short axis by the full aspect ratio: DC1's 2.800 × 0.800 mm slot became a 2.8 mm-diameter disc, turning a 0.4 mm half-height into 1.4 mm |
 
 **The bounding box is the right test for a pad or a footprint and the wrong test
 for a courtyard**, which is easy to conflate because all three are "an object
@@ -133,7 +135,7 @@ Note also what did *not* catch it. The window dump is the map a hand route is
 derived from; if the map is wrong, the clearance arithmetic downstream is
 flawless and the answer is still wrong. Only DRC caught it, at the end.
 
-### It recurred three more times after this doc was written
+### It recurred four more times after this doc was written
 
 Each in a unit that had the rule available, and one of them in a unit that
 *cites this doc while breaking it*:
@@ -143,14 +145,37 @@ Each in a unit that had the rule available, and one of them in a unit that
 | **U51** | Pad **corners**, with an early `break`, instead of the pad shape | A uniform widening of `/+5V_BARREL` swallowed Q2's gate pad — a short, on the very net the rule warns about. Correct test was `EffectivePolygon` |
 | **U53** | A via's **centre** instead of its shape | Claimed "none under a component courtyard"; TP2's solder mask merged with C34's pad and shipped as a real defect until U59 |
 | **U59** | A courtyard **bounding box** instead of the polygon | Two proposed replacement vias called clear that were actually inside U1's and U9's courtyards |
+| **Silkscreen, 2026-08-06** | A drill's **bounding circle** (`max(w,h)/2`) instead of the slot | Reported silk 0.027 mm *inside* DC1's pad-3 hole. The silk was 1.1 mm clear. The "defect" was the approximation, and it was nearly fixed on the board |
 
-Three lessons the original write-up did not contain. **A sampled point set is
+Four lessons the original write-up did not contain. **A sampled point set is
 still a reference point** — U51 tested four corners rather than one centre and
 failed anyway, because "test more points" is not the same as "test the shape".
 **The rule generalises past window queries** — U51's failure was a clearance
 pre-check, not a window dump, and the same defect appeared because the same
 substitution was made. And **citing the rule is not applying it**: U53 quotes
 this rule in its own spec and then tests a via centre four lines later.
+
+The fourth adds a direction the others never showed. **A proxy shape can
+over-cover as easily as under-cover, and then it invents defects instead of
+hiding them.** Every earlier recurrence was a false *negative* — an obstacle
+missed, discovered later at the DRC gate. The slot-as-circle substitution is a
+false *positive*: it manufactured a violation on a board that did not have one,
+and the fix very nearly applied was an edit to real silkscreen to satisfy a
+measurement error.
+
+That inverts which instinct protects you. A false negative is eventually caught
+by something downstream — DRC, the fab, a test. **A false positive is confirmed
+by the fix**: you change the artifact, the tool stops complaining, and the loop
+closes with the artifact worse and the tool still wrong. The habit that catches
+it is the same one either way — test the shape, not a proxy for it — but the
+consequence of skipping it is not symmetric, and "the tool found something, so
+there was something" is not sound.
+
+The tell here was cheap and was nearly missed: the reported violation sat
+**1.1 mm** from the hole edge on a part whose whole slot is 0.8 mm across. When
+a finding's magnitude is implausible against the object's own dimensions,
+suspect the measurement before the artifact — the same range-check that catches
+"footprint-local" coordinates in the hundreds of millimetres.
 
 ## When to Apply
 
@@ -255,4 +280,5 @@ they touch — structurally the overlap test this doc argues for.
 - `docs/solutions/tooling-decisions/freerouting-headless-integration-for-kicad.md` — the routing session this bug shaped
 - `tools/kicad_shove.py` — uses exact segment math for the same reason (its `GetEffectiveShape().Collide()` lesson is the DRC-side sibling of this query-side rule)
 - [Search every copper layer before placing a via](search-every-copper-layer-before-placing-a-via.md) — the via row of the table above; a via is a disc on every layer it spans, so a layer-filtered query hides it
+- [a tool's finding can be a property of the tool](a-tools-finding-can-be-a-property-of-the-tool.md) — the 2026-08-06 recurrence is an instance of it: the "defect" was in the measuring script, and the range-check that would have caught it is the same one that catches a 300 mm "footprint-local" coordinate
 - `tools/handroutes/u49-h2-tag-connect.json` — the route derived after the correction; its `$why` blocks record the clearances the corrected map produced
