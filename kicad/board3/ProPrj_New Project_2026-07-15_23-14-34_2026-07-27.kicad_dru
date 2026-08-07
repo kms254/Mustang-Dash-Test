@@ -62,7 +62,9 @@
 # against F.Courtyard rectangles and Component Marking Layer fields; neither is
 # plotted (kicad_fab.py exports 11 layers and Courtyard is not one), so those
 # findings demand work that cannot change the board JLCPCB builds. Measured
-# 2026-08-05: unconditioned 18 + 199, scoped to pads 9 + 0.
+# 2026-08-05: unconditioned 18 + 199, scoped to pads 9 + 0 -- and note both 199s
+# are kicad-cli's reporting ceiling for that violation type, not counts. Any DRC
+# figure at or near 199 is a lower bound until a stricter rule shows it moving.
 #
 # Verified to FIRE, not merely to pass: at 0.60mm this same rule reports 199 of
 # each. A rule that reports 0 because it is malformed and one that reports 0

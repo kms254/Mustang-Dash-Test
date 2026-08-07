@@ -7,8 +7,14 @@
 Why this exists
 ---------------
 JLCPCB wants 0.15 mm between silkscreen and a pad. Board3's imported footprints
-draw body outlines straight past their pads, so 199 silk objects sit 0.031 to
-0.1495 mm away -- every one a near miss, none an actual overlap.
+draw body outlines straight past their pads, so **233 silk/pad pairs over 169
+shapes** sat 0.031 to 0.1495 mm away -- every one a near miss, none an actual
+overlap (verified uncapped: 0 pairs at or below 0.0000 mm).
+
+That figure used to read "199 objects", which was `kicad-cli`'s per-error-code
+report limit rather than a count -- see
+docs/solutions/developer-experience/a-count-at-the-report-limit-is-not-a-measurement.md.
+Measure the geometry, not the report, whenever the number is load-bearing.
 
 Nothing caught it. The board's own .kicad_pro carries `min_silk_clearance: 0.15`
 and `silk_over_copper: warning`, and KiCad runs NO silk test at all unless a
@@ -98,7 +104,7 @@ def poly_points(pad, layer) -> list[list[tuple[int, int]]]:
     GetEffectivePolygon() takes a layer in KiCad 10 and raises without one. Do
     NOT wrap this in a bare except: an earlier revision did, every pad silently
     returned no rings, and the tool cheerfully reported zero work to do on a
-    board with 199 violations. A geometry helper that returns "nothing here" on
+    board with 233 violating pairs. A geometry helper that returns "nothing" on
     error is indistinguishable from one that found nothing.
     """
     ps = pad.GetEffectivePolygon(layer)

@@ -130,7 +130,7 @@ Two traps are already paid for and encoded in its source:
 
 - `GetEffectivePolygon()` takes a layer argument in KiCad 10. An earlier
   revision swallowed the `TypeError`, so every pad returned no rings and the
-  tool reported **"0 lines need trimming"** on a board with 199 violations.
+  tool reported **"0 lines need trimming"** on a board with 233 violating pairs.
 - That polygon is *inscribed* in a round pad, so distances measured against it
   run a few microns optimistic. Trimming to exactly 0.15 mm left residual
   violations of ~3.8 µm — correct arithmetic against a slightly wrong shape.
@@ -184,7 +184,7 @@ manufacture the divergence U0 records:
    land 1 nm apart. Measured on SOIC-8: 26 shapes each, worst delta **1 nm**.
 3. For **polygons** it fingerprinted `GetStart()`/`GetEnd()`, which are not a
    polygon's outline and returned raw board coordinates — "local" deltas of
-   125–312 mm on parts a few mm across. Every type reported divergent after the
+   50–312 mm on parts a few mm across. Every type reported divergent after the
    first two were fixed was one carrying a polarity band or pin-1 marker.
 
 With all three fixed, **all 30 types mirror cleanly** and the board holds DRC
@@ -211,7 +211,8 @@ until proven otherwise.
 ### U0. BLOCKER, found 2026-08-05: per-instance trimming defeats U3
 
 Attempted in this order — U1 (angular clipping) landed, the trim ran on the
-board, then the mirror was written. It got as far as **199 → 8 violations**
+board, then the mirror was written. It got as far as **8 violations** (reported
+against a saturated "199" before, so the ratio was meaningless)
 before U3 exposed a contradiction the plan did not anticipate.
 
 **Trimming each placement against its neighbours makes instances of one
@@ -286,7 +287,8 @@ What it did expose is that the constraint is over-broad by default: neither a
 courtyard nor the Component Marking Layer is plotted (`kicad_fab.py` exports 11
 layers and Courtyard is not among them), so those findings can never change the
 board JLCPCB builds. Scoping the rule with `(condition "B.Type == 'Pad'")` takes
-it from 18 + 199 to 9 + 0 and leaves exactly the class JLC checks.
+it from 18 + 199 to 9 + 0 and leaves exactly the class JLC checks. Both 199s
+there are the report limit, not counts.
 
 Two mechanics worth reusing, both already paid for elsewhere in this repo:
 DRC's item **descriptions are inconsistent** — "Pad 2 [/GND] of U9 on Top Layer"
