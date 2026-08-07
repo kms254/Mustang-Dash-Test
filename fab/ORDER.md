@@ -86,6 +86,31 @@ holes is not a cosmetic error. Do not "helpfully" merge them when uploading.
 
 ## Board state
 
+As of 2026-08-07, after the seven-lens pre-order review (all seven verdicts
+ORDER) and the one copper change it produced:
+
+- **`/VBUS` input trunk reinforced.** The full USB input current crossed a
+  single 0.400 mm × 3.6 mm Top segment — measured by max-flow over the copper
+  graph, closing triage item 50 — and the LM74700 ORing pair means a slightly
+  higher USB source carries the whole load even with the barrel plugged in.
+  A 1.0 mm parallel same-net conductor now overlaps it (merged, ~1.4 mm
+  combined); max-flow went **0.400 → 0.650 mm-equivalent**, worst-case rise at
+  the documented 1.65 A from **~+19 °C → ~+9 °C**, at parity with the barrel
+  side's accepted 0.900 mm / +5 °C point. The min-cut now sits on the 0.650 mm
+  vertical run to Q1 — so the layout guide's literal "≥60 mil input trunk" row
+  is still not met on the USB path, **deliberately**: meeting it would re-lay
+  that run plus both upstream branches, and +9 °C at worst case does not buy
+  that risk. Recorded here so the rule row and the board stop disagreeing
+  silently.
+- **U2 (W25Q256 QSPI NOR) stays fitted, conditionally.** No firmware consumes
+  it yet; the decision to keep it (vs DNP, ~$23/run) was made 2026-08-07 **on
+  the condition that the JEDEC-ID smoke test on the bring-up card runs on the
+  first board** — until it passes, a dead U2 is invisible.
+- **Bench prerequisite:** the order has H1/H3 headers but **no 2.54 mm
+  shunts**, and CAN bring-up needs H1 closed on day one. Shunts in the parts
+  order or confirmed in the drawer before boards arrive.
+- Bring-up procedure, TP map and debt list: `docs/hardware/board3-bringup-card.md`.
+
 As of 2026-08-05, after the silkscreen campaign:
 
 - DRC **0 errors, 0 warnings, 0 unconnected, 0 schematic parity** (run in place,
@@ -104,6 +129,12 @@ As of 2026-08-05, after the silkscreen campaign:
   clearance **0.101672 mm** (pre-existing, `/+5V_BARREL` ↔ `/GATE_BARREL`), and
   no untented via closer than **0.565 mm** to a pad aperture. DRC alone does not
   cover the first or third of those — see the Via covering row.
+
+**Re-upload the gerbers if you are ordering after 2026-08-07.** The `/VBUS`
+reinforcement is a **copper change** (one new F.Cu conductor plus the refilled
+Top GND pour around it), so any zip built before 2026-08-07 describes a board
+with the old 0.400 mm neck. BOM/CPL are untouched by it. The earlier
+re-upload rules below still apply to older zips.
 
 **Re-upload the gerbers if you are ordering after 2026-08-05.** The silkscreen
 campaign rewrote `F_Silkscreen.gbr` across 160 shapes — 50 narrowed, 88 trimmed,
