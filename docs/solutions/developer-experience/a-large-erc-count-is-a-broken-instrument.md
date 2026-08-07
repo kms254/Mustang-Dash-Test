@@ -291,6 +291,16 @@ buck through L1, both passive by construction, and `/GND` has no source at all.
 PWR_FLAG is the assertion that the rail *is* driven. **Expect a correct fix to
 surface new classes; check the shape of the rise, not the number.**
 
+> **Counterexample: class shape does not detect a truncated report.** This
+> heuristic works because the 1009 was an *accurate* count — every class was
+> fully reported, so the distribution across classes carried information. It
+> fails against a report that clips. `kicad-cli pcb drc` applies a per-error-code
+> limit of 199, and two classes each pinned at exactly 199 read as a perfectly
+> plausible shape while both are lower bounds. Neither doc's rule catches the
+> other's defect: reading a sample of each class will not reveal a ceiling, and
+> re-running with a stricter rule will not reveal noise. See
+> [a count at the report limit is not a measurement](a-count-at-the-report-limit-is-not-a-measurement.md).
+
 ### Fixing each class
 
 | Class | n | What it was | Fix |

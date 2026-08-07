@@ -180,9 +180,16 @@ pipeline reports a problem, and the number it produces looks precise.
 Board3, same routed board, measured twice:
 
 ```text
-before refill   974 violations   (clearance 512, hole_clearance 203, track_width 199)
+before refill   974 violations   (clearance 512, hole_clearance 203, track_width >=199)
 after refill     74 violations   (courtyards 25, starved_thermal 23, edge 11, via geom 15)
 ```
+
+`track_width` lands on exactly 199, which is `kicad-cli`'s per-error-code report
+limit — so that class was probably clipped and the 974 is a lower bound. Its two
+neighbours exceed 199, and the limit is *not* uniform across error codes, which
+makes coincidence less likely rather than more. The argument here is unaffected:
+the point is that those classes vanished after the refill, not their magnitudes.
+See [a count at the report limit is not a measurement](a-count-at-the-report-limit-is-not-a-measurement.md).
 
 The 488 phantom violations were `Track + Zone` (230) and `Via + Zone` (258).
 None were shorts. The `clearance`, `hole_clearance` and `track_width` classes

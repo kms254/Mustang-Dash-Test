@@ -701,8 +701,8 @@ same board — three settings that look configured and check nothing. Probe any
 check you believe is running by asserting something the board must fail; a value
 in the project file is not evidence the test exists.
 
-**`kicad-cli pcb drc` applies a per-error-code report limit of 199, and that
-limit is what an earlier revision of this file recorded as a measurement.**
+**`kicad-cli pcb drc` stops counting a violation type at 199, and that ceiling
+is what an earlier revision of this file recorded as a measurement.**
 Adding the rule made the board report "199 `silk_over_copper` + 199
 `silk_overlap`", which was written down as the size of the problem. It is not a
 count. Sweeping the clearance (2026-08-05) settles it: at 0.10 mm
@@ -713,14 +713,20 @@ saturated instrument against an unsaturated one. The honest figures come from
 measuring the geometry directly: **233 shape×pad pairs over 169 shapes**, now
 **6**.
 
-**The limit is NOT uniform across types, so never assume a count is unsaturated.**
-In one probe run (`clearance (min 3mm)`) this board reported `clearance` **514**
-while `silk_over_copper`, `silk_overlap` and `drill_out_of_range` all sat at
-exactly **199** in that same report — three different types pinned to the limit
-beside one that sailed past it. Any DRC figure at or near 199 is a lower bound
-until shown otherwise; the cheap check is to make the rule stricter and see
-whether the number moves. A gate at *zero* is unaffected, because zero cannot
-saturate — which is the reason the absolute gates are worth keeping absolute.
+**Whatever bounds these counts is NOT uniform across types, so never assume a
+count is unsaturated.** In one probe run (`clearance (min 3mm)`) this board
+reported `clearance` **514** while `silk_over_copper` and `silk_overlap` both sat
+at exactly **199** in that same report. **Do not read the 514 as a count
+either** — it does not rise as the probe tightens (514/514/513 at 3/5/8 mm) and
+it is not reproducible run to run (514, 514, 513, 514), so it is a second,
+raggedly-reached ceiling rather than a census. Two ceilings in one report is
+enough to establish that a conclusion about one type does not transfer to
+another; the mechanism is not established beyond that. Any DRC figure at or near
+199 is a lower bound until shown otherwise, and the cheap check is to make the
+rule stricter and see whether the number moves. A gate at *zero* is unaffected,
+because zero cannot saturate — which is the reason the absolute gates are worth
+keeping absolute. Full write-up:
+`docs/solutions/developer-experience/a-count-at-the-report-limit-is-not-a-measurement.md`.
 
 Facts that survived re-measurement, and the ones that did not:
 - **The fab already clips it.** `kicad_fab.py` passes `--subtract-soldermask`
@@ -741,7 +747,7 @@ Facts that survived re-measurement, and the ones that did not:
 Unconditioned, `silk_clearance` also tests silk against `F.Courtyard` rectangles
 and Component Marking Layer fields. `kicad_fab.py` plots 11 layers and Courtyard
 is not one, so those findings demand work that cannot change the board JLCPCB
-builds. Measured: unconditioned 18 + 199, `(condition "B.Type == 'Pad'")` 9 + 0.
+builds. Measured: unconditioned 18 + 199, `(condition "B.Type == 'Pad'")` 9 + 0 — both 199s there are the reporting ceiling, not counts.
 Both rules in `board3.kicad_dru` are verified to FIRE — the same rule at 0.60 mm
 reports 199 of each — because a rule that passes because it is malformed and one
 that passes because the board is clean look identical from the passing side.

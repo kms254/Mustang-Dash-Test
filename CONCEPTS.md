@@ -145,6 +145,22 @@ A ratchet is therefore a claim about the artifact, not a property of the check �
 
 Choosing the form is only half of it, because a gate of either form sees only what its severity filter admits. A check that runs, passes, and is structurally incapable of reporting the class it was meant to catch is more dangerous than an absent one, since a green result is read as evidence. So the filter belongs with the baseline as something the gate is audited on, rather than configuration that gets assumed once and inherited.
 
+A third hazard applies only to the ratcheted form: its baseline is a number a checker produced, and a checker's count can be a Saturated Count. A ratchet whose floor sits at a reporting limit cannot detect any regression beneath that limit, and will report no new findings indefinitely.
+
+### Instrument Finding
+A defect reported by a measuring tool, before anyone has established whether the defect is in the artifact or in the tool. Naming the distinction is the point: the two are indistinguishable in the report, and the second kind is routinely acted on.
+
+A finding is worth more scrutiny, not less, when the tool that produced it is well built — a tool that refuses to guess and reports disagreement rather than silently choosing carries authority its own correctness has to earn. Three signals put the finding itself in doubt before the artifact is touched: a grouping whose size matches an obvious confounder exactly, an intermediate value outside the range the quantity could physically take, and a comparison of derived measurements demanding exact equality. Where a finding is about to become a blocker, it is worth attacking the instrument first — validating a coordinate transform against an artifact that already holds the answer costs one comparison, and reverting a campaign costs a campaign.
+
+The same doubt extends to what a tool *does*, not only what it reports. A tool that both detects a violation and corrects it will, if one threshold answers both questions, act on objects that were never in violation — and the excess is invisible in its own success metric, because most such metrics improve monotonically as the measured thing is destroyed. Judge a corrective tool by the population it changed measured against the requirement, never against its own threshold.
+
+Direction matters more than it appears. A finding that is falsely *absent* is eventually surfaced by something downstream — a later gate, a fabricator, a test. A finding that is falsely *present* is instead confirmed by its own fix: the artifact is changed, the tool falls silent, and the loop closes with the artifact worse and the instrument still wrong. Nothing downstream objects, because the defect never existed. So "the tool found something, therefore something was there" is not sound, and an implausible magnitude — a finding larger than the object it is about — is worth more suspicion than a plausible one.
+
+### Saturated Count
+A finding count that has reached the checker's own per-category reporting limit, so it states the limit rather than the quantity — a lower bound wearing the appearance of a measurement.
+
+It is indistinguishable from a real count from the outside: it has units, it sits in the field the tool calls a total, and it arrives most convincingly at the moment some genuine repair first made the check report anything at all. The limit applies per category rather than per report, so one category exceeding it establishes nothing about another sitting beside it in the same output — the inference that a tool "can report more than this, therefore this is real" is invalid. The test is to make the check materially stricter and re-run: a real count rises, a saturated one does not. Zero is the single reading a reporting limit cannot forge, which is why an absolute gate is immune to this and a Ratcheted Gate resting on such a floor asserts nothing. Where a count is load-bearing — sizing work, proving a before/after — derive it from the artifact rather than from the report, and name the unit, because a quantity measured off the data cannot be silently compared against one the report was willing to stop counting.
+
 ## Track Simulation
 
 ### Circuit

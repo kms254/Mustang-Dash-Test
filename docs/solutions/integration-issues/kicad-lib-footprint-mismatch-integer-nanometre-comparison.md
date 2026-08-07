@@ -171,6 +171,18 @@ from the library).
   script — the same floats, the same rounding, the same angle bookkeeping.
   Never hand-type a rounded value in one place and compute it in another; that
   is two independent sources of truth pretending to be one.
+
+  > **This is necessary, not sufficient — and on its own it points the wrong
+  > way.** One code path removes the *authoring* discrepancy; it does not make
+  > exact comparison correct. A single script that computes cut points in
+  > absolute board coordinates still lands the same edit 1 nm apart on two
+  > placements of one footprint, because the coordinates differ before the
+  > rounding does. A comparator demanding exact equality then reports a
+  > divergence that does not exist, and a later campaign was reverted on exactly
+  > that reading. Pair this rule with a **tolerance the physical domain can
+  > hold** — a nanometre is a millionth of a millimetre and no fab has any
+  > relationship to it. See
+  > [a tool's finding can be a property of the tool](../developer-experience/a-tools-finding-can-be-a-property-of-the-tool.md).
 - **Diff immediately after any dual edit.** If both copies were touched by
   different means anyway, run a field-by-field comparison before calling the
   work done:

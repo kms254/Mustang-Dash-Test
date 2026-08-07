@@ -83,7 +83,7 @@ def silk_signature(fp):
             # A polygon's geometry lives in GetPolyShape(); its GetStart() and
             # GetEnd() are not its outline and on this board came back as raw
             # board coordinates, so fingerprinting those produced local deltas
-            # of 125-312 mm on parts a few mm across. Every type that reported
+            # of 50-312 mm on parts a few mm across. Every type that reported
             # as divergent was one carrying a polygon -- the polarity bands and
             # pin-1 markers -- and none of them actually differed.
             ps = g.GetPolyShape()
