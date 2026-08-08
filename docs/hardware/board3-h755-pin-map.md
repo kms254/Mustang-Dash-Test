@@ -2,7 +2,7 @@
 
 Part: STM32H755ZIT6, LQFP-144 (JLC C730212). Pin numbers verified against DS12923 Rev 3 Table 8/9 (STM32H745xI/G — identical pinout per the datasheet's compatibility statement), extracted 2026-07-25. The schematic (U2–U7) and the firmware's Board3 pin table both follow this document; any change lands here first.
 
-**Status: DRAFT until U8 layout freeze.** Priority is hardware, not software (plan KTD1): GPIO-class assignments (CS, PD-reset, lamps, button) and the SPI-peripheral↔panel pairings may be reassigned during layout wherever routing benefits — firmware pin constants are rewritten from the final table. Only the AF constraints and dedicated pins below are immovable.
+**Status: AS-BUILT (2026-08-07).** Layout is frozen, the board is ordered, and every row below was re-verified against a fresh `kicad-cli sch export netlist` extract on 2026-08-07. The firmware's `board3` / `board3_mule` envs run these pins verbatim. The DRAFT clause is retired; changes now mean a board respin.
 
 ## Panel SPI buses (point-to-point, 33 Ω series at MCU, 10 kΩ CS pull-up + 100 kΩ MISO pull-down per bus)
 
@@ -26,7 +26,7 @@ Part: STM32H755ZIT6, LQFP-144 (JLC C730212). Pin numbers verified against DS1292
 
 Rules: no `_C` dual-pad pins on any SPI net (PC2_C pin 30 exists but is analog-only — unused); no pull-down on PB15 (a low PB15 blocks all non-USB ROM-bootloader interfaces, AN2606 §52).
 
-## QUADSPI NOR (W25Q512JVEIQ, C7389628)
+## QUADSPI NOR (W25Q256JVEIQ, C97522 — as ordered; an earlier draft said W25Q512/C7389628)
 
 | Net | Port | LQFP-144 pin | AF |
 |---|---|---|---|
@@ -51,8 +51,8 @@ IO3 on PF6 (verified bonded with the AF) keeps PD13 as the right panel's reset. 
 | SWDIO / SWCLK | PA13 / PA14 | 102 / 107 | AF0 |
 | SWO (test point only; header stays 5-pin) | PB3 | 130 | AF0 |
 | ~~Lamps (ULN2803 inputs)~~ **superseded 2026-07-29** | ~~PD0–PD7~~ **unassigned** | 112–117, 120, 121 | The telltales left the MCU in the I2C revision (plan 2026-07-28-001): two AW9523B expanders on I2C2 drive them. West IC **U11** at 0x5B (AD1=AD0=+5V — every port POR-safe), east IC **U12** at 0x5A (AD1=+5V, AD0=GND — LEDs on its POR-safe P1_4–P1_7). Both ICs run **VCC=+5V** (power-on "high" equals the anode rail, LEDs hard off; all pins rated 6 V abs max, I2C VIH fixed 1.4 V so the 3.3 V trunk is legal). RSTN strapped to +5V (internal 100 kΩ pull-DOWN). INT unused — `dash_button.h` polls; the AW9523B's anti-jitter stacks harmlessly. Firmware: ISEL ×2/4 range (~18.5 mA full-scale), DIM registers 0x2C–0x2F both ICs, 5 ms post-POR wait, ID reg 0x10 reads 0x23. PD0–PD7 are free for future use. |
-| Mode/trip button (active-LOW, internal pull-up, pressed→GND) | PC13 | 9 | GPIO |
-| HSE crystal 25 MHz | PH0 / PH1 | 25 / 26 | OSC_IN / OSC_OUT |
+| Buttons BTN1–BTN4 (active-LOW, internal pull-up, 1 kΩ series, pressed→GND) | PC6 / PC7 / PC8 / PC9 | 93 / 94 / 95 / 96 | GPIO — **BTN1 (PC6) is the mode/trip gesture button** in firmware; BTN2–4 wired, unassigned. An earlier draft said PC13; **PC13 is unconnected on Board3** and the firmware remap landed 2026-08-07 (`DASH_BOARD_BOARD3`). |
+| HSE crystal 25 MHz (X1, C9006) | PH0 / PH1 | 25 / 26 | OSC_IN / OSC_OUT — firmware clocks 25/M5×N160/P2 = **400 MHz** at VOS1, LDO supply; USB runs on HSI48+CRS so enumeration is crystal-independent |
 | NRST (button + 100 nF) | NRST | 27 | — |
 | BOOT0 (10 kΩ pull-down + button to 3V3) | BOOT0 | 135 | — |
 | VCAP — 3 pins, 2.2 µF each, not tied together | VCAP | 68, 103, 140 | verify count visually in the PDF (text extraction shows three rows; expected for the dual-core part's domains) |
@@ -64,6 +64,7 @@ Power strapping (DS12923 §3.5.1): VDDSMPS ties to VDD (hard sequencing rule); V
 1. ~~FRAM I2C: the sketch's `Wire.begin()` uses the variant default (collides with FDCAN1 on PB8/PB9) — add the Wire pin selection to PB11/PB10 (SDA/SCL) in the Board3 build glue.~~ **Closed 2026-07-29 (U21):** `dash_lamps_init()` sets `Wire.setSDA(PB11); Wire.setSCL(PB10)` before any `Wire.begin()`; the FRAM inherits the corrected pins.
 2. Right CS is **PE3**, not PD10 (`DASH_CS_PINS[right]` in the sketch — applied 2026-07-28 with U18; see the panel-SPI table note).
 3. **Applied 2026-07-29 (U21):** the carrier branch drives lamps through the two AW9523Bs (addresses/registers per the Lamps row above); `DASH_LAMP_PINS` no longer exists on the carrier. Teensy and F767 branches unchanged.
+4. **Applied 2026-08-07:** gesture button PC13 → **PC6** (BTN1) under `DASH_BOARD_BOARD3` — PC13 is unconnected on Board3. `[env:board3]` created (nucleo_h743zi variant + 25 MHz `SystemClock_Config` override, LDO supply, USB CDC); `[env:board3_mule]` runs the same firmware on the bench NUCLEO-H755ZI-Q (SMPS clock block via `DASH_MULE_H755Q`). U2 JEDEC-ID probe (`0x9F` → expect `EF 40 19` for the W25Q256) prints in every boot banner. One-time first-connect on any H755: `BCM4=0` option byte. See `docs/hardware/board3-bringup-card.md`.
 
 Plus whatever pin reassignments U8's layout earns (recorded here at freeze). The generic-carrier branch's tables apply verbatim *as drafted*; the final firmware pin table is written from this doc after layout. Board-glue items (clock/PWR LDO flag, build env, CM4 park, `DASH_SPI_RUN_HZ` walk values) are tracked in the plan's Dependencies.
 
