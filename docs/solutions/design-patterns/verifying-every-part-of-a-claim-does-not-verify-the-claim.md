@@ -1,6 +1,7 @@
 ---
 title: "Verifying every part of a claim does not verify the claim"
 date: 2026-08-05
+last_updated: 2026-08-08
 category: design-patterns
 module: grounding-validation
 problem_type: design_pattern
@@ -225,6 +226,156 @@ made by someone holding the problem in mind, and the count still went stale — 
 the countermeasure has to be a question somebody asks afterwards, not an
 intention to be careful.
 
+### 7. The rule binds at report time, not only at doc-writing time
+
+Three days after this doc was written, its author — this pipeline, in this
+repo — produced the same false claim live, acted on it, and deleted the
+evidence. Both PRs below are merged and the stranded commits are in `main`
+now, via PR #31, so this is a post-mortem rather than an open incident; it is
+recorded because it is the rule's first live-fire instance, and because the
+rule failed to bind exactly where the protocol never pointed it.
+
+The sequence, timestamped from `gh` and the commit log:
+
+- **PR #30** (`fix/board3-vbus-trunk-widen`, exactly one copper-fix commit)
+  was created 2026-08-07T23:47:52Z. Kevin merged it at
+  **2026-08-08T00:02:38Z** — under fifteen minutes after creation.
+- Starting **eleven minutes after the merge** (first commit authored
+  00:13:44Z), six further commits went to the same branch over the following
+  six hours — the board3 firmware envs and the bring-up-card docs, `b0a6b3f`
+  through `e21ae0f`. Every `git push` succeeded. `gh pr comment 30` succeeded
+  too: the comment sits on the merged PR at 00:13:47Z and opens *"Second
+  commit on this branch: **the board3 firmware target**"* — a status report
+  about a commit the PR had already frozen out. The session's running summary
+  said "PR #30 now carries 8 commits" — false at the moment it was uttered.
+  (The utterance itself is recorded from session memory, per §5's standard;
+  the measurable part is that PR #30's commit list holds exactly one OID, and
+  a merged PR's list cannot grow, so the sentence had no true reading at any
+  time after 00:02:38Z.)
+- Cleanup then ran on the belief "PR #30 is merged, so the branch is done":
+  `git branch -d fix/board3-vbus-trunk-widen` succeeded (§8 is why), and
+  `git push origin --delete` removed the remote copy. Six commits were now
+  dangling, held by nothing but the local object store.
+
+Nothing in §1 needed extending to catch this. The two-part check already
+existed, worded, in `grounding-validation.md` — and it was applied only where
+the protocol points it: at solution docs entering the knowledge store.
+**Every "this PR now contains X" sentence is a merge-state claim.** The
+validator interrogates such sentences when they appear in a doc; nobody
+interrogates them when they appear in live status reporting, which is where
+this one did its damage — it was believed by the process that ran cleanup.
+So the rule's own author broke it within days of writing it down, not from
+ignorance of the rule but because the rule's enforcement was scoped to
+artifacts and the claim never entered one.
+
+The prevention is the same check, moved earlier. Before pushing to a branch
+that has a PR, and before reporting a PR's contents, run:
+
+```bash
+gh pr view <n> --json state
+```
+
+A `MERGED` result means new pushes land nowhere any PR carries — stop, cut a
+fresh branch from the current tip, open a new PR. This is one command against
+an API that answers in under a second; the incident it prevents cost a
+half-day round trip through detection, forensics, and PR #31.
+
+Note also what escalated between the doc's first instance and this one. With
+PR #24/#25 the orphaned commits were an *epistemic* problem — a false
+sentence, while a later open PR carried the work regardless. Here the false
+belief drove the cleanup, so it stopped being a wrong sentence and started
+deleting branches. Same claim family; the blast radius scales with what acts
+on the claim. §5 scoped a second validator to "the narrow class of docs whose
+central claim is 'this landed'" — the live instance says the class is
+*reports*, not docs.
+
+And the window is real, not theoretical. PR #30 went from created to merged
+in under fifteen minutes; PR #31, in eighty-three seconds. With a
+fast-merging collaborator, "the PR I opened is still open" has a shorter
+half-life than a working session. It is a perishable assumption to re-check
+at time of use, never a fact established at PR-creation time — shape 2 acting
+on shape 1 again, exactly as the "correction was falsified faster than the
+sentence it corrected" example already warned.
+
+### 8. `git branch -d` is not a merge-to-base check — pushing satisfies its guard
+
+`-d` advertises itself as the safe deletion: the branch must be "fully
+merged". Merged *into what* is the half nobody reads: into HEAD, **or into
+the branch's own upstream**. A branch that has been pushed is byte-identical
+to its upstream, which makes merged-to-upstream trivially true — so **the
+guard is satisfied by the act of pushing**, and `-d` deletes any in-sync
+branch regardless of whether its commits ever reached the base branch. The
+branches you most want protected — pushed ones — are exactly the branches the
+guard waves through.
+
+It even says so while doing it. This is git's text, re-reproduced this
+session on a synthetic branch with the incident's exact geometry (tip
+matching its upstream, not merged to HEAD; the incident branch itself no
+longer exists to re-run), with the incident's names substituted:
+
+```console
+$ git branch -d fix/board3-vbus-trunk-widen
+warning: deleting branch 'fix/board3-vbus-trunk-widen' that has been merged to
+         'refs/remotes/origin/fix/board3-vbus-trunk-widen', but not yet merged to HEAD.
+Deleted branch fix/board3-vbus-trunk-widen (was e21ae0f).
+```
+
+The one clause that mattered — *not yet merged to HEAD* — goes to stderr, and
+the exit code is 0. A pipeline checking `$?` hears consent. `-d` refuses only
+when the tip is merged to *neither* HEAD *nor* upstream, a state a pushed
+branch cannot be in.
+
+Post-merge cleanup must therefore run the base check itself, before anything
+remote is deleted:
+
+```bash
+git merge-base --is-ancestor <head-tip> origin/<base>   # exit 0, or stop
+```
+
+or hand deletion to GitHub's delete-branch-on-merge, which runs at the only
+moment the check is true by construction — merge time, when the head is
+exactly what merged, before the window in which a stale branch can accrete
+work. What `-d` must never be is the merge check. In this incident it was the
+last gate between the false belief and the remote deletion, and it is a gate
+a pushed branch always passes.
+
+### 9. Every instrument stayed silent; a stale file was the detector
+
+Count the tools that said yes on the way down: six `git push`es (a branch is
+just a branch; the remote appends to it whether or not any PR is watching),
+one `gh pr comment` (a merged PR accepts comments forever), one
+`git branch -d` (warned on stderr, exited 0), one `git push --delete` (the
+remote does what it is told). **No command in the sequence was capable of
+failing**, because every one was individually legal. This is the doc's
+central defect executed by tooling rather than judged by a validator: each
+instrument checked its own conjunct, and no instrument owned the predicate
+"this work is reaching main."
+
+Detection came from content. After `git pull`, the bring-up card on `main`
+(`docs/hardware/board3-bringup-card.md`) was visibly missing sections the
+session knew it had written — the flashing procedure, the mule session
+matrix. (The as-built pin map and the AW9523B verification were stranded
+too, but in a sibling file; the card was simply the one that got looked at.) The file was the one place where "my work landed" and "my work
+did not land" produce different bytes; by §3's test it is the only detector
+in the story whose evidence could come out the other way. That generalizes:
+**after any merge plus pull, spot-check one file you know changed late.**
+Late, specifically — the most recently written content is the content most
+likely to be stranded on the wrong side of a merge. It needs no tooling, it
+is the cheapest end-to-end check of "did my work actually land" available,
+and in this incident it was the only check that could have fired at all.
+
+Damage assessment then used this doc's own two halves, which is what they are
+for: `gh pr view 30 --json commits` returned a single OID, and
+`git merge-base --is-ancestor e21ae0f origin/main` exited 1 — PR merged, work
+absent, work not in base. Recovery was one command per half of the loss:
+`git branch fix/board3-firmware-target e21ae0f` resurrected the chain from
+the object store (`-d` drops the ref, never the objects), a push and **PR
+#31** carried all six commits, Kevin merged it at 2026-08-08T17:40:09Z, and
+both halves were re-run to close: state `MERGED`, ancestor check exit 0. The
+verification that confirmed the recovery is the same one that would have
+prevented the incident — the cleanest available statement that the check was
+never the missing piece. The trigger was.
+
 ## Why This Matters
 
 Phase 2.45's own framing is that the doc "becomes permanent, trusted knowledge —
@@ -258,6 +409,15 @@ an unknown interval before anyone thought to re-measure.
 - When a check reports nothing about something you believe is there, or reports
   something about an object it should not recognise — suspect the matcher's
   domain before the artifact
+- Before pushing to any branch that has an associated PR, and before writing
+  any "the PR now contains" sentence — `gh pr view <n> --json state` first; a
+  merged PR's head branch is a place work goes to get stranded
+- Before deleting any remote branch after a merge — `git branch -d` passing
+  is not evidence of anything (pushing satisfies its guard); run
+  `git merge-base --is-ancestor` against `origin/<base>`, or let
+  delete-branch-on-merge do it at the one moment it is safe by construction
+- After any merge plus pull — spot-check the content of one file you know
+  changed late, as the end-to-end test that the work landed
 - Not for choosing what a calibration fixture should probe for; that is the
   neighbouring doc's subject (see Related)
 
@@ -330,6 +490,34 @@ Line 3933 is the fully-qualified library-ID form — exactly the string shape a
 accident. The discriminating test enumerates instead: 149 `lib_id` references,
 44 distinct, none containing `CAPACITOR`. The conclusion held; only the second
 test could have told you otherwise.
+
+**Shape 1, live-fire, worked.** All commands run 2026-08-08, after PR #31
+merged:
+
+```console
+$ gh pr view 30 --json state,createdAt,mergedAt,commits \
+    --jq '{state,createdAt,mergedAt,commits:[.commits[].oid[0:7]]}'
+{"state":"MERGED","createdAt":"2026-08-07T23:47:52Z",
+ "mergedAt":"2026-08-08T00:02:38Z","commits":["19b2be4"]}
+
+$ git show -s --format='%h %cI %s' b0a6b3f e21ae0f
+b0a6b3f 2026-08-07T18:13:44-06:00 feat(firmware): board3 env -- flash it, plug the panels in, and it runs
+e21ae0f 2026-08-08T00:26:49-06:00 docs(hardware): AW9523B claims triple-verified against DS V2.4 -- order ungated
+
+$ gh pr view 31 --json state,mergedAt,commits \
+    --jq '{state,mergedAt,n:(.commits|length)}'
+{"state":"MERGED","mergedAt":"2026-08-08T17:40:09Z","n":6}
+
+$ git merge-base --is-ancestor e21ae0f origin/main; echo "exit=$?"
+exit=0
+```
+
+One commit in PR #30, frozen at merge; the first stranded commit authored
+eleven minutes after `mergedAt`; six commits in PR #31; ancestor check now
+true. At detection time that last command exited 1. The exit-1-then-exit-0
+pair, before and after PR #31, is the incident and the recovery expressed as
+two runs of the same check — which is the point of having a check that can
+disagree.
 
 **The shape recurs within hours.** The docs corrected in shape 1's aftermath
 were careful — they say *"PR #24 is merged but ends before these commits"* — and
