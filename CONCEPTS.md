@@ -99,6 +99,11 @@ A pour's inverse is a **rule area** (keepout): a region with the same outline se
 
 Note that "keepout" is used in two senses here and only one of them is drawn. A rule area is a copper keepout the design tool enforces. A *mechanical* keepout — the space a cable, connector shell, or tool needs in order to mate — is a constraint on the physical product that no copper rule expresses, so nothing checks it unless someone draws a rule area specifically to stand in for it. The unqualified word usually means the copper one.
 
+### Trunk Walk
+The act of proving which copper actually carries a net's load current — establishing the series path from electrical source to sink so that narrow-but-parallel branches and sense spurs are excluded before any width rule is applied to them. A net's narrowest segment is an upper bound on ignorance, not a risk figure; the walk is what converts it into one.
+
+Done by eye on a single visible run, or computed as a max-flow over the net's copper when it spans layers and branches — in which case the computation counts as an Instrument Finding source and earns the same treatment: calibrate it against a net whose answer is already known, both before believing its first reading and again after any edit it measured.
+
 ### Courtyard
 The keep-clear region a footprint declares around itself, sized so that neighbouring parts can be placed and soldered without interference. It is an authored polygon belonging to the footprint, distinct from the pads (which are copper) and from the body outline (which is only the part's physical extent).
 
