@@ -86,6 +86,25 @@ R33/R36.
   **no 2.54 mm shunts** (JLC doesn't supply them). Put shunts in the parts
   order or confirm drawer stock *before* the boards arrive.
 
+## Prove the firmware BEFORE the boards ship — `[env:board3_mule]`
+
+Same firmware, same defines, minus only the 25 MHz clock flag (the override
+gates on `HSE_VALUE`, so a mule gets stock working clocks). On a
+**NUCLEO-H743ZI** (~$25 — Board3's exact LQFP-144 pin map, every signal on the
+Zio headers), panels on the existing FFC breakouts at the *real* Board3 pins:
+
+| Session | Wires | Proves |
+|---|---|---|
+| Panels + dash | FFC breakouts → PA5/6/7+PD8/PD11, PB13/14/15+PD9/PD12, PE2/5/6+PE3/PD13; BL on external 5 V | the whole render path on H7 silicon at Board3's pins |
+| USB CDC | USB device connector | serial protocol + `/dash` skill over CDC (never bench-run on H7) |
+| Telltales | AW9523B breakout ×2 on PB10/11 (strap 0x5B/0x5A) | the I2C lamp glue, which has **never had hardware** |
+| Odometer | nothing | EEPROM emulation in H7 flash across power cycles |
+| Button | momentary switch PC6→GND | the remapped gesture pin |
+| QSPI | (optional) W25Q256 breakout PB2/PF6-9/PG6 | the JEDEC probe's ok path; unwired it proves the failure path boots on |
+
+After a clean mule soak, first contact with Board3 tests only three things:
+the 25 MHz clock block, the CM4 option byte, and real copper at 13.5 MHz.
+
 ## Known-tight spots (do not "discover" these)
 
 - P1/P2 screw terminals sit 0.65 mm from the CAN transceivers (U8/U9) — care

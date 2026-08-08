@@ -199,8 +199,14 @@ static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* WeAct user button K1 */
 #define DASH_SWITCH_TRIP_PRESSED LOW
 #endif
 
-#if defined(DASH_BOARD_BOARD3)
+#if defined(DASH_BOARD_BOARD3) && defined(HSE_VALUE) && (HSE_VALUE == 25000000UL)
 /* ---- Board3 clock tree (25 MHz crystal, not the Nucleo's 8 MHz bypass) ----
+ * Gated on HSE_VALUE, not just the board define, so the SAME firmware runs on
+ * an H743-class mule (WeAct or NUCLEO-H743ZI) with the variant's stock clock
+ * config: an env that omits -D HSE_VALUE=25000000UL gets the working default
+ * clocks, and only the real Board3 env activates this override. That is what
+ * lets every OTHER line of the board3 target be proven on bench silicon
+ * before Board3 exists.
  * The nucleo_h743zi variant's SystemClock_Config assumes the ST-LINK's 8 MHz
  * MCO; Board3 runs a real 25 MHz crystal (X1, C9006). STM32duino declares
  * SystemClock_Config weak, so this override wins at link time.
