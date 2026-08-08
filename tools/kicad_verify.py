@@ -23,6 +23,14 @@ for every key it names. A design rule raised in the .kicad_pro and not mirrored
 here is silently reverted for the duration of the check -- so a rule change is
 not done until it lands in kicad_rules.json.
 
+A sibling silent-degradation mode lives in the .kicad_dru this script stages
+verbatim: one malformed constraint voids the ENTIRE file -- kicad-cli exits 0,
+prints nothing, and judges with no custom rules at all. The fingerprint here is
+known-waived findings reappearing (courtyards_overlap +26, copper_edge +10 on
+Board3); a sudden jump in exactly those types after a .kicad_dru edit means the
+file died, not that the board got worse. See docs/solutions/integration-issues/
+kicad-dru-one-bad-constraint-silently-voids-every-custom-rule.md.
+
   python tools/kicad_verify.py routed.kicad_pcb                      # absolute
   python tools/kicad_verify.py routed.kicad_pcb --baseline old.kicad_pcb
 """

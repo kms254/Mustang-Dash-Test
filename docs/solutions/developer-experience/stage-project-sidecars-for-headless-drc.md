@@ -54,6 +54,15 @@ The complete sidecar set a staged board needs for a faithful DRC:
 | `fp-lib-table` | footprint library resolution | mass `lib_footprint_issues` "not found", masking real mismatches |
 | referenced `.pretty` dirs | the library content itself | same as above |
 
+> **Same fingerprint, opposite cause (2026-08-08):** the `.kicad_dru` row's
+> re-flagged violations also appear when the file is *present but malformed* —
+> one bad constraint silently voids the whole file (exit 0, no stderr), so
+> "confirm the file was staged" does not rule this out. Distinguish with the
+> behavioral probe: append a deliberately-firing rule to a staged copy and
+> require nonzero findings (the GUI rule editor's syntax check may also catch
+> it at edit time — unverified). See
+> [one bad constraint silently voids every custom rule](../integration-issues/kicad-dru-one-bad-constraint-silently-voids-every-custom-rule.md).
+
 Rules of thumb:
 
 - **Stage by project, not by file.** When copying a board for checking, copy

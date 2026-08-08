@@ -751,6 +751,14 @@ builds. Measured: unconditioned 18 + 199, `(condition "B.Type == 'Pad'")` 9 + 0 
 Both rules in `board3.kicad_dru` are verified to FIRE — the same rule at 0.60 mm
 reports 199 of each — because a rule that passes because it is malformed and one
 that passes because the board is clean look identical from the passing side.
+**And malformed is worse than dead: one bad constraint silently voids the ENTIRE
+`.kicad_dru`** — exit 0, stderr empty, normal-looking report, every waiver and
+every added check dropped (measured 2026-08-08: `min_resolved_spokes` takes a
+bare count, and wrapping it `(min …)` like the distance constraints costs the
+whole file; the only signal is waived findings reappearing, and a file with no
+waivers gives NO signal). After any `.kicad_dru` edit: prove one rule fires AND
+the baseline violation set is unchanged. Full write-up:
+`docs/solutions/integration-issues/kicad-dru-one-bad-constraint-silently-voids-every-custom-rule.md`.
 
 **Narrow before you trim, and only touch what actually violates.** Clearance is
 edge-to-edge against a stored centreline, so *reducing a line's width buys
