@@ -268,6 +268,80 @@ extern "C" void SystemClock_Config(void)
     crs.HSI48CalibrationValue = RCC_CRS_HSI48CALIBRATION_DEFAULT;
     HAL_RCCEx_CRSConfig(&crs);
 }
+#elif defined(DASH_BOARD_BOARD3) && defined(DASH_MULE_H755Q)
+/* ---- NUCLEO-H755ZI-Q mule clock tree (SMPS! this block is load-bearing) ----
+ * The -Q boards power VCORE from the internal SMPS. The nucleo_h743zi
+ * variant's stock SystemClock_Config selects PWR_LDO_SUPPLY, and on
+ * SMPS-wired silicon that HANGS the chip at the VOSRDY wait -- the board
+ * looks bricked until reflashed under reset. So the mule env MUST carry its
+ * own override with PWR_DIRECT_SMPS_SUPPLY; without it, flashing the mule
+ * would be the first bench "failure" and it would be ours, not the board's.
+ * Clocks: Nucleo HSE is the ST-LINK's 8 MHz MCO (bypass). 8 /M1 = 8 MHz
+ * (VCI range 3) x N100 = 800 MHz /P2 = 400 MHz, VOS1 -- the same operating
+ * point as the real Board3 block, so timing-derived behaviour transfers.
+ * USB stays on HSI48+CRS: running that recipe here proves it on the same
+ * H755 die Board3 carries, which is the point of the mule. */
+extern "C" void SystemClock_Config(void)
+{
+    /* PWR_DIRECT_SMPS_SUPPLY does not exist in the H743 variant's headers --
+     * the SMPS supply options are dual-core-only HAL surface. The REGISTER
+     * exists on the H755 die we are actually running on: H743's PWR_CR3 bit 2
+     * is named SCUEN, and on the H755 that same bit position is SDEN (SMPS
+     * enable). Direct SMPS = SDEN set, LDOEN and BYPASS clear -- written raw,
+     * then wait for the supply-ready flag before touching VOS. This is the
+     * one place the H743-variant-on-H755 disguise leaks; everything else is
+     * plain shared-die HAL. */
+    MODIFY_REG(PWR->CR3,
+               (PWR_CR3_SCUEN | PWR_CR3_LDOEN | PWR_CR3_BYPASS),
+               PWR_CR3_SCUEN);
+    while (0U == (PWR->CSR1 & PWR_CSR1_ACTVOSRDY)) { }
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+    while (!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) { }
+
+    RCC_OscInitTypeDef osc = {};
+    osc.OscillatorType = RCC_OSCILLATORTYPE_HSE | RCC_OSCILLATORTYPE_HSI48;
+    osc.HSEState       = RCC_HSE_BYPASS; /* ST-LINK MCO, not a crystal */
+    osc.HSI48State     = RCC_HSI48_ON;
+    osc.PLL.PLLState   = RCC_PLL_ON;
+    osc.PLL.PLLSource  = RCC_PLLSOURCE_HSE;
+    osc.PLL.PLLM       = 1U;
+    osc.PLL.PLLN       = 100U;
+    osc.PLL.PLLP       = 2U;
+    osc.PLL.PLLQ       = 4U;
+    osc.PLL.PLLR       = 2U;
+    osc.PLL.PLLRGE     = RCC_PLL1VCIRANGE_3; /* 8-16 MHz ref */
+    osc.PLL.PLLVCOSEL  = RCC_PLL1VCOWIDE;
+    osc.PLL.PLLFRACN   = 0U;
+    if (HAL_RCC_OscConfig(&osc) != HAL_OK) { while (1) { } }
+
+    RCC_ClkInitTypeDef clk = {};
+    clk.ClockType = RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK |
+                    RCC_CLOCKTYPE_D1PCLK1 | RCC_CLOCKTYPE_PCLK1 |
+                    RCC_CLOCKTYPE_PCLK2 | RCC_CLOCKTYPE_D3PCLK1;
+    clk.SYSCLKSource   = RCC_SYSCLKSOURCE_PLLCLK;
+    clk.SYSCLKDivider  = RCC_SYSCLK_DIV1;
+    clk.AHBCLKDivider  = RCC_HCLK_DIV2;
+    clk.APB1CLKDivider = RCC_APB1_DIV2;
+    clk.APB2CLKDivider = RCC_APB2_DIV2;
+    clk.APB3CLKDivider = RCC_APB3_DIV2;
+    clk.APB4CLKDivider = RCC_APB4_DIV2;
+    if (HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_2) != HAL_OK) { while (1) { } }
+
+    RCC_PeriphCLKInitTypeDef pclk = {};
+    pclk.PeriphClockSelection = RCC_PERIPHCLK_USB;
+    pclk.UsbClockSelection    = RCC_USBCLKSOURCE_HSI48;
+    HAL_RCCEx_PeriphCLKConfig(&pclk);
+
+    __HAL_RCC_CRS_CLK_ENABLE();
+    RCC_CRSInitTypeDef crs = {};
+    crs.Prescaler             = RCC_CRS_SYNC_DIV1;
+    crs.Source                = RCC_CRS_SYNC_SOURCE_USB2;
+    crs.Polarity              = RCC_CRS_SYNC_POLARITY_RISING;
+    crs.ReloadValue           = RCC_CRS_RELOADVALUE_DEFAULT;
+    crs.ErrorLimitValue       = RCC_CRS_ERRORLIMIT_DEFAULT;
+    crs.HSI48CalibrationValue = RCC_CRS_HSI48CALIBRATION_DEFAULT;
+    HAL_RCCEx_CRSConfig(&crs);
+}
 #endif /* DASH_BOARD_BOARD3 clock tree */
 
 #if defined(DASH_BOARD_BOARD3) && defined(HAL_QSPI_MODULE_ENABLED)

@@ -88,10 +88,20 @@ R33/R36.
 
 ## Prove the firmware BEFORE the boards ship — `[env:board3_mule]`
 
-Same firmware, same defines, minus only the 25 MHz clock flag (the override
-gates on `HSE_VALUE`, so a mule gets stock working clocks). On a
-**NUCLEO-H743ZI** (~$25 — Board3's exact LQFP-144 pin map, every signal on the
-Zio headers), panels on the existing FFC breakouts at the *real* Board3 pins:
+Target: the bench **NUCLEO-H755ZI-Q** — the **same STM32H755 die as U1**, with
+every Board3 signal on the Zio headers. Same firmware as `board3` except the
+clock/supply block: the -Q board is **SMPS-powered**, so the env's
+`DASH_MULE_H755Q` selects a direct-SMPS clock config (the stock H743-variant
+config selects LDO and *hangs SMPS silicon at the VOSRDY wait* — a board that
+looks bricked; recover by flashing under reset). Being the real die, the mule
+also **rehearses the one-time `BCM4=0` option-byte step** before Board3 needs
+it, and proves USB-on-HSI48+CRS on the exact silicon.
+
+**Bench trap:** the Nucleo's ST-LINK VCP is USART3 on **PD8/PD9** — the center
+and left CS pins. Open the two VCP solder bridges (Nucleo-144 user manual)
+before the panel session, or the ST-LINK's TX fights left CS.
+
+Panels on the existing FFC breakouts at the *real* Board3 pins:
 
 | Session | Wires | Proves |
 |---|---|---|
