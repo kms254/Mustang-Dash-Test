@@ -4,6 +4,26 @@ One page for the bench. Everything here was measured off the board/gerbers in
 the 2026-08-07 pre-order review (`pcbnew` + gerber parse); coordinates are
 board-frame mm. Print this before the boards arrive.
 
+## Flashing — first connect
+
+1. **ONE-TIME, before anything else** (H755 boots BOTH cores from the factory
+   and the CM4 has no image):
+   `STM32_Programmer_CLI -c port=SWD -ob BCM4=0`
+   via ST-LINK on H2 (Tag-Connect TC2030, hand-held). Skipping this leaves the
+   CM4 hard-faulting in the background — usually survivable, never desirable.
+2. **Build + flash:** `./scripts/compile.sh board3`, then
+   `pio run -e board3 -t upload` (ST-LINK on H2), **or** DFU with no debugger:
+   hold BOOT + tap RESET, then `dfu-util` / STM32CubeProgrammer over USB.
+3. The env targets the CM7 through the `nucleo_h743zi` variant (H743ZIT6 is
+   the same LQFP-144 pin map; Board3's 25 MHz crystal is handled by the
+   sketch's `SystemClock_Config` override — 400 MHz, USB on HSI48+CRS).
+   Serial is **USB CDC** (enumerates as "MustangDash", 115200, `ok`/`err`
+   protocol as on the bench).
+4. **Boot banner self-checks:** panel init lines per panel, telltale expander
+   ack (`west`/`east`), and `U2 QSPI JEDEC: EF 40 19 -- ok` — the U2
+   keep-fitted condition, checked automatically every boot. `MISMATCH` or
+   `FAILED` = U2/QSPI problem; the dash still runs.
+
 ## Test points — three identical bare 0.6 mm ENIG dots, NO silk labels
 
 | TP | Net | Location | Identify by continuity |
@@ -57,16 +77,43 @@ R33/R36.
 
 ## Bring-up debt — run these on the first good board
 
-- **U2 QSPI JEDEC-ID read** (~20 lines: QUADSPI init, command 0x9F, expect
-  `EF 40 19` for W25Q256JV — confirm against the datasheet). U2 has no other
-  consumer in the firmware; this read is the entire return on fitting it, and
-  the decision to keep it fitted (2026-08-07) was made on the condition this
-  test exists. Until it passes, a dead U2 is invisible.
+- **U2 QSPI JEDEC-ID read — DONE, runs at every boot.** `board3_qspi_jedec_probe()`
+  in the sketch prints the ID in the boot banner (see Flashing §4). The
+  keep-fitted condition is satisfied the moment the first banner shows `ok`.
 - **13.5 MHz SPI clock re-walk** per panel (see caveat above). Bench numbers
   came from failure on different topology and do not transfer.
 - **CAN1 first bring-up needs H1 closed** — the order contains the headers but
   **no 2.54 mm shunts** (JLC doesn't supply them). Put shunts in the parts
   order or confirm drawer stock *before* the boards arrive.
+
+## Prove the firmware BEFORE the boards ship — `[env:board3_mule]`
+
+Target: the bench **NUCLEO-H755ZI-Q** — the **same STM32H755 die as U1**, with
+every Board3 signal on the Zio headers. Same firmware as `board3` except the
+clock/supply block: the -Q board is **SMPS-powered**, so the env's
+`DASH_MULE_H755Q` selects a direct-SMPS clock config (the stock H743-variant
+config selects LDO and *hangs SMPS silicon at the VOSRDY wait* — a board that
+looks bricked; recover by flashing under reset). Being the real die, the mule
+also **rehearses the one-time `BCM4=0` option-byte step** before Board3 needs
+it, and proves USB-on-HSI48+CRS on the exact silicon.
+
+**Bench trap:** the Nucleo's ST-LINK VCP is USART3 on **PD8/PD9** — the center
+and left CS pins. Open the two VCP solder bridges (Nucleo-144 user manual)
+before the panel session, or the ST-LINK's TX fights left CS.
+
+Panels on the existing FFC breakouts at the *real* Board3 pins:
+
+| Session | Wires | Proves |
+|---|---|---|
+| Panels + dash | FFC breakouts → PA5/6/7+PD8/PD11, PB13/14/15+PD9/PD12, PE2/5/6+PE3/PD13; BL on external 5 V | the whole render path on H7 silicon at Board3's pins |
+| USB CDC | USB device connector | serial protocol + `/dash` skill over CDC (never bench-run on H7) |
+| Telltales | AW9523B breakout ×2 on PB10/11 (strap 0x5B/0x5A) | the I2C lamp glue, which has **never had hardware** |
+| Odometer | nothing | EEPROM emulation in H7 flash across power cycles |
+| Button | momentary switch PC6→GND | the remapped gesture pin |
+| QSPI | (optional) W25Q256 breakout PB2/PF6-9/PG6 | the JEDEC probe's ok path; unwired it proves the failure path boots on |
+
+After a clean mule soak, first contact with Board3 tests only three things:
+the 25 MHz clock block, the CM4 option byte, and real copper at 13.5 MHz.
 
 ## Known-tight spots (do not "discover" these)
 
