@@ -175,6 +175,16 @@ static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* Nucleo USER button B1 */
  * (review finding). */
 #define DASH_SWITCH_TRIP_PINMODE INPUT
 #define DASH_SWITCH_TRIP_PRESSED HIGH
+#elif defined(DASH_BOARD_BOARD3)
+/* Board3 proper: telltales on the two AW9523B expanders over I2C2 (plan
+ * 2026-07-28-001 U21). The gesture button is BTN1 = SW1 on PC6 (netlist:
+ * PC6 -> R28 1k -> SW1 -> GND, so the default active-LOW/INPUT_PULLUP
+ * contract below is electrically correct). PC13 is NOT connected on
+ * Board3 -- the WeAct/Nucleo value would idle high and never fire.
+ * BTN2-4 (PC7/PC8/PC9) are wired and unassigned; future gestures land
+ * there, not on new hardware. */
+#define DASH_LAMPS_I2C 1
+static const uint8_t DASH_SWITCH_TRIP_PIN = PC6; /* BTN1 = SW1 */
 #else
 /* Board3 carrier: the telltales left the MCU -- two AW9523B expanders on
  * I2C2 drive them (plan 2026-07-28-001 U21) and PD0-PD7 are freed. Lamp
@@ -188,6 +198,137 @@ static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* WeAct user button K1 */
 #define DASH_SWITCH_TRIP_PINMODE INPUT_PULLUP
 #define DASH_SWITCH_TRIP_PRESSED LOW
 #endif
+
+#if defined(DASH_BOARD_BOARD3)
+/* ---- Board3 clock tree (25 MHz crystal, not the Nucleo's 8 MHz bypass) ----
+ * The nucleo_h743zi variant's SystemClock_Config assumes the ST-LINK's 8 MHz
+ * MCO; Board3 runs a real 25 MHz crystal (X1, C9006). STM32duino declares
+ * SystemClock_Config weak, so this override wins at link time.
+ * 25 / M5 = 5 MHz -> x N160 = 800 MHz VCO -> /P2 = 400 MHz SYSCLK, which is
+ * VOS1-safe (no VOS0 excursion needed for a dash). AXI/AHB 200 MHz, APB 100.
+ * USB FS gets its 48 MHz from HSI48 trimmed by CRS against USB SOF -- the
+ * standard crystal-independent recipe, so USB enumeration does not depend on
+ * this PLL arithmetic being perfect. Supply is PWR_LDO_SUPPLY: Board3 feeds
+ * VDDLDO (three pins in the decoupling census) and does not use the SMPS --
+ * configuring the wrong supply here bricks the chip until power-cycle, so
+ * this line is load-bearing, not boilerplate. */
+extern "C" void SystemClock_Config(void)
+{
+    HAL_PWREx_ConfigSupply(PWR_LDO_SUPPLY);
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+    while (!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) { }
+
+    RCC_OscInitTypeDef osc = {};
+    osc.OscillatorType = RCC_OSCILLATORTYPE_HSE | RCC_OSCILLATORTYPE_HSI48;
+    osc.HSEState       = RCC_HSE_ON;
+    osc.HSI48State     = RCC_HSI48_ON;
+    osc.PLL.PLLState   = RCC_PLL_ON;
+    osc.PLL.PLLSource  = RCC_PLLSOURCE_HSE;
+    osc.PLL.PLLM       = 5U;
+    osc.PLL.PLLN       = 160U;
+    osc.PLL.PLLP       = 2U;
+    osc.PLL.PLLQ       = 4U;   /* 200 MHz PLL1Q for peripherals that pick it */
+    osc.PLL.PLLR       = 2U;
+    osc.PLL.PLLRGE     = RCC_PLL1VCIRANGE_2; /* 4-8 MHz ref after /M */
+    osc.PLL.PLLVCOSEL  = RCC_PLL1VCOWIDE;
+    osc.PLL.PLLFRACN   = 0U;
+    if (HAL_RCC_OscConfig(&osc) != HAL_OK) { while (1) { } }
+
+    RCC_ClkInitTypeDef clk = {};
+    clk.ClockType = RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK |
+                    RCC_CLOCKTYPE_D1PCLK1 | RCC_CLOCKTYPE_PCLK1 |
+                    RCC_CLOCKTYPE_PCLK2 | RCC_CLOCKTYPE_D3PCLK1;
+    clk.SYSCLKSource   = RCC_SYSCLKSOURCE_PLLCLK;
+    clk.SYSCLKDivider  = RCC_SYSCLK_DIV1;  /* CM7 400 MHz */
+    clk.AHBCLKDivider  = RCC_HCLK_DIV2;    /* AXI/AHB 200 MHz */
+    clk.APB1CLKDivider = RCC_APB1_DIV2;    /* 100 MHz */
+    clk.APB2CLKDivider = RCC_APB2_DIV2;
+    clk.APB3CLKDivider = RCC_APB3_DIV2;
+    clk.APB4CLKDivider = RCC_APB4_DIV2;
+    if (HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_2) != HAL_OK) { while (1) { } }
+
+    RCC_PeriphCLKInitTypeDef pclk = {};
+    pclk.PeriphClockSelection = RCC_PERIPHCLK_USB;
+    pclk.UsbClockSelection    = RCC_USBCLKSOURCE_HSI48;
+    HAL_RCCEx_PeriphCLKConfig(&pclk);
+
+    __HAL_RCC_CRS_CLK_ENABLE();
+    RCC_CRSInitTypeDef crs = {};
+    crs.Prescaler             = RCC_CRS_SYNC_DIV1;
+    crs.Source                = RCC_CRS_SYNC_SOURCE_USB2; /* OTG_FS SOF (PA11/12) */
+    crs.Polarity              = RCC_CRS_SYNC_POLARITY_RISING;
+    crs.ReloadValue           = RCC_CRS_RELOADVALUE_DEFAULT;
+    crs.ErrorLimitValue       = RCC_CRS_ERRORLIMIT_DEFAULT;
+    crs.HSI48CalibrationValue = RCC_CRS_HSI48CALIBRATION_DEFAULT;
+    HAL_RCCEx_CRSConfig(&crs);
+}
+#endif /* DASH_BOARD_BOARD3 clock tree */
+
+#if defined(DASH_BOARD_BOARD3) && defined(HAL_QSPI_MODULE_ENABLED)
+/* ---- U2 QSPI NOR smoke test (JEDEC ID read, boot banner only) ----
+ * U2 (W25Q256JV) has no other firmware consumer yet; the 2026-08-07 decision
+ * to keep it fitted was made ON THE CONDITION this read runs on the first
+ * board -- until it passes, a dead or miswired U2 is indistinguishable from a
+ * working one. Runs once in setup(), prints one banner line, never blocks
+ * boot. Pins per the netlist: CLK PB2 (AF9), NCS PG6 (AF10), IO0 PF8 (AF10),
+ * IO1 PF9 (AF10), IO2 PF7 (AF9), IO3 PF6 (AF9) -- the H743/H755 QUADSPI AF
+ * table; verify against the datasheet at bring-up if the read misbehaves.
+ * The ID read is 1-line SPI at kernel/20 (~10 MHz), so quad mode, dummy
+ * cycles and flash configuration are all out of scope here on purpose. */
+static void board3_qspi_jedec_probe(void)
+{
+    __HAL_RCC_QSPI_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    __HAL_RCC_GPIOF_CLK_ENABLE();
+    __HAL_RCC_GPIOG_CLK_ENABLE();
+
+    GPIO_InitTypeDef g = {};
+    g.Mode  = GPIO_MODE_AF_PP;
+    g.Pull  = GPIO_NOPULL;
+    g.Speed = GPIO_SPEED_FREQ_HIGH;
+    g.Pin = GPIO_PIN_2;              g.Alternate = GPIO_AF9_QUADSPI;
+    HAL_GPIO_Init(GPIOB, &g);        /* CLK */
+    g.Pin = GPIO_PIN_6 | GPIO_PIN_7; g.Alternate = GPIO_AF9_QUADSPI;
+    HAL_GPIO_Init(GPIOF, &g);        /* IO3, IO2 */
+    g.Pin = GPIO_PIN_8 | GPIO_PIN_9; g.Alternate = GPIO_AF10_QUADSPI;
+    HAL_GPIO_Init(GPIOF, &g);        /* IO0, IO1 */
+    g.Pin = GPIO_PIN_6;              g.Alternate = GPIO_AF10_QUADSPI;
+    HAL_GPIO_Init(GPIOG, &g);        /* NCS */
+
+    QSPI_HandleTypeDef h = {};
+    h.Instance                = QUADSPI;
+    h.Init.ClockPrescaler     = 19U;  /* kernel clock / 20 -- slow, safe */
+    h.Init.FifoThreshold      = 4U;
+    h.Init.FlashSize          = 24U;  /* 2^(24+1) = 32 MB = 256 Mbit */
+    h.Init.ChipSelectHighTime = QSPI_CS_HIGH_TIME_2_CYCLE;
+    h.Init.ClockMode          = QSPI_CLOCK_MODE_0;
+    h.Init.FlashID            = QSPI_FLASH_ID_1;
+    h.Init.DualFlash          = QSPI_DUALFLASH_DISABLE;
+    if (HAL_QSPI_Init(&h) != HAL_OK)
+    {
+        Serial.println(F("U2 QSPI: HAL init FAILED"));
+        return;
+    }
+
+    QSPI_CommandTypeDef c = {};
+    c.InstructionMode = QSPI_INSTRUCTION_1_LINE;
+    c.Instruction     = 0x9FU; /* JEDEC Read ID */
+    c.AddressMode     = QSPI_ADDRESS_NONE;
+    c.DataMode        = QSPI_DATA_1_LINE;
+    c.NbData          = 3U;
+    uint8_t id[3] = { 0U, 0U, 0U };
+    if ((HAL_QSPI_Command(&h, &c, 100U) != HAL_OK) ||
+        (HAL_QSPI_Receive(&h, id, 100U) != HAL_OK))
+    {
+        Serial.println(F("U2 QSPI: JEDEC read FAILED (bus dead or U2 missing)"));
+        return;
+    }
+    Serial.printf("U2 QSPI JEDEC: %02X %02X %02X (expect EF 40 19) -- %s\r\n",
+                  id[0], id[1], id[2],
+                  ((0xEFU == id[0]) && (0x40U == id[1]) && (0x19U == id[2]))
+                      ? "ok" : "MISMATCH");
+}
+#endif /* DASH_BOARD_BOARD3 QSPI probe */
 
 /* ---- lamp drive glue (plan 2026-07-28-001 U21) ----
  * dash_telltales.h stays the only authority on WHICH lamps are lit; these
@@ -458,6 +599,9 @@ void setup(void)
     Serial.println(F("=== MustangDash / Riverdi triple dash (BT817 x3) on STM32 ==="));
     static const char *const kPanelNames[DASH_PANEL_COUNT] = { "CENTER", "LEFT", "RIGHT" };
     Serial.printf("Splash theme: %u (0=blue 1=red 2=checkered)\r\n", (unsigned)g_theme);
+#if defined(DASH_BOARD_BOARD3) && defined(HAL_QSPI_MODULE_ENABLED)
+    board3_qspi_jedec_probe(); /* U2 smoke test -- the keep-fitted condition */
+#endif
 
     /* Map the host-tested descriptor table into the library's panel form and
      * drive every panel's control pins from the MCU (CS idle high, PD held
