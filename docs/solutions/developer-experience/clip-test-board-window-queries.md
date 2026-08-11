@@ -1,7 +1,7 @@
 ---
 title: "Window-filter board geometry by shape intersection, never by an object's reference point"
 date: 2026-07-29
-last_updated: 2026-08-06
+last_updated: 2026-08-10
 category: developer-experience
 module: kicad/board3
 problem_type: developer_experience
@@ -13,7 +13,8 @@ applies_when:
   - "Any spatial filter over segments, wires, or edges (schematic or PCB)"
   - "Any spatial filter over pads, footprints, or other objects that have extent"
   - "Substituting any simpler proxy shape for a real one — a circle for a slot, a box for a polygon"
-tags: [pcbnew, geometry, query, window, clip, liang-barsky, routing, pads, bounding-box, slots]
+  - "Measuring clearance to the board edge or any stroked outline — the datum is the stroke CENTERLINE (the manufactured cut), never the artwork's bounding box"
+tags: [pcbnew, geometry, query, window, clip, liang-barsky, routing, pads, bounding-box, slots, edge-cuts, board-edge, datum]
 ---
 
 # Window-filter board geometry by shape intersection, never by an object's reference point
@@ -99,6 +100,7 @@ because the dump enumerated only `GetTracks()`.
 | Via | Centre ± radius, **on every layer it spans** | A via is a disc on all its layers; a layer-filtered query hides it (see [search every copper layer before placing a via](search-every-copper-layer-before-placing-a-via.md)) |
 | **Courtyard** | The **polygon**, never the bounding box | A courtyard is frequently non-rectangular, so a bbox test both over- and under-reports. U59 proposed two replacement vias that a bbox test called clear and a polygon test put inside U1's and U9's courtyards |
 | **Slotted drill** | A **capsule** — a segment swept by a circle: half-length `(max−min)/2` along the long axis, radius `min/2`, rotated by the pad's orientation | A slot is not a circle. `max(w,h)/2` as a radius inflates the short axis by the full aspect ratio: DC1's 2.800 × 0.800 mm slot became a 2.8 mm-diameter disc, turning a 0.4 mm half-height into 1.4 mm |
+| **Board edge** | Distance to the **Edge.Cuts centerline** (the manufactured cut), derived from the edge segments themselves | `GetBoardEdgesBoundingBox()` is the bbox of the *drawn* artwork, stroke width included — half a line-width outside the cut on every side (0.127 mm at Board3's 0.254 mm edge stroke). It is also a rectangle, so a routed outline's corner arcs make it over-cover at corners. P1/P2 silk clipped to the bbox datum left the DRC count frozen across two fixes (2026-08-10) |
 
 **The bounding box is the right test for a pad or a footprint and the wrong test
 for a courtyard**, which is easy to conflate because all three are "an object
@@ -135,7 +137,7 @@ Note also what did *not* catch it. The window dump is the map a hand route is
 derived from; if the map is wrong, the clearance arithmetic downstream is
 flawless and the answer is still wrong. Only DRC caught it, at the end.
 
-### It recurred four more times after this doc was written
+### It recurred five more times after this doc was written
 
 Each in a unit that had the rule available, and one of them in a unit that
 *cites this doc while breaking it*:
@@ -146,6 +148,7 @@ Each in a unit that had the rule available, and one of them in a unit that
 | **U53** | A via's **centre** instead of its shape | Claimed "none under a component courtyard"; TP2's solder mask merged with C34's pad and shipped as a real defect until U59 |
 | **U59** | A courtyard **bounding box** instead of the polygon | Two proposed replacement vias called clear that were actually inside U1's and U9's courtyards |
 | **Silkscreen, 2026-08-06** | A drill's **bounding circle** (`max(w,h)/2`) instead of the slot | Reported silk 0.027 mm *inside* DC1's pad-3 hole. The silk was 1.1 mm clear. The "defect" was the approximation, and it was nearly fixed on the board |
+| **P1/P2 silk clip, 2026-08-10** | The board-edge **bounding box** instead of the Edge.Cuts centerline | Two successive clip passes left `silk_edge_clearance` frozen at exactly 12; the fix was aimed 0.127 mm outside the datum DRC measures. The violation text's own "actual N mm" figure exposed the gap |
 
 Four lessons the original write-up did not contain. **A sampled point set is
 still a reference point** — U51 tested four corners rather than one centre and
@@ -176,6 +179,43 @@ The tell here was cheap and was nearly missed: the reported violation sat
 a finding's magnitude is implausible against the object's own dimensions,
 suspect the measurement before the artifact — the same range-check that catches
 "footprint-local" coordinates in the hundreds of millimetres.
+
+The fifth (2026-08-10) adds the *datum* variant and its diagnostic. Clipping
+P1/P2's flipped silk against the bottom board edge, the limit was computed from
+`board.GetBoardEdgesBoundingBox().GetBottom()` = 135.127 mm — but that is the
+bbox of the Edge.Cuts *artwork*, stroke included; the manufactured cut is the
+stroke **centerline** at y = 135.000. Two successive passes (the second even
+correcting for the silk's own half-stroke) left `silk_edge_clearance` frozen at
+exactly 12. **A violation count frozen across two different fixes means the fix
+is not reaching the checker's datum.** A stationary count has two causes — a
+reporting ceiling (see
+[a count at the report limit is not a measurement](a-count-at-the-report-limit-is-not-a-measurement.md),
+where the number *cannot* move) or a real count aimed past by the fix, as here —
+and both are told apart the same way: change what the checker measures and watch
+for movement.
+
+The reconciliation instrument is free, because **DRC prints its own measurement
+in the violation text** — "silk clearance 0.1500 mm; actual 0.0240 mm". Testing
+candidate datums against that figure settles it in one line of arithmetic:
+
+```
+Flagged item after pass 2: silk centerline y = 134.849, stroke 0.254
+                           → outermost silk edge at 134.849 + 0.127 = 134.976
+
+bbox datum (135.127):       135.127 − 134.976 = 0.151  → "compliant". Contradicts DRC. ✗
+centerline datum (135.000): 135.000 − 134.976 = 0.024  → reproduces "actual 0.0240". ✓
+```
+
+Only the centerline model reproduces the checker's own number; clipping to
+`135.000 − clearance − strokeWidth/2 − ε` cleared all 12 in one pass (merged
+with the rotation in PR kms254/Mustang-Dash-Test#36). If your model of the
+geometry cannot reproduce the "actual" a checker reports, your datum is wrong,
+not the board — the DRC-side twin of
+[a large ERC count is a broken instrument](a-large-erc-count-is-a-broken-instrument.md)'s
+"the report's own uuid/pos are authoritative; when a computed answer is
+uncertain, ask ERC". Note also the proxy error's *scale*: 0.127 mm against a
+0.15 mm rule silently consumed 85 % of the clearance budget — a proxy shape is
+dangerous in proportion to tolerance/error, not to its absolute size.
 
 ## When to Apply
 
@@ -272,7 +312,12 @@ Two adjacent gaps found by the same sweep:
 
 The good precedent to copy is `tools/kicad_shove.py:163-198`, which stores pads
 by all four `GetBoundingBox()` edges and hashes them into every spatial bucket
-they touch — structurally the overlap test this doc argues for.
+they touch — structurally the overlap test this doc argues for. (The same file
+is also the repo's one live `GetBoardEdgesBoundingBox()` caller — line 119, an
+edge margin inset 0.45 mm — so its pad hashing is the precedent to copy while
+its edge datum inherits the board-edge row's caveat: the effective margin
+under-delivers by half the edge stroke, and the rectangle ignores the corner
+arcs. Conservative enough there to leave, but do not copy that half.)
 
 ## Related
 
@@ -282,3 +327,5 @@ they touch — structurally the overlap test this doc argues for.
 - [Search every copper layer before placing a via](search-every-copper-layer-before-placing-a-via.md) — the via row of the table above; a via is a disc on every layer it spans, so a layer-filtered query hides it
 - [a tool's finding can be a property of the tool](a-tools-finding-can-be-a-property-of-the-tool.md) — the 2026-08-06 recurrence is an instance of it: the "defect" was in the measuring script, and the range-check that would have caught it is the same one that catches a 300 mm "footprint-local" coordinate
 - `tools/handroutes/u49-h2-tag-connect.json` — the route derived after the correction; its `$why` blocks record the clearances the corrected map produced
+- [a count at the report limit is not a measurement](a-count-at-the-report-limit-is-not-a-measurement.md) — the complementary stationary count: there the number *cannot* move (a reporting ceiling); in the 2026-08-10 recurrence it truthfully *did not* move because two fixes never reached the checker's datum. Same observable, opposite diagnosis, same disambiguation: change what the checker measures and watch for movement
+- [a large ERC count is a broken instrument](a-large-erc-count-is-a-broken-instrument.md) — its "ask ERC / the report's own numbers are authoritative" mechanic is the ERC-side sibling of reading DRC's "actual N mm" as the datum oracle
