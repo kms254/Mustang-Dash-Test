@@ -3,6 +3,16 @@
 # Board3 scoped DRC exceptions -- reviewed 2026-07-30 (fix/board3-cosmetic-drc).
 # These encode WHY the geometry is acceptable instead of muting findings;
 # the global rules stay armed everywhere else.
+#
+# EDITING THIS FILE: one malformed constraint silently voids ALL of it --
+# kicad-cli exits 0, prints nothing, and runs with no custom rules (waivers
+# included; 36 suppressed findings reappear on this board). Constraint syntax
+# is per-type: distance constraints take (min Xmm); min_resolved_spokes takes
+# a BARE count. After any edit, re-run the fire-both-ways probe: one rule shown
+# firing, baseline violation set shown unchanged. "Verified to FIRE" comments
+# below are point-in-time stamps for the edit they describe, not standing
+# guarantees. See docs/solutions/integration-issues/
+# kicad-dru-one-bad-constraint-silently-voids-every-custom-rule.md.
 
 # U1's decoupling ring sits deliberately tight against the LQFP-144 --
 # moving the caps away to satisfy courtyard etiquette would lengthen the
