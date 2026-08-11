@@ -130,6 +130,20 @@ As of 2026-08-05, after the silkscreen campaign:
   no untented via closer than **0.565 mm** to a pad aperture. DRC alone does not
   cover the first or third of those — see the Via covering row.
 
+**Re-upload the gerbers AND the CPL if you are ordering after 2026-08-10.**
+P1/P2 (the CAN screw terminals) were rotated 180° so the wire mouths face the
+bottom board edge — caught in JLCPCB's 3D placement viewer during the first
+order, where both JLC's model and KiCad's showed the mouths facing into the
+board. The change is **electrically null** (the pins sit on the rotation axis,
+so each hole keeps its net — `/CANx_H` stays on the west hole; copper is
+untouched, airwires 0, netlist diff is exactly the four pin-membership swaps)
+but it changes two shipped artifacts: the **CPL** (P1/P2 rotation 0 → 180, which
+is what tells the hand-solder crew which way the body faces) and
+**`F_Silkscreen.gbr`** (the body outline flipped with the part and is clipped
+0.15 mm short of the board edge). A pre-2026-08-10 CPL orders boards whose CAN
+wires point at the LQFP. Do not "fix" this by rotating in JLC's own editor —
+their placement UI has no rotate control (verified 2026-08-10).
+
 **Re-upload the gerbers if you are ordering after 2026-08-07.** The `/VBUS`
 reinforcement is a **copper change** (one new F.Cu conductor plus the refilled
 Top GND pour around it), so any zip built before 2026-08-07 describes a board
