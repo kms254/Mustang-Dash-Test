@@ -676,6 +676,12 @@ pad (body at 151.294,123.079, pad reaching to x151.744) and `/SWO` was routed
 straight through it (2026-08-02). The second happened *because* the first
 write-up drew the line at "segments" and explicitly excused pads — so when you
 generalise a rule of this shape, test every object type before exempting any.
+The BOARD EDGE is an object type too: it is the **Edge.Cuts centerline** (the
+manufactured cut), never `GetBoardEdgesBoundingBox()`, which includes the edge
+stroke — half a line-width outside the cut on every side (0.127 mm here), which
+is how two silk-clip passes left a DRC count frozen at 12 (2026-08-10). A count
+frozen across two different fixes means the fix isn't reaching the checker's
+datum; DRC's own "actual N mm" text is the reconciliation oracle.
 Same family as the rule below.
 
 **`--schematic-parity` is OFF by default, and it is the only check that compares
