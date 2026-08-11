@@ -86,6 +86,20 @@ holes is not a cosmetic error. Do not "helpfully" merge them when uploading.
 
 ## Board state
 
+**ORDERED 2026-08-10**, from the `board3-v1.0.1` release assets: PCB prototype
+**Y4-13066334A** (qty 5, green/ENIG/TG155, JLC04161H-7628, 0.2 mm via class
+with auto-selected 4-wire Kelvin, Confirm Production File YES) + Economic PCBA
+**SMT026081160502-13…** (qty 2, top side, THT hand-solder tier, Confirm Parts
+Placement YES). $288.70 all-in, estimated ship 2026-08-17. An **assembly
+remark is attached to the PCBA item**: JLC's 3D model for U2 (C97522, WSON-8
+8x6) is undersized/mis-oriented, so their viewer cannot verify it — pin 1
+(/CS, PIN 1 INDENT) must land on the **south-east pad**, per Winbond datasheet
+Figure 1a (link in the remark). Pending checkpoints, all by email: production-
+file confirmation (verify H2's three NPTH holes stay unplated; see how rails
+were added around the USBC1 edge overhang), parts-placement rendering (**check
+U2 first**, then D10/D11 cathodes-west and LED corner triangles), and a
+possible small X1 crystal-handling fee.
+
 As of 2026-08-07, after the seven-lens pre-order review (all seven verdicts
 ORDER) and the one copper change it produced:
 
