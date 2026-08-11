@@ -21164,7 +21164,7 @@
 		)
 		(uuid "4ea614ee-b976-4cc5-82f3-169fe42edabd")
 	)
-	(label "CAN1_L"
+	(label "CAN1_H"
 		(at 90.17 246.38 90)
 		(effects
 			(font
@@ -21334,7 +21334,7 @@
 		)
 		(uuid "5692ade5-44ac-40ee-927f-19b6f8c94afa")
 	)
-	(label "CAN1_H"
+	(label "CAN1_L"
 		(at 87.63 246.38 90)
 		(effects
 			(font
@@ -21434,7 +21434,7 @@
 		)
 		(uuid "5aecfde5-c831-42ff-be17-4920aab7a687")
 	)
-	(label "CAN2_L"
+	(label "CAN2_H"
 		(at 118.11 246.38 90)
 		(effects
 			(font
@@ -21464,7 +21464,7 @@
 		)
 		(uuid "5dbe8af7-2db4-4107-8e04-20430eaa9e26")
 	)
-	(label "CAN2_H"
+	(label "CAN2_L"
 		(at 115.57 246.38 90)
 		(effects
 			(font
