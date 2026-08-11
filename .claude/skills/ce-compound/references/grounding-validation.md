@@ -75,6 +75,12 @@ Check every factual claim in four categories:
    or merged but the change is absent from its commit list), or
    unverifiable (offline / no gh) — mark unverifiable as "degraded", do
    not guess.
+   This check binds at REPORT time, not only here: a live "this PR now
+   contains X" status sentence is the same claim and does the same damage
+   uninspected (six commits were stranded off a merged PR's branch on the
+   strength of one, 2026-08-08 — see the design-patterns doc's live-fire
+   section). This validator only ever sees claims that reach a doc; the
+   sentence that acts is usually spoken earlier.
 
 3. INTERNAL COMPLETENESS — countable assertions ("six PRs", "three root
    causes", "all N consumers"). Count the substantiating items in the doc

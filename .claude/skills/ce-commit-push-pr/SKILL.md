@@ -62,6 +62,8 @@ Branch routing:
 
 Note the existing PR URL and body from the PR check if `state: OPEN`. Step 5 uses the URL to route between new-PR and existing-PR application. Step 4 uses the existing body as preservation context when rewriting.
 
+**If the PR check returns `state: MERGED` for the current branch, the branch is dead — do not commit or push to it.** A merged PR's head branch keeps accepting pushes silently, and every commit pushed there is in no PR and gets stranded when the branch is deleted (this repo lost six commits to exactly this on PR kms254/Mustang-Dash-Test#30; recovered in #31). Route as if there were no PR: cut a fresh branch from the current tip, carry any uncommitted work onto it, and open a new PR. The same staleness applies mid-run — a PR can merge minutes after creation, so re-check `gh pr view --json state` before any *later* push to the same branch within one session, and before writing any "the PR now contains X" sentence.
+
 ## Step 2: Determine conventions
 
 Match repo style for commit messages and PR titles (project instructions in context > recent commits > conventional commits as default). With conventional commits, default to `fix:` over `feat:` when ambiguous — adding code to remedy broken or missing behavior is `fix:`. Reserve `feat:` for capabilities the user could not previously accomplish. The user may override.
