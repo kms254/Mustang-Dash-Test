@@ -898,6 +898,21 @@ self-reexec, and under a bare `python` it silently skips gerber renaming and the
 rotation audit — the run still exits reporting a written fab package, just a
 degraded one whose layers are named `Top Layer.gbr` instead of `F_Cu.gbr`.
 
+**JLCPCB's 3D placement viewer is the ONLY instrument that can see part
+orientation (symmetric pads are invisible to ERC/DRC/parity/netlist), and its
+model library contains stand-ins — verify the model matches the part before
+trusting its testimony.** Both directions bit in one order session (2026-08-10):
+the viewer truthfully caught P1/P2 designed 180° backwards (PR #36), then showed
+U2 (C97522, WSON-8 8x6) "mis-oriented" via an undersized generic model that
+didn't reach its own pads — able neither to confirm nor deny. The resolution
+ladder: sweep marker-corner vs CPL rotation across all parts (one rule, one
+outlier = library fault), prune to physically mountable orientations, scale the
+model against its own pad pitch, then datasheet vs `.kicad_mod`. Their order UI
+has NO rotate control — a wrong CPL rotation is fixed at source and re-uploaded;
+an untrustworthy render is closed out with a written assembly remark + the
+Confirm-Parts-Placement checkpoint. Full method:
+`docs/solutions/developer-experience/derive-the-fab-viewers-rule-before-trusting-its-outlier.md`.
+
 ## Knowledge store
 
 - `docs/solutions/` — documented solutions to past problems (best practices,

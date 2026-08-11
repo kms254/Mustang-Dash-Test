@@ -330,3 +330,10 @@ than it advertises:
   exists" — probe any check you believe is running by asserting something it
   must fail. The present doc is the converse: probe any finding you believe,
   by attacking the instrument that produced it.
+- [derive the fab viewer's rule before trusting its outlier](derive-the-fab-viewers-rule-before-trusting-its-outlier.md)
+  — the same attack run against an instrument that cannot be fixed: a
+  consistency sweep localizes a library fault, a pad-pitch scale check
+  disqualifies the model, and the ladder ends at *can neither confirm nor
+  deny* — closed at ground truth plus a written assembly remark rather than a
+  tool fix. The same viewer returned a TRUE finding (P1/P2, PR #36) in the
+  same session: the verdict attaches to the finding, not the tool.
