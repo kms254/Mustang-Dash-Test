@@ -175,9 +175,12 @@ def export_gerbers(board: Path, outdir: Path) -> list:
          "-o", str(gerber_dir) + "/", str(board))
     # --excellon-separate-th: plated and non-plated holes go in their own files.
     # Merged, KiCad marks the non-plated ones with a comment, and a fab that reads
-    # the geometry but not the comment plates them. H2 is the case that matters:
-    # its 3 NPTH holes locate a Tag-Connect's legs and its pogo pins land on BARE
-    # copper, so plating them is not cosmetic. Review item 30.
+    # the geometry but not the comment plates them. Two cases matter: H2's 3 NPTH
+    # holes locate a Tag-Connect's legs and its pogo pins land on BARE copper, so
+    # plating them is not cosmetic (review item 30); and USBC1's 2 peg holes,
+    # which only exist in this file since the footprint gained real NPTH pads
+    # (2026-08-11 -- they were Edge.Cuts artwork before, reaching NO drill file,
+    # and JLC's CAM engineer silently added them for order Y4-13066334A).
     _run("pcb", "export", "drill", "--format", "excellon",
          "--drill-origin", "absolute", "--excellon-units", "mm",
          "--excellon-separate-th",

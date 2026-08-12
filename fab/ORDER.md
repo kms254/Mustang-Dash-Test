@@ -84,14 +84,15 @@ and in a merged file the only thing marking them so is a comment. H2 is a
 Tag-Connect land pattern whose pogo pins press on **bare copper** — plating those
 holes is not a cosmetic error. Do not "helpfully" merge them when uploading.
 
-**Known incompleteness (until the USBC1 footprint is fixed): the NPTH file is
-NOT the complete set of non-plated holes this board needs.** USBC1's two
-Ø0.65 mm locating pegs need ~0.75 mm NPTH holes, and the footprint models them
-as filled Edge.Cuts polygons — artwork that reaches neither Excellon file. JLC's
-CAM engineer added the two holes for order Y4-13066334A (2026-08-11); a re-order
-from unchanged files, or any other fab, silently relies on the next engineer
-making the same fix. The durable fix is two real NPTH pads in
-`USB-C_SMD-TYPE-C-31-M-12_1.kicad_mod`.
+**The NPTH file carries FIVE holes as of 2026-08-11, not three.** USBC1's two
+Ø0.65 mm locating pegs were originally modeled as filled Edge.Cuts polygons —
+artwork that reaches neither Excellon file — and JLC's CAM engineer silently
+added the two ~0.744 mm holes for order Y4-13066334A. The footprint
+(`USB-C_SMD-TYPE-C-31-M-12_1`, library and placed instance both) now declares
+them as real NPTH pads at the same coordinates, so every future export drills
+them without relying on a fab engineer's alertness. Any zip built before
+2026-08-11 ships a 3-hole NPTH file; order Y4-13066334A is unaffected (JLC
+already built the 5-hole version from their own fix).
 
 ## Board state
 
