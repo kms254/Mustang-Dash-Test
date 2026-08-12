@@ -97,7 +97,7 @@ resolution is procedural: a written assembly remark on the order — "pin 1 (/CS
 by the PIN 1 INDENT) must land on the south-east pad", with the datasheet URL — plus the
 paid Confirm-Parts-Placement checkpoint, which puts a human at JLC with the real reel in
 the loop. Recorded in `fab/ORDER.md`'s board-state block (PR kms254/Mustang-Dash-Test#37,
-open as of this writing).
+since merged).
 
 A note on durability: the measurement scripts behind rungs 1–3 were session scratch and
 are not committed. The method is the durable part — marker-rule table, feasibility
@@ -188,10 +188,16 @@ cannot be repaired from the ordering side.
   construction. Orientation of a symmetric-pad part is its purest case — the netlist is
   identical both ways — and the fabricator's 3D render is the only instrument that can
   see it at order time.
-- `fab/ORDER.md` board-state block (PR #37, open as of this writing) and
+- `fab/ORDER.md` board-state block (PR #37, since merged) and
   `tools/kicad_fab.py` `rotation_audit()` / its witness list — the operational halves:
   the assembly remark, the check-U2-first placement checkpoint, and the audit whose
   docstring prescribed the datasheet-vs-footprint resolution.
+- [diff the fab's production file before confirming the order](diff-the-fabs-production-file-before-confirming-the-order.md)
+  — the same order's converse instrument verdict, one checkpoint later: there
+  the fab's CAM job *out-informed* every project-owned check, fixing a footprint
+  defect nothing of ours could see. Rung 1's "derive the rule from parts you can
+  verify" reappears there as coordinate-frame calibration on a known hole
+  constellation.
 - `docs/hardware/board3-bringup-card.md` — the U2 JEDEC-ID smoke test is the downstream
   detector, but it fires only after boards arrive; order-time 3D eyes are the only
   pre-fab instrument.

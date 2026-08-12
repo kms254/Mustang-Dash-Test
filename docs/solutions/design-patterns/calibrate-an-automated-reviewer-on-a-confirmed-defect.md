@@ -196,3 +196,4 @@ Rewrite USBC1's `(at 30 100 -90)` and the same run returns `STALE` with
 
 - [A gate that cannot pass gets waved through](../conventions/a-gate-that-cannot-pass-gets-waved-through.md) — the same social failure reached from the other side, and the source of the "calibration rot" the advisory docstring names
 - [Refill zones before measuring a headlessly routed board](../developer-experience/refill-zones-before-measuring-a-headlessly-routed-board.md) — a measurement that looked precise and was wrong by an order of magnitude
+- [Diff the fab's production file before confirming the order](../developer-experience/diff-the-fabs-production-file-before-confirming-the-order.md) — this pattern applied to a data artifact instead of a reviewer: before believing any per-hole verdict from the fab's CAM job (inch units, y-flipped board frame), validate the coordinate transform on a hole constellation whose positions are already known
