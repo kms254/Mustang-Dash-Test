@@ -78,6 +78,19 @@ jobs:
       - name: Every declared symbol library actually loads
         run: python3 tools/kicad_libcheck.py kicad/board3
 
+      # Placement lint: the checks born from the first JLCPCB order's two real
+      # defects, both invisible to DRC/ERC/parity by construction -- P1/P2's
+      # wire mouths facing the LQFP (PR #36, caught by eyes in JLC's viewer)
+      # and USBC1's peg holes drawn as Edge.Cuts artwork that reaches no drill
+      # file (PR #41, caught by diffing JLC's production CAM job). --self-test
+      # proves each check FIRES on the historical defective revision; on this
+      # shallow CI clone those blobs are unreachable, so the self-test SKIPS
+      # them visibly (run it locally for full calibration) while the live
+      # checks and the drill-census comparator proof still run. Absolute, not
+      # ratcheted: a hole either reaches an Excellon file or it does not.
+      - name: Placement lint (edgecuts-in-footprint, connector-mouth, drill census)
+        run: python3 tools/kicad_placement_lint.py --self-test
+
       - name: DRC report
         run: |
           kicad-cli pcb drc \
