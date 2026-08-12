@@ -178,4 +178,8 @@ min-distance techniques apply to any ODB++/Excellon comparison.
   wrong — the 11–24 mm "missing" mask openings were the loud version.
 - `fab/ORDER.md` board-state block — the operational record: this checkpoint
   executed 2026-08-11, outcome recorded there; the parts-placement (U2)
-  checkpoint remains pending.
+  checkpoint was executed later the same day — see below.
+- [audit the fab's revision set before confirming placement](audit-the-fabs-revision-set-before-confirming-placement.md)
+  — the same order's third and final checkpoint: this doc's adjudication frame
+  (every fab-produced delta is adopt-or-challenge) applied to a placement
+  revision set delivered through a UI filter instead of a CAM zip.

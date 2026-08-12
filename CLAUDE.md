@@ -910,8 +910,15 @@ outlier = library fault), prune to physically mountable orientations, scale the
 model against its own pad pitch, then datasheet vs `.kicad_mod`. Their order UI
 has NO rotate control — a wrong CPL rotation is fixed at source and re-uploaded;
 an untrustworthy render is closed out with a written assembly remark + the
-Confirm-Parts-Placement checkpoint. Full method:
-`docs/solutions/developer-experience/derive-the-fab-viewers-rule-before-trusting-its-outlier.md`.
+Confirm-Parts-Placement checkpoint. **Access trap: JLC's share/DFM/placement
+pages are SPAs** — an HTTP fetch returns the empty shell and "No data" is not
+an answer; drive a real browser (chrome-devtools MCP: the a11y snapshot carries
+the full parts table, a row-click zooms the canvas per part), and treat "Show
+Revised Items" as the engineer's diff — adjudicated per finding, audited by one
+representative per polarity family against a design-truth table from the board
+file. Full methods:
+`docs/solutions/developer-experience/derive-the-fab-viewers-rule-before-trusting-its-outlier.md`
+and `docs/solutions/developer-experience/audit-the-fabs-revision-set-before-confirming-placement.md`.
 
 ## Knowledge store
 
