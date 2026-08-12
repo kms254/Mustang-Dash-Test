@@ -198,6 +198,12 @@ cannot be repaired from the ordering side.
   defect nothing of ours could see. Rung 1's "derive the rule from parts you can
   verify" reappears there as coordinate-frame calibration on a known hole
   constellation.
+- [audit the fab's revision set before confirming placement](audit-the-fabs-revision-set-before-confirming-placement.md)
+  — the execution of rung 5's close-out: at the Confirm-Parts-Placement
+  checkpoint this doc deferred to, the written U2 remark surfaced in the
+  engineer's own revision set (honored — pin 1 rendered SE), and rung 1's
+  consistency-sweep idea returns inverted as a design-truth table read against
+  one representative per polarity family.
 - `docs/hardware/board3-bringup-card.md` — the U2 JEDEC-ID smoke test is the downstream
   detector, but it fires only after boards arrive; order-time 3D eyes are the only
   pre-fab instrument.

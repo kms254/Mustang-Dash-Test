@@ -115,9 +115,17 @@ real footprint defect — see the drill-files caveat below) and two corner
 tooling NPTH (1.05 / 0.80 mm, the order form's "Tooling holes: Added by
 JLCPCB"). Method write-up:
 `docs/solutions/developer-experience/diff-the-fabs-production-file-before-confirming-the-order.md`.
-Still pending, by email: parts-placement rendering (**check U2 first**, then
-D10/D11 cathodes-west and LED corner triangles), and a possible small X1
-crystal-handling fee.
+**Parts-placement confirmation DONE 2026-08-11** — executed via browser
+automation on the share page (an SPA: a plain fetch returns the empty shell and
+"No data" is not an answer). "Show Revised Items" = the engineer's diff, 33 of
+142 parts flagged; adjudicated per finding: U2 = our assembly remark executed
+(pin 1 now renders at the design's SE corner), six already-correct LEDs
+re-flagged by library normalization, all polarity families verified via one
+representative each (8 clicks: U2, LED1, LED7, U7, U5, U11, D10, X1 — every
+one matched design truth). Checkpoint confirmed; boards released to the line.
+Method write-up:
+`docs/solutions/developer-experience/audit-the-fabs-revision-set-before-confirming-placement.md`.
+Still pending: only the possible small X1 crystal-handling fee.
 
 As of 2026-08-07, after the seven-lens pre-order review (all seven verdicts
 ORDER) and the one copper change it produced:
