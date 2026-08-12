@@ -84,6 +84,15 @@ and in a merged file the only thing marking them so is a comment. H2 is a
 Tag-Connect land pattern whose pogo pins press on **bare copper** — plating those
 holes is not a cosmetic error. Do not "helpfully" merge them when uploading.
 
+**Known incompleteness (until the USBC1 footprint is fixed): the NPTH file is
+NOT the complete set of non-plated holes this board needs.** USBC1's two
+Ø0.65 mm locating pegs need ~0.75 mm NPTH holes, and the footprint models them
+as filled Edge.Cuts polygons — artwork that reaches neither Excellon file. JLC's
+CAM engineer added the two holes for order Y4-13066334A (2026-08-11); a re-order
+from unchanged files, or any other fab, silently relies on the next engineer
+making the same fix. The durable fix is two real NPTH pads in
+`USB-C_SMD-TYPE-C-31-M-12_1.kicad_mod`.
+
 ## Board state
 
 **ORDERED 2026-08-10**, from the `board3-v1.0.1` release assets: PCB prototype
@@ -94,11 +103,20 @@ Placement YES). $288.70 all-in, estimated ship 2026-08-17. An **assembly
 remark is attached to the PCBA item**: JLC's 3D model for U2 (C97522, WSON-8
 8x6) is undersized/mis-oriented, so their viewer cannot verify it — pin 1
 (/CS, PIN 1 INDENT) must land on the **south-east pad**, per Winbond datasheet
-Figure 1a (link in the remark). Pending checkpoints, all by email: production-
-file confirmation (verify H2's three NPTH holes stay unplated; see how rails
-were added around the USBC1 edge overhang), parts-placement rendering (**check
-U2 first**, then D10/D11 cathodes-west and LED corner triangles), and a
-possible small X1 crystal-handling fee.
+Figure 1a (link in the remark). Checkpoint status: **production-file
+confirmation DONE 2026-08-11** — executed by downloading their production file
+and diffing the CAM job against our export, not by eyeballing the render.
+Outcome: H2's three NPTH holes confirmed unplated (dedicated npth layer AND
+non_plated-flagged in the unified drill program), TP1–TP3 untent openings
+confirmed to 1.6 µm, all 7 slots present and plated, and **four holes JLC
+added**: two 0.744 mm NPTH at USBC1's locating pegs (their engineer fixed a
+real footprint defect — see the drill-files caveat below) and two corner
+tooling NPTH (1.05 / 0.80 mm, the order form's "Tooling holes: Added by
+JLCPCB"). Method write-up:
+`docs/solutions/developer-experience/diff-the-fabs-production-file-before-confirming-the-order.md`.
+Still pending, by email: parts-placement rendering (**check U2 first**, then
+D10/D11 cathodes-west and LED corner triangles), and a possible small X1
+crystal-handling fee.
 
 As of 2026-08-07, after the seven-lens pre-order review (all seven verdicts
 ORDER) and the one copper change it produced:
