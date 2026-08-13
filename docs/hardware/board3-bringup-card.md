@@ -91,11 +91,37 @@ R33/R36.
 Target: the bench **NUCLEO-H755ZI-Q** — the **same STM32H755 die as U1**, with
 every Board3 signal on the Zio headers. Same firmware as `board3` except the
 clock/supply block: the -Q board is **SMPS-powered**, so the env's
-`DASH_MULE_H755Q` selects a direct-SMPS clock config (the stock H743-variant
-config selects LDO and *hangs SMPS silicon at the VOSRDY wait* — a board that
-looks bricked; recover by flashing under reset). Being the real die, the mule
-also **rehearses the one-time `BCM4=0` option-byte step** before Board3 needs
-it, and proves USB-on-HSI48+CRS on the exact silicon.
+`DASH_MULE_H755Q` selects a direct-SMPS clock config. Being the real die, the
+mule also **rehearses the one-time `BCM4=0` option-byte step** before Board3
+needs it, and proves USB-on-HSI48+CRS on the exact silicon.
+
+**The LDO hang is nastier than a wrong clock block (hit for real 2026-08-12).**
+The stock variant header hard-defines `USE_PWR_LDO_SUPPLY`, which is consumed
+by `ExitRun0Mode()` — called from the startup file **before `main()`**, so a
+sketch-side `SystemClock_Config` override never runs. And the H7 supply config
+is **write-once until the next power-on reset**: the first post-POR boot
+latches LDO and spins forever at the ACTVOSRDY wait (2-instruction loop, empty
+stack, looks bricked). Warm resets and reflashing do **NOT** recover it — an
+earlier revision of this card said "recover by flashing under reset", which is
+wrong for this hang. Recovery = fixed firmware + a **full power cycle**. The
+trap stayed invisible through all of first-day bring-up because warm resets
+inherit whatever the last POR latched (the factory demo's correct SMPS
+config); the first true power cycle exposed it. Fix lives in the repo-local
+variant `boards/variants/H755ZI_Q_MULE/` (selects `USE_PWR_DIRECT_SMPS_SUPPLY`
+under `DASH_MULE_H755Q`, making `ExitRun0Mode()` a no-op so the sketch's
+SystemClock_Config makes the first — correct — supply write). `board3` (real
+board, LDO-wired VCORE) stays on the stock upstream variant deliberately.
+
+**`BCM4=0` without STM32CubeProgrammer** (how it was actually done, 2026-08-12
+— CubeProgrammer isn't installed and winget doesn't carry ST tools): PIO's own
+OpenOCD writes the option byte. BCM4 is FLASH_OPTSR bit 22 (verified in ST's
+own `stm32h755xx.h`); read OPTSR first, clear bit 22, write masked:
+`openocd -f interface/stlink.cfg -f target/stm32h7x.cfg -c init `
+`-c "stm32h7x option_write 0 0x20 0x1b86aaf0 0x00400000" `
+`-c "read_memory 0x5200201C 32 1" -c shutdown` — the readback must show the
+new value in OPTSR_CUR (0x1b86aaf0 from the factory 0x1bc6aaf0). Install
+CubeProgrammer before Board3 arrives to rehearse the documented command; a
+re-run with BCM4 already 0 still exercises the full tool flow.
 
 **Bench trap:** the Nucleo's ST-LINK VCP is USART3 on **PD8/PD9** — the center
 and left CS pins. Open the two VCP solder bridges (Nucleo-144 user manual)
@@ -108,7 +134,7 @@ Panels on the existing FFC breakouts at the *real* Board3 pins:
 | Panels + dash | FFC breakouts → PA5/6/7+PD8/PD11, PB13/14/15+PD9/PD12, PE2/5/6+PE3/PD13; BL on external 5 V | the whole render path on H7 silicon at Board3's pins |
 | USB CDC | USB device connector | serial protocol + `/dash` skill over CDC (never bench-run on H7) |
 | Telltales | AW9523B breakout ×2 on PB10/11 (strap 0x5B/0x5A) | the I2C lamp glue, which has **never had hardware** |
-| Odometer | nothing | EEPROM emulation in H7 flash across power cycles |
+| Odometer | nothing | **UNRECONCILED (2026-08-12):** this row promised "EEPROM emulation in H7 flash", but the first mule banner reports `Odometer backend: RAM shadow -- NOT persistent (no FRAM found)`. Either the flash-emulation backend doesn't exist or the mule can't reach it — settle this before running the power-cycle test, which fails by design on a RAM backend |
 | Button | momentary switch PC6→GND | the remapped gesture pin |
 | QSPI | (optional) W25Q256 breakout PB2/PF6-9/PG6 | the JEDEC probe's ok path; unwired it proves the failure path boots on |
 
