@@ -229,9 +229,11 @@ delta + empty stack = pre-main spin), then `arm-none-eabi-addr2line` against
 the elf names the function. USB truth: with the chip provably presenting
 (DCTL SDIS=0, session valid) and zero SOFs in DSTS, the fault is physical —
 but check DSTS *first*; a hung boot reads all-zero USB registers and mimics
-a bad cable. Banner discrepancy to settle before session [4]: odometer
-backend reports RAM shadow, not the H7-flash emulation the bring-up card
-promised.
+a bad cable. Odometer backend reconciled same night: there is NO H7-flash
+emulation (an old bring-up-card line claimed one); the ladder is I2C FRAM at
+0x50 on PB10/PB11 -> RAM shadow, so the mule persistence test needs Kevin's
+FRAM breakout on those pins. Expander breakouts NOT owned yet (session [2]
+is parts-blocked; Adafruit #4886 x2 ordered-list).
 **F767 first light (2026-07-21): NUCLEO-F767ZI + center 7" CONFIRMED.**
 MCU-direct splash (embedded pack -> RAM_G) played on glass, crossfade, 60 fps
 sim dash, REG_ID 0x7C, faults=0, pwm=128 -- all on the single ST-LINK USB
