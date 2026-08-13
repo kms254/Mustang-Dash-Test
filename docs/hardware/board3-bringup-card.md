@@ -127,6 +127,21 @@ re-run with BCM4 already 0 still exercises the full tool flow.
 and left CS pins. Open the two VCP solder bridges (Nucleo-144 user manual)
 before the panel session, or the ST-LINK's TX fights left CS.
 
+**Exact bridge list (UM2408 Rev 4 + verified live on Kevin's board 2026-08-12
+by SWD pull-wiggle float test — pin follows internal pulls = floating):**
+- **SB52** (PA7 ↔ PHY RMII CRS_DV): **measured CONNECTED and driven low** on
+  this board — must be wicked open before panels. Near the PHY (U15) / RJ45.
+- **JP6** (PB13 ↔ PHY RMII TXD1): a jumper cap, not solder — pull the cap.
+  PB13 measured floating (an unpowered-input stub is invisible to the test,
+  so check the cap visually). Near the Ethernet area.
+- **SB16 + SB17** (ST-LINK ↔ PD8/PD9, VCP): ship ON per UM2408 §6.10. PD9
+  measured floating with COM7 closed — the ST-LINK only drives it while a
+  host app has the VCP open, so it *looks* safe until something opens COM7
+  mid-session. Open both. In the ST-LINK section near CN1.
+- JP7 (PA2/RMII MDIO) touches nothing of ours — leave it.
+- UM2408 warning worth keeping: never connect CN13 before the board is
+  powered (current-injection risk); ST-LINK cable first, always.
+
 Panels on the existing FFC breakouts at the *real* Board3 pins:
 
 | Session | Wires | Proves |
