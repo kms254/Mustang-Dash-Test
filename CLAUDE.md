@@ -210,6 +210,30 @@ rendering at 8 MHz SPI, backlight under `REG_PWM_DUTY` control. Dash-era bench
 facts (2026-07-09): 64 MB QSPI flash detected on the panel, one-time splash
 provisioning + CRC no-op reboot path verified, 60 fps sustained, serial AE walk
 acked, odometer persistence across power cycles verified.
+**H755 mule first contact (2026-08-12): NUCLEO-H755ZI-Q session [1] CONFIRMED**
+(bare board — BCM4=0, `board3_mule` boots, USB CDC enumerates, banner clean,
+`status` acks over CDC; sim runs headless at fps=0 as designed). Two hard-won
+facts. (1) **The LDO hang lives in `ExitRun0Mode()`, pre-main, and the H7
+supply config is WRITE-ONCE until POR** — a sketch `SystemClock_Config`
+override cannot dodge it, warm resets inherit the last POR's latch (which is
+why it survived a whole bench day on the factory demo's SMPS latch and only
+bit at the first true power cycle), and once LDO latches the board spins at
+the ACTVOSRDY wait until a power cycle with fixed firmware. Reflashing does
+NOT recover it. Fix: repo variant `boards/variants/H755ZI_Q_MULE/` guards the
+stock `USE_PWR_LDO_SUPPLY` under `DASH_MULE_H755Q` (see platformio.ini).
+(2) **BCM4=0 needs no CubeProgrammer** (not installed; winget has no ST
+tools): PIO's own OpenOCD, `stm32h7x option_write 0 0x20 0x1b86aaf0
+0x00400000` (BCM4 = OPTSR bit 22 per stm32h755xx.h), verified by OPTSR_CUR
+readback. Debug recipe that cracked it: sample PC twice over SWD (a 2-byte
+delta + empty stack = pre-main spin), then `arm-none-eabi-addr2line` against
+the elf names the function. USB truth: with the chip provably presenting
+(DCTL SDIS=0, session valid) and zero SOFs in DSTS, the fault is physical —
+but check DSTS *first*; a hung boot reads all-zero USB registers and mimics
+a bad cable. Odometer backend reconciled same night: there is NO H7-flash
+emulation (an old bring-up-card line claimed one); the ladder is I2C FRAM at
+0x50 on PB10/PB11 -> RAM shadow, so the mule persistence test needs Kevin's
+FRAM breakout on those pins. Expander breakouts NOT owned yet (session [2]
+is parts-blocked; Adafruit #4886 x2 ordered-list).
 **F767 first light (2026-07-21): NUCLEO-F767ZI + center 7" CONFIRMED.**
 MCU-direct splash (embedded pack -> RAM_G) played on glass, crossfade, 60 fps
 sim dash, REG_ID 0x7C, faults=0, pwm=128 -- all on the single ST-LINK USB

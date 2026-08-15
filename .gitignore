@@ -77,3 +77,6 @@ tools/vendor/
 
 # Git Bash writes a stackdump beside the cwd when it crashes. Pure debris.
 *.stackdump
+
+# Claude Code personal permission overrides
+.claude/settings.local.json

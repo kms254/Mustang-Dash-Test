@@ -91,15 +91,56 @@ R33/R36.
 Target: the bench **NUCLEO-H755ZI-Q** — the **same STM32H755 die as U1**, with
 every Board3 signal on the Zio headers. Same firmware as `board3` except the
 clock/supply block: the -Q board is **SMPS-powered**, so the env's
-`DASH_MULE_H755Q` selects a direct-SMPS clock config (the stock H743-variant
-config selects LDO and *hangs SMPS silicon at the VOSRDY wait* — a board that
-looks bricked; recover by flashing under reset). Being the real die, the mule
-also **rehearses the one-time `BCM4=0` option-byte step** before Board3 needs
-it, and proves USB-on-HSI48+CRS on the exact silicon.
+`DASH_MULE_H755Q` selects a direct-SMPS clock config. Being the real die, the
+mule also **rehearses the one-time `BCM4=0` option-byte step** before Board3
+needs it, and proves USB-on-HSI48+CRS on the exact silicon.
+
+**The LDO hang is nastier than a wrong clock block (hit for real 2026-08-12).**
+The stock variant header hard-defines `USE_PWR_LDO_SUPPLY`, which is consumed
+by `ExitRun0Mode()` — called from the startup file **before `main()`**, so a
+sketch-side `SystemClock_Config` override never runs. And the H7 supply config
+is **write-once until the next power-on reset**: the first post-POR boot
+latches LDO and spins forever at the ACTVOSRDY wait (2-instruction loop, empty
+stack, looks bricked). Warm resets and reflashing do **NOT** recover it — an
+earlier revision of this card said "recover by flashing under reset", which is
+wrong for this hang. Recovery = fixed firmware + a **full power cycle**. The
+trap stayed invisible through all of first-day bring-up because warm resets
+inherit whatever the last POR latched (the factory demo's correct SMPS
+config); the first true power cycle exposed it. Fix lives in the repo-local
+variant `boards/variants/H755ZI_Q_MULE/` (selects `USE_PWR_DIRECT_SMPS_SUPPLY`
+under `DASH_MULE_H755Q`, making `ExitRun0Mode()` a no-op so the sketch's
+SystemClock_Config makes the first — correct — supply write). `board3` (real
+board, LDO-wired VCORE) stays on the stock upstream variant deliberately.
+
+**`BCM4=0` without STM32CubeProgrammer** (how it was actually done, 2026-08-12
+— CubeProgrammer isn't installed and winget doesn't carry ST tools): PIO's own
+OpenOCD writes the option byte. BCM4 is FLASH_OPTSR bit 22 (verified in ST's
+own `stm32h755xx.h`); read OPTSR first, clear bit 22, write masked:
+`openocd -f interface/stlink.cfg -f target/stm32h7x.cfg -c init `
+`-c "stm32h7x option_write 0 0x20 0x1b86aaf0 0x00400000" `
+`-c "read_memory 0x5200201C 32 1" -c shutdown` — the readback must show the
+new value in OPTSR_CUR (0x1b86aaf0 from the factory 0x1bc6aaf0). Install
+CubeProgrammer before Board3 arrives to rehearse the documented command; a
+re-run with BCM4 already 0 still exercises the full tool flow.
 
 **Bench trap:** the Nucleo's ST-LINK VCP is USART3 on **PD8/PD9** — the center
 and left CS pins. Open the two VCP solder bridges (Nucleo-144 user manual)
 before the panel session, or the ST-LINK's TX fights left CS.
+
+**Exact bridge list (UM2408 Rev 4 + verified live on Kevin's board 2026-08-12
+by SWD pull-wiggle float test — pin follows internal pulls = floating):**
+- **SB52** (PA7 ↔ PHY RMII CRS_DV): **measured CONNECTED and driven low** on
+  this board — must be wicked open before panels. Near the PHY (U15) / RJ45.
+- **JP6** (PB13 ↔ PHY RMII TXD1): a jumper cap, not solder — pull the cap.
+  PB13 measured floating (an unpowered-input stub is invisible to the test,
+  so check the cap visually). Near the Ethernet area.
+- **SB16 + SB17** (ST-LINK ↔ PD8/PD9, VCP): ship ON per UM2408 §6.10. PD9
+  measured floating with COM7 closed — the ST-LINK only drives it while a
+  host app has the VCP open, so it *looks* safe until something opens COM7
+  mid-session. Open both. In the ST-LINK section near CN1.
+- JP7 (PA2/RMII MDIO) touches nothing of ours — leave it.
+- UM2408 warning worth keeping: never connect CN13 before the board is
+  powered (current-injection risk); ST-LINK cable first, always.
 
 Panels on the existing FFC breakouts at the *real* Board3 pins:
 
@@ -108,8 +149,8 @@ Panels on the existing FFC breakouts at the *real* Board3 pins:
 | Panels + dash | FFC breakouts → PA5/6/7+PD8/PD11, PB13/14/15+PD9/PD12, PE2/5/6+PE3/PD13; BL on external 5 V | the whole render path on H7 silicon at Board3's pins |
 | USB CDC | USB device connector | serial protocol + `/dash` skill over CDC (never bench-run on H7) |
 | Telltales | AW9523B breakout ×2 on PB10/11 (strap 0x5B/0x5A) | the I2C lamp glue, which has **never had hardware** |
-| Odometer | nothing | EEPROM emulation in H7 flash across power cycles |
-| Button | momentary switch PC6→GND | the remapped gesture pin |
+| Odometer | I2C FRAM breakout at 0x50 on PB10/PB11 (3.3 V) | **PROVEN 2026-08-14**: breakout on CN10-32/34 + CN8-7, banner flips to `FRAM (FM24CL64B)`, `odo set 8675.3` survived a full power cycle (read back 8676.2 — the sim keeps earning miles). Reconciled 2026-08-12: this row used to promise "EEPROM emulation in H7 flash" — no such backend exists; the ladder is FRAM (FM24CL64B protocol, 0x50, 16-bit addressing — MB85RC256V is protocol-identical) → RAM shadow (bare board, banner says so, not persistent) |
+| Button | jumper wire CN7-1 (PC6) → CN7-8 (GND) | **PROVEN 2026-08-14**: tap = mode toggle (trip untouched), hold = trip reset (mode untouched), hand-wire bounce absorbed by the 30 ms debounce — no phantom toggles |
 | QSPI | (optional) W25Q256 breakout PB2/PF6-9/PG6 | the JEDEC probe's ok path; unwired it proves the failure path boots on |
 
 After a clean mule soak, first contact with Board3 tests only three things:
