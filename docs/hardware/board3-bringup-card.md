@@ -149,7 +149,7 @@ Panels on the existing FFC breakouts at the *real* Board3 pins:
 | Panels + dash | FFC breakouts → PA5/6/7+PD8/PD11, PB13/14/15+PD9/PD12, PE2/5/6+PE3/PD13; BL on external 5 V | the whole render path on H7 silicon at Board3's pins |
 | USB CDC | USB device connector | serial protocol + `/dash` skill over CDC (never bench-run on H7) |
 | Telltales | AW9523B breakout ×2 on PB10/11 (strap 0x5B/0x5A) | the I2C lamp glue, which has **never had hardware** |
-| Odometer | I2C FRAM breakout at 0x50 on PB10/PB11 (3.3 V) | persistence on the REAL backend. Reconciled 2026-08-12: this row used to promise "EEPROM emulation in H7 flash" — no such backend exists. The firmware ladder is FRAM (FM24CL64B protocol, 0x50, 16-bit addressing — an MB85RC256V breakout is protocol-identical) → RAM shadow. Bare board = RAM shadow, banner says so, power-cycle test fails by design. With the breakout the banner flips to `FRAM (FM24CL64B)` |
+| Odometer | I2C FRAM breakout at 0x50 on PB10/PB11 (3.3 V) | **PROVEN 2026-08-14**: breakout on CN10-32/34 + CN8-7, banner flips to `FRAM (FM24CL64B)`, `odo set 8675.3` survived a full power cycle (read back 8676.2 — the sim keeps earning miles). Reconciled 2026-08-12: this row used to promise "EEPROM emulation in H7 flash" — no such backend exists; the ladder is FRAM (FM24CL64B protocol, 0x50, 16-bit addressing — MB85RC256V is protocol-identical) → RAM shadow (bare board, banner says so, not persistent) |
 | Button | momentary switch PC6→GND | the remapped gesture pin |
 | QSPI | (optional) W25Q256 breakout PB2/PF6-9/PG6 | the JEDEC probe's ok path; unwired it proves the failure path boots on |
 
