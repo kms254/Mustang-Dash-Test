@@ -134,12 +134,25 @@ The live session tests only the electrical path and the bit-timing assumption:
 2. Feed + emitter: `wsl -- /tmp/can_sim_feed | <penv python> tools/can_emit.py`
    (build the feed per its docstring). Glass shows CAN-real engine vitals;
    TRACK lap timing stays sim (mixed-source glass, by design).
-3. `status` → `can=<accepted>,<lost>,<ms>` counting up, lost=0 steady-state.
-   `cantest` still passes on bus 2 (its filter is untouched).
+3. `status` → `can=<accepted>,<lost>,<ms>,bench` counting up, lost=0
+   steady-state. `accepted` counts only decoder-consumed frames (the four
+   dialect IDs), and the 4th field is the ACTIVE staleness semantics — check
+   it says what you built (`bench` on the bench; a car flash must say `car`,
+   or a loose connector will hand the glass to the simulator's fiction).
+   `cantest` still passes on bus 2 (it skips other traffic within its window,
+   so it coexists with the emitter stream). Lap timing under CAN speed:
+   LAST/BEST/DELTA populate normally — only the operator's serial
+   `set speed` taints a lap. On the bench the emitter replays the sim's own
+   speed so laps read true; in the car this is real speed over the fictional
+   HPR track model, so treat BEST as demo-only until RaceCapture brings
+   measured lap timing.
 4. CANable capture at 500 kbps decodes the frames cleanly → referees the
    FDCAN 80 MHz kernel-clock bit-timing assumption (dash_can.h header).
 5. Kill the feed: within ~500 ms the emitter stops TXing and the sim reclaims
    the glass (bench semantics) — the dead-feed safety observed live.
+6. Negative probe: inject one 29-bit-ID frame from the CANable
+   (`python -c` one-liner or cansend) → `accepted` must NOT advance (the
+   drain's standard-ID guard, unreachable from the host suite, proven live).
 
 **Car-side notes (M50D GWM):** the pack's four harness-mounted CAN termination
 resistors are required; CAN stubs stay within 20 in of C9/C175B/blunt leads.

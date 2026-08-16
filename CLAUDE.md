@@ -22,12 +22,13 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
 - Tests: `./tests/run-tests.sh` — host-side invariant tests pinning the display
   profile, wiring pins, backlight wave, splash timeline, dash math/sim/serial/
   odometer logic, font-format invariants, the splash flash-pack layout, the
-  trip/mode button gestures, and telltale calibration. Run them after
+  trip/mode button gestures, telltale calibration, and the Ford CAN dialect
+  decode (golden vectors + sim round-trip). Run them after
   touching `EVE_config.h`, the STM32 target header, any `MustangDash/*.h`
   pure header, or the platform files.
   Needs host `gcc`; Git Bash has none, so **on Windows run
   `wsl -- bash -lc "./tests/run-tests.sh"`** (or the VS Code task
-  "Tests: invariant suite"). All 14/14 pass (2026-08-05).
+  "Tests: invariant suite"). All 15/15 pass (2026-08-15).
 - Boot splash: a 2000 ms animated splash (spec vendored in `assets/splash/`)
   plays at power-up, then crossfades directly into the dash. Splash assets are
   **ASTC bitmaps embedded in the firmware image** (`tools/make_splash_flash.py`,
@@ -94,7 +95,8 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   serial, button, and CAN all converge on one `s->mode` assignment.
 - CAN upstream is an **Autosport Labs RaceCapture** (broadcasts CAN, runs Lua,
   configured from the phone app). Two things are meant to ride it, neither built
-  yet (`dash_can.h` is still FDCAN-loopback-only, so nothing receives):
+  yet (the RX/decode path exists since the Ford dialect round, but no
+  RaceCapture dialect does — its frames would fall through undecoded):
   **session length**, set in the paddock — this is the *only* thing blocking a
   countdown session timer, since HPDE sessions vary (20/25/30 min) and the dash
   has no input device left (both button gestures are taken); and **real lap
