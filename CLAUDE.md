@@ -124,7 +124,9 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   into `tools/can_emit.py` (cantools + the proven CANable gs_usb stack) plays
   the Ford PCM at spec rates (100/50/50/10 Hz); `--dry-run` must byte-match
   golden. Live bus is parts-gated (transceivers); the M50D GWM's
-  exact set is official-sibling inference until the first-car-contact sniff.
+  exact set is official-sibling inference until the first-car-contact sniff
+  (the M50D sheet IS-1850-0625, vendored under docs/hardware/datasheets/,
+  confirms this: 39 pp., GWM connector + blunt-cut HS-CAN leads, no table).
   RaceCapture and PMU16 dialects remain follow-on rounds at the same seam.
 
 ## Hardware truths (don't re-derive)

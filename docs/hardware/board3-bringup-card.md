@@ -154,13 +154,18 @@ The live session tests only the electrical path and the bit-timing assumption:
    (`python -c` one-liner or cansend) → `accepted` must NOT advance (the
    drain's standard-ID guard, unreachable from the host suite, proven live).
 
-**Car-side notes (M50D GWM):** the pack's four harness-mounted CAN termination
+**Car-side notes (M50D GWM):** the pack's instruction sheet is vendored at
+`docs/hardware/datasheets/M6017M50D-IS-1850-0625.pdf` (39 pp.; connector
+legend p.10 — GWM is C9, the dash's bus tap is harness item W, "Blunt cut
+HS CAN"; it prints NO CAN message table, which is what keeps the 0x270-set
+official-sibling). The pack's four harness-mounted CAN termination
 resistors are required; CAN stubs stay within 20 in of C9/C175B/blunt leads.
 First car contact: sniff the GWM leads at 500 kbps — confirm the 0x270-set,
 then signal plausibility (AFR ≈ 14.7 warm idle, ECT/EOT plausible °C,
 VBAT ≈ 14 V running) so scaling is verified, not just presence. Tracked
 non-blocking: draft + submit the Ford Techline question on the M50D GWM
-message set (the sniff stays the final referee).
+message set — Techline 1-800-367-3788, printed on every page of the sheet
+(the sniff stays the final referee).
 
 **Bench trap:** the Nucleo's ST-LINK VCP is USART3 on **PD8/PD9** — the center
 and left CS pins. Open the two VCP solder bridges (Nucleo-144 user manual)
