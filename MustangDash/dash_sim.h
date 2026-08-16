@@ -920,8 +920,16 @@ static inline void dash_sim_step(DashSimState *sim, DashState *s, uint32_t dt_ms
          * the U5 delta reference, because best_ms only ever DECREASES: one
          * forced lap would otherwise read every honest lap afterwards as more
          * than a minute behind, for the rest of the session, with no operator
-         * command that clears it. */
-        if (dash_ch_valid(s, DASH_CH_SPEED) && !dash_ch_sim_owned(s, DASH_CH_SPEED))
+         * command that clears it.
+         *
+         * CAN-owned SPEED deliberately does NOT taint: the operator taint
+         * guards against a *commanded* number, but CAN speed is the car (or
+         * the bench emitter replaying the sim's own speed), so the lap is
+         * driven, not dictated. In the car this times real speed over the
+         * fictional HPR track model -- treat BEST as demo-only there until
+         * RaceCapture brings measured lap timing and supersedes all of it. */
+        if (dash_ch_valid(s, DASH_CH_SPEED) &&
+            (s->overridden & DASH_CH_BIT(DASH_CH_SPEED)) != 0U)
         {
             sim->lap_tainted = true;
         }
