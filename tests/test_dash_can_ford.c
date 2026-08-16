@@ -75,9 +75,39 @@ static int nearf(float a, float b, float eps)
     return d <= eps;
 }
 
-/* Per-channel quantization tolerance, from the golden header's derived
- * constants (one raw quantum through the unit conversion; KTD8). */
-static float golden_tol(uint8_t ch)
+/* Per-channel tolerance lookups -- TWO families, deliberately apart
+ * (tolerance independence):
+ *
+ * golden_tight_tol: for GOLDEN decode assertions, where the generator's
+ * double math and the decoder's float math run over the SAME raw integers,
+ * so only float rounding may legitimately differ. Every value is strictly
+ * below HALF a raw quantum, so a decoder systematically biased by one
+ * quantum FAILS instead of hiding inside a quantization bound. NEVER
+ * widened to make a test pass -- a failure here is a real transcription
+ * divergence (KTD8).
+ *
+ * golden_quantum_tol: for the R11 sim round-trip ONLY, where the test-side
+ * encoder quantizes the sim's float channels to raw counts before the
+ * decoder ever sees them -- one raw quantum of error is inherent there,
+ * and only there. */
+static float golden_tight_tol(uint8_t ch)
+{
+    switch (ch)
+    {
+        case DASH_CH_RPM:   return GOLDEN_CAN_TIGHT_RPM;
+        case DASH_CH_SPEED: return GOLDEN_CAN_TIGHT_SPEED_MPH;
+        case DASH_CH_ECT:   return GOLDEN_CAN_TIGHT_ECT_F;
+        case DASH_CH_OILT:  return GOLDEN_CAN_TIGHT_OILT_F;
+        case DASH_CH_OILP:  return GOLDEN_CAN_TIGHT_OILP_PSI;
+        case DASH_CH_VOLTS: return GOLDEN_CAN_TIGHT_VOLTS;
+        case DASH_CH_AFR_L: return GOLDEN_CAN_TIGHT_AFR;
+        case DASH_CH_AFR_R: return GOLDEN_CAN_TIGHT_AFR;
+        case DASH_CH_FUELP: return GOLDEN_CAN_TIGHT_FUELP_PSI;
+        default:            return 0.0f; /* not a Ford channel: exact or bust */
+    }
+}
+
+static float golden_quantum_tol(uint8_t ch)
 {
     switch (ch)
     {
@@ -106,10 +136,24 @@ static const GoldenCanVector *find_vector(const char *name)
     return NULL;
 }
 
-static void decode_vec(DashCanFord *cf, const GoldenCanVector *v,
+/* The identifier VALUE a vector presents to the decoder. An ext vector
+ * exists only as a 29-bit frame, and the decode API takes the identifier
+ * VALUE with no ID-type flag -- so the host feeds the full 29-bit value
+ * (high bits set, unknown to the ID switch). Feeding the truncated 11-bit
+ * value instead would fabricate a frame the firmware drain's standard-only
+ * guard (U6) never forwards -- and the decoder would consume it. */
+static uint32_t vec_feed_id(const GoldenCanVector *v)
+{
+    return (v->ext != 0u) ? (0x10000000u | (uint32_t) v->id)
+                          : (uint32_t) v->id;
+}
+
+/* Returns the decoder's consumed flag (true iff dialect ID and dlc >= 8). */
+static bool decode_vec(DashCanFord *cf, const GoldenCanVector *v,
                        uint32_t now_ms, DashState *s)
 {
-    dash_can_ford_decode(cf, v->id, v->dlc, v->bytes, now_ms, s);
+    return dash_can_ford_decode(cf, vec_feed_id(v), v->dlc, v->bytes,
+                                now_ms, s);
 }
 
 /* Decode the four nominal frames -- one full set of the dialect -- at t. */
@@ -123,7 +167,12 @@ static void decode_nominal_set(DashCanFord *cf, uint32_t now_ms, DashState *s)
     {
         const GoldenCanVector *v = find_vector(nominals[i]);
         expect(v != NULL, "every nominal golden vector must exist by name");
-        if (v != NULL) { decode_vec(cf, v, now_ms, s); }
+        if (v != NULL)
+        {
+            expect(decode_vec(cf, v, now_ms, s),
+                   "a nominal dialect frame must always return true "
+                   "(consumed)");
+        }
     }
 }
 
@@ -239,22 +288,30 @@ int main(void)
 
             if (v->ext != 0u)
             {
-                /* The decode API takes 11-bit standard identifier VALUES
-                 * only: the firmware drain filters on IdType BEFORE calling
-                 * in (U6), so this test mirrors that guard by never
-                 * forwarding an extended frame -- treating ext=1 vectors as
-                 * must-be-ignored is the test's own obligation. */
+                /* Ext-ID REJECTION is not reachable from the host: the
+                 * decoder has no ID-type parameter -- the firmware drain's
+                 * standard-only guard (U6) is what drops extended frames,
+                 * and only the live-bus checklist exercises it. What this
+                 * vector DOES test (via vec_feed_id): fed as its full
+                 * 29-bit identifier VALUE, the frame falls through the ID
+                 * switch like any unknown ID. The one indistinguishable
+                 * case -- a 29-bit identifier whose value is exactly a
+                 * dialect ID -- is the drain guard's to reject and must
+                 * never be fed here. */
                 snprintf(msg, sizeof msg,
-                         "golden %s: an extended-ID vector must be a "
-                         "must-ignore vector (n_expect 0)", v->name);
+                         "golden %s: a 29-bit-only vector must be authored "
+                         "must-ignore (n_expect 0)", v->name);
                 expect(v->n_expect == 0u, msg);
-                continue;
             }
 
-            decode_vec(&cf, v, 0u, &s);
+            const bool consumed = decode_vec(&cf, v, 0u, &s);
 
             if (v->n_expect == 0u)
             {
+                snprintf(msg, sizeof msg,
+                         "golden %s: an ignored frame must return false "
+                         "(not consumed, no state touched)", v->name);
+                expect(!consumed, msg);
                 /* Ignored frame into a fresh state: nothing may become
                  * valid or claimed. The stronger pre-populated check (state
                  * untouched, last-seen not refreshed) follows below. */
@@ -264,6 +321,11 @@ int main(void)
                 expect(s.valid == 0u && s.can_owned == 0u, msg);
                 continue;
             }
+
+            snprintf(msg, sizeof msg,
+                     "golden %s: a dialect frame must return true "
+                     "(consumed; sentinel payloads included)", v->name);
+            expect(consumed, msg);
 
             for (uint8_t k = 0u; k < v->n_expect; k++)
             {
@@ -277,10 +339,10 @@ int main(void)
                     expect(dash_ch_valid(&s, e->ch), msg);
                     snprintf(msg, sizeof msg,
                              "golden %s: channel %u must decode to %g within "
-                             "its quantization tolerance",
+                             "float rounding (TIGHT, below half a quantum)",
                              v->name, (unsigned) e->ch, (double) e->value);
                     expect(nearf(dash_ch_get(&s, e->ch), e->value,
-                                 golden_tol(e->ch)), msg);
+                                 golden_tight_tol(e->ch)), msg);
                 }
                 else
                 {
@@ -323,8 +385,11 @@ int main(void)
         for (unsigned vi = 0u; vi < GOLDEN_CAN_VECTOR_COUNT; vi++)
         {
             const GoldenCanVector *v = &golden_can_vectors[vi];
-            if (v->n_expect != 0u || v->ext != 0u) { continue; }
-            decode_vec(&cf, v, 400u, &s);
+            if (v->n_expect != 0u) { continue; }
+            snprintf(msg, sizeof msg,
+                     "golden %s: an ignored frame against a populated state "
+                     "must return false (not consumed)", v->name);
+            expect(!decode_vec(&cf, v, 400u, &s), msg);
             snprintf(msg, sizeof msg,
                      "golden %s: an ignored frame must leave the valid and "
                      "can_owned masks unchanged", v->name);
@@ -347,6 +412,37 @@ int main(void)
                "t=0 must expire at t=501");
     }
 
+    /* ==== dlc 9-15 acceptance: the >= 8 rule the firmware drain's CAN FD
+     * length clamp relies on. A longer frame is CONSUMED and bytes 0-7
+     * decode exactly as at dlc 8 -- only dlc < 8 is a runt. ==== */
+    {
+        DashState s8, s15;
+        DashCanFord cf8, cf15;
+        const GoldenCanVector *rpm = find_vector("nominal_0270_rpm");
+        expect(rpm != NULL, "the nominal 0x270 vector must exist by name");
+        if (rpm != NULL)
+        {
+            dash_state_init(&s8);
+            dash_can_ford_init(&cf8);
+            dash_state_init(&s15);
+            dash_can_ford_init(&cf15);
+            expect(dash_can_ford_decode(&cf8, rpm->id, 8u, rpm->bytes,
+                                        0u, &s8),
+                   "the dlc=8 nominal 0x270 must be consumed");
+            expect(dash_can_ford_decode(&cf15, rpm->id, 15u, rpm->bytes,
+                                        0u, &s15),
+                   "dlc=15 must be consumed: acceptance is dlc >= 8, not "
+                   "dlc == 8");
+            expect(s15.valid == s8.valid && s15.can_owned == s8.can_owned,
+                   "a dlc=15 decode must produce the same valid/can_owned "
+                   "masks as dlc=8");
+            expect(dash_ch_get(&s15, DASH_CH_RPM)
+                       == dash_ch_get(&s8, DASH_CH_RPM),
+                   "a dlc=15 decode must read bytes 0-7 identically to "
+                   "dlc=8 (bit-exact RPM)");
+        }
+    }
+
     /* ==== sentinel guarded path: dead-front an ALREADY-VALID channel ==== */
     {
         DashState s;
@@ -359,7 +455,7 @@ int main(void)
 
         dash_state_init(&s);
         dash_can_ford_init(&cf);
-        decode_vec(&cf, nom, 0u, &s);
+        if (nom != NULL) { decode_vec(&cf, nom, 0u, &s); }
         expect(dash_ch_valid(&s, DASH_CH_ECT)
                    && (s.can_owned & DASH_CH_BIT(DASH_CH_ECT)) != 0u,
                "a valid ECT frame must validate and claim the channel before "
@@ -367,7 +463,9 @@ int main(void)
 
         /* ECT raw 214 (degraded): the guarded invalidation path, because
          * can_owned is already set and dash_ch_invalidate would no-op. */
-        decode_vec(&cf, sect, 10u, &s);
+        expect(sect != NULL && decode_vec(&cf, sect, 10u, &s),
+               "a sentinel payload is a CONSUMED frame (true): a degraded "
+               "sensor is a live bus, not filter traffic");
         expect(!dash_ch_valid(&s, DASH_CH_ECT),
                "ECT raw 214 (degraded) must dead-front an already-valid ECT");
         expect((s.can_owned & DASH_CH_BIT(DASH_CH_ECT)) != 0u,
@@ -375,7 +473,7 @@ int main(void)
                "state), not release it to the sim");
         expect(dash_ch_valid(&s, DASH_CH_OILT)
                    && nearf(dash_ch_get(&s, DASH_CH_OILT), 176.0f,
-                            GOLDEN_CAN_TOL_OILT_F),
+                            GOLDEN_CAN_TIGHT_OILT_F),
                "EOT in the same sentinel frame must stay valid at 176 degF");
         expect(!dash_ch_sim_owned(&s, DASH_CH_ECT),
                "a dead ECT must not be sim-owned: the sim cannot repaint a "
@@ -389,14 +487,15 @@ int main(void)
 
         /* Symmetric: EOT raw 215 (faulted); ECT in that frame is healthy
          * again, which also exercises Dead -> CanOwned revalidation. */
-        decode_vec(&cf, seot, 20u, &s);
+        expect(seot != NULL && decode_vec(&cf, seot, 20u, &s),
+               "the EOT sentinel frame must be consumed (true) as well");
         expect(!dash_ch_valid(&s, DASH_CH_OILT),
                "EOT raw 215 (faulted) must dead-front an already-valid OILT");
         expect((s.can_owned & DASH_CH_BIT(DASH_CH_OILT)) != 0u,
                "the EOT sentinel must keep OILT CAN-claimed (Dead state)");
         expect(dash_ch_valid(&s, DASH_CH_ECT)
                    && nearf(dash_ch_get(&s, DASH_CH_ECT), 194.0f,
-                            GOLDEN_CAN_TOL_ECT_F),
+                            GOLDEN_CAN_TIGHT_ECT_F),
                "a healthy ECT in the sentinel frame must revalidate the dead "
                "ECT at 194 degF (Dead -> CanOwned)");
         expect(!dash_ch_sim_owned(&s, DASH_CH_OILT),
@@ -435,7 +534,7 @@ int main(void)
                "bench expiry must leave the channels valid at their last "
                "values until the sim rewrites them");
         expect(nearf(dash_ch_get(&s, DASH_CH_RPM), 3500.0f,
-                     GOLDEN_CAN_TOL_RPM),
+                     GOLDEN_CAN_TIGHT_RPM),
                "the last CAN RPM value must survive a bench release");
         expect(dash_ch_sim_owned(&s, DASH_CH_RPM),
                "a bench-released channel must be sim-owned again");
@@ -473,7 +572,7 @@ int main(void)
         }
         expect(dash_ch_valid(&s, DASH_CH_RPM)
                    && nearf(dash_ch_get(&s, DASH_CH_RPM), 3500.0f,
-                            GOLDEN_CAN_TOL_RPM),
+                            GOLDEN_CAN_TIGHT_RPM),
                "a fresh frame must revalidate the dead RPM channel (Dead -> "
                "CanOwned)");
         dash_can_ford_expire(&cf, 601u, true, &s);
@@ -499,7 +598,10 @@ int main(void)
         dash_ch_set(&s, DASH_CH_RPM, 3200.0f);
         s.overridden |= DASH_CH_BIT(DASH_CH_RPM);
         s.cleared = (uint32_t) (s.cleared & ~DASH_CH_BIT(DASH_CH_RPM));
-        if (rpm != NULL) { decode_vec(&cf, rpm, 0u, &s); }
+        expect(rpm != NULL && decode_vec(&cf, rpm, 0u, &s),
+               "a dialect frame is CONSUMED (true) even when a serial "
+               "override vetoes the write: the return reports frame fate, "
+               "not write fate");
         expect(nearf(dash_ch_get(&s, DASH_CH_RPM), 3200.0f, 0.001f),
                "a CAN frame must not overwrite a serial-overridden RPM");
         expect((s.can_owned & DASH_CH_BIT(DASH_CH_RPM)) == 0u,
@@ -512,7 +614,9 @@ int main(void)
         s.valid = (uint32_t) (s.valid & ~DASH_CH_BIT(DASH_CH_RPM));
         s.cleared |= DASH_CH_BIT(DASH_CH_RPM);
         s.overridden = (uint32_t) (s.overridden & ~DASH_CH_BIT(DASH_CH_RPM));
-        if (rpm != NULL) { decode_vec(&cf, rpm, 0u, &s); }
+        expect(rpm != NULL && decode_vec(&cf, rpm, 0u, &s),
+               "a dialect frame is CONSUMED (true) even when a serial clear "
+               "blocks it: false means unknown-ID or runt, nothing else");
         expect(!dash_ch_valid(&s, DASH_CH_RPM),
                "a CAN frame must not revalidate a serial-cleared channel");
         expect((s.can_owned & DASH_CH_BIT(DASH_CH_RPM)) == 0u,
@@ -524,7 +628,7 @@ int main(void)
         if (rpm != NULL) { decode_vec(&cf, rpm, 10u, &s); }
         expect(dash_ch_valid(&s, DASH_CH_RPM)
                    && nearf(dash_ch_get(&s, DASH_CH_RPM), 3500.0f,
-                            GOLDEN_CAN_TOL_RPM),
+                            GOLDEN_CAN_TIGHT_RPM),
                "after `sim on` wipes the serial masks a fresh CAN frame must "
                "write RPM");
         expect((s.can_owned & DASH_CH_BIT(DASH_CH_RPM)) != 0u,
@@ -535,20 +639,40 @@ int main(void)
     {
         DashState s;
         DashCanFord cf;
+        const GoldenCanVector *af = find_vector("nominal_0274_afr_fuelp");
+        expect(af != NULL, "the nominal 0x274 vector must exist by name");
+
         dash_state_init(&s);
         dash_can_ford_init(&cf);
+        /* A serial override live BEFORE the frames arrive (mimic `set
+         * fuelp`: write + valid + overridden), so the decode below runs
+         * AGAINST it -- a serial-overridden channel must not be touched
+         * or claimed by CAN decode (R9). */
+        dash_ch_set(&s, DASH_CH_FUELP, 58.0f);
+        s.overridden |= DASH_CH_BIT(DASH_CH_FUELP);
         decode_nominal_set(&cf, 0u, &s);
-        /* leave a stale serial override behind, then wipe as DASH_CMD_SIM
-         * with sim_on does: overridden = 0, cleared = 0 -- and nothing else */
-        s.overridden |= DASH_CH_BIT(DASH_CH_FUEL);
+        expect(s.can_owned == (FORD9_MASK & ~DASH_CH_BIT(DASH_CH_FUELP)),
+               "a nominal set decoded past a live override must claim the "
+               "other 8 channels and never the overridden one (R9)");
+        expect(nearf(dash_ch_get(&s, DASH_CH_FUELP), 58.0f, 0.001f),
+               "the serial-overridden FUELP value must survive the decode "
+               "untouched");
+        /* now wipe as DASH_CMD_SIM with sim_on does: overridden = 0,
+         * cleared = 0 -- and nothing else */
         s.overridden = 0u;
         s.cleared = 0u;
-        expect(s.can_owned == FORD9_MASK,
+        expect(s.can_owned == (FORD9_MASK & ~DASH_CH_BIT(DASH_CH_FUELP)),
                "`sim on` must not clear can_owned: only the decoder and its "
                "expiry pass manage it");
         expect(!dash_ch_sim_owned(&s, DASH_CH_RPM),
                "after `sim on` a CAN-fresh channel must remain locked against "
                "the sim");
+        /* with the override gone, the next 0x274 claims the freed channel */
+        expect(af != NULL && decode_vec(&cf, af, 10u, &s),
+               "the fresh 0x274 after the wipe must be consumed");
+        expect(s.can_owned == FORD9_MASK,
+               "a fresh frame after the wipe must claim the freed channel: "
+               "all 9 CAN-owned again");
     }
 
     /* ==== range edges: min/max are golden vectors above; explicit
@@ -568,14 +692,14 @@ int main(void)
             if (v != NULL) { decode_vec(&cf, v, 0u, &s); }
         }
         expect(nearf(dash_ch_get(&s, DASH_CH_RPM), 16383.0f,
-                     GOLDEN_CAN_TOL_RPM),
+                     GOLDEN_CAN_TIGHT_RPM),
                "RPM raw max 16383 must decode to 16383 rpm without overflow");
         expect(nearf(dash_ch_get(&s, DASH_CH_OILP),
-                     1023.0f * RT_PSI_PER_KPA, GOLDEN_CAN_TOL_OILP_PSI),
+                     1023.0f * RT_PSI_PER_KPA, GOLDEN_CAN_TIGHT_OILP_PSI),
                "OILP raw max 1023 kPa must decode to ~148.4 psi within "
-               "tolerance");
+               "float rounding");
         expect(nearf(dash_ch_get(&s, DASH_CH_VOLTS), 20.47f,
-                     GOLDEN_CAN_TOL_VOLTS),
+                     GOLDEN_CAN_TIGHT_VOLTS),
                "VBAT raw max 2047 must decode to 20.47 V");
         for (uint8_t ch = 0u; ch < (uint8_t) DASH_CH_COUNT; ch++)
         {
@@ -603,12 +727,16 @@ int main(void)
             DASH_CH_OILP, DASH_CH_VOLTS, DASH_CH_AFR_L, DASH_CH_AFR_R,
             DASH_CH_FUELP
         };
-        /* one raw quantum through the conversion (the golden bounds) plus a
-         * hair of float slack; derived once, never widened (KTD8) */
+        /* one raw quantum through the conversion (the QUANTUM tolerance
+         * family -- quantization is inherent to this encode, unlike the
+         * golden decode comparisons, which use TIGHT) plus a hair of float
+         * slack; derived once, never widened (KTD8) */
         const float rt_eps = 1e-4f;
         float max_dev[9] = { 0.0f };
         int compared[9] = { 0 };
         int mismatched[9] = { 0 };
+        /* consumed-return accumulation, asserted once per frame kind */
+        bool rt_consumed[4] = { true, true, true, true };
 
         dash_state_init(&ref);
         dash_state_init(&can);
@@ -623,18 +751,22 @@ int main(void)
             dash_sim_step(&sim, &ref, 16u); /* direct drive: the reference */
 
             ford_pack_0270(b, dash_ch_get(&ref, DASH_CH_RPM));
-            dash_can_ford_decode(&cf, 0x270u, 8u, b, now, &can);
+            rt_consumed[0] = rt_consumed[0]
+                && dash_can_ford_decode(&cf, 0x270u, 8u, b, now, &can);
             ford_pack_0274(b, dash_ch_get(&ref, DASH_CH_AFR_L),
                            dash_ch_get(&ref, DASH_CH_AFR_R),
                            dash_ch_get(&ref, DASH_CH_FUELP));
-            dash_can_ford_decode(&cf, 0x274u, 8u, b, now, &can);
+            rt_consumed[1] = rt_consumed[1]
+                && dash_can_ford_decode(&cf, 0x274u, 8u, b, now, &can);
             ford_pack_0275(b, dash_ch_get(&ref, DASH_CH_SPEED));
-            dash_can_ford_decode(&cf, 0x275u, 8u, b, now, &can);
+            rt_consumed[2] = rt_consumed[2]
+                && dash_can_ford_decode(&cf, 0x275u, 8u, b, now, &can);
             ford_pack_0278(b, dash_ch_get(&ref, DASH_CH_ECT),
                            dash_ch_get(&ref, DASH_CH_OILT),
                            dash_ch_get(&ref, DASH_CH_OILP),
                            dash_ch_get(&ref, DASH_CH_VOLTS));
-            dash_can_ford_decode(&cf, 0x278u, 8u, b, now, &can);
+            rt_consumed[3] = rt_consumed[3]
+                && dash_can_ford_decode(&cf, 0x278u, 8u, b, now, &can);
 
             for (int k = 0; k < 9; k++)
             {
@@ -652,7 +784,20 @@ int main(void)
                 const float dev =
                     fabsf(dash_ch_get(&can, ch) - dash_ch_get(&ref, ch));
                 if (dev > max_dev[k]) { max_dev[k] = dev; }
-                if (dev > golden_tol(ch) + rt_eps) { mismatched[k]++; }
+                if (dev > golden_quantum_tol(ch) + rt_eps) { mismatched[k]++; }
+            }
+        }
+
+        {
+            static const uint16_t rt_ids[4] = {
+                0x270u, 0x274u, 0x275u, 0x278u
+            };
+            for (int k = 0; k < 4; k++)
+            {
+                snprintf(msg, sizeof msg,
+                         "round-trip: 0x%03X must return consumed on every "
+                         "one of 600 steps", (unsigned) rt_ids[k]);
+                expect(rt_consumed[k], msg);
             }
         }
 

@@ -162,21 +162,24 @@ static inline void dash_can_ford_temp_(DashState *s, uint8_t ch, uint8_t raw)
 /* Decode one raw frame into DashState.
  *
  * `id` is the 11-bit standard identifier VALUE (see the header comment:
- * extended-frame filtering is the caller's job); `bytes` is the 8-byte
- * payload. Unknown IDs and runt frames (dlc < 8) are ignored without
- * touching state -- neither the freshness bookkeeping nor DashState moves.
- * A known frame always refreshes last-seen, sentinels included: a degraded
- * sensor is still a live bus.
+ * extended-frame filtering is the caller's job); `bytes` is the payload,
+ * of which the dialect reads exactly 8 bytes. Returns true only when the
+ * frame was CONSUMED: one of the four dialect IDs with dlc >= 8. Sentinel
+ * payloads count as consumed -- a degraded sensor is still a live bus, and
+ * a known frame always refreshes last-seen. Unknown IDs and runt frames
+ * (dlc < 8) return false without touching state -- neither the freshness
+ * bookkeeping nor DashState moves -- so a caller keying an accept counter
+ * on the return measures decode health, not filter traffic (KTD11).
  *
  * Bit extraction below follows Ford's numbering (bit 0 = MSB of byte 0);
  * each signal cites its official bit span. Signals the table carries but
  * the dash has no channel for (ENGINE_SPEED_HZ, MAN_VAC, DI_PRESSURE,
  * BOOST, TOT, SHIFTER, CODES, GEAR) are deliberately not decoded (R6). */
-static inline void dash_can_ford_decode(DashCanFord *cf, uint32_t id,
+static inline bool dash_can_ford_decode(DashCanFord *cf, uint32_t id,
                                         uint8_t dlc, const uint8_t bytes[8],
                                         uint32_t now_ms, DashState *s)
 {
-    if (dlc < 8u) { return; } /* runt: not this dialect's frame */
+    if (dlc < 8u) { return false; } /* runt: not this dialect's frame */
 
     switch (id)
     {
@@ -238,8 +241,9 @@ static inline void dash_can_ford_decode(DashCanFord *cf, uint32_t id,
         }
 
         default:
-            break; /* unknown id: not ours, no state touched */
+            return false; /* unknown id: not ours, no state touched */
     }
+    return true; /* one of the four dialect IDs: consumed (sentinels included) */
 }
 
 /* Which channels a message index claims. Switch, not a file-scope table, so

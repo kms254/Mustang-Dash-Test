@@ -105,6 +105,21 @@ static DashLapFlash g_lap_flash;
  * dash_state_init). */
 static DashCanFord g_can_ford;
 
+/* void* shims adapting the pure Ford decoder to dash_can.h's dialect table.
+ * The seam keeps dash_can.h dialect-blind; a second dialect (RaceCapture)
+ * registers the same way -- its own state struct, its own pair of shims. */
+static bool can_ford_decode_shim(void *state, uint32_t id, uint8_t dlc,
+                                 const uint8_t *bytes, uint32_t now_ms,
+                                 DashState *s)
+{
+    return dash_can_ford_decode((DashCanFord *) state, id, dlc, bytes, now_ms, s);
+}
+static void can_ford_expire_shim(void *state, uint32_t now_ms,
+                                 bool car_semantics, DashState *s)
+{
+    dash_can_ford_expire((DashCanFord *) state, now_ms, car_semantics, s);
+}
+
 /* ---- panel plumbing (three BT817s on one shared SPI bus, KTD1/KTD9) ---- */
 static EVE_panel_t g_eve_panels[DASH_PANEL_COUNT]; /* library form of DASH_PANELS, filled in setup() */
 
@@ -886,6 +901,15 @@ void setup(void)
         Serial.println(F("Serial commands still ack ('status' reports the failure). Check wiring / power / SPI."));
     }
 
+    /* the Ford dialect is the table's only entry today; the return is a
+     * boot-time programming-error check, not a runtime condition */
+    if (!dash_can_register_dialect(&g_can_ford, can_ford_decode_shim,
+                                   can_ford_expire_shim))
+    {
+        Serial.println(F("CAN: dialect registration FAILED (table full?)"));
+    }
+    /* discard the ~2.4 s splash-era CAN backlog: stale frames must not decode as fresh, boot RF0L must not count */
+    dash_can_rx_flush();
     g_loop_last_ms = millis();
     g_fps_window_ms = g_loop_last_ms;
 }
@@ -907,8 +931,8 @@ void loop(void)
      * staleness semantics (KTD6) before the sim gets its turn. `now` is
      * fresh from just after pump_serial, so frame timestamps and dt share
      * one clock reading. */
-    dash_can_rx_drain(&g_can_ford, now, &g_dash);
-    dash_can_ford_expire(&g_can_ford, now, DASH_CAN_CAR_SEMANTICS, &g_dash);
+    dash_can_rx_drain(now, &g_dash);
+    dash_can_expire_all(now, DASH_CAN_CAR_SEMANTICS, &g_dash);
 
     dash_sim_step(&g_sim, &g_dash, dt); /* honors sim_frozen + overrides */
 
@@ -1557,10 +1581,14 @@ void handle_serial_line(const char *line)
                 }
             }
             /* can= is the FDCAN1 decode pulse (KTD11, plan 2026-08-15-001):
-             * frames accepted, FIFO0 overflow episodes, ms since the last
-             * accept -- lost>0 means "dropping frames", a large ms-since
+             * frames the Ford decoder consumed (filter-admitted strangers
+             * and runts don't count), FIFO0 overflow episodes, ms since the
+             * last consumed frame, and the active staleness semantics --
+             * "bench" (stale releases to the sim, R8) or "car" (stale
+             * dead-fronts and stays latched, R7), otherwise unobservable at
+             * runtime. lost>0 means "dropping frames", a large ms-since
              * with accepted>0 means "bus went quiet". */
-            Serial.printf(" odo=%.1f trip=%.1f dl=%u/%u,%u/%u,%u/%u can=%lu,%lu,%lu eve=%s,%s,%s\r\n",
+            Serial.printf(" odo=%.1f trip=%.1f dl=%u/%u,%u/%u,%u/%u can=%lu,%lu,%lu,%s eve=%s,%s,%s\r\n",
                           (double)dash_odo_miles(&g_odo), (double)dash_trip_miles(&g_odo),
                           (unsigned)g_dl[0][0], (unsigned)g_dl[0][1],
                           (unsigned)g_dl[1][0], (unsigned)g_dl[1][1],
@@ -1568,6 +1596,7 @@ void handle_serial_line(const char *line)
                           (unsigned long)dash_can_rx_accepted(),
                           (unsigned long)dash_can_rx_lost(),
                           (unsigned long)dash_can_rx_ms_since_accept(millis()),
+                          DASH_CAN_CAR_SEMANTICS ? "car" : "bench",
                           g_panel_ok[0] ? "ok" : "--",
                           g_panel_ok[1] ? "ok" : "--",
                           g_panel_ok[2] ? "ok" : "--");

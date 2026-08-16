@@ -52,6 +52,7 @@ import re
 import sys
 import threading
 import time
+import traceback
 from pathlib import Path
 
 try:
@@ -147,7 +148,8 @@ FIXED_VALUES = {
 
 
 def log(msg):
-    print("can_emit: " + msg, file=sys.stderr, flush=True)
+    ts = time.strftime("%H:%M:%S")
+    print(f"{ts} can_emit: " + msg, file=sys.stderr, flush=True)
 
 
 # ---------------------------------------------------------------------------
@@ -323,6 +325,7 @@ class Shared:
         self.values = {}
         self.last_line = None  # perf_counter of the last parsed line
         self.eof = False
+        self.reader_dead = False  # set on an unexpected reader-thread crash
 
 
 def reader_loop(shared):
@@ -333,34 +336,46 @@ def reader_loop(shared):
         stdin.reconfigure(line_buffering=True)
     except (AttributeError, ValueError):
         pass
-    while True:
-        line = stdin.readline()
-        if line == "":
+    try:
+        while True:
+            line = stdin.readline()
+            if line == "":
+                with shared.lock:
+                    shared.eof = True
+                return
+            vals = {}
+            for tok in line.split():
+                key, sep, txt = tok.partition("=")
+                if not sep:
+                    continue
+                try:
+                    vals[key] = float(txt)
+                except ValueError:
+                    continue
+            if not vals:
+                continue  # not a channel line; not a heartbeat either
             with shared.lock:
-                shared.eof = True
-            return
-        vals = {}
-        for tok in line.split():
-            key, sep, txt = tok.partition("=")
-            if not sep:
-                continue
-            try:
-                vals[key] = float(txt)
-            except ValueError:
-                continue
-        if not vals:
-            continue  # not a channel line; not a heartbeat either
+                # REPLACE wholesale: a key absent from the current line is a
+                # channel the sim holds invalid, and must gate its message
+                # rather than transmit its last value forever.
+                shared.values = vals
+                shared.last_line = time.perf_counter()
+    except Exception:
+        # Any unexpected crash here must not leave run_loop parked in the
+        # feed-dead branch forever waiting for lines that will never come.
+        log("reader thread crashed:\n" + traceback.format_exc())
         with shared.lock:
-            # REPLACE wholesale: a key absent from the current line is a
-            # channel the sim holds invalid, and must gate its message
-            # rather than transmit its last value forever.
-            shared.values = vals
-            shared.last_line = time.perf_counter()
+            shared.reader_dead = True
 
 
 # ---------------------------------------------------------------------------
 # Pacing loop (live TX and --dry-run share it; only the sink differs).
 # ---------------------------------------------------------------------------
+
+class BusDead(Exception):
+    """Raised when a live bus.send() fails -- unwinds run_loop's pacing
+    loop to the same shutdown/cleanup path KeyboardInterrupt uses."""
+
 
 def run_loop(msgs, dry_run_limit, live):
     shared = Shared()
@@ -392,9 +407,17 @@ def run_loop(msgs, dry_run_limit, live):
                 vals = shared.values
                 last_line = shared.last_line
                 eof = shared.eof
+                reader_dead = shared.reader_dead
 
             if eof:
                 log("feed EOF -- exiting")
+                break
+
+            if reader_dead:
+                log("reader thread crashed -- exiting (no feed lines can "
+                    "arrive; see traceback above) instead of hanging in "
+                    "the feed-dead state forever")
+                rc = 1
                 break
 
             alive = (last_line is not None
@@ -450,9 +473,16 @@ def run_loop(msgs, dry_run_limit, live):
                                       physical_for(fid, vals, LIVE_FILLER))
                 for _ in range(n):
                     if bus is not None:
-                        bus.send(can_mod.Message(arbitration_id=fid,
-                                                 is_extended_id=False,
-                                                 data=data))
+                        try:
+                            bus.send(can_mod.Message(arbitration_id=fid,
+                                                     is_extended_id=False,
+                                                     data=data))
+                        except can_mod.CanError as exc:
+                            # A dead bus mid-soak must be loud, not silent:
+                            # stop TX the same way the feed-dead path does
+                            # and let the outer try/except exit nonzero
+                            # after cleanup (bus.shutdown() in `finally`).
+                            raise BusDead(str(exc)) from exc
                     else:
                         print(f"0x{fid:03X} {len(data)} {data.hex()}",
                               flush=True)
@@ -470,6 +500,10 @@ def run_loop(msgs, dry_run_limit, live):
                 log("rates: " + parts)
                 sent = {fid: 0 for fid in FRAME_IDS}
                 last_rate_log = now
+    except BusDead as exc:
+        log(f"bus.send failed: {exc} -- TX STOPPED (a dead bus mid-soak "
+            "must be loud, not silent)")
+        rc = 1
     except KeyboardInterrupt:
         log("interrupted -- shutting down")
     finally:

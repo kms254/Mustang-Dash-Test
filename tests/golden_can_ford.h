@@ -21,9 +21,30 @@
 
 #include "dash_data.h" /* DASH_CH_* ids; tests compile with -I MustangDash */
 
-/* Per-channel quantization tolerances for parity bounds: one raw
- * quantum (DBC scaling) through the unit conversion. Derived once from
- * the spec -- NEVER widen; re-derive on any scaling change (KTD8). */
+/* TIGHT decode tolerances -- golden decode comparisons ONLY. The
+ * generator's double math and the decoder's float math run over the
+ * SAME raw integers, so only float rounding may differ (< 1e-4 in
+ * every channel's units at range max). 0.001 keeps >= 10x headroom
+ * over that while sitting strictly below HALF a raw quantum on every
+ * channel, so a decoder systematically biased by one quantum FAILS.
+ * NEVER widen to make a test pass: a golden assertion failing at
+ * TIGHT is a real transcription divergence. */
+#define GOLDEN_CAN_TIGHT_RPM 0.001f /* half-quantum 0.5 rpm */
+#define GOLDEN_CAN_TIGHT_SPEED_MPH 0.001f /* half-quantum 0.0310686 mph */
+#define GOLDEN_CAN_TIGHT_ECT_F 0.001f /* half-quantum 0.9 degF */
+#define GOLDEN_CAN_TIGHT_OILT_F 0.001f /* half-quantum 0.9 degF */
+#define GOLDEN_CAN_TIGHT_OILP_PSI 0.001f /* half-quantum 0.0725189 psi */
+#define GOLDEN_CAN_TIGHT_VOLTS 0.001f /* half-quantum 0.005 V */
+#define GOLDEN_CAN_TIGHT_AFR 0.001f /* half-quantum 0.005 A/F, both banks */
+#define GOLDEN_CAN_TIGHT_FUELP_PSI 0.001f /* half-quantum 0.0725189 psi */
+
+/* QUANTUM round-trip tolerances -- the R11 sim round-trip ONLY: its
+ * test-side encoder quantizes the sim's float channels to raw counts
+ * before the decoder sees them, so one raw quantum (DBC scaling)
+ * through the unit conversion is inherent there, and only there.
+ * Golden decode comparisons must use the TIGHT family above. Derived
+ * once from the spec -- NEVER widen; re-derive on any scaling change
+ * (KTD8). */
 #define GOLDEN_CAN_TOL_RPM 1.0f /* 1 rpm/bit, pass-through */
 #define GOLDEN_CAN_TOL_SPEED_MPH 0.0621372737f /* 0.1 km/h quantum -> mph */
 #define GOLDEN_CAN_TOL_ECT_F 1.8f /* 1 degC quantum -> degF */
@@ -35,7 +56,7 @@
 
 /* Expected post-conversion outcome of decoding one vector.
  * expect_valid 1: the channel must be valid and match value within its
- * GOLDEN_CAN_TOL_* bound. expect_valid 0: the channel must be INVALID
+ * GOLDEN_CAN_TIGHT_* bound. expect_valid 0: the channel must be INVALID
  * after this frame (sentinel dead-front); value is 0 and unused. */
 typedef struct {
     uint8_t ch;           /* DASH_CH_* id (dash_data.h) */
@@ -47,8 +68,12 @@ typedef struct {
  * n_expect 0 = the frame must be IGNORED (DashState untouched). */
 typedef struct {
     uint16_t id;          /* CAN identifier value */
-    uint8_t ext;          /* 1 = 29-bit frame (identifier may spoof a
-                             Ford id; the decoder must ignore it) */
+    uint8_t ext;          /* 1 = frame exists ONLY as 29-bit. The
+                             decoder has no ID-type input, so hosts
+                             feed its FULL 29-bit identifier VALUE
+                             (falls through the ID switch); IdType
+                             rejection itself is the firmware drain's
+                             (U6), live-bus checklist only. */
     uint8_t dlc;
     uint8_t bytes[8];     /* dlc bytes meaningful; rest zero */
     uint8_t first_expect; /* index into golden_can_expects[] */
@@ -210,12 +235,16 @@ static const GoldenCanVector golden_can_vectors[] = {
     { 0x270u, 0u, 4u,
       { 0x17u, 0x70u, 0x4Eu, 0x20u, 0x00u, 0x00u, 0x00u, 0x00u },
       35u, 0u, "short_dlc_0270" },
-    /* [16] extended-ID spoof: 29-bit frame whose identifier VALUE is 0x270
-     * (7250 rpm payload), must be ignored -- the dialect is 11-bit only,
-     * and the global filter otherwise admits it. */
+    /* [16] 29-bit-only frame whose identifier VALUE is 0x270 (7250 rpm
+     * payload). The decoder takes no ID-type input, so ext REJECTION lives
+     * in the firmware drain's standard-only guard (U6), reachable only on
+     * the live-bus checklist. What the host suite tests here: fed as its
+     * full 29-bit identifier value, the frame falls through the ID switch
+     * like any unknown ID. It must never be fed as the truncated 11-bit
+     * value -- the decoder would consume it. */
     { 0x270u, 1u, 8u,
       { 0x1Cu, 0x52u, 0x5Eu, 0x66u, 0x04u, 0x1Au, 0x2Eu, 0xE0u },
-      35u, 0u, "ext_id_spoof_0270" },
+      35u, 0u, "ext_29bit_fallthrough" },
     /* [17] burst 1/4 (corner exit, consistent instant): 4800 rpm; HZ =
      * 80.00 (raw 8000); MAN_VAC -2 kPa near-WOT (raw 1030); DI 12000 kPa. */
     { 0x270u, 0u, 8u,
@@ -278,7 +307,7 @@ _Static_assert(sizeof golden_can_expects / sizeof golden_can_expects[0]
  *       -> (must be ignored; DashState untouched)
  * [15] short_dlc_0270         0x270     dlc=4  17 70 4e 20 00 00 00 00
  *       -> (must be ignored; DashState untouched)
- * [16] ext_id_spoof_0270      0x270 EXT dlc=8  1c 52 5e 66 04 1a 2e e0
+ * [16] ext_29bit_fallthrough  0x270 EXT dlc=8  1c 52 5e 66 04 1a 2e e0
  *       -> (must be ignored; DashState untouched)
  * [17] burst_0270             0x270     dlc=8  12 c0 3e 80 04 06 2e e0
  *       -> RPM=4800

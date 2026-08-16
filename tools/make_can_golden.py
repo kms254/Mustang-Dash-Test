@@ -92,9 +92,40 @@ SENTINEL_DEGRADED = 214
 SENTINEL_FAULTED = 215
 
 # ---------------------------------------------------------------------------
-# Per-channel quantization tolerances: ONE raw quantum (DBC scaling) taken
-# through the unit conversion. (name, value, comment)
+# Tolerance families -- TWO, deliberately not one (tolerance independence).
+#
+# TIGHT (GOLDEN_CAN_TIGHT_*): for golden DECODE comparisons, where this
+# generator's double math and the C decoder's float math run over the SAME
+# raw integers -- the only legitimate divergence is float rounding, bounded
+# well under 1e-4 in every channel's units at range max (worst case: SPEED,
+# a few float ULP at 254 mph ~ 5e-5). 1e-3 keeps >= 10x headroom over that
+# while sitting strictly below HALF a raw quantum on every channel (smallest
+# half-quantum: 0.005, VOLTS/AFR), so a decoder systematically biased by one
+# quantum -- the exact bias a one-quantum tolerance used to absorb -- FAILS.
+# NEVER widen to make a test pass: a golden assertion failing at TIGHT is a
+# real transcription divergence in one of the three transcriptions.
+#
+# QUANTUM (GOLDEN_CAN_TOL_*): for the R11 sim round-trip ONLY, where the
+# test-side encoder quantizes the sim's float channels to raw counts before
+# the decoder ever sees them -- ONE raw quantum (DBC scaling) through the
+# unit conversion is inherent there, and only there. (name, value, comment)
 # ---------------------------------------------------------------------------
+TIGHT = 1e-3  # channel units; see the derivation above
+
+TIGHT_TOLERANCES = [
+    ("GOLDEN_CAN_TIGHT_RPM", TIGHT, "half-quantum 0.5 rpm"),
+    ("GOLDEN_CAN_TIGHT_SPEED_MPH", TIGHT,
+     f"half-quantum {0.05 / KMH_PER_MPH:.6g} mph"),
+    ("GOLDEN_CAN_TIGHT_ECT_F", TIGHT, "half-quantum 0.9 degF"),
+    ("GOLDEN_CAN_TIGHT_OILT_F", TIGHT, "half-quantum 0.9 degF"),
+    ("GOLDEN_CAN_TIGHT_OILP_PSI", TIGHT,
+     f"half-quantum {KPA_TO_PSI / 2:.6g} psi"),
+    ("GOLDEN_CAN_TIGHT_VOLTS", TIGHT, "half-quantum 0.005 V"),
+    ("GOLDEN_CAN_TIGHT_AFR", TIGHT, "half-quantum 0.005 A/F, both banks"),
+    ("GOLDEN_CAN_TIGHT_FUELP_PSI", TIGHT,
+     f"half-quantum {KPA_TO_PSI / 2:.6g} psi"),
+]
+
 TOLERANCES = [
     ("GOLDEN_CAN_TOL_RPM", 1.0, "1 rpm/bit, pass-through"),
     ("GOLDEN_CAN_TOL_SPEED_MPH", 0.1 / KMH_PER_MPH, "0.1 km/h quantum -> mph"),
@@ -108,7 +139,8 @@ TOLERANCES = [
 
 # ---------------------------------------------------------------------------
 # Vector set (plan U2): nominal per channel, min/max range edges, the 214/215
-# sentinels, unknown-ID, short-DLC, extended-ID spoof, and a realistic burst.
+# sentinels, unknown-ID, short-DLC, the 29-bit-ID-value fall-through, and a
+# realistic burst.
 #
 # Each entry: name, comment, then EITHER msg+raw (encoded via cantools with
 # scaling=False -- raw signal values, so the generator, not float rounding,
@@ -303,10 +335,15 @@ VECTORS = [
         expects=[],
     ),
     dict(
-        name="ext_id_spoof_0270",
-        comment="extended-ID spoof: 29-bit frame whose identifier VALUE is "
-                "0x270 (7250 rpm payload), must be ignored -- the dialect "
-                "is 11-bit only, and the global filter otherwise admits it.",
+        name="ext_29bit_fallthrough",
+        comment="29-bit-only frame whose identifier VALUE is 0x270 (7250 "
+                "rpm payload). The decoder takes no ID-type input, so ext "
+                "REJECTION lives in the firmware drain's standard-only "
+                "guard (U6), reachable only on the live-bus checklist. "
+                "What the host suite tests here: fed as its full 29-bit "
+                "identifier value, the frame falls through the ID switch "
+                "like any unknown ID. It must never be fed as the "
+                "truncated 11-bit value -- the decoder would consume it.",
         msg="FORD_0270_ENGINE",
         raw={"ENGINE_SPEED": 7250, "ENGINE_SPEED_HZ": 12083,
              "MAN_VAC": 1050, "DI_PRESSURE": 12000},
@@ -449,17 +486,31 @@ def emit(vectors):
     w("#include \"dash_data.h\" /* DASH_CH_* ids; tests compile with "
       "-I MustangDash */")
     w("")
-    w("/* Per-channel quantization tolerances for parity bounds: one raw")
-    w(" * quantum (DBC scaling) through the unit conversion. Derived once "
-      "from")
-    w(" * the spec -- NEVER widen; re-derive on any scaling change (KTD8). */")
+    w("/* TIGHT decode tolerances -- golden decode comparisons ONLY. The")
+    w(" * generator's double math and the decoder's float math run over the")
+    w(" * SAME raw integers, so only float rounding may differ (< 1e-4 in")
+    w(" * every channel's units at range max). 0.001 keeps >= 10x headroom")
+    w(" * over that while sitting strictly below HALF a raw quantum on every")
+    w(" * channel, so a decoder systematically biased by one quantum FAILS.")
+    w(" * NEVER widen to make a test pass: a golden assertion failing at")
+    w(" * TIGHT is a real transcription divergence. */")
+    for name, val, comment in TIGHT_TOLERANCES:
+        w(f"#define {name} {cf(val)} /* {comment} */")
+    w("")
+    w("/* QUANTUM round-trip tolerances -- the R11 sim round-trip ONLY: its")
+    w(" * test-side encoder quantizes the sim's float channels to raw counts")
+    w(" * before the decoder sees them, so one raw quantum (DBC scaling)")
+    w(" * through the unit conversion is inherent there, and only there.")
+    w(" * Golden decode comparisons must use the TIGHT family above. Derived")
+    w(" * once from the spec -- NEVER widen; re-derive on any scaling change")
+    w(" * (KTD8). */")
     for name, val, comment in TOLERANCES:
         w(f"#define {name} {cf(val)} /* {comment} */")
     w("")
     w("/* Expected post-conversion outcome of decoding one vector.")
     w(" * expect_valid 1: the channel must be valid and match value within "
       "its")
-    w(" * GOLDEN_CAN_TOL_* bound. expect_valid 0: the channel must be "
+    w(" * GOLDEN_CAN_TIGHT_* bound. expect_valid 0: the channel must be "
       "INVALID")
     w(" * after this frame (sentinel dead-front); value is 0 and unused. */")
     w("typedef struct {")
@@ -472,8 +523,12 @@ def emit(vectors):
     w(" * n_expect 0 = the frame must be IGNORED (DashState untouched). */")
     w("typedef struct {")
     w("    uint16_t id;          /* CAN identifier value */")
-    w("    uint8_t ext;          /* 1 = 29-bit frame (identifier may spoof a")
-    w("                             Ford id; the decoder must ignore it) */")
+    w("    uint8_t ext;          /* 1 = frame exists ONLY as 29-bit. The")
+    w("                             decoder has no ID-type input, so hosts")
+    w("                             feed its FULL 29-bit identifier VALUE")
+    w("                             (falls through the ID switch); IdType")
+    w("                             rejection itself is the firmware drain's")
+    w("                             (U6), live-bus checklist only. */")
     w("    uint8_t dlc;")
     w("    uint8_t bytes[8];     /* dlc bytes meaningful; rest zero */")
     w("    uint8_t first_expect; /* index into golden_can_expects[] */")
