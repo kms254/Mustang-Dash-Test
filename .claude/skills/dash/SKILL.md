@@ -26,7 +26,7 @@ case-insensitive):
 | `alarm off` | Release forced alarm channels back to the simulator |
 | `odo set <miles>` | Reseed the persisted odometer |
 | `sim on` / `sim off` | Resume pure simulation / freeze all values |
-| `status` | One-line report (mode, fps, all channels, odometer; per-panel fields are comma triples center,left,right — `faults=0,0,0`, `retired=0,0,0`, `dl=t/s,t/s,t/s`, `eve=ok,ok,--`). `retired` counts frame-drain timeouts that killed a panel at runtime (it shows `eve=--` after); fps reads 0 when nothing renders — it never freezes at a stale value. |
+| `status` | One-line report (mode, fps, all channels, odometer; per-panel fields are comma triples center,left,right — `faults=0,0,0`, `retired=0,0,0`, `dl=t/s,t/s,t/s`, `eve=ok,ok,--`; on FDCAN builds `can=accepted,lost,ms_since_accept,bench|car` — accepted counts only frames the Ford dialect decoder consumed, and the last field is the active staleness semantics). `retired` counts frame-drain timeouts that killed a panel at runtime (it shows `eve=--` after); fps reads 0 when nothing renders — it never freezes at a stale value. |
 | `help` | List commands |
 | `flashwipe really` | **Destructive, minutes-long:** full-chip erase of the center panel's retired QSPI flash. The one two-line command: it first prints a `flashwipe: erasing…` warning, then blocks SILENTLY for minutes (dash frozen, no output) before the final `ok flashwipe` / `err flashwipe …` ack — extend the read timeout to at least 5 minutes and NEVER power-cycle while waiting. Bare `flashwipe` or any other argument errs without erasing. |
 

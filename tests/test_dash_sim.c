@@ -2089,6 +2089,38 @@ int main(void)
                "best must remain an honestly driven lap");
     }
 
+    /* ---- a CAN-owned SPEED must NOT taint the lap ----
+     * The taint above guards against a COMMANDED number; CAN speed is an
+     * externally MEASURED one (the car, or the bench emitter replaying the
+     * sim's own speed), so the lap is driven, not dictated, and stays
+     * eligible for best_ms. Regression pin: the original check tainted on
+     * !dash_ch_sim_owned, which includes can_owned -- CAN speed dead-fronted
+     * LAST/BEST/DELTA for the whole session. Same inflated-speed shape as
+     * the forced-SPEED test so the two prove opposite verdicts on the same
+     * physics: there the quick lap must be refused, here it must commit. */
+    {
+        DashState ns;
+        DashSimState nm;
+        dash_state_init(&ns);
+        dash_sim_init(&nm);
+        while (nm.lap_count < 3u) { dash_sim_step(&nm, &ns, 50u); }
+        const uint32_t honest_best = nm.best_ms;
+        expect(honest_best > 100000u, "three honest laps must have set a real best");
+
+        /* SPEED arrives from CAN, exactly as dash_can_ford_decode marks it */
+        ns.can_owned |= DASH_CH_BIT(DASH_CH_SPEED);
+        dash_ch_set(&ns, DASH_CH_SPEED, 200.0f);
+        const uint32_t before = nm.lap_count;
+        while (nm.lap_count < before + 1u) { dash_sim_step(&nm, &ns, 50u); }
+
+        expect(nm.last_ms < honest_best,
+               "the CAN-speed lap must genuinely be quicker (else this proves nothing)");
+        expect(!nm.last_lap_tainted,
+               "a lap under CAN-owned SPEED must not stamp the sticky taint");
+        expect(nm.best_ms == nm.last_ms,
+               "a lap driven on CAN speed must be adopted as BEST");
+    }
+
     /* ---- a circuit switch must not hand a fabricated lap to BEST ----
      * dash_sim_set_circuit zeroes lap position and the lap clock but leaves
      * speed_mph, so a lap STARTED by `circuit hpr` opens at whatever the sweep

@@ -1,10 +1,21 @@
 /* dash_data.h -- the dash's single data interface (KTD4).
  *
  * Pure header: stdint/stdbool only, no Arduino/EVE includes, host-testable.
- * Producers (dash_sim.h now, CAN decoders later) fill DashState.ch and set
- * validity bits; renderers read only this struct. An invalid channel renders
- * `--` (text) or the dead-front convention (graphics) and can never assert
- * an alarm (R11).
+ * Producers -- dash_sim.h and now CAN decoders (dash_can_ford.h is the first
+ * live dialect; RaceCapture and PMU16 follow as peers) -- fill DashState.ch
+ * and set validity bits; renderers read only this struct. An invalid channel
+ * renders `--` (text) or the dead-front convention (graphics) and can never
+ * assert an alarm (R11).
+ *
+ * CAN ownership (Ford plan KTD5): a decoder that accepts a frame writes the
+ * channel and sets its bit in `can_owned`, locking the simulator out
+ * (dash_ch_sim_owned below). The Ford dialect claims RPM, SPEED, ECT, OILT,
+ * OILP, VOLTS, AFR_L, AFR_R, FUELP -- 9 of the 26. Invariant: a channel may
+ * be claimed by AT MOST ONE CAN dialect; a future dialect carrying an
+ * already-claimed channel (RaceCapture broadcasts GPS speed) requires
+ * revisiting the mask design before it lands. Only the decoder and its
+ * expiry pass manage `can_owned` -- serial's `sim on` wipes the serial masks
+ * below but never touches it.
  *
  * Override semantics (KTD6):
  *  - `set <ch> <v>`  -> value written, valid bit set, override bit set;
@@ -106,6 +117,9 @@ typedef struct {
     uint32_t valid;      /* DASH_CH_BIT() per channel */
     uint32_t overridden; /* serial `set` freezes these against the sim */
     uint32_t cleared;    /* serial `clear` holds these invalid */
+    uint32_t can_owned;  /* CAN-decoder-claimed channels: sim locked out;
+                          * managed only by dash_can_ford.h (decode + expiry),
+                          * zero at boot via dash_state_init's {0} */
     DashMode mode;
     bool sim_frozen;     /* `sim off`: hold current values, stop stepping */
 } DashState;
@@ -115,10 +129,12 @@ static inline bool dash_ch_valid(const DashState *s, uint8_t ch)
     return (s->valid & DASH_CH_BIT(ch)) != 0U;
 }
 
-/* True when the simulator may write this channel this step. */
+/* True when the simulator may write this channel this step: neither serial
+ * (overridden/cleared) nor a CAN decoder (can_owned) holds it -- the sim is
+ * the producer of last resort. */
 static inline bool dash_ch_sim_owned(const DashState *s, uint8_t ch)
 {
-    return ((s->overridden | s->cleared) & DASH_CH_BIT(ch)) == 0U;
+    return ((s->overridden | s->cleared | s->can_owned) & DASH_CH_BIT(ch)) == 0U;
 }
 
 static inline void dash_ch_set(DashState *s, uint8_t ch, float v)
@@ -166,7 +182,11 @@ static inline void dash_ch_set(DashState *s, uint8_t ch, float v)
  * Guarded by the SAME ownership rule as writing (dash_ch_sim_owned), because
  * dead-fronting a channel is a write in every sense that matters:
  *  - overridden: the operator's forced value stays valid and untouched;
- *  - cleared:    already invalid, and the sticky cleared bit is left alone.
+ *  - cleared:    already invalid, and the sticky cleared bit is left alone;
+ *  - can_owned:  a CAN-fresh channel is not the sim's to dead-front.
+ * This is the SIM-facing variant: the CAN decoder has its own
+ * (dash_can_ford_invalidate), which honors only the serial masks -- this one
+ * would silently no-op on the CAN-owned channels it must dead-front.
  * The value itself is never disturbed -- only the valid bit moves. */
 static inline void dash_ch_invalidate(DashState *s, uint8_t ch)
 {

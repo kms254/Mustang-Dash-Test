@@ -22,12 +22,13 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
 - Tests: `./tests/run-tests.sh` — host-side invariant tests pinning the display
   profile, wiring pins, backlight wave, splash timeline, dash math/sim/serial/
   odometer logic, font-format invariants, the splash flash-pack layout, the
-  trip/mode button gestures, and telltale calibration. Run them after
+  trip/mode button gestures, telltale calibration, and the Ford CAN dialect
+  decode (golden vectors + sim round-trip). Run them after
   touching `EVE_config.h`, the STM32 target header, any `MustangDash/*.h`
   pure header, or the platform files.
   Needs host `gcc`; Git Bash has none, so **on Windows run
   `wsl -- bash -lc "./tests/run-tests.sh"`** (or the VS Code task
-  "Tests: invariant suite"). All 14/14 pass (2026-08-05).
+  "Tests: invariant suite"). All 15/15 pass (2026-08-15).
 - Boot splash: a 2000 ms animated splash (spec vendored in `assets/splash/`)
   plays at power-up, then crossfades directly into the dash. Splash assets are
   **ASTC bitmaps embedded in the firmware image** (`tools/make_splash_flash.py`,
@@ -94,7 +95,8 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   serial, button, and CAN all converge on one `s->mode` assignment.
 - CAN upstream is an **Autosport Labs RaceCapture** (broadcasts CAN, runs Lua,
   configured from the phone app). Two things are meant to ride it, neither built
-  yet (`dash_can.h` is still FDCAN-loopback-only, so nothing receives):
+  yet (the RX/decode path exists since the Ford dialect round, but no
+  RaceCapture dialect does — its frames would fall through undecoded):
   **session length**, set in the paddock — this is the *only* thing blocking a
   countdown session timer, since HPDE sessions vary (20/25/30 min) and the dash
   has no input device left (both button gestures are taken); and **real lap
@@ -105,15 +107,25 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   (live control vs. a config push). Check the real unit before designing on it.
 - **The simulator drives `DashState` directly — it does NOT emit fake CAN.**
   `dash_sim_step()` calls `dash_ch_set()`; renderers read the struct. That is
-  the documented seam (`dash_data.h`: "Producers — `dash_sim.h` now, CAN
-  decoders later — fill `DashState.ch`"), so sim and CAN decoders are peers,
-  and adding CAN is not a refactor. **The catch:** the sim therefore gives the
-  decode path zero exercise, so a 20-minute clean bench run proves nothing
-  about it — the seam we will actually ship on is the one thing untested.
-  Do NOT fix this by routing the sim through CAN in the render loop (encode +
-  decode every frame at 60 fps, no runtime benefit). Fix it with a **host
-  test**: take sim output, encode to CAN frames, run it back through the real
-  decoder, assert the resulting `DashState` matches. Cheap, once frames exist.
+  the documented seam, and as of 2026-08-15 it has its second producer: **the
+  Ford dialect decoder** (`dash_can_ford.h`, plan 2026-08-15-001). The Gen 4
+  control pack's 0x270-set (official tables, IS_M-6017-M50HM p.36 / 73M §12.0)
+  is authored as a DBC (`assets/can/ford-control-pack-gen4.dbc`), decoded by a
+  pure host-tested header claiming 9 of 26 channels (RPM, SPEED, ECT, OILT,
+  OILP, VOLTS, AFR_L/R, FUELP; one dialect per channel, `can_owned` mask, CAN
+  > sim, serial > all, 500 ms staleness: bench releases to sim, car — under
+  `DASH_CAN_CAR` — latches + dead-fronts). The once-untested decode seam now
+  has the documented host round-trip: sim → test-side spec encoder → real
+  decoder → `DashState` parity (`tests/test_dash_can_ford.c`), plus golden
+  vectors generated from the DBC (`tools/make_can_golden.py` on the penv
+  python — the DBC, the decoder, and the test encoder are three independent
+  transcriptions of Ford's tables, so a slip must reproduce identically in all
+  three to hide). Bench impostor: `tools/can_sim_feed.c` (real sim, WSL) piped
+  into `tools/can_emit.py` (cantools + the proven CANable gs_usb stack) plays
+  the Ford PCM at spec rates (100/50/50/10 Hz); `--dry-run` must byte-match
+  golden. Live bus is parts-gated (transceivers); the M50D GWM's
+  exact set is official-sibling inference until the first-car-contact sniff.
+  RaceCapture and PMU16 dialects remain follow-on rounds at the same seam.
 
 ## Hardware truths (don't re-derive)
 

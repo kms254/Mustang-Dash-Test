@@ -68,7 +68,8 @@
 #include "dash_panels.h" /* per-panel pins + timings (host-tested); mapped to EVE_panel_t in setup() */
 #include "dash_telltales.h" /* 8-lamp warning mask (host-tested); pins + lamp test live below */
 #include "dash_calibration.h" /* per-position telltale dim codes (host-tested, plan 2026-07-28-001 U21) */
-#include "dash_can.h" /* FDCAN bring-up to loopback (U7); stubs where absent */
+#include "dash_can_ford.h" /* Ford 0x270-set decoder (pure, host-tested; plan 2026-08-15-001) -- needs dash_data.h above */
+#include "dash_can.h" /* FDCAN bring-up (U7) + the Ford-frame RX drain (plan 2026-08-15-001 U6); stubs where absent */
 #include <Wire.h> /* FM24CL64B I2C FRAM odometer backend (migration plan U6) */
 
 /* Volatile so the compiler cannot fold the table access down to the one
@@ -98,6 +99,26 @@ static DashOdo g_odo;
  * once-per-frame tick that feeds it the published channels plus the
  * simulator's sticky per-lap taint. */
 static DashLapFlash g_lap_flash;
+/* Ford CAN dialect freshness state (plan 2026-08-15-001 U6). Channel values
+ * and ownership live in g_dash (can_owned); this holds only per-message
+ * last-seen bookkeeping. Static zero-init IS its boot contract ({0}, like
+ * dash_state_init). */
+static DashCanFord g_can_ford;
+
+/* void* shims adapting the pure Ford decoder to dash_can.h's dialect table.
+ * The seam keeps dash_can.h dialect-blind; a second dialect (RaceCapture)
+ * registers the same way -- its own state struct, its own pair of shims. */
+static bool can_ford_decode_shim(void *state, uint32_t id, uint8_t dlc,
+                                 const uint8_t *bytes, uint32_t now_ms,
+                                 DashState *s)
+{
+    return dash_can_ford_decode((DashCanFord *) state, id, dlc, bytes, now_ms, s);
+}
+static void can_ford_expire_shim(void *state, uint32_t now_ms,
+                                 bool car_semantics, DashState *s)
+{
+    dash_can_ford_expire((DashCanFord *) state, now_ms, car_semantics, s);
+}
 
 /* ---- panel plumbing (three BT817s on one shared SPI bus, KTD1/KTD9) ---- */
 static EVE_panel_t g_eve_panels[DASH_PANEL_COUNT]; /* library form of DASH_PANELS, filled in setup() */
@@ -198,6 +219,21 @@ static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* WeAct user button K1 */
 #define DASH_SWITCH_TRIP_PINMODE INPUT_PULLUP
 #define DASH_SWITCH_TRIP_PRESSED LOW
 #endif
+
+/* DASH_CAN_CAR (plan 2026-08-15-001 KTD7): opt-in car semantics for CAN
+ * staleness, orthogonal-modifier idiom like DASH_MULE_H755Q. Absent (every
+ * env today) = bench: a Ford frame stale past 500 ms releases its channels
+ * and the simulator reclaims them (R8). Defined = car: stale channels
+ * dead-front (`--`) and stay CAN-latched until a fresh frame (R7). Get this
+ * wrong in the car and a quiet bus hands the glass back to the simulator --
+ * sim fiction rendered as live vitals. Host tests never see this flag (they
+ * don't compile the .ino); both semantics stay reachable at runtime through
+ * dash_can_ford_expire's parameter. */
+#if defined(DASH_CAN_CAR)
+#define DASH_CAN_CAR_SEMANTICS true
+#else
+#define DASH_CAN_CAR_SEMANTICS false
+#endif /* DASH_CAN_CAR */
 
 #if defined(DASH_BOARD_BOARD3) && defined(HSE_VALUE) && (HSE_VALUE == 25000000UL)
 /* ---- Board3 clock tree (25 MHz crystal, not the Nucleo's 8 MHz bypass) ----
@@ -865,20 +901,38 @@ void setup(void)
         Serial.println(F("Serial commands still ack ('status' reports the failure). Check wiring / power / SPI."));
     }
 
+    /* the Ford dialect is the table's only entry today; the return is a
+     * boot-time programming-error check, not a runtime condition */
+    if (!dash_can_register_dialect(&g_can_ford, can_ford_decode_shim,
+                                   can_ford_expire_shim))
+    {
+        Serial.println(F("CAN: dialect registration FAILED (table full?)"));
+    }
+    /* discard the ~2.4 s splash-era CAN backlog: stale frames must not decode as fresh, boot RF0L must not count */
+    dash_can_rx_flush();
     g_loop_last_ms = millis();
     g_fps_window_ms = g_loop_last_ms;
 }
 
 void loop(void)
 {
-    /* The live pipeline (KTD8): serial -> sim -> odometer -> alarm -> frame.
-     * Runs even when every panel is dead so the bench control surface
-     * survives -- only the render step is gated. */
+    /* The live pipeline (KTD8): serial -> CAN decode -> sim -> odometer ->
+     * alarm -> frame. Runs even when every panel is dead so the bench control
+     * surface survives -- only the render step is gated. */
     pump_serial();
 
     const uint32_t now = millis();
     const uint32_t dt = now - g_loop_last_ms;
     g_loop_last_ms = now;
+
+    /* CAN decode before the sim step (plan 2026-08-15-001 KTD5): accepted
+     * frames claim channels via can_owned, so the sim yields to CAN-fresh
+     * data on this same frame; the expiry pass then applies the bench/car
+     * staleness semantics (KTD6) before the sim gets its turn. `now` is
+     * fresh from just after pump_serial, so frame timestamps and dt share
+     * one clock reading. */
+    dash_can_rx_drain(now, &g_dash);
+    dash_can_expire_all(now, DASH_CAN_CAR_SEMANTICS, &g_dash);
 
     dash_sim_step(&g_sim, &g_dash, dt); /* honors sim_frozen + overrides */
 
@@ -1526,11 +1580,23 @@ void handle_serial_line(const char *line)
                     Serial.printf(" %s=--", dash_ch_name(ch));
                 }
             }
-            Serial.printf(" odo=%.1f trip=%.1f dl=%u/%u,%u/%u,%u/%u eve=%s,%s,%s\r\n",
+            /* can= is the FDCAN1 decode pulse (KTD11, plan 2026-08-15-001):
+             * frames the Ford decoder consumed (filter-admitted strangers
+             * and runts don't count), FIFO0 overflow episodes, ms since the
+             * last consumed frame, and the active staleness semantics --
+             * "bench" (stale releases to the sim, R8) or "car" (stale
+             * dead-fronts and stays latched, R7), otherwise unobservable at
+             * runtime. lost>0 means "dropping frames", a large ms-since
+             * with accepted>0 means "bus went quiet". */
+            Serial.printf(" odo=%.1f trip=%.1f dl=%u/%u,%u/%u,%u/%u can=%lu,%lu,%lu,%s eve=%s,%s,%s\r\n",
                           (double)dash_odo_miles(&g_odo), (double)dash_trip_miles(&g_odo),
                           (unsigned)g_dl[0][0], (unsigned)g_dl[0][1],
                           (unsigned)g_dl[1][0], (unsigned)g_dl[1][1],
                           (unsigned)g_dl[2][0], (unsigned)g_dl[2][1],
+                          (unsigned long)dash_can_rx_accepted(),
+                          (unsigned long)dash_can_rx_lost(),
+                          (unsigned long)dash_can_rx_ms_since_accept(millis()),
+                          DASH_CAN_CAR_SEMANTICS ? "car" : "bench",
                           g_panel_ok[0] ? "ok" : "--",
                           g_panel_ok[1] ? "ok" : "--",
                           g_panel_ok[2] ? "ok" : "--");
