@@ -1,11 +1,13 @@
 /*
- * dash_can.h - FDCAN bring-up to loopback level (STM32 migration plan U7).
+ * dash_can.h - FDCAN hardware layer: bring-up, cantest, and the RX drain.
  *
- * Scope is deliberately hardware-proof only: init both peripherals in
- * classic CAN 2.0 mode at 500 kbps and provide the `cantest` round-trip
- * (transmit on bus 1, receive on bus 2 with the two buses wire-jumpered)
- * that proves silicon, transceivers, connectors, and termination in one
- * command. CAN -> DashState decode is explicitly a follow-on plan.
+ * Scope is the HAL boundary: init both peripherals in classic CAN 2.0 mode
+ * at 500 kbps, provide the `cantest` round-trip (transmit on bus 1, receive
+ * on bus 2 with the two buses wire-jumpered) that proves silicon,
+ * transceivers, connectors, and termination in one command, and drain
+ * FDCAN1's FIFO into the Ford dialect decoder. CAN -> DashState decode
+ * itself lives in dash_can_ford.h (pure, host-tested; plan 2026-08-15-001)
+ * -- this file only moves bytes and counts frames.
  *
  * STM32-only (raw STM32duino HAL, enabled by -D HAL_FDCAN_MODULE_ENABLED
  * in the h743 env); builds without FDCAN compile the stubs at the bottom.

@@ -123,6 +123,32 @@ new value in OPTSR_CUR (0x1b86aaf0 from the factory 0x1bc6aaf0). Install
 CubeProgrammer before Board3 arrives to rehearse the documented command; a
 re-run with BCM4 already 0 still exercises the full tool flow.
 
+## CAN live-bus session (parts-gated: transceivers on reorder)
+
+The Ford dialect (plan 2026-08-15-001) is fully host-proven — 15/15 suite
+including the sim round-trip, emitter dry-run byte-matched to golden vectors.
+The live session tests only the electrical path and the bit-timing assumption:
+
+1. SN65HVD230-class transceiver on FDCAN1 (mule: TXD→CN7-4/PB9, RXD→CN7-2/PB8,
+   3.3 V CN8-7, GND CN7-8); CANable clipped on the same CANH/CANL.
+2. Feed + emitter: `wsl -- /tmp/can_sim_feed | <penv python> tools/can_emit.py`
+   (build the feed per its docstring). Glass shows CAN-real engine vitals;
+   TRACK lap timing stays sim (mixed-source glass, by design).
+3. `status` → `can=<accepted>,<lost>,<ms>` counting up, lost=0 steady-state.
+   `cantest` still passes on bus 2 (its filter is untouched).
+4. CANable capture at 500 kbps decodes the frames cleanly → referees the
+   FDCAN 80 MHz kernel-clock bit-timing assumption (dash_can.h header).
+5. Kill the feed: within ~500 ms the emitter stops TXing and the sim reclaims
+   the glass (bench semantics) — the dead-feed safety observed live.
+
+**Car-side notes (M50D GWM):** the pack's four harness-mounted CAN termination
+resistors are required; CAN stubs stay within 20 in of C9/C175B/blunt leads.
+First car contact: sniff the GWM leads at 500 kbps — confirm the 0x270-set,
+then signal plausibility (AFR ≈ 14.7 warm idle, ECT/EOT plausible °C,
+VBAT ≈ 14 V running) so scaling is verified, not just presence. Tracked
+non-blocking: draft + submit the Ford Techline question on the M50D GWM
+message set (the sniff stays the final referee).
+
 **Bench trap:** the Nucleo's ST-LINK VCP is USART3 on **PD8/PD9** — the center
 and left CS pins. Open the two VCP solder bridges (Nucleo-144 user manual)
 before the panel session, or the ST-LINK's TX fights left CS.
