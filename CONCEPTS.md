@@ -56,6 +56,12 @@ The left 5" side panel: engine vitals sourced from engine-side CAN (oil pressure
 ### Timing Screen
 The right 5" side panel: TIMING in TRACK mode (lap number, position, last/best/predicted times, throttle and brake bars) and ROAD in STREET mode (fuel gauge, trip, range, ambient, clock). Sourced from RaceCapture-side data once CAN lands.
 
+### CAN Dialect
+One CAN source's complete frame vocabulary — its IDs, byte layouts, scaling, and rates — together with the decoder that translates it into dash channels. The car's bus carries three: the Ford control pack's (Ford-defined, not ours to change), the PMU16s' (ECUMaster-configured), and the RaceCapture's (ours to configure). Dialects are peers at the dash's producer seam: each decoder writes channels and validity bits, none knows the others exist, and the simulator is architecturally just another producer beside them. The Ford dialect is authored as a DBC file in the repo; its decoder is the first built.
+
+### Golden Frames
+Checked-in CAN test vectors generated from a dialect's DBC by the PC toolchain: known channel values encoded into the exact bytes the wire would carry. The host test decodes them with the real firmware decoder and asserts the values round home. Their job is transcription fidelity — the firmware decoder is hand-written C, so a slip against the spec must reproduce identically in two independent implementations (Python encode, C decode) before it can hide.
+
 ### Laps Left
 How many more laps the remaining fuel will actually complete — a range estimate, not a count of laps driven. Deliberately excludes an unusable reserve at the bottom of the tank, because sustained cornering starves the pickup well before the tank is dry, so laps promised out of that last fuel are laps the car will not finish.
 
