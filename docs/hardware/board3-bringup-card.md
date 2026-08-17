@@ -154,13 +154,27 @@ The live session tests only the electrical path and the bit-timing assumption:
    (`python -c` one-liner or cansend) → `accepted` must NOT advance (the
    drain's standard-ID guard, unreachable from the host suite, proven live).
 
-**Car-side notes (M50D GWM):** the pack's four harness-mounted CAN termination
+**Car-side notes (M50D GWM):** the pack's instruction sheet is vendored at
+`docs/hardware/datasheets/M6017M50D-IS-1850-0625.pdf` (39 pp.; connector
+legend p.10 — GWM is C9, the dash's bus tap is harness item W, "Blunt cut
+HS CAN"; it prints NO CAN message table, which is what keeps the 0x270-set
+official-sibling). The pack's four harness-mounted CAN termination
 resistors are required; CAN stubs stay within 20 in of C9/C175B/blunt leads.
 First car contact: sniff the GWM leads at 500 kbps — confirm the 0x270-set,
 then signal plausibility (AFR ≈ 14.7 warm idle, ECT/EOT plausible °C,
-VBAT ≈ 14 V running) so scaling is verified, not just presence. Tracked
+VBAT ≈ 14 V running) so scaling is verified, not just presence.
+Two provenance probes while in there (DBC CM_ comments carry the full
+story): **EOP vs rpm at warm idle** — a real sender sweeps a smooth
+viscosity/rpm curve, a switch-backed model plateaus at a canned value,
+and the PCM-regulated Gen 3+ pump steps between setpoints; the shape
+decides whether the OILP alarm can be trusted or needs a dedicated
+sender on a later dialect. And **EOT lag/smoothness** — community
+reports it PCM-inferred on some applications. ECT is CHT-derived by
+design (no wet sensor on a Coyote): expect it above radiator-water
+readings under load and threshold the coolant alarm accordingly. Tracked
 non-blocking: draft + submit the Ford Techline question on the M50D GWM
-message set (the sniff stays the final referee).
+message set — Techline 1-800-367-3788, printed on every page of the sheet
+(the sniff stays the final referee).
 
 **Bench trap:** the Nucleo's ST-LINK VCP is USART3 on **PD8/PD9** — the center
 and left CS pins. Open the two VCP solder bridges (Nucleo-144 user manual)

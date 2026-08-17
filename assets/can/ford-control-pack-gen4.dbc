@@ -60,7 +60,7 @@ BO_ 632 FORD_0278_TEMPS: 8 PCM
  SG_ VBAT : 55|11@0+ (0.01,0) [0|20.47] "V" DASH
  SG_ GEAR : 59|4@0+ (1,0) [0|15] "" DASH
 
-CM_ "Ford Performance Gen 4 Coyote control pack broadcast (the 0x270-set). TRANSCRIBED FROM THE OFFICIAL TABLES: IS_M-6017-M50HM (Gen 4X, 09/16/24) p.36 'CAN Message Definition' and IS_M-6017-73M (7.3L, 02/21/23) s.12.0 p.29 (byte-identical tables), performanceparts.ford.com/download/instructionsheets/. Confidence for the M50D dual-throttle-body pack's Gateway Module: OFFICIAL-SIBLING (the M50D sheet documents the GWM generic-gauges HS-CAN broadcast but prints no table; sniff-verify at first car contact). Ford bit numbering in the source tables is 0-63 with bit 0 = MSB of byte 0 (Motorola); DBC start bits below use the standard sawtooth convention. Classic CAN 2.0, 11-bit IDs, HS-CAN 500 kbps. Rates: 0x270 @ 100 Hz, 0x274 @ 50 Hz, 0x275 @ 50 Hz, 0x278 @ 10 Hz.";
+CM_ "Ford Performance Gen 4 Coyote control pack broadcast (the 0x270-set). TRANSCRIBED FROM THE OFFICIAL TABLES: IS_M-6017-M50HM (Gen 4X, 09/16/24) p.36 'CAN Message Definition' and IS_M-6017-73M (7.3L, 02/21/23) s.12.0 p.29 (byte-identical tables), performanceparts.ford.com/download/instructionsheets/. Confidence for the M50D dual-throttle-body pack's Gateway Module: OFFICIAL-SIBLING (the M50D sheet IS-1850-0625, vendored at docs/hardware/datasheets/M6017M50D-IS-1850-0625.pdf, shows the GWM (C9) and blunt-cut HS-CAN leads (harness item W) but prints no message table; sniff-verify at first car contact). Ford bit numbering in the source tables is 0-63 with bit 0 = MSB of byte 0 (Motorola); DBC start bits below use the standard sawtooth convention. Classic CAN 2.0, 11-bit IDs, HS-CAN 500 kbps. Rates: 0x270 @ 100 Hz, 0x274 @ 50 Hz, 0x275 @ 50 Hz, 0x278 @ 10 Hz.";
 CM_ BO_ 624 "0x270, 10 ms. Confidence: official (sibling tables agree byte-for-byte).";
 CM_ BO_ 628 "0x274, 20 ms. Confidence: official. A/F = raw*0.01+7 (PCM encodes ((lambda*stoich)-7)*100); AF0/AF1 are per-bank wideband. FUEL_PRESSURE: rail on PFI / lift pump on DPFI.";
 CM_ BO_ 629 "0x275, 20 ms. Confidence: official. VSPD encoded as mph*1.60934 by the PCM; 0.1 km/h per bit.";
@@ -74,10 +74,10 @@ CM_ SG_ 628 AF0 "Ford bits 25-35 -> DASH_CH_AFR_L.";
 CM_ SG_ 628 AF1 "Ford bits 36-46 -> DASH_CH_AFR_R.";
 CM_ SG_ 628 FUEL_PRESSURE "Ford bits 47-55, kPa -> DASH_CH_FUELP (psi).";
 CM_ SG_ 629 VSPD "Ford bits 0-11 -> DASH_CH_SPEED (mph).";
-CM_ SG_ 632 ECT "Ford bits 0-7, degC = raw-40 -> DASH_CH_ECT (degF). Sentinels raw 214/215 invalidate.";
-CM_ SG_ 632 EOT "Ford bits 8-15, degC = raw-40 -> DASH_CH_OILT (degF). Sentinels raw 214/215 invalidate.";
+CM_ SG_ 632 ECT "Ford bits 0-7, degC = raw-40 -> DASH_CH_ECT (degF). Sentinels raw 214/215 invalidate. PROVENANCE: the Coyote carries no wet ECT sensor -- the PCM derives this from the CHT (cylinder-head metal) thermistor per Ford PCED. It reads above radiator-water temperature under sustained load and keeps reading through coolant loss (a wet sensor would read air and lie low), so set alarm thresholds against CHT-referenced limits, not coolant folklore.";
+CM_ SG_ 632 EOT "Ford bits 8-15, degC = raw-40 -> DASH_CH_OILT (degF). Sentinels raw 214/215 invalidate. PROVENANCE: community reports this PCM-inferred (CHT-style) rather than measured on some applications; check lag/smoothness at the first-car-contact sniff.";
 CM_ SG_ 632 TOT "Ford bits 16-23, transmission oil temp. NOT decoded (no dash channel).";
-CM_ SG_ 632 EOP "Ford bits 24-33, kPa 0-1023 -> DASH_CH_OILP (psi).";
+CM_ SG_ 632 EOP "Ford bits 24-33, kPa 0-1023 -> DASH_CH_OILP (psi). PROVENANCE UNVERIFIED: S550 practice spans a binary switch feeding a canned gauge value to a real analog sender, and the Gen 3+ oil pump is PCM-regulated (a strategy-shaped curve even when real). Whether the M50D PCM backs this field with a transducer or a model is a first-sniff question -- see the bring-up card's EOP curve probe. If it proves modeled, the oil-pressure alarm needs a dedicated sender on a later dialect (RaceCapture/PMU16), which then takes over DASH_CH_OILP.";
 CM_ SG_ 632 SHIFTER_POS "Ford bits 36-39. Not decoded.";
 CM_ SG_ 632 CODES_COUNT "Ford bits 40-47, DTC count. Not decoded.";
 CM_ SG_ 632 VBAT "Ford bits 48-58, 0.01 V/bit -> DASH_CH_VOLTS.";
