@@ -364,7 +364,16 @@
 
 // HSE default value is 25MHz in HAL
 // HSE_BYPASS is 8MHz
-#ifndef HSE_BYPASS_NOT_USED
+// Repo-local change (2026-08-19, Board3 first power-on): the stock define is
+// UNGUARDED against the command line, so `-D HSE_VALUE=25000000UL` in the
+// board3 env was silently stomped back to 8000000 in every TU including this
+// header -- which (a) made the sketch's `HSE_VALUE == 25000000UL` gate false,
+// compiling OUT the Board3 clock override so the stock 8 MHz ST-LINK-MCO
+// BYPASS config ran against a real crystal (HSERDY never sets, hang in
+// HAL_RCC_OscConfig), and (b) would skew SystemCoreClock math 3.125x even if
+// it booted. #ifndef lets the env's value win; envs that don't set it (the
+// mule on a real Nucleo with the 8 MHz MCO) keep the stock default.
+#if !defined(HSE_VALUE) && !defined(HSE_BYPASS_NOT_USED)
   #define HSE_VALUE             8000000
 #endif
 
@@ -393,8 +402,19 @@
  * survived every bench boot until the first real power cycle (2026-08-12).
  * USE_PWR_DIRECT_SMPS_SUPPLY compiles ExitRun0Mode to a no-op under the H743
  * headers (no SMPS macro), leaving the sketch's SystemClock_Config to make
- * the first -- correct, direct-SMPS -- supply write after POR. */
-#if defined(DASH_MULE_H755Q)
+ * the first -- correct, direct-SMPS -- supply write after POR.
+ *
+ * Board3 (real H755, LDO-wired VCORE) needs the SAME no-op, found live at
+ * first power-on (2026-08-19): the stock USE_PWR_LDO_SUPPLY branch compiled
+ * under H743 headers is `PWR->CR3 |= LDOEN` -- an OR that cannot clear the
+ * H755's SMPSEN (bit 2; named SCUEN in H743 headers). The H755 POR default
+ * (CR3=0x46) keeps "SMPS feeds LDO" selected, Board3 floats VLXSMPS/VFBSMPS,
+ * so ACTVOSRDY never sets and the chip spins pre-main -- confirmed over SWD
+ * (PC pinned in ExitRun0Mode, CR3 0x46, CSR1 ACTVOSRDY=0). The define below
+ * does NOT configure direct SMPS for Board3; under these headers its only
+ * effect is the ExitRun0Mode no-op. The sketch's Board3 SystemClock_Config
+ * then makes the first supply write: LDO-only, raw bits. */
+#if defined(DASH_MULE_H755Q) || defined(DASH_BOARD_BOARD3)
   #define USE_PWR_DIRECT_SMPS_SUPPLY
 #else
   #define USE_PWR_LDO_SUPPLY
