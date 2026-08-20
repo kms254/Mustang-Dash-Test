@@ -297,11 +297,39 @@ way to be shown. `DASH_TT_COUNT` (physical positions) is now split from
 coincidence and the hardware tables size from the former.
 **Open:** confirm the real RaceCapture has five spare inputs before
 building the body-signal harness.
-Still open on Board3: panels + the 13.5 MHz re-walk on real copper (barrel
-power returns for backlights), the U2 QSPI JEDEC banner line (the banner
-races CDC enumeration — 500 ms wait at the sketch's serial gate; monitor
-must be pre-attached), a formal odometer POR proof, and the CAN session
-(shunts in hand, transceivers on-board). Bench facts: the DC jack's switch
+**ALL THREE PANELS LIVE ON BOARD3 (2026-08-20, same day):** `eve=ok,ok,ok`,
+**fps=60 with all three rendering**, faults=0,0,0, retired=0,0,0, pwm=128 on
+every panel, and three distinct display lists (`dl=434/647,434/689,408/359`
+— the differing third confirms the right panel draws TIMING, not a copy).
+Three independent SPI buses, three renders, one MCU. **Power settled a
+long-standing assumption: all three backlights at full duty ran off the
+LAPTOP USB-C port alone** — no barrel, no brownout. Board3 carries a CH224K
+PD sink (U4, CC1/CC2 to the connector, CFG pins floating = a 5 V request),
+so USB-C negotiates current well past default-port limits; the documented
+whole-system 5 V load is ~1.65 A against PD's 3 A at 5 V. Do NOT repeat the
+generic "backlights exceed USB" reflex — read U4 first; the failure mode if
+a port can't deliver is a brownout/boot-loop at the splash crossfade, not
+damage. **Turn signals (2026-08-20):** BTN2/BTN4 are the bench stand-in for
+the stalk (`dash_turnsignal.h`, host-tested) — tap toggles, one side
+cancels the other, flasher restarts lit, 700 ms period ≈86 flashes/min
+inside the FMVSS 108 / SAE J590 60-120 band. They write
+`DashState.tt_signals`, the same field a CAN body-signal producer will own;
+that is legal because a button is an operator input standing in for a
+switch, exactly as BTN1 stands in for the CAN mode message — the SIMULATOR
+still must not fake body signals. **FFC HAZARD, paid for the same day:**
+Board3's FPC connectors open toward the board interior (a placement defect;
+see docs/solutions/conventions/fixing-the-instance-is-not-fixing-the-class.md),
+so every cable needs a 180° fold — and **a fold inverts which face of the
+FFC is up**. These are DUAL-CONTACT parts ("Top and Bottom Entry"), so a
+wrong-face cable does not fail open, it connects REVERSED: pad 1 `/+3V3`
+onto the panel's ground, rail collapsed, board looks dead and recovers
+instantly when unplugged. Always ohm TP1/TP2 to TP3 with the cable seated
+and the panel attached BEFORE applying power; near 0 Ω means flip the cable.
+Still open on Board3: the 13.5 MHz re-walk on real copper (probe left/right
+SCLK at the FPC tail — U50 moved those series resistors to the MCU end), the
+U2 QSPI JEDEC banner line (the banner races CDC enumeration — 500 ms wait at
+the sketch's serial gate; monitor must be pre-attached), a formal odometer
+POR proof, and the CAN session (shunts in hand, transceivers on-board). Bench facts: the DC jack's switch
 pin (pad 2) is deliberately unconnected and reads floating junk with a plug
 inserted; the three TPs are lone 0.6 mm untented vias in the pocket between
 TERM2 and the MCU — probe F1/C38/corner mounting rings instead of fighting

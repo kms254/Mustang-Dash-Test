@@ -64,6 +64,18 @@ typedef enum {
  * (red) on the bench the night the board came up. */
 #define DASH_TT_NONE 0xFFU /* condition has no lamp; screens only */
 
+/* Body/PCM lamp POSITIONS, named so the legend is addressable in code rather
+ * than re-derived from silk numbers at each use. These are the six positions
+ * the firmware does not compute -- their producers are CAN dialects, or an
+ * operator input standing in for one on the bench (the turn-signal buttons).
+ * Silk TT(n) = bit (n-1). */
+#define DASH_TT_LEFT_BLINKER  0U /* TT1 green  */
+#define DASH_TT_HEADLIGHTS    1U /* TT2 white  */
+#define DASH_TT_HIGH_BEAM     2U /* TT3 blue   */
+#define DASH_TT_RIGHT_BLINKER 3U /* TT4 green  */
+#define DASH_TT_PARK_BRAKE    6U /* TT7 red    */
+#define DASH_TT_CEL           7U /* TT8 yellow */
+
 /* Physical lamp positions on the board (TT1..TT8). Deliberately NOT
  * DASH_LAMP_COUNT: that counts warning CONDITIONS, and the two are equal
  * only by coincidence today. Hardware tables (expander address, DIM

@@ -68,6 +68,7 @@
 #include "dash_panels.h" /* per-panel pins + timings (host-tested); mapped to EVE_panel_t in setup() */
 #include "dash_telltales.h" /* 8-lamp warning mask (host-tested); pins + lamp test live below */
 #include "dash_ttsweep.h" /* boot/bench telltale sweep timeline (host-tested); clock + trigger live below */
+#include "dash_turnsignal.h" /* turn-signal stalk state + flasher (host-tested); pins + clock live below */
 #include "dash_calibration.h" /* per-position telltale dim codes (host-tested, plan 2026-07-28-001 U21) */
 #include "dash_can_ford.h" /* Ford 0x270-set decoder (pure, host-tested; plan 2026-08-15-001) -- needs dash_data.h above */
 #include "dash_can.h" /* FDCAN bring-up (U7) + the Ford-frame RX drain (plan 2026-08-15-001 U6); stubs where absent */
@@ -78,6 +79,7 @@
  * restarts it any time. The timeline itself is dash_ttsweep.h. */
 static bool g_ttsweep_pending = true;
 static uint32_t g_ttsweep_start = 0U;
+
 #include <Wire.h> /* FM24CL64B I2C FRAM odometer backend (migration plan U6) */
 
 /* Volatile so the compiler cannot fold the table access down to the one
@@ -214,6 +216,13 @@ static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* Nucleo USER button B1 */
  * there, not on new hardware. */
 #define DASH_LAMPS_I2C 1
 static const uint8_t DASH_SWITCH_TRIP_PIN = PC6; /* BTN1 = SW1 */
+/* BTN2/BTN4 stand in for the turn-signal stalk on the bench; in the car both
+ * blinkers arrive as body signals over CAN. Same electrical contract as BTN1
+ * (1k series -> switch -> GND, active-LOW on the internal pull-up). BTN3
+ * (PC8) stays unassigned. */
+#define DASH_TURN_BUTTONS 1
+static const uint8_t DASH_TURN_L_PIN = PC7; /* BTN2 = left */
+static const uint8_t DASH_TURN_R_PIN = PC9; /* BTN4 = right */
 #else
 /* Board3 carrier: the telltales left the MCU -- two AW9523B expanders on
  * I2C2 drive them (plan 2026-07-28-001 U21) and PD0-PD7 are freed. Lamp
@@ -626,6 +635,14 @@ static void dash_lamp_set(uint8_t l, bool on)
  * long press resets the trip; the debounce + one-fire-per-press latch live in
  * dash_button.h, which is host-tested and polarity-agnostic. */
 static DashButton g_trip_btn;
+#if defined(DASH_TURN_BUTTONS)
+/* Declared here, not beside the sweep globals: DASH_TURN_BUTTONS is set in
+ * the board-selection block further up, so a guard placed above it reads as
+ * false and the definitions vanish silently. */
+static DashTurn g_turn;         /* stalk state (dash_turnsignal.h) */
+static DashButton g_turn_l_btn; /* BTN2, debounced like the trip button */
+static DashButton g_turn_r_btn; /* BTN4 */
+#endif
 
 static char g_serial_line[DASH_SERIAL_MAX_LINE + 17]; /* headroom to detect too-long */
 static uint8_t g_serial_len = 0U;
@@ -855,6 +872,13 @@ void setup(void)
     }
     pinMode(DASH_SWITCH_TRIP_PIN, DASH_SWITCH_TRIP_PINMODE);
     dash_button_init(&g_trip_btn);
+#if defined(DASH_TURN_BUTTONS)
+    pinMode(DASH_TURN_L_PIN, DASH_SWITCH_TRIP_PINMODE);
+    pinMode(DASH_TURN_R_PIN, DASH_SWITCH_TRIP_PINMODE);
+    dash_button_init(&g_turn_l_btn);
+    dash_button_init(&g_turn_r_btn);
+    dash_turn_init(&g_turn);
+#endif
 
     odo_storage_init();
     odo_eeprom_load();
@@ -978,6 +1002,28 @@ void loop(void)
         odo_eeprom_write();
         dash_odo_mark_written(&g_odo);
     }
+
+#if defined(DASH_TURN_BUTTONS)
+    /* Turn-signal stalk (BTN2/BTN4). Same debounce contract as the trip
+     * button -- a press toggles its side, the other side cancels. The
+     * flasher's lit positions are written into tt_signals, the same field a
+     * CAN body-signal producer will own: this clears only the two blinker
+     * bits, so it never disturbs another signal. */
+    {
+        const bool l_down = (DASH_SWITCH_TRIP_PRESSED == digitalRead(DASH_TURN_L_PIN));
+        const bool r_down = (DASH_SWITCH_TRIP_PRESSED == digitalRead(DASH_TURN_R_PIN));
+        if (DASH_BTN_EVENT_SHORT == dash_button_step(&g_turn_l_btn, l_down, now))
+        {
+            dash_turn_press(&g_turn, DASH_TURN_LEFT, now);
+        }
+        if (DASH_BTN_EVENT_SHORT == dash_button_step(&g_turn_r_btn, r_down, now))
+        {
+            dash_turn_press(&g_turn, DASH_TURN_RIGHT, now);
+        }
+        g_dash.tt_signals = (uint8_t) ((g_dash.tt_signals & ~DASH_TURN_LAMP_BITS)
+                                       | dash_turn_mask(&g_turn, now));
+    }
+#endif
 
     /* telltales track the live state every frame (U6); the mask is pure
      * logic (dash_telltales.h), only the pin writes live here */

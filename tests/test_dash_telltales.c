@@ -13,6 +13,7 @@
 
 #include "dash_telltales.h"
 #include "dash_ttsweep.h"
+#include "dash_turnsignal.h"
 
 /* silk TT number -> bit position (TT1 = bit 0), so the assertions below
  * read in the same numbering as the board and the legend doc */
@@ -274,6 +275,64 @@ int main(void)
                "at TOTAL the sweep is done and asserts nothing");
         expect(!dash_ttsweep_done(0U),
                "the sweep is not born finished");
+    }
+
+    /* 10. turn-signal stalk + flasher (dash_turnsignal.h) */
+    {
+        DashTurn t;
+        dash_turn_init(&t);
+
+        /* idle: nothing lit, ever */
+        expect(dash_turn_mask(&t, 0U) == 0U && dash_turn_mask(&t, 12345U) == 0U,
+               "an idle stalk lights no blinker at any time");
+
+        /* a press starts the flasher LIT -- a tap must always be visible */
+        dash_turn_press(&t, DASH_TURN_LEFT, 1000U);
+        expect(dash_turn_mask(&t, 1000U) == (1U << DASH_TT_LEFT_BLINKER),
+               "left press lights TT1 immediately");
+        expect(dash_turn_mask(&t, 1000U + DASH_TURN_ON_MS - 1U) != 0U,
+               "lit through the end of the on-phase");
+        expect(dash_turn_mask(&t, 1000U + DASH_TURN_ON_MS) == 0U,
+               "dark at the start of the off-phase");
+        expect(dash_turn_mask(&t, 1000U + DASH_TURN_PERIOD_MS) ==
+                   (1U << DASH_TT_LEFT_BLINKER),
+               "lit again one full period later");
+
+        /* left never lights the right lamp */
+        expect((dash_turn_mask(&t, 1000U) & (1U << DASH_TT_RIGHT_BLINKER)) == 0U,
+               "left signalling must not light TT4");
+
+        /* the other side takes over and restarts the phase lit */
+        dash_turn_press(&t, DASH_TURN_RIGHT, 1500U);
+        expect(t.side == DASH_TURN_RIGHT,
+               "pressing the other side takes over");
+        expect(dash_turn_mask(&t, 1500U) == (1U << DASH_TT_RIGHT_BLINKER),
+               "right press lights TT4 immediately, phase restarted");
+        expect((dash_turn_mask(&t, 1500U) & (1U << DASH_TT_LEFT_BLINKER)) == 0U,
+               "taking over cancels the left lamp -- never both at once");
+
+        /* same side again cancels */
+        dash_turn_press(&t, DASH_TURN_RIGHT, 2000U);
+        expect(t.side == DASH_TURN_NONE && dash_turn_mask(&t, 2000U) == 0U,
+               "pressing the active side cancels it");
+
+        /* the module owns exactly two bits, and they are the blinkers */
+        expect(DASH_TURN_LAMP_BITS ==
+                   ((1U << DASH_TT_LEFT_BLINKER) | (1U << DASH_TT_RIGHT_BLINKER)),
+               "the clear-mask is exactly the two blinker positions");
+        dash_turn_press(&t, DASH_TURN_LEFT, 3000U);
+        for (uint32_t dt = 0U; dt < 3U * DASH_TURN_PERIOD_MS; dt += 17U)
+        {
+            expect((dash_turn_mask(&t, 3000U + dt) & ~DASH_TURN_LAMP_BITS) == 0U,
+                   "the flasher may never set a bit outside its own two");
+        }
+
+        /* flash rate stays inside the FMVSS 108 / SAE J590 60-120 per minute
+         * band -- the constants are the spec claim, so pin them */
+        expect(DASH_TURN_PERIOD_MS >= 500U && DASH_TURN_PERIOD_MS <= 1000U,
+               "flash period must be 60-120 flashes per minute");
+        expect(DASH_TURN_ON_MS > 0U && DASH_TURN_ON_MS < DASH_TURN_PERIOD_MS,
+               "duty cycle must be a real fraction of the period");
     }
 
     if (failures == 0)
