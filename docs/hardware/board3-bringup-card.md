@@ -85,6 +85,14 @@ R33/R36.
 - **CAN1 first bring-up needs H1 closed** — the order contains the headers but
   **no 2.54 mm shunts** (JLC doesn't supply them). Put shunts in the parts
   order or confirm drawer stock *before* the boards arrive.
+- **RTT console shim — implement and prove on Board3 (decided 2026-08-19).**
+  Route the existing `ok`/`err` serial protocol over RTT (same two SWD wires
+  the Tag-Connect already carries; OpenOCD speaks it) while CDC still exists
+  as the fallback. This is the **gate for the next rev's USB deletion**
+  (docs/hardware/next-rev-interconnect-and-led-daughterboard.md §4): v2
+  carries no USB, so programming AND console ride the tag, powered by the
+  car. Proving it here is risk-free — same die, same debugger, USB safety
+  net. Done = `status`/`odo set`/alarm commands working over RTT on glass.
 
 ## Prove the firmware BEFORE the boards ship — `[env:board3_mule]`
 
