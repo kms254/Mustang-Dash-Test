@@ -95,6 +95,12 @@ A panel the firmware has marked dead at runtime and now skips, after its Frame D
 ### Carrier Board
 The purpose-built PCB that replaces the bench wiring loom as the dash's physical platform: it hosts the microcontroller, gives each panel its own buffered, terminated point-to-point SPI leg with a dedicated RiBUS connector, gates each panel's read-return line by that panel's own chip select, and carries the power regulation for both logic rails. Its existence splits the project's electrical history in two — measurements and operating points established on the loom describe the loom, not the system.
 
+### Mule
+A stock development board carrying the same die as a custom board that does not yet exist (or has not yet been risked), used to prove the firmware on real silicon before first hardware contact with the Carrier Board.
+*Avoid:* devkit stand-in, bench board (when the die-match is the point)
+
+A mule proves die-level behavior — peripherals, protocols, supply-configuration quirks, option-byte procedures — on known-good hardware, so that first contact with the custom board tests only what the mule cannot reach: the board's own clock source, its copper, and its unique wiring. Findings transfer only where the die is the mechanism; anything owned by the board (an operating point, a supply topology, a connector) must be re-proven on the real hardware, and a mule result cited for a board-owned property is a category error.
+
 ### Data Channel
 One live value the dash consumes (RPM, oil pressure, lap delta…), carried in a single shared structure with a per-channel validity flag. Producers fill channels — the built-in simulator, and a CAN Dialect's decoder for each channel it claims — and renderers only read them; the source is invisible to rendering. When producers contend, precedence is fixed: an operator's override beats CAN, and CAN beats the simulator. An invalid channel displays `--` and can never assert an alarm, which is what makes "no stale alarms" a structural guarantee rather than a convention.
 

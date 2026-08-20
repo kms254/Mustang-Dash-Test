@@ -250,13 +250,26 @@ static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* WeAct user button K1 */
  * VOS1-safe (no VOS0 excursion needed for a dash). AXI/AHB 200 MHz, APB 100.
  * USB FS gets its 48 MHz from HSI48 trimmed by CRS against USB SOF -- the
  * standard crystal-independent recipe, so USB enumeration does not depend on
- * this PLL arithmetic being perfect. Supply is PWR_LDO_SUPPLY: Board3 feeds
- * VDDLDO (three pins in the decoupling census) and does not use the SMPS --
+ * this PLL arithmetic being perfect. Supply is LDO-only: Board3 feeds
+ * VDDLDO (three pins in the decoupling census) and floats the SMPS pins --
  * configuring the wrong supply here bricks the chip until power-cycle, so
- * this line is load-bearing, not boilerplate. */
+ * these lines are load-bearing, not boilerplate. */
 extern "C" void SystemClock_Config(void)
 {
-    HAL_PWREx_ConfigSupply(PWR_LDO_SUPPLY);
+    /* LDO-only, written with raw bits (mirror of the mule block below): we
+     * compile against H743 headers on an H755 die, and CR3 bit 2 is SCUEN
+     * here but SMPSEN in the silicon. H743's
+     * HAL_PWREx_ConfigSupply(PWR_LDO_SUPPLY) SETS bit 2 (SCUEN write-1
+     * convention) -- on the H755 that re-selects the POR-default
+     * SMPS-feeds-LDO chain, whose SMPS pins Board3 floats, so ACTVOSRDY
+     * never sets. Hit live at Board3 first power-on (2026-08-19): PC pinned
+     * in ExitRun0Mode, CR3=0x46, ACTVOSRDY=0. Clear bit 2, set LDOEN, and
+     * make this the FIRST supply write after POR (the shared repo variant
+     * no-ops ExitRun0Mode for DASH_BOARD_BOARD3). */
+    MODIFY_REG(PWR->CR3,
+               (PWR_CR3_SCUEN | PWR_CR3_LDOEN | PWR_CR3_BYPASS),
+               PWR_CR3_LDOEN);
+    while (0U == (PWR->CSR1 & PWR_CSR1_ACTVOSRDY)) { }
     __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
     while (!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) { }
 
