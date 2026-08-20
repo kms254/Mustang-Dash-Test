@@ -234,7 +234,8 @@ why it survived a whole bench day on the factory demo's SMPS latch and only
 bit at the first true power cycle), and once LDO latches the board spins at
 the ACTVOSRDY wait until a power cycle with fixed firmware. Reflashing does
 NOT recover it. Fix: repo variant `boards/variants/H755ZI_Q_MULE/` guards the
-stock `USE_PWR_LDO_SUPPLY` under `DASH_MULE_H755Q` (see platformio.ini).
+stock `USE_PWR_LDO_SUPPLY` under `DASH_MULE_H755Q` — and, since 2026-08-19,
+under `DASH_BOARD_BOARD3` too (see platformio.ini and the Board3 entry below).
 (2) **BCM4=0 needs no CubeProgrammer** (not installed; winget has no ST
 tools): PIO's own OpenOCD, `stm32h7x option_write 0 0x20 0x1b86aaf0
 0x00400000` (BCM4 = OPTSR bit 22 per stm32h755xx.h), verified by OPTSR_CUR
@@ -246,8 +247,49 @@ but check DSTS *first*; a hung boot reads all-zero USB registers and mimics
 a bad cable. Odometer backend reconciled same night: there is NO H7-flash
 emulation (an old bring-up-card line claimed one); the ladder is I2C FRAM at
 0x50 on PB10/PB11 -> RAM shadow, so the mule persistence test needs Kevin's
-FRAM breakout on those pins. Expander breakouts NOT owned yet (session [2]
-is parts-blocked; Adafruit #4886 x2 ordered-list).
+FRAM breakout on those pins. The Adafruit #4886 expander breakouts arrived
+2026-08-19 — same day Board3 did, so mule session [2] was skipped: the lamp
+glue met its first silicon on the real board instead (below).
+**BOARD3 FIRST LIGHT (2026-08-19): the JLC-assembled carrier BOOTS.** USB-power
+only, first contact same day the boards arrived. DFU (BOOT+RESET) enumerated
+bare — the zero-tools test passed before any firmware. BCM4=0 written through
+the hand-held TC2030 (Kevin has a retaining clip) with the documented OpenOCD
+line, readback 0x1bc6aaf0 -> 0x1b86aaf0. Then TWO stacked boot hangs, both
+H743-firmware-on-H755-die artifacts, both diagnosed live by the SWD PC-sample
++ addr2line + register-readback recipe and both fixed in PR #47:
+(1) pre-main ACTVOSRDY spin — the stock LDO branch compiles to an OR that
+cannot clear the H755's SMPSEN (bit 2 = SCUEN in H743 headers, SMPSEN in the
+silicon; H743's HAL_PWREx_ConfigSupply is untrustworthy for the same reason);
+fix = board3 joins the mule's variant guard (ExitRun0Mode no-op) and the
+sketch makes the first post-POR supply write with raw bits (LDO-only, CR3
+0x46 -> 0x42). Full pattern:
+docs/solutions/architecture-patterns/own-the-first-supply-write-when-compiling-for-a-sibling-die.md
+(2) HSE-bypass hang — the variant header's unguarded `#define HSE_VALUE
+8000000` stomped the env's -D 25 MHz in every TU, compiling OUT the Board3
+clock override ("HSE_VALUE redefined" printed in every build log, unread);
+fix = #ifndef guard in the repo variant header. Write-up:
+docs/solutions/build-errors/an-unguarded-header-define-silently-stomps-a-build-flag.md
+Post-fix, verified live: 400 MHz off the 25 MHz crystal, USB CDC + full
+serial protocol, sim mid-lap headless at fps=0, banner shows **AW9523B west
+ok / east ok (first silicon EVER for the lamp glue)**, `Odometer backend:
+FRAM (FM24CL64B)` with miles surviving resets, `FDCAN init: ECU=ok PMU=ok`.
+`alarm oilp` physically lit TT1 and cleared — the expander address/register
+tables verified end-to-end on copper. TT1 being GREEN exposed a design gap,
+not a bug: the LED colors follow the dash-design body-signal legend
+(turn/beam/CEL via future CAN) while the firmware's eight alarm lamps map
+1:1 onto TT1-8 — the lamp->position remap is a pending design decision.
+Still open on Board3: panels + the 13.5 MHz re-walk on real copper (barrel
+power returns for backlights), the U2 QSPI JEDEC banner line (the banner
+races CDC enumeration — 500 ms wait at the sketch's serial gate; monitor
+must be pre-attached), a formal odometer POR proof, and the CAN session
+(shunts in hand, transceivers on-board). Bench facts: the DC jack's switch
+pin (pad 2) is deliberately unconnected and reads floating junk with a plug
+inserted; the three TPs are lone 0.6 mm untented vias in the pocket between
+TERM2 and the MCU — probe F1/C38/corner mounting rings instead of fighting
+the dots. NEXT-REV DECISION (2026-08-19): v2 carries NO USB — programming,
+debug, and console ride the Tag-Connect, powered by the car; gated on an RTT
+console shim proven on Board3 first (bring-up card debt list + next-rev doc
+§4).
 **F767 first light (2026-07-21): NUCLEO-F767ZI + center 7" CONFIRMED.**
 MCU-direct splash (embedded pack -> RAM_G) played on glass, crossfade, 60 fps
 sim dash, REG_ID 0x7C, faults=0, pwm=128 -- all on the single ST-LINK USB
