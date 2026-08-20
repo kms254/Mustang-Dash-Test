@@ -461,6 +461,73 @@ int main(void)
                "AE3: apply must NOT handle FLASHWIPE (EVE-bound, caller executes)");
     }
 
+    /* `tt` -- bench telltale force overlay (TT silk index -> lamp bit) */
+    {
+        DashState s;
+        DashCommand c;
+        char reply[96];
+        memset(&s, 0, sizeof s);
+
+        /* parse: silk index 1..8 maps to lamp bit 0..7 */
+        expect(parse("tt 1 on", &c) == DASH_ERR_NONE &&
+                   c.kind == DASH_CMD_TT && c.tt_index == 0U && c.tt_on,
+               "TT1: `tt 1 on` is lamp bit 0, forced on");
+        expect(parse("tt 8 off", &c) == DASH_ERR_NONE &&
+                   c.kind == DASH_CMD_TT && c.tt_index == 7U && !c.tt_on,
+               "TT2: `tt 8 off` is lamp bit 7, released");
+        expect(parse("TT ALL ON", &c) == DASH_ERR_NONE &&
+                   c.kind == DASH_CMD_TT && c.tt_index == DASH_SERIAL_TT_ALL,
+               "TT3: `tt all` parses, case-insensitive like the protocol");
+
+        /* parse errors: silk has exactly TT1..TT8, verbs exactly on|off */
+        expect(parse("tt", &c) == DASH_ERR_MISSING_VALUE,
+               "TT4: bare `tt` is MISSING_VALUE");
+        expect(parse("tt 3", &c) == DASH_ERR_MISSING_VALUE,
+               "TT5: `tt 3` without on/off is MISSING_VALUE");
+        expect(parse("tt 0 on", &c) == DASH_ERR_BAD_VALUE,
+               "TT6: TT0 does not exist (silk is 1-based)");
+        expect(parse("tt 9 on", &c) == DASH_ERR_BAD_VALUE,
+               "TT7: TT9 does not exist (8 lamps)");
+        expect(parse("tt 12 on", &c) == DASH_ERR_BAD_VALUE,
+               "TT8: multi-digit index is BAD_VALUE, not a truncation");
+        expect(parse("tt 3 maybe", &c) == DASH_ERR_BAD_VALUE,
+               "TT9: third token must be exactly on or off");
+
+        /* apply: force is a set/clear of DashState.tt_forced bits */
+        expect(parse("tt 3 on", &c) == DASH_ERR_NONE &&
+                   dash_apply_command(&s, &c, reply, sizeof reply) &&
+                   s.tt_forced == 0x04U &&
+                   strcmp(reply, "ok tt 3 on") == 0,
+               "TT10: `tt 3 on` sets bit 2 and acks with the silk index");
+        expect(parse("tt 5 on", &c) == DASH_ERR_NONE &&
+                   dash_apply_command(&s, &c, reply, sizeof reply) &&
+                   s.tt_forced == 0x14U,
+               "TT11: forces accumulate per lamp");
+        expect(parse("tt 3 off", &c) == DASH_ERR_NONE &&
+                   dash_apply_command(&s, &c, reply, sizeof reply) &&
+                   s.tt_forced == 0x10U &&
+                   strcmp(reply, "ok tt 3 off") == 0,
+               "TT12: `off` releases only its own bit");
+        expect(parse("tt all on", &c) == DASH_ERR_NONE &&
+                   dash_apply_command(&s, &c, reply, sizeof reply) &&
+                   s.tt_forced == 0xFFU &&
+                   strcmp(reply, "ok tt all on") == 0,
+               "TT13: `tt all on` is the full row (bench bulb check)");
+        expect(parse("tt all off", &c) == DASH_ERR_NONE &&
+                   dash_apply_command(&s, &c, reply, sizeof reply) &&
+                   s.tt_forced == 0x00U,
+               "TT14: `tt all off` releases every force");
+
+        /* `tt sweep` is caller-applied (the animation clock is millis) */
+        expect(parse("tt sweep", &c) == DASH_ERR_NONE &&
+                   c.kind == DASH_CMD_TT_SWEEP,
+               "TT15: `tt sweep` parses to its own caller-applied kind");
+        expect(!dash_apply_command(&s, &c, reply, sizeof reply),
+               "TT16: apply must NOT handle TT_SWEEP (clock is the caller's)");
+        expect(s.tt_forced == 0x00U,
+               "TT17: a sweep request must not disturb the force overlay");
+    }
+
     /* help text exists and mentions every command verb and new channels */
     expect(strstr(DASH_HELP_TEXT, "set") != NULL &&
                strstr(DASH_HELP_TEXT, "clear") != NULL &&
@@ -470,6 +537,7 @@ int main(void)
                strstr(DASH_HELP_TEXT, "sim") != NULL &&
                strstr(DASH_HELP_TEXT, "status") != NULL &&
                strstr(DASH_HELP_TEXT, "circuit") != NULL &&
+               strstr(DASH_HELP_TEXT, "tt") != NULL &&
                strstr(DASH_HELP_TEXT, "flashwipe") != NULL,
            "DASH_HELP_TEXT must list every command verb");
     expect(strstr(DASH_HELP_TEXT, "afr_l") != NULL &&

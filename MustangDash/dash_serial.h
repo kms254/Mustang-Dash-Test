@@ -59,6 +59,14 @@ typedef enum {
     DASH_CMD_BRIGHT,    /* bench: live backlight percent 0-100 (caller scales
                          * to REG_PWM_DUTY 0-128). Caller-applied hardware,
                          * not a DashState channel -- same reason as CIRCUIT. */
+    DASH_CMD_TT,        /* bench: force one telltale lamp (or all) on/off --
+                         * a force-ON overlay in DashState.tt_forced that
+                         * dash_telltale_mask() ORs over the computed mask.
+                         * Index is the silk name (TT1..TT8 = lamp bit 0..7). */
+    DASH_CMD_TT_SWEEP,  /* bench: replay the boot telltale sweep. Caller-
+                         * applied like BRIGHT -- the animation clock is
+                         * millis, which this layer cannot see; the timeline
+                         * itself is dash_ttsweep.h. */
 } DashCmdKind;
 
 typedef enum {
@@ -80,6 +88,9 @@ typedef enum {
 #define DASH_SERIAL_ALARM_OILT 2U
 #define DASH_SERIAL_ALARM_CLT  3U
 
+/* DashCommand.tt_index value meaning "all eight lamps" (`tt all on|off`) */
+#define DASH_SERIAL_TT_ALL 0xFFU
+
 /* Forced values for the alarm shortcuts (alarm-worthy by design). Each must
  * sit clear of its threshold in dash_math.h, and 260 F stopped doing so when
  * the oil-temp pair moved to track figures (270 amber / 290 red) -- an
@@ -93,7 +104,7 @@ typedef enum {
 #define DASH_HELP_TEXT \
     "commands: set <ch> <v> | clear <ch> | mode track|street | " \
     "circuit hpr|sweep | " \
-    "alarm oilp|oilt|clt|off | odo set <miles> | sim on|off | bright <0-100%> | status | help | cantest | " \
+    "alarm oilp|oilt|clt|off | tt <1-8|all> on|off | tt sweep | odo set <miles> | sim on|off | bright <0-100%> | status | help | cantest | " \
     "flashwipe really " \
     "(ch: rpm speed ect oilt oilp volts fuel delta lap last best ambient " \
     "afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2 session)"
@@ -110,6 +121,9 @@ typedef struct {
                          * SimCircuit -- dash_serial.h sits below the
                          * simulator and must not reach up into it. */
     uint8_t bright;     /* BRIGHT: backlight percent 0-100 */
+    uint8_t tt_index;   /* TT: lamp bit 0-7 (silk TT1..TT8), or
+                         * DASH_SERIAL_TT_ALL for the whole row */
+    bool tt_on;         /* TT: force on (set) vs release (clear) */
 } DashCommand;
 
 /* ---- internals ---- */
@@ -316,6 +330,31 @@ static inline DashSerialErr dash_parse_line(const char *line, DashCommand *out)
         return DASH_ERR_NONE;
     }
 
+    /* `tt` forces individual telltale lamps for bench inspection -- a
+     * force-ON overlay, not a mask: alarms still light their own lamps,
+     * and `off` releases the force rather than suppressing anything. The
+     * index is the silk name (TT1..TT8), which is lamp bit index + 1. */
+    if (dash_serial_ieq_(tok[0], "tt")) {
+        if (ntok < 2) { return DASH_ERR_MISSING_VALUE; }
+        if (dash_serial_ieq_(tok[1], "sweep")) {
+            out->kind = DASH_CMD_TT_SWEEP;
+            return DASH_ERR_NONE;
+        }
+        if (dash_serial_ieq_(tok[1], "all")) {
+            out->tt_index = DASH_SERIAL_TT_ALL;
+        } else if (tok[1][0] >= '1' && tok[1][0] <= '8' && tok[1][1] == '\0') {
+            out->tt_index = (uint8_t) (tok[1][0] - '1');
+        } else {
+            return DASH_ERR_BAD_VALUE;
+        }
+        if (ntok < 3) { return DASH_ERR_MISSING_VALUE; }
+        if (dash_serial_ieq_(tok[2], "on")) { out->tt_on = true; }
+        else if (dash_serial_ieq_(tok[2], "off")) { out->tt_on = false; }
+        else { return DASH_ERR_BAD_VALUE; }
+        out->kind = DASH_CMD_TT;
+        return DASH_ERR_NONE;
+    }
+
     if (dash_serial_ieq_(tok[0], "odo")) {
         float v;
         if (ntok < 2) { return DASH_ERR_MISSING_VALUE; }
@@ -449,6 +488,26 @@ static inline bool dash_apply_command(DashState *s, const DashCommand *cmd,
                 }
             }
             if (can_reply) { snprintf(reply, reply_len, "ok alarm %s", which); }
+            return true;
+        }
+
+        case DASH_CMD_TT: {
+            if (cmd->tt_index == DASH_SERIAL_TT_ALL) {
+                s->tt_forced = cmd->tt_on ? 0xFFU : 0U;
+                if (can_reply) {
+                    snprintf(reply, reply_len, "ok tt all %s",
+                             cmd->tt_on ? "on" : "off");
+                }
+            } else {
+                const uint8_t bit = (uint8_t) (1U << cmd->tt_index);
+                if (cmd->tt_on) { s->tt_forced |= bit; }
+                else { s->tt_forced = (uint8_t) (s->tt_forced & ~bit); }
+                if (can_reply) {
+                    snprintf(reply, reply_len, "ok tt %u %s",
+                             (unsigned) (cmd->tt_index + 1U),
+                             cmd->tt_on ? "on" : "off");
+                }
+            }
             return true;
         }
 

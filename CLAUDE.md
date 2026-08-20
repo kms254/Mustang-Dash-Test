@@ -275,9 +275,28 @@ ok / east ok (first silicon EVER for the lamp glue)**, `Odometer backend:
 FRAM (FM24CL64B)` with miles surviving resets, `FDCAN init: ECU=ok PMU=ok`.
 `alarm oilp` physically lit TT1 and cleared — the expander address/register
 tables verified end-to-end on copper. TT1 being GREEN exposed a design gap,
-not a bug: the LED colors follow the dash-design body-signal legend
-(turn/beam/CEL via future CAN) while the firmware's eight alarm lamps map
-1:1 onto TT1-8 — the lamp->position remap is a pending design decision.
+not a bug: the LED colors follow the dash-design body-signal legend while
+the firmware's eight alarm lamps mapped 1:1 onto TT1-8, a placeholder
+nobody could check before the LEDs had hardware. **Closed 2026-08-20** —
+every colour was verified by eye (each position forced via the new serial
+`tt` command; design and stuffing agree in all eight), the cluster legend
+is authored in `docs/hardware/board3-telltale-legend.md`, and the firmware
+maps conditions to positions through `DASH_LAMP_TT[]`. Consequences worth
+knowing: the eight lamps read as **rows, not silk order** — top row is
+body signals (TT1 L-blinker green, TT2 headlights white, TT3 high-beam
+blue, TT4 R-blinker green), bottom row warnings (TT5 low-fuel orange,
+TT6 oil-pressure red, TT7 parking-brake red, TT8 CEL yellow). Only TT5
+and TT6 light from firmware; the other six arrive over CAN (five body
+signals from RaceCapture inputs, the MIL from the Ford PCM) through the
+new `DashState.tt_signals` seam, which has no producer yet. Coolant,
+oil temp, volts, fuel pressure, AFR and shift are deliberately
+screen-only — an overheat already raises the full-screen alarm takeover,
+which is louder than a 3.5 mm LED, whereas a parking brake has no other
+way to be shown. `DASH_TT_COUNT` (physical positions) is now split from
+`DASH_LAMP_COUNT` (warning conditions); they are both 8 only by
+coincidence and the hardware tables size from the former.
+**Open:** confirm the real RaceCapture has five spare inputs before
+building the body-signal harness.
 Still open on Board3: panels + the 13.5 MHz re-walk on real copper (barrel
 power returns for backlights), the U2 QSPI JEDEC banner line (the banner
 races CDC enumeration — 500 ms wait at the sketch's serial gate; monitor
