@@ -80,6 +80,17 @@ R33/R36.
 - **U2 QSPI JEDEC-ID read — DONE, runs at every boot.** `board3_qspi_jedec_probe()`
   in the sketch prints the ID in the boot banner (see Flashing §4). The
   keep-fitted condition is satisfied the moment the first banner shows `ok`.
+- **Panels — DONE 2026-08-20. All three live on Board3**: `eve=ok,ok,ok`,
+  fps=60 with all three rendering, faults=0,0,0, three distinct display
+  lists. **All three backlights at full duty ran off the laptop USB-C port**
+  (U4 CH224K PD sink; ~1.65 A system load vs 3 A at 5 V) — no barrel needed.
+  **Before seating any FFC: ohm TP1/TP2 to TP3 with the cable in and the
+  panel attached.** The connectors open toward the board interior, so every
+  cable needs a 180° fold, the fold inverts the cable's contact face, and
+  these are dual-contact parts — a wrong-face cable connects REVERSED
+  (pad 1 `/+3V3` onto panel ground) and collapses the rail. Near 0 Ω = flip
+  it. Cheap tin FFCs work for a smoke test but are the prime suspect for any
+  intermittent; use the gold Premo-Flex for anything you intend to believe.
 - **13.5 MHz SPI clock re-walk** per panel (see caveat above). Bench numbers
   came from failure on different topology and do not transfer.
 - **CAN1 first bring-up needs H1 closed** — the order contains the headers but
