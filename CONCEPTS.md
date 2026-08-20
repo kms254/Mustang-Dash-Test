@@ -45,10 +45,18 @@ The ceiling is a property of the path, not a fault in a given display module, an
 One of several complete visual variants of the boot splash — background, accent hardware, and year mark as a matched set. Every theme ships embedded in the firmware; which one plays is a build-time selection, since the panel has no input hardware for runtime switching. Changing themes means rebuilding and reflashing, never editing assets or code.
 
 ### Dash Mode
-The dash's active view: TRACK (shift lights, speed hero, lap timing) or STREET (sweep gauges, telltales, odometer). All screens switch together and instantly, with no state loss. The selection is an external input to the firmware — a serial command during bench development, a CAN message in the car — never something the dash decides for itself.
+The dash's active view: TRACK (shift lights, speed hero, lap timing) or STREET (sweep gauges, indicator dots, odometer). All screens switch together and instantly, with no state loss. The selection is an external input to the firmware — a serial command during bench development, a CAN message in the car — never something the dash decides for itself.
 
 ### Alarm Takeover
 A full-screen flashing overlay that preempts the active Dash Mode on the center screen while any critical engine condition holds, showing only the highest-priority active alarm with its live value and limit. The side panels are deliberately not preempted — the Engine Screen keeps showing live vitals during the event. It clears itself when the condition clears; a missing data channel never triggers or sustains one.
+
+### Telltale
+One of the eight physical indicator lamps in the cluster's two bezel-mounted blocks, addressed by its silk position (TT1…TT8) rather than by what it means. Position is the identity: the colour fitted there and the meaning assigned to it are properties of the board and the legend, not of the firmware condition that may light it.
+
+Most telltales carry body or powertrain signals the dash cannot compute — turn signals, headlights, high beam, parking brake, the malfunction lamp — and stay dark until a CAN producer supplies them. Only a minority are lit by the dash's own Warning Conditions. A telltale may also be forced on for inspection; a force can never suppress a live signal, because the layers compose by union rather than replacement. Distinct from the indicator dots the STREET screen draws, which are rendered graphics and share only the word.
+
+### Warning Condition
+A fault or threshold state the firmware computes from Data Channels — low oil pressure, overheat, lean mixture, shift point — independent of whether anything displays it. A Warning Condition is not a Telltale and does not imply one: most conditions render only on screen, and the correspondence between the two is an explicit table rather than a shared ordering. Several conditions deliberately have no lamp, because an Alarm Takeover already announces them more loudly than a lamp could.
 
 ### Engine Screen
 The left 5" side panel: engine vitals sourced from engine-side CAN (oil pressure/temp, coolant, fuel pressure, AFR, IAT, volts). Renders a dense data grid in TRACK and mini sweep gauges in STREET, and stays live during an Alarm Takeover.
