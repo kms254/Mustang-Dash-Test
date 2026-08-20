@@ -122,6 +122,26 @@ typedef struct {
                           * zero at boot via dash_state_init's {0} */
     DashMode mode;
     bool sim_frozen;     /* `sim off`: hold current values, stop stepping */
+    uint8_t tt_signals;  /* CAN-sourced telltales, as PHYSICAL positions
+                          * (TT1..TT8 = bit 0..7) rather than warning
+                          * conditions: the body/PCM signals the firmware
+                          * cannot compute -- blinkers, headlights, high
+                          * beam, parking brake, CEL/MIL. See
+                          * docs/hardware/board3-telltale-legend.md.
+                          *
+                          * The seam only; no producer exists yet. A future
+                          * RaceCapture dialect owns the five body signals
+                          * and the Ford dialect the MIL, each responsible
+                          * for its own staleness/expiry exactly as
+                          * can_owned channels are -- this layer never
+                          * ages a bit out. Zero at boot via
+                          * dash_state_init's {0}, so an unwired bench
+                          * simply shows those positions dark. */
+    uint8_t tt_forced;   /* serial `tt` bench overlay: lamp bits forced ON,
+                          * OR'd over the computed mask by
+                          * dash_telltale_mask(). `tt n off` releases the
+                          * force only -- it cannot suppress a live alarm
+                          * lamp. Zero at boot via dash_state_init's {0}. */
 } DashState;
 
 static inline bool dash_ch_valid(const DashState *s, uint8_t ch)

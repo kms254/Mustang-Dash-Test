@@ -67,9 +67,17 @@
 #include "dash_fonts.h"
 #include "dash_panels.h" /* per-panel pins + timings (host-tested); mapped to EVE_panel_t in setup() */
 #include "dash_telltales.h" /* 8-lamp warning mask (host-tested); pins + lamp test live below */
+#include "dash_ttsweep.h" /* boot/bench telltale sweep timeline (host-tested); clock + trigger live below */
 #include "dash_calibration.h" /* per-position telltale dim codes (host-tested, plan 2026-07-28-001 U21) */
 #include "dash_can_ford.h" /* Ford 0x270-set decoder (pure, host-tested; plan 2026-08-15-001) -- needs dash_data.h above */
 #include "dash_can.h" /* FDCAN bring-up (U7) + the Ford-frame RX drain (plan 2026-08-15-001 U6); stubs where absent */
+
+/* telltale sweep clock: pending=true plays the show on the first live lamp
+ * frame after boot (setup()'s ALL-on bulb check holds through the splash,
+ * then the chase runs as the dash fades in); the serial `tt sweep` command
+ * restarts it any time. The timeline itself is dash_ttsweep.h. */
+static bool g_ttsweep_pending = true;
+static uint32_t g_ttsweep_start = 0U;
 #include <Wire.h> /* FM24CL64B I2C FRAM odometer backend (migration plan U6) */
 
 /* Volatile so the compiler cannot fold the table access down to the one
@@ -188,7 +196,7 @@ static uint8_t g_dash_brightness = 0U;             /* ONE cluster brightness (R1
  * states) before real telltale hardware exists. Revert to plain GPIOs when
  * external lamps arrive. Remaining lamps on free PD pins (clear of the VCP
  * on PD8/9 and every SPI leg); trip switch = the blue USER button B1. */
-static const uint8_t DASH_LAMP_PINS[DASH_LAMP_COUNT] = { PB0, PB7, PB14, PD0, PD1, PD2, PD3, PD4 };
+static const uint8_t DASH_LAMP_PINS[DASH_TT_COUNT] = { PB0, PB7, PB14, PD0, PD1, PD2, PD3, PD4 };
 static const uint8_t DASH_SWITCH_TRIP_PIN = PC13; /* Nucleo USER button B1 */
 /* B1 is ACTIVE-HIGH (pressed connects PC13 to VDD; the board carries its
  * own pull-down) -- plain INPUT, and never the internal pull-up, which
@@ -485,15 +493,20 @@ static void board3_qspi_jedec_probe(void)
 #define AW_MODE_P1_LED 0x0FU /* P1_7..4 LED mode (0), P1_3..0 GPIO (1) */
 /* lamp bit l -> TT(l+1) -> device + DIM register (U19 netlist: TT1/2/5/7
  * west, TT3/4/6/8 east; P1_4..P1_7 = 0x2C..0x2F on both) */
-static const uint8_t DASH_LAMP_AW_ADDR[DASH_LAMP_COUNT] = {
+static const uint8_t DASH_LAMP_AW_ADDR[DASH_TT_COUNT] = {
     AW_ADDR_WEST, AW_ADDR_WEST, AW_ADDR_EAST, AW_ADDR_EAST,
     AW_ADDR_WEST, AW_ADDR_EAST, AW_ADDR_WEST, AW_ADDR_EAST
 };
-static const uint8_t DASH_LAMP_AW_DIM[DASH_LAMP_COUNT] = {
+static const uint8_t DASH_LAMP_AW_DIM[DASH_TT_COUNT] = {
     0x2CU, 0x2DU, 0x2DU, 0x2CU, 0x2EU, 0x2EU, 0x2FU, 0x2FU
 };
 static uint8_t g_cal_codes[DASH_CAL_POSITIONS];
-static uint16_t g_lamp_code_now[DASH_LAMP_COUNT]; /* 0x100 = unknown -> force next write */
+/* every position-indexed table must agree on how many lamps exist; the
+ * calibration table is authored per position too (dash_calibration.h) */
+static_assert(DASH_CAL_POSITIONS == DASH_TT_COUNT,
+              "calibration table and lamp positions must be the same length");
+
+static uint16_t g_lamp_code_now[DASH_TT_COUNT]; /* 0x100 = unknown -> force next write */
 static bool g_aw_ok[2];                           /* [0] west, [1] east */
 static uint8_t g_aw_fail_streak = 0U;
 static uint32_t g_aw_last_recover_ms = 0UL;
@@ -535,7 +548,7 @@ static void dash_lamps_init(void)
     dash_cal_codes(g_cal_codes);
     g_aw_ok[0] = aw_config(AW_ADDR_WEST);
     g_aw_ok[1] = aw_config(AW_ADDR_EAST);
-    for (uint8_t l = 0U; l < DASH_LAMP_COUNT; l++)
+    for (uint8_t l = 0U; l < DASH_TT_COUNT; l++)
     {
         g_lamp_code_now[l] = 0x100U;
     }
@@ -566,7 +579,7 @@ static void aw_bus_recover(uint32_t now)
     Wire.begin();
     g_aw_ok[0] = aw_config(AW_ADDR_WEST);
     g_aw_ok[1] = aw_config(AW_ADDR_EAST);
-    for (uint8_t l = 0U; l < DASH_LAMP_COUNT; l++)
+    for (uint8_t l = 0U; l < DASH_TT_COUNT; l++)
     {
         g_lamp_code_now[l] = 0x100U;
     }
@@ -598,7 +611,7 @@ static void dash_lamp_set(uint8_t l, bool on)
 #else
 static void dash_lamps_init(void)
 {
-    for (uint8_t l = 0U; l < DASH_LAMP_COUNT; l++)
+    for (uint8_t l = 0U; l < DASH_TT_COUNT; l++)
     {
         pinMode(DASH_LAMP_PINS[l], OUTPUT);
     }
@@ -836,7 +849,7 @@ void setup(void)
      * on the Nucleo's active-HIGH B1), debounced and gesture-decoded in
      * loop() via dash_button.h. */
     dash_lamps_init();
-    for (uint8_t l = 0U; l < DASH_LAMP_COUNT; l++)
+    for (uint8_t l = 0U; l < DASH_TT_COUNT; l++)
     {
         dash_lamp_set(l, true);
     }
@@ -969,7 +982,19 @@ void loop(void)
     /* telltales track the live state every frame (U6); the mask is pure
      * logic (dash_telltales.h), only the pin writes live here */
     {
-        const uint8_t lamp_mask = dash_telltale_mask(&g_dash);
+        uint8_t lamp_mask = dash_telltale_mask(&g_dash);
+        /* sweep overlay: OR, never mask (same rule as tt_forced) -- an
+         * alarm lamp cannot blink off mid-show. Armed at boot; re-armed by
+         * the serial `tt sweep` command. */
+        if (g_ttsweep_pending)
+        {
+            g_ttsweep_pending = false;
+            g_ttsweep_start = now;
+        }
+        if (!dash_ttsweep_done(now - g_ttsweep_start))
+        {
+            lamp_mask |= dash_ttsweep_mask(now - g_ttsweep_start);
+        }
         uint8_t first_live = 0U;
 #if defined(DASH_BOARD_NUCLEO_F767)
         /* TEMPORARY bench boot show (2026-07-21): the three onboard LEDs
@@ -997,7 +1022,7 @@ void loop(void)
             }
         }
 #endif
-        for (uint8_t l = first_live; l < DASH_LAMP_COUNT; l++)
+        for (uint8_t l = first_live; l < DASH_TT_COUNT; l++)
         {
             dash_lamp_set(l, 0U != ((lamp_mask >> l) & 1U));
         }
@@ -1488,6 +1513,13 @@ void handle_serial_line(const char *line)
             Serial.printf("ok bright %u%%\r\n", (unsigned) cmd.bright);
             break;
         }
+        case DASH_CMD_TT_SWEEP:
+            /* the animation clock is millis territory, so it lands here
+             * like BRIGHT; the frame lamp block plays the timeline */
+            g_ttsweep_pending = false;
+            g_ttsweep_start = millis();
+            Serial.printf("ok tt sweep\r\n");
+            break;
         case DASH_CMD_ODO_SET:
             dash_odo_reseed(&g_odo, cmd.value);
             odo_eeprom_write();
