@@ -67,6 +67,15 @@ typedef enum {
                          * applied like BRIGHT -- the animation clock is
                          * millis, which this layer cannot see; the timeline
                          * itself is dash_ttsweep.h. */
+    DASH_CMD_DIAG,      /* reprint the boot diagnostics on demand, plus a
+                         * live per-panel REG_ID integrity sample. Exists
+                         * because the boot banner races CDC enumeration --
+                         * the sketch waits only 500 ms for Serial, so the
+                         * QSPI JEDEC line went unread for a fortnight. A
+                         * diagnostic you can only see by winning a race is
+                         * not a diagnostic. Caller-applied: every line it
+                         * prints comes from hardware this layer cannot
+                         * reach. */
 } DashCmdKind;
 
 typedef enum {
@@ -104,7 +113,7 @@ typedef enum {
 #define DASH_HELP_TEXT \
     "commands: set <ch> <v> | clear <ch> | mode track|street | " \
     "circuit hpr|sweep | " \
-    "alarm oilp|oilt|clt|off | tt <1-8|all> on|off | tt sweep | odo set <miles> | sim on|off | bright <0-100%> | status | help | cantest | " \
+    "alarm oilp|oilt|clt|off | tt <1-8|all> on|off | tt sweep | odo set <miles> | sim on|off | bright <0-100%> | status | diag | help | cantest | " \
     "flashwipe really " \
     "(ch: rpm speed ect oilt oilp volts fuel delta lap last best ambient " \
     "afr_l afr_r iat fuelp throttle brake lapn pos pred time pump fan1 fan2 session)"
@@ -393,6 +402,11 @@ static inline DashSerialErr dash_parse_line(const char *line, DashCommand *out)
 
     if (dash_serial_ieq_(tok[0], "help")) {
         out->kind = DASH_CMD_HELP;
+        return DASH_ERR_NONE;
+    }
+
+    if (dash_serial_ieq_(tok[0], "diag")) {
+        out->kind = DASH_CMD_DIAG;
         return DASH_ERR_NONE;
     }
 

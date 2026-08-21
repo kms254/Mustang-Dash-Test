@@ -136,15 +136,42 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   INT not wired → poll.
 - Panel logic on 3.3 V, backlight on external 5 V, shared ground.
 - SPI: mode 0, MSB-first, **≤ 11 MHz during every panel's EVE_init()** (we init
-  at 8 MHz), then one bus-wide "raise" to `DASH_SPI_RUN_HZ` — now
-  **13.5 MHz** (`MustangDash.ino`), proven 2026-07-23 on TWO panels at fps 59,
-  faults 0. 8 MHz was the Teensy-era value and this line asserted it for weeks
-  after the constant changed; **read the constant, not this sentence.** 24 MHz
-  failed read AND write integrity on the Teensy wiring (2026-07-10: white
-  screen, flash init 0x01, all font inflates failed, fps 25 with faults=0) —
-  that failure signature is still the reusable part. Note the two-panel
-  crosstalk that once blamed the clock was a **floating panel ground**; the
-  clock was never the limiter.
+  at 8 MHz), then a per-panel "raise" to `DASH_SPI_RUN_HZ` — **25 MHz on
+  Board3** (`MustangDash.ino`), walked and soaked on real copper 2026-08-21.
+  This line has twice asserted a number the constant had already moved past;
+  **read the constant, not this sentence** — and better still, read the
+  `diag` output, because the constant is only a REQUEST.
+  **The request is not the operating point.** The peripheral rounds down to a
+  power-of-two prescaler off a kernel clock this sketch never sets, so the H7
+  defaults apply and they are asymmetric (SPI1/2/3 → PLL1Q 200 MHz, SPI4/5 →
+  APB2 100 MHz; Board3 uses SPI1/SPI2/SPI4). The three still agree — **not by
+  luck and not by guarantee**: 200:100 is itself a power of two, so the two
+  ladders coincide for every request below 100 MHz. Break that ratio (SPI123
+  on a 150 MHz PLL2P, SPI45 still on APB2) and one constant gives 18.75 on two
+  panels and 25.0 on the third, silently. Move one SPI kernel source and you
+  must move all three and re-measure per panel.
+  **13.5 was not a sloppy number** — on the F767 it was walked and genuinely
+  attained (APB2 108 / 8 = 13.5). It became a wrong *label* when the same
+  firmware moved to a die where 13.5 is not a reachable rung and the panels ran
+  **12.5**. An operating point is a property of constant × clock tree, never of
+  the constant alone, so changing silicon invalidates every quantised rate in
+  the tree without changing a line of it.
+  `dash_report_spi_clocks()` now reads the attained rate back from CFG1.MBR
+  and prints it at boot and on `diag`. The ladder is coarse: 6.25 / 12.5 / 25,
+  nothing between, unless the kernel source moves off the defaults. Full rule:
+  `docs/solutions/conventions/a-clock-constant-is-a-request-not-the-operating-point.md`.
+  Acceptance for 25: two 20-minute soaks (STREET and TRACK) sampled once a
+  minute — **1,920 REG_ID reads, zero misses**, faults=0,0,0, retired=0,0,0,
+  eve=ok,ok,ok, no drift. **The walk stops there**: the BT817 QSPI slave is
+  rated 30 MHz (25 = 83% of spec) and the next reachable rung is 50.
+  Historic failures, kept for the signature and NOT for the numbers: 24 MHz
+  failed read integrity on the **Teensy loom** — writes mostly survived, reads
+  did not (2026-07-10: white screen, flash init 0x01, all font inflates failed,
+  fps 25 with faults=0) — and
+  27 MHz hard-wedged the **F767 on jumpers**. Board3 runs clean at 25 where
+  the loom broke at 24 — those numbers described the wiring. Likewise the
+  two-panel crosstalk that once blamed the clock was a **floating panel
+  ground**. The clock has never yet been the limiter; re-walk on new copper.
 
 ## Library gotchas (verified against the headers)
 
@@ -325,8 +352,9 @@ wrong-face cable does not fail open, it connects REVERSED: pad 1 `/+3V3`
 onto the panel's ground, rail collapsed, board looks dead and recovers
 instantly when unplugged. Always ohm TP1/TP2 to TP3 with the cable seated
 and the panel attached BEFORE applying power; near 0 Ω means flip the cable.
-Still open on Board3: the 13.5 MHz re-walk on real copper (probe left/right
-SCLK at the FPC tail — U50 moved those series resistors to the MCU end), the
+**Clock walk DONE 2026-08-21 — Board3 runs 25 MHz on all three panels**; see
+the SPI bullet under "Hardware truths" for the ladder, the request-vs-attained
+trap and the acceptance evidence. Still open on Board3: the
 U2 QSPI JEDEC banner line (the banner races CDC enumeration — 500 ms wait at
 the sketch's serial gate; monitor must be pre-attached), a formal odometer
 POR proof, and the CAN session (shunts in hand, transceivers on-board). Bench facts: the DC jack's switch

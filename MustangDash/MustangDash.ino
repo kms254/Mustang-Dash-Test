@@ -683,28 +683,75 @@ static const uint32_t COLOR_NODATA    = 0x2A323BUL; /* telltale "no data" state 
 static const uint8_t BL_STEADY = 128U;
 
 /* Post-init SPI operating point (R11/KTD8). All three EVE_init()s run at the
- * conservative 8 MHz; the bus then rises to this once. 24 MHz was the first
- * candidate (panels rated 30 MHz post-config) but FAILED read integrity on
- * the actual bench (2026-07-10): flash init returned 0x01, all 9 font
- * inflates failed GETPTR verification, and corrupted REG_CMDB_SPACE reads
- * dragged fps to 25 with faults=0 -- writes mostly survived, reads did not.
- * fps alone never accepts an operating point.
+ * conservative 8 MHz; the bus then rises to this once, per panel.
  *
- * 8 MHz was the earlier operating point. The value below is 13.5 MHz and
- * the justification is on its own line; this block is kept for the 24 MHz
- * failure signature, which is the reusable part. Do not read the paragraph
- * above as describing the current constant -- it did for a while, and a doc
- * cited it as "current tree" while the constant said otherwise. */
-static const uint32_t DASH_SPI_RUN_HZ = 13500000UL; /* 13.5 MHz: proven for TWO panels (center 7" + one 5" side)
-    once the grounds are clean -- 2026-07-23, fps=59, faults=0,0,0, eve=ok,ok, both DLs full. IMPORTANT: an
-    earlier same-night "three-point clock walk" (13.5 retire / 3.375 too-slow-retire / 6.75 renders-but-faults)
-    concluded 6.75 was the only render-capable step and blamed SPI crosstalk -- that was ALL confounded by a
-    FLOATING PANEL GROUND (a 5" running off the bench buck whose ground return to the MCU was bad). With clean
-    grounds (5" on MCU 3.3V/GND, 7" on buck, solid common ground) 13.5 runs two panels faults=0, same as the
-    center-only first light. The clock was never the limiter; grounding was. F767 prescaler steps:
-    6.75/13.5/27/54 (SPI1 /APB2 108MHz, SPI2 /APB1 54MHz; requests round DOWN). 27 MHz center-only HARD-WEDGED
-    2026-07-21 (serial dead, unbounded busy-poll on corrupted reads) -- still REJECTED; do not exceed 13.5
-    without a fresh eyes-on read-integrity soak. */
+ * BOARD3 OPERATING POINT: 25 MHz, walked and soaked on real copper
+ * 2026-08-21. Read the constant, not any prose that quotes a number.
+ *
+ * The ladder here is COARSE, and it is coarse because this sketch never
+ * sets the SPI kernel clocks -- so the H7 reset defaults apply, and they
+ * are asymmetric: SPI1/2/3 take PLL1Q (200 MHz), SPI4/5 take APB2
+ * (100 MHz). Board3 runs center on SPI1, left on SPI2, right on SPI4.
+ * Power-of-two prescalers then land BOTH sources on the same attained
+ * rate:
+ *     request 13.5 -> center 200/16, left 200/16, right 100/8 = 12.500
+ *     request 25.0 -> center 200/8,  left 200/8,  right 100/4 = 25.000
+ * That agreement is NOT luck, and it is also NOT guaranteed. It holds
+ * because 200:100 is itself a power of two, so the two prescaler ladders
+ * are identical from 50 MHz down and agree for EVERY request below
+ * 100 MHz. Break that ratio and one constant yields two bus speeds: put
+ * SPI123 on a 150 MHz PLL2P with SPI45 still on APB2 100 MHz and a 25 MHz
+ * request attains 18.75 on center/left and 25.0 on right -- three panels,
+ * two clocks, no compile error and no runtime error. Anything that moves
+ * an SPI kernel source must move all three and be re-measured per panel.
+ * Available steps are 6.25 / 12.5 / 25 and nothing between, unless the
+ * kernel source moves off the defaults.
+ *
+ * This is also why the REQUEST is not the operating point -- and the
+ * trap is subtler than a wrong constant. 13.5 was NOT sloppy when it was
+ * written: on the F767, where it was walked and soaked, APB2 is 108 MHz
+ * and 108/8 = 13.5 exactly, so it was genuinely attained there. Note the
+ * F767 was ALREADY a two-kernel board -- SPI1 off APB2 108 MHz, SPI2 off
+ * APB1 54 MHz, and 54/4 = 13.5 as well -- a 2:1 ratio that hid the
+ * asymmetry there for the same reason it hides it here. Its ladder was
+ * 6.75 / 13.5 / 27 / 54. So 13.5 became
+ * a wrong LABEL the moment the same firmware moved to a die with a
+ * different clock tree, where 13.5 is not a reachable rung at all. An
+ * operating point is a property of constant x clock tree, never of the
+ * constant alone; moving silicon invalidates every quantised rate in the
+ * tree without changing a line of it. The attained rate is read back from
+ * CFG1.MBR and the kernel clock by dash_report_spi_clocks() and printed
+ * at boot and on `diag`. Trust that line, not this constant.
+ *
+ * Evidence for 25 (all three panels live, `diag` + `status` sampled once
+ * a minute): 12.5 MHz baseline clean; then at 25 MHz two 20-minute soaks,
+ * STREET and TRACK, 20 samples each. 1,920 REG_ID reads, ZERO misses.
+ * faults=0,0,0 and retired=0,0,0 throughout, eve=ok,ok,ok, no drift over
+ * either leg. fps 60 in TRACK, 57 in STREET -- the cluster's STREET
+ * display lists total ~33% more than TRACK (dl 647/689/359 vs 434/434/408:
+ * bigger on center and left, slightly SMALLER on right, so quote the total
+ * and not the first two), and the reading is steady rather than decaying,
+ * so it reads as render cost, not link trouble. NOT PROVEN:
+ * there is no 12.5 MHz STREET sample to difference it against.
+ *
+ * Headroom, and why the walk STOPS here: the BT817 QSPI slave is rated
+ * 30 MHz max (Bridgetek datasheet). 25 is 83% of spec. The next rung the
+ * prescaler can reach is 50 -- 167% of spec, out of the question -- so
+ * the only way up is clock-tree surgery to buy 5 MHz. Not worth it.
+ *
+ * HISTORY, kept because the failure signature is the reusable part.
+ * 24 MHz failed read integrity on the TEENSY LOOM (2026-07-10): flash
+ * init 0x01, all 9 font inflates failed GETPTR verification, corrupted
+ * REG_CMDB_SPACE reads dragged fps to 25 -- writes mostly survived, reads
+ * did not, and fps alone never accepts an operating point. 27 MHz
+ * center-only HARD-WEDGED the F767 on jumpers (2026-07-21): serial dead,
+ * unbounded busy-poll on corrupted reads. A same-night "three-point clock
+ * walk" that blamed SPI crosstalk was confounded by a FLOATING PANEL
+ * GROUND. None of those numbers describe Board3 -- they describe a loom
+ * and a jumper harness, and Board3 running clean at 25 where the loom
+ * broke at 24 is the measurement that retires them. Bench operating
+ * points do not transfer across topology; re-walk on any new copper. */
+static const uint32_t DASH_SPI_RUN_HZ = 25000000UL; /* attained 25.000 MHz on all three panels */
 
 /* ---- forward declarations (explicit prototypes, see note above) ---- */
 void set_backlight(uint8_t duty);
@@ -713,6 +760,53 @@ void eve_frame_end(void);
 bool dash_select_panel(uint8_t idx);
 void dash_set_brightness(uint8_t duty);
 void dash_sides_frame(uint8_t alpha);
+
+/* ---- attained SPI clock, read back from the hardware ----------------
+ * DASH_SPI_RUN_HZ is a REQUEST. The peripheral rounds it DOWN to a
+ * power-of-two prescaler off a kernel clock this sketch never sets
+ * explicitly, so the H7 reset defaults apply -- and they are asymmetric:
+ * SPI1/2/3 take PLL1Q, SPI4/5 take APB2. Board3 drives center on SPI1,
+ * left on SPI2 and right on SPI4, so two different kernel sources are in
+ * play and there is no reason a priori for all three panels to land on the
+ * same number. Printing the measured figure per panel is what turns a
+ * clock walk into a measurement instead of an intention -- the same
+ * distinction that made "13.5 MHz" a request nobody had ever confirmed.
+ * Reads CFG1.MBR straight out of the peripheral after the raise. */
+static void dash_report_spi_clocks(void)
+{
+#if defined(EVE_PANEL_HAS_BUS) && defined(SPI_CFG1_MBR_Pos)
+    static const char *const kNames[3] = { "center", "left", "right" };
+    for (uint8_t b = 0U; b < DASH_PANEL_COUNT; b++)
+    {
+        SPI_TypeDef *inst = DASH_SPI_BUSES[b]->getHandle()->Instance;
+        uint32_t ker;
+#if defined(RCC_PERIPHCLK_SPI123)
+        if (inst == SPI1 || inst == SPI2 || inst == SPI3)
+        {
+            ker = HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_SPI123);
+        }
+        else if (inst == SPI4 || inst == SPI5)
+        {
+            ker = HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_SPI45);
+        }
+        else
+        {
+            ker = HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_SPI6);
+        }
+#else
+        ker = HAL_RCC_GetPCLK2Freq();
+#endif
+        const uint32_t mbr = (inst->CFG1 & SPI_CFG1_MBR_Msk) >> SPI_CFG1_MBR_Pos;
+        const uint32_t div = 1UL << (mbr + 1UL);
+        Serial.printf("  SPI %-6s kernel %lu Hz / %lu = %.3f MHz attained\r\n",
+                      kNames[b < 3U ? b : 2U],
+                      (unsigned long) ker, (unsigned long) div,
+                      (double) ker / (double) div / 1000000.0);
+    }
+#else
+    Serial.printf("  SPI attained rate: not reported on this target\r\n");
+#endif
+}
 void draw_side_content(uint8_t panel, DashMode mode, uint8_t alpha);
 bool load_dash_fonts(uint8_t panel);
 uint16_t dash_font(uint8_t idx);
@@ -812,11 +906,14 @@ void setup(void)
         DASH_SPI_BUSES[b]->begin();
         DASH_SPI_BUSES[b]->beginTransaction(SPISettings(8UL * 1000000UL, MSBFIRST, SPI_MODE0));
     }
-    Serial.println(F("3x dedicated SPI up at 8 MHz, mode 0 (init)."));
+    /* "requested", deliberately: 8 MHz rounds DOWN to 6.25 on every one of
+     * these buses. A banner that prints a request must say so, or it is the
+     * next wrong label -- see the raise line below and the readback. */
+    Serial.println(F("3x dedicated SPI up at 8 MHz requested, mode 0 (init)."));
 #else
     SPI.begin();
     SPI.beginTransaction(SPISettings(8UL * 1000000UL, MSBFIRST, SPI_MODE0));
-    Serial.println(F("SPI up at 8 MHz, mode 0 (init)."));
+    Serial.println(F("SPI up at 8 MHz requested, mode 0 (init)."));
 #endif
 
     /* Per-panel init (KTD9): select -> EVE_init with that panel's timings ->
@@ -852,6 +949,7 @@ void setup(void)
 #endif
     Serial.printf("SPI raised to %.2f MHz requested (prescaler rounds down; read-integrity soak gates the attained operating point)\r\n",
                   (double)DASH_SPI_RUN_HZ / 1000000.0);
+    dash_report_spi_clocks();
 
     /* Odometer loads regardless of panel state -- it is MCU-local. */
     dash_state_init(&g_dash);
@@ -1691,6 +1789,43 @@ void handle_serial_line(const char *line)
                           g_panel_ok[0] ? "ok" : "--",
                           g_panel_ok[1] ? "ok" : "--",
                           g_panel_ok[2] ? "ok" : "--");
+            break;
+        }
+        case DASH_CMD_DIAG: {
+            /* The boot banner races CDC enumeration (500 ms Serial wait), so
+             * everything it reports has been effectively unreadable. This
+             * reprints the parts that come from hardware, plus the one thing
+             * a banner cannot give you: a LIVE read-integrity sample.
+             *
+             * 16 REG_ID reads per panel, all of which must return 0x7C. This
+             * is the gate the clock walk actually turns on -- at 24 MHz on
+             * the Teensy wiring, fps and faults both stayed clean while reads
+             * were corrupting ("writes mostly survived, reads did not"), so
+             * fps alone has already fooled this project once. */
+            static const char *const kNames[DASH_PANEL_COUNT] = { "CENTER", "LEFT", "RIGHT" };
+            Serial.println(F("ok diag"));
+            dash_report_spi_clocks();
+#if defined(DASH_BOARD_BOARD3) && defined(HAL_QSPI_MODULE_ENABLED)
+            board3_qspi_jedec_probe();
+#endif
+            for (uint8_t p = 0U; p < DASH_PANEL_COUNT; p++)
+            {
+                if (!g_panel_ok[p])
+                {
+                    Serial.printf("  panel %-6s retired/absent\r\n", kNames[p]);
+                    continue;
+                }
+                uint8_t good = 0U;
+                uint8_t last = 0xFFU;
+                for (uint8_t i = 0U; i < 16U; i++)
+                {
+                    if (!dash_select_panel(p)) { break; }
+                    last = EVE_memRead8(REG_ID);
+                    if (last == 0x7CU) { good++; }
+                }
+                Serial.printf("  panel %-6s REG_ID %u/16 good (last 0x%02X)\r\n",
+                              kNames[p], (unsigned) good, (unsigned) last);
+            }
             break;
         }
         case DASH_CMD_HELP:

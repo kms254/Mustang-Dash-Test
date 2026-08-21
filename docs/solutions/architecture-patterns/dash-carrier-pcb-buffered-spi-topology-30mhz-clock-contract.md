@@ -27,13 +27,37 @@ tags:
   - clock-walk
 ---
 
+> **STATUS 2026-08-21 — the contract is DISCHARGED, at 25 MHz.** This document
+> was written while the carrier was a projection, and its clock figure was
+> labelled as one. Board3 exists, all three panels run, and the walk is done:
+> **25 MHz attained on all three** (verified by hardware readback, not by the
+> requested constant), accepted on two 20-minute soaks — STREET and TRACK —
+> totalling 1,920 REG_ID reads with zero misses, `faults=0,0,0`,
+> `retired=0,0,0`. The walk stops there because the BT817 QSPI slave is rated
+> 30 MHz and the next prescaler-reachable rung is 50.
+>
+> **Two structural things below no longer describe the built hardware.**
+> (1) The topology shipped as **three independent point-to-point SPI buses**,
+> not one buffered shared bus with a combiner — so the LVC buffer/combiner,
+> the MISO-node analysis and the shared-bus loading arguments are design
+> history. (2) The **Teensy-specific mechanics are dead**: the LPSPI delayed
+> sample point has no STM32 equivalent, the `TP1=SCLK_C … TP5=GND` probe map
+> is not Board3's (its three test points are lone untented vias — see the
+> bring-up card), and the `DASH_SPI_RUN_HZ` value quoted here as a "TEMP bench
+> diagnostic" is long superseded. Read this for the *reasoning* about
+> termination and bandwidth ceilings, which held up; do not read it for
+> numbers, pin names, or the current clock.
+>
+> Successor rule for the clock question:
+> [a clock constant is a request, not the operating point](../conventions/a-clock-constant-is-a-request-not-the-operating-point.md).
+
 ## Context
 
 The three-panel dash has so far run on a bench wiring loom (breadboards, jumper
 wires, MTCELL FFC breakouts). That loom is what capped the shared SPI bus at
-8 MHz: the first 24 MHz candidate failed read AND write integrity on the bench
+8 MHz: the first 24 MHz candidate failed read integrity on the bench
 (2026-07-10 — white screen, flash init 0x01, all font inflates failed, fps 25
-with faults=0), fully documented in
+with faults=0; writes largely survived, which is the whole signature), fully documented in
 `docs/solutions/integration-issues/spi-run-clock-24mhz-overclock-corrupts-eve-coprocessor-reads.md`.
 
 The loom era produced three more hard lessons (session history): the Riverdi

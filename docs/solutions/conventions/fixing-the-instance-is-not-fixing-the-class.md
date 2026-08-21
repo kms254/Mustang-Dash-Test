@@ -266,6 +266,11 @@ allowlist it is silently skipped, under an exemption list it is reported.
 
 ## Related
 
+- [A correction is an unreviewed change](a-correction-is-an-unreviewed-change.md) — the sibling
+  failure, and worth keeping distinct: this doc is about a fix that is *correct
+  where applied but under-scoped*, that one is about a fix that is *wrong where
+  it landed*. Neither remedy catches the other's cases.
+
 - `f1054f3` (PR #36) — the P1/P2 fix and the sentence that should have
   triggered the enumeration.
 - `tools/kicad_placement_lint.py` — check 2 `connector-mouth`; correct

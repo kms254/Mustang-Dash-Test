@@ -79,6 +79,20 @@ point-to-point copper re-owns the number when it exists.
 - On any STM32 target, derive the attainable SPI clock set from the bus
   clock and prescalers before planning a walk; log or record the attained
   frequency, not the requested one.
+- **"The bus clock" is an assumption, and on H7 it is false.** SPI kernel
+  clocks are selected per instance and the reset defaults are asymmetric
+  (SPI1/2/3 from PLL1Q, SPI4/5 from APB2). A firmware that never configures
+  those muxes gets whatever the defaults give it, which means several
+  instances of one peripheral family can be dividing *different* source
+  clocks. Derive the ladder per instance, not per board.
+- **This rule was prose-only, and prose did not hold it.** It was written
+  here on 2026-07-21 and violated for the next month: the constant moved to
+  a new die, nobody re-derived the attained value, and three documents went
+  on citing a rate no instrument had measured. Nothing executed the rule.
+  A prevention rule that cannot run is itself a request — see
+  [a clock constant is a request, not the operating point](../conventions/a-clock-constant-is-a-request-not-the-operating-point.md),
+  which mechanizes this one as a hardware readback printed at boot and on
+  the `diag` serial command.
 - Accept a clock step only on: staging spot-checks clean, REG_ID stable
   across repeated reads, font-inflate verification clean, AND
   eyes-on-panel in every display mode. Never frame rate alone.
@@ -91,6 +105,15 @@ point-to-point copper re-owns the number when it exists.
 ## Related Issues
 
 - `docs/solutions/integration-issues/spi-run-clock-24mhz-overclock-corrupts-eve-coprocessor-reads.md`
+- [`docs/solutions/conventions/a-clock-constant-is-a-request-not-the-operating-point.md`](../conventions/a-clock-constant-is-a-request-not-the-operating-point.md)
+  — the successor rule and the instrument that enforces it. **The F767 numbers
+  on this page remain correct and must not be "corrected" to match Board3**:
+  APB2 at 108 MHz makes 108/8 = 13.5 exactly attainable here, so 13.5 was a
+  real measurement on this rig. It became a wrong label only when the same
+  constant moved to a die with a different clock tree. Worth noting this rig
+  was itself already a two-kernel board — SPI1 off APB2 at 108 MHz, SPI2 off
+  APB1 at 54 MHz, where 54/4 = 13.5 as well — so the asymmetry that later bit
+  on Board3 was present here too, hidden by the same 2:1 power-of-two ratio.
   -- the polite-corruption failure mode and the faults=0 blind spot.
 - `docs/solutions/architecture-patterns/dash-carrier-pcb-buffered-spi-topology-30mhz-clock-contract.md`
   -- the 30 MHz ceiling and the carrier re-walk contract.
