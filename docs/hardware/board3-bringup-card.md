@@ -71,9 +71,9 @@ Only **MISO/CS/PD** have connector-end probe resistors on left/right (left
 R42/R46/R12, GND at R42.2; right R43/R47/R13, GND at R43.2). **SCLK/MOSI series
 resistors sit at the MCU end** (U50 moved them — correctly), so the *receiver*
 end of those 80–90 mm lines is only the 0.5 mm FPC solder tails. For the
-13.5 MHz clock re-walk on this copper (required before trusting the bench
-number — topology changed), probe left/right SCLK at the FPC tail, not at
-R33/R36.
+clock walk on this copper (done 2026-08-21, see below), probing left/right
+SCLK means probing at the FPC tail, not at R33/R36. The same applies to any
+future re-walk.
 
 ## Bring-up debt — run these on the first good board
 
@@ -91,8 +91,23 @@ R33/R36.
   (pad 1 `/+3V3` onto panel ground) and collapses the rail. Near 0 Ω = flip
   it. Cheap tin FFCs work for a smoke test but are the prime suspect for any
   intermittent; use the gold Premo-Flex for anything you intend to believe.
-- **13.5 MHz SPI clock re-walk** per panel (see caveat above). Bench numbers
-  came from failure on different topology and do not transfer.
+- **SPI clock walk — DONE 2026-08-21. Board3 runs 25 MHz on all three
+  panels.** The request had been 13.5 for weeks; the panels were attaining
+  **12.5** — `dash_report_spi_clocks()` now reads the rate back from
+  CFG1.MBR + the kernel clock and prints it at boot and on `diag`, so the
+  request is never mistaken for the operating point again. The ladder is
+  coarse (6.25 / 12.5 / 25, nothing between) because the SPI kernel clocks
+  are left at the H7 defaults, which are asymmetric — SPI1/2 off PLL1Q
+  200 MHz, SPI4 off APB2 100 MHz — and the power-of-two prescalers happen
+  to land both on the same attained rate. Acceptance: two 20-minute soaks
+  at 25 MHz, STREET and TRACK, sampled once a minute — **1,920 REG_ID
+  reads, zero misses**, faults=0,0,0, retired=0,0,0, eve=ok,ok,ok, no drift
+  in either leg. fps 60 TRACK / 57 STREET (the cluster's STREET display
+  lists total ~33% more than TRACK: dl 647/689/359 vs 434/434/408 —
+  bigger on center and left, slightly smaller on right). **The walk stops at 25**: the BT817 QSPI
+  slave is rated 30 MHz, so 25 is 83% of spec and the next reachable rung
+  is 50. Note Board3 runs clean at 25 where the Teensy loom failed read
+  integrity at 24 — the old numbers described the wiring, not the clock.
 - **CAN1 first bring-up needs H1 closed** — the order contains the headers but
   **no 2.54 mm shunts** (JLC doesn't supply them). Put shunts in the parts
   order or confirm drawer stock *before* the boards arrive.
@@ -226,7 +241,8 @@ Panels on the existing FFC breakouts at the *real* Board3 pins:
 | QSPI | (optional) W25Q256 breakout PB2/PF6-9/PG6 | the JEDEC probe's ok path; unwired it proves the failure path boots on |
 
 After a clean mule soak, first contact with Board3 tests only three things:
-the 25 MHz clock block, the CM4 option byte, and real copper at 13.5 MHz.
+the 25 MHz clock block, the CM4 option byte, and real copper at speed.
+(All three are now done — see the bring-up debt list above.)
 
 ## Known-tight spots (do not "discover" these)
 

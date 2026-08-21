@@ -36,11 +36,15 @@ pins in the sketch's board blocks and the
 firmware polls.
 
 **SPI is mode 0, MSB-first, ≤ 11 MHz during every panel's `EVE_init()`**, then
-each bus rises once to the run clock. 13.5 MHz is the proven operating point on
-the F767 bench (27 MHz hard-wedges the firmware rather than degrading
-gracefully) — but clock numbers come from failure, not derivation, and **do not
-transfer across copper**: re-walk the clock on each new board, per the bring-up
-card.
+each bus rises once to the run clock. **Board3 runs 25 MHz on all three
+panels**, walked and soaked 2026-08-21; the F767 bench ran 13.5 (where 27 MHz
+hard-wedges the firmware rather than degrading gracefully). Two numbers, two
+clock trees, both correct — because clock numbers come from failure, not
+derivation, and **do not transfer across copper**: re-walk on each new board,
+per the bring-up card. And the constant is only a *request* — the peripheral
+rounds it down to a reachable rung, so ask the firmware what it actually got
+(`diag` on the serial console prints the attained rate per panel) rather than
+trusting the source.
 
 ## What the firmware does
 
