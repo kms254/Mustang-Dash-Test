@@ -212,7 +212,11 @@ been annotated in the plan but nowhere else. Three passes, and the figure was
 still propagating. That is the honest measure of how far a useful number
 travels once it exists.
 
-**When you retract a number, grep for it.** A retraction that lands only where
+**When you retract a number, grep for it.** (Generalised beyond numbers, to any
+retired claim, in
+[a correction is an unreviewed change](../conventions/a-correction-is-an-unreviewed-change.md) —
+which also records that a retraction is itself an unreviewed edit with a shelf
+life.) A retraction that lands only where
 the number was first written leaves the copies that will be read next.
 
 ## Why This Matters

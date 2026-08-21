@@ -87,12 +87,33 @@ How many more laps the remaining fuel will actually complete — a range estimat
 It therefore reaches zero while the fuel gauge still shows fuel, and that divergence is the concept working rather than a defect. It is also the one figure permitted to disagree with the simulator's own tank, which runs to empty because it models fuel quantity and not pickup behavior; the per-lap burn *rate* behind the estimate must still match what the car actually consumes. Being one word away from a live lap number on the same screen, it is easy to misread as a lap counter — its label has to carry the distinction.
 
 ### SPI Operating Point
-The bus clock the dash runs at after every panel has initialized — distinct from the slower init clock the display controller's datasheet mandates during bring-up, which is why chip identity can read healthy while the operating point is still unproven. The raise happens once, bus-wide, and the value is owned by bench evidence from the actual wiring, not the chip's rated ceiling. When the physical link changes — bench loom to Carrier Board — the prior operating point becomes historical evidence, and a Clock Walk re-owns the value on the new wiring.
+The bus clock the dash runs at after every panel has initialized — distinct from the slower init clock the display controller's datasheet mandates during bring-up, which is why chip identity can read healthy while the operating point is still unproven. The raise happens once per bus — a system giving each panel its own independent bus raises each of them separately — and the value is owned by bench evidence from the actual wiring, not the chip's rated ceiling. When the physical link changes — bench loom to Carrier Board — the prior operating point becomes historical evidence, and a Clock Walk re-owns the value on the new wiring.
+
+It is always the rate the hardware **attained**, never the rate the firmware
+requested — two quantities wearing the same digits in the same units, separated
+by the quantization a Clock Walk has to navigate and by a source clock the
+application may never have configured, which can differ between instances of one
+peripheral family. A request and an achievement therefore diverge silently and
+indefinitely, and a configured constant never qualifies on its own. What owns
+the value is the constant *and* the clock tree together: the same firmware on
+different silicon attains a different rate with no line changed, so moving die
+retires a prior operating point exactly as changing the wiring does.
 
 An operating point is accepted only by a read-integrity soak — repeated register reads with zero anomalies — never by frame rate alone: bus corruption can garble rendering and sag the frame rate while every automatic fault counter stays at zero, because the fault detectors check what the chip reports, not whether the read itself was clean.
 
 ### Clock Walk
 The stepwise process of raising the SPI Operating Point: one clock step at a time, each step accepted or rejected solely by the read-integrity soak before the next is attempted. The walk's diagnosis rules depend on the link: reads failing while writes stay clean points at round-trip latency — answered by delaying when the return data is sampled — whereas writes failing too means genuine signal degradation and a retreat. A step can also fail past degradation into a total wedge: reads corrupt enough that the command-wait loop never exits, the firmware freezes, and the failure presents as sudden silence rather than glitches — recovery is a debug-probe reflash, not a power cycle. Frame rate is never an acceptance signal at any step, and every accepted step also requires eyes on the panel.
+
+Two properties of the walk are easy to get wrong. The reachable rates are **not
+continuous** — dividers are typically powers of two, so the steps are octave
+jumps rather than a dial, and a walk can end because the next rung would exceed
+the peripheral's rated ceiling rather than because a step failed; enumerate the
+attainable set before planning the walk, or the plan will contain rungs that do
+not exist. And the readback must be **baselined before the clock moves**:
+installed at the existing setting, alone, as its own change. That is what
+establishes the rate actually in force, and a walk that introduces the
+instrument and the new rate in one step has nothing to compare its first reading
+against.
 
 ### Frame Drain
 The per-frame wait for the display controller to finish executing a display list before its command buffer is reused — the renderer polls the chip's command-FIFO registers over SPI until the coprocessor signals completion. Because that poll is a read, it is the frame loop's most exposed point to a marginal link: a bounded drain that never sees completion times out rather than hanging forever, and a timed-out drain retires the panel (see Retired Panel). A drain timeout therefore indicts the read path — clock, wiring, or the shared ground reference — not the rendering itself.
@@ -194,10 +215,19 @@ Direction matters more than it appears. A finding that is falsely *absent* is ev
 
 A third resolution exists besides "the artifact is wrong" and "the tool is wrong": an instrument whose model of the object is itself wrong — a stand-in 3D body, a proxy shape — is *uninformative* rather than mistaken, able neither to confirm nor to deny, and the finding then resolves at ground truth outside both (the part's datasheet against the footprint file), with a procedural close-out where no instrument can adjudicate. The verdict attaches to the finding, not the tool: one viewer produced a true finding on one part and an uninformative one on another in a single session, so neither trust nor distrust of the instrument transfers between findings. The converse also exists: a third party's instrument can hold answers no project-owned check has — a fabricator's CAM job is its engineer's answer sheet, so a delta between it and the design's own export is a finding in itself, resolved in either direction (their correction to adopt, or their change to challenge) rather than assumed to be error.
 
-### Saturated Count
-A finding count that has reached the checker's own per-category reporting limit, so it states the limit rather than the quantity — a lower bound wearing the appearance of a measurement.
+Beneath every case above sits one more, and it is the hardest to see: the
+**absent** instrument — a number that was never measured at all, only intended,
+and has been read as a measurement ever since. It produces no report, so the
+scrutiny above has nothing to attach to; and unlike a falsely-absent finding,
+nothing downstream ever surfaces it, because a soak, a bench log and a document
+will all quote an intended value as faithfully as a measured one. The
+countermeasure is not skepticism but construction: build the instrument that is
+capable of disagreeing, and run it *before* changing the thing it measures.
 
-It is indistinguishable from a real count from the outside: it has units, it sits in the field the tool calls a total, and it arrives most convincingly at the moment some genuine repair first made the check report anything at all. The limit applies per category rather than per report, so one category exceeding it establishes nothing about another sitting beside it in the same output — the inference that a tool "can report more than this, therefore this is real" is invalid. The test is to make the check materially stricter and re-run: a real count rises, a saturated one does not. Zero is the single reading a reporting limit cannot forge, which is why an absolute gate is immune to this and a Ratcheted Gate resting on such a floor asserts nothing. Where a count is load-bearing — sizing work, proving a before/after — derive it from the artifact rather than from the report, and name the unit, because a quantity measured off the data cannot be silently compared against one the report was willing to stop counting. A stationary count is not automatically saturated, either: a real count frozen across two different fixes indicts the fix's datum rather than the checker's ceiling (the 2026-08-10 board-edge case — twelve silk violations that two successive clips never touched, because both measured to a bounding box half an edge-stroke outside the manufactured cut). Both causes are told apart the same way: change what the checker measures and watch for movement.
+### Saturated Count
+A finding count that has reached the checker's own per-category reporting limit, so it states the limit rather than the quantity — a lower bound wearing the appearance of a measurement. Its sibling is the number that was never counted at all (see Instrument Finding): together they bracket the family of plausible figures nobody re-derived, and the test below does not catch the sibling — a value that is merely intended still moves obediently when its input moves.
+
+It is indistinguishable from a real count from the outside: it has units, it sits in the field the tool calls a total, and it arrives most convincingly at the moment some genuine repair first made the check report anything at all. The limit applies per category rather than per report, so one category exceeding it establishes nothing about another sitting beside it in the same output — the inference that a tool "can report more than this, therefore this is real" is invalid. The test is to make the check materially stricter and re-run: a real count rises, a saturated one does not. Zero is the single reading a reporting limit cannot forge, which is why an absolute gate is immune to this and a Ratcheted Gate resting on such a floor asserts nothing. Where a count is load-bearing — sizing work, proving a before/after — derive it from the artifact rather than from the report, and name the unit, because a quantity measured off the data cannot be silently compared against one the report was willing to stop counting. A stationary count is not automatically saturated, either: a real count frozen across two different fixes indicts the fix's datum rather than the checker's ceiling — the classic shape being a clearance fix measured to a shape's bounding box while the checker measures to the manufactured outline, half a line-width inside it, so every attempt lands just outside the datum that matters and the count never moves. Both causes are told apart the same way: change what the checker measures and watch for movement.
 
 ## Track Simulation
 

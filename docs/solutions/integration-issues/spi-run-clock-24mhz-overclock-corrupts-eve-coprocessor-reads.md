@@ -164,9 +164,22 @@ static const uint32_t DASH_SPI_RUN_HZ = 8000000UL;
 ```
 
 > **This doc labelled that block "current tree" until 2026-08-05, and it was
-> not.** The constant is **13.5 MHz** (`MustangDash/MustangDash.ino`), set
-> 2026-07-23 on the NUCLEO-F767ZI and proven on two panels at fps 59,
-> faults 0. Two things follow, and the second is the more useful one:
+> not. The correction written then is now stale too — read this as an exhibit,
+> not as a number.** The constant is **25 MHz**
+> (`MustangDash/MustangDash.ino`), walked and soaked on Board3 2026-08-21:
+> 1,920 REG_ID reads across three panels over two 20-minute soaks, zero misses.
+>
+> The 2026-08-05 correction said 13.5 MHz. That was the *requested* value, and
+> the F767 it was measured on did attain it — but the same constant on Board3's
+> H755 attained **12.5 MHz**, because the reachable ladder differs per clock
+> tree. So this blockquote has now been wrong twice, in two different ways, and
+> that is the most useful thing about it: **a retraction lands only where the
+> error was noticed, and then goes stale on its own schedule.** When you retire
+> a number, grep the tree for it — do not just fix it where you found it. The
+> standing rule and the readback that enforces it are in
+> [a clock constant is a request, not the operating point](../conventions/a-clock-constant-is-a-request-not-the-operating-point.md).
+>
+> Two more things follow, and the second is the more useful one:
 >
 > **The platform changed underneath the number.** On the F767 the SPI clock is
 > prescaler-quantized — 6.75 / 13.5 / 27 / 54 MHz, and requests round *down* —
@@ -185,8 +198,12 @@ static const uint32_t DASH_SPI_RUN_HZ = 8000000UL;
 > A clock-step failure is a *symptom*; check the reference before believing the
 > frequency.
 
-The 24 MHz failure signature below is the durable part and is unaffected by
-either of those.
+The 24 MHz failure signature below is the durable part and is unaffected by any
+of that. **What it is not is a ceiling that transfers.** Board3 runs clean at
+25 MHz on all three panels where this loom failed at 24 — the number described
+the wiring, not the silicon. Keep the signature (reads corrupting while writes
+survive, fps sagging with `faults=0`); discard the frequency the moment the
+copper changes.
 
 Banner excerpts, corrupt (24 MHz) vs. healthy (8 MHz):
 
