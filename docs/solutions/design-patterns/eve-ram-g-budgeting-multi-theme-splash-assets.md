@@ -62,7 +62,7 @@ tags:
 > `splash_render.h`, which is maintained beside the code that allocates it, and
 > treat any figure written here as of its date.
 
-> **Narrowed by the 2026-08-22 splash round (lands with PR #52).** Two things.
+> **Narrowed by the 2026-08-22 splash round (PR #52, merged).** Two things.
 >
 > **"Perceptually forgiving" is only half the test.** This doc draws the
 > safe-to-downscale line on content smoothness, and that half is right:

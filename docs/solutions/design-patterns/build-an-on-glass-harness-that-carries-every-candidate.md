@@ -41,12 +41,7 @@ tags:
 
 ## Context
 
-> **Reading this on `main` before PR #52 merges:** the code cited below lives on
-> `feat/splash-metal-cluster-background` and will not resolve here until that
-> lands. `tools/make_material.py` in particular is new on that branch. The
-> reasoning stands on its own; the paths are for afterwards.
-
-The splash background for the three-panel cluster took five surface candidates, three bitmap encodings, and one measured framebuffer property before it settled — and every one of those decisions was made wrong at least once from a preview image, then made right on glass. The work is on `feat/splash-metal-cluster-background`, **PR #52, open**, six commits from `origin/main`.
+The splash background for the three-panel cluster took five surface candidates, three bitmap encodings, and one measured framebuffer property before it settled — and every one of those decisions was made wrong at least once from a preview image, then made right on glass. The work is on `feat/splash-metal-cluster-background`, PR #52, **merged 2026-08-22**, seven commits.
 
 The thing being designed is a lit metallic field spanning three 1024×600 BT817 panels behind a 2000 ms boot animation. Nothing about it is verifiable by inspection: it is a *perceptual* artifact whose failure modes are contour banding, tiling repetition, block-boundary steps, dither mottling, and — in the worst case here — reading as an entirely different physical object than the one intended.
 

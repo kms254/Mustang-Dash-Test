@@ -37,7 +37,7 @@ tags:
 > (removed when `tools/make_splash_assets.py` was trimmed to reference
 > composites), so its file:line cites below are historical (as of PR #2).
 
-> **Narrowed twice by the 2026-08-22 splash round (lands with PR #52).** Both
+> **Narrowed twice by the 2026-08-22 splash round (PR #52, merged).** Both
 > narrowings tighten this doc's scope; neither contradicts what it measured.
 >
 > **A THIRD quantizer sits downstream of every asset choice.** The two modelled

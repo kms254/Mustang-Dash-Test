@@ -36,7 +36,7 @@ tags:
 > still binds unchanged — the same pack format now targets RAM_G instead of
 > panel flash.
 
-> **Qualified by the 2026-08-22 splash round (lands with PR #52).** ASTC is a
+> **Qualified by the 2026-08-22 splash round (PR #52, merged).** ASTC is a
 > BLOCK codec, which makes it the wrong storage for a **magnified smooth ramp**:
 > a gradient is quantised per block, and every block boundary becomes a visible
 > step once the asset is drawn above its stored resolution. The shipping splash
