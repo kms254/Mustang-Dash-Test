@@ -284,7 +284,12 @@ The dash-era `data` used to be dominated by the embedded splash pack
 (~1.66 MB of ASTC assets, all three themes at full-panel resolution), taking
 the Board3 image to 1,849,340 B — **88.2% of 2 MB**. Retiring red/checkered and
 replacing the authored backgrounds with the generated material (2026-08-21)
-cut the pack to **151,552 B** and the whole image to **297,132 B — 14.2%**.
+cut the pack to 151,552 B and the image to 297,132 B (14.2%). It then rose
+again, deliberately: the glow moved from a 2,560 B ASTC slice per panel to a
+**153,600 B raw L8 mask**, because a block codec is the wrong tool for a
+gradient (see the splash bullet above). Settled state is **pack 593,920 B,
+image 739,588 B — 35.3%**. A figure that rises is not automatically a
+regression; this one bought the only smooth gradient of three attempts.
 The old note here suggested gating the pack on `SPLASH_THEME` to reclaim
 ~888 KB "if flash gets tight"; that escape hatch is spent, and worth
 remembering if a CAN-selected theme ever needs several themes resident again;

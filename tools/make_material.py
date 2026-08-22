@@ -63,9 +63,12 @@ GLOW_DIV = 2  # glow authored at 1/2 scale, stretched back with BILINEAR
 # Horizontal spread of the hotspot, as a fraction of the WHOLE CLUSTER width --
 # not of one panel, because the point is a single light source seen across
 # three screens. At 0.07 the falloff died inside the centre panel and the sides
-# were lit only by the vertical term; 0.245 puts roughly half the peak at the
-# sides' inner edges and near-black at their outer ones, which is what reads as
-# one sweep rather than one lit panel between two dim ones.
+# were lit only by the vertical term. Tuned on glass: 0.245 put ~56% of peak at
+# the sides' inner edges and was still judged too tight; 0.34 puts ~74% there,
+# ~36% at their centres and ~11% at their outer edges, which is what reads as
+# one sweep rather than one lit panel between two dim ones. Past ~0.6 the
+# falloff flattens and the cluster reads as uniformly blue -- a different
+# design, worth choosing deliberately rather than reaching by increments.
 GLOW_SPREAD_X = 0.34
 GLOW_SPREAD_Y = 0.62  # as a fraction of panel height
 GLOW_W, GLOW_H = PANEL_W // GLOW_DIV, PANEL_H // GLOW_DIV

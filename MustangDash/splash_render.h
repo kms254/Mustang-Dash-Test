@@ -265,15 +265,25 @@ void draw_flash_asset(const SplashFlashAsset *a, int16_t x, int16_t y)
  * small enough not to read as grain. */
 #define SPLASH_DITHER_A 3U
 
-/* Full-screen background in two layers.
+/* Full-screen background in two layers. There is NO texture layer -- see
+ * tools/make_material.py and splash_config.h for why.
  *
- *   glow  -- a 64x37 slice of one cluster-wide field, magnified 16x with
- *            BILINEAR. Authored small on purpose: a smooth gradient stored
- *            as a full-size ASTC bitmap comes back quantised into blocks,
- *            whereas a stretched small one is smooth by construction.
- *   metal -- a 128x128 seamless machined tile at NATIVE resolution, drawn
- *            with EVE_REPEAT so one tile covers the panel. Never scaled:
- *            magnifying it would destroy the machining it exists to show.
+ *   glow   -- a 512x300 slice of one cluster-wide field, drawn as an L8
+ *             ALPHA mask painted with COLOR_RGB and magnified ~2x with
+ *             BILINEAR. L8 is what buys 256 ramp levels; RGB565 offers only
+ *             32 blue levels and ASTC quantises a gradient per block, which
+ *             stepped visibly once magnified.
+ *   dither -- a 64x64 noise tile drawn 1:1 with EVE_REPEAT and ADDED at a
+ *             few levels. The framebuffer is 8-bit (REG_OUTBITS reads 0),
+ *             so a smooth ramp contours no matter how precise the source
+ *             is. Dither belongs at OUTPUT resolution: an earlier attempt
+ *             dithered the magnified SOURCE and the cells became blobs.
+ *
+ * Historic note, kept because the reasoning transfers: a tile drawn
+ * with EVE_REPEAT at NATIVE resolution is the right shape for a repeating
+ * high-frequency layer and must never be scaled, because magnifying it
+ * destroys the detail it exists to show. That is why the dither above is
+ * drawn 1:1 and the glow, which is smooth, is the only layer magnified.
  *
  * BITMAP_SIZE carries only 9 bits of width/height, so a 1024x600 draw needs
  * BITMAP_SIZE_H alongside it for the high bits. */
