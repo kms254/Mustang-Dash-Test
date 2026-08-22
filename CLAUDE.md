@@ -39,8 +39,42 @@ RudolphRiedel **FT800-FT813** (EmbeddedVideoEngine) library, vendored in
   deleted 2026-07-21 (direct-from-flash render hits a per-frame bandwidth
   ceiling above ~40 KB per asset, see
   `docs/solutions/architecture-patterns/bt817-flash-render-streaming-bandwidth-ceiling.md`,
-  and the pack ships embedded either way). Theme stays build-time via
-  `SPLASH_THEME` in `MustangDash/splash_config.h`.
+  and the pack ships embedded either way).
+  **The splash now plays across ALL THREE panels (2026-08-21)** — every panel
+  stages the background into its own RAM_G, the centre alone carries the
+  artwork on top, and the sides light on the splash's first frame instead of
+  staying black for 2 s.
+  **The background is no longer an authored bitmap.** It is two layers split
+  by spatial frequency (`tools/make_material.py`, which holds the reasoning):
+  a seamless 128×128 machined-metal tile drawn `EVE_REPEAT` at NATIVE
+  resolution, plus a 64×37 slice of one cluster-wide glow field stretched
+  `BILINEAR`. That is **~19 KB per panel against 614,400 B** for the old
+  1024×600 ASTC background, and it is *higher* quality both ways: the weave is
+  never upscaled, and the gradient is never ASTC-quantised into blocks. The
+  glow is computed across the whole cluster including the **15 mm physical
+  bezel gap** (≈100 px at 6.68 px/mm), so the sweep is continuous rather than
+  three copies of one hotspot. EVE has no multiply blend, so the tile is
+  ADDED over the lit field — which is also the right model, since a specular
+  highlight adds light. Colour is anchored to the car: World Rally Blue Mica
+  (Subaru 02C), working value `#124C9E`, with the peak run brighter than the
+  paint because a screen emits where paint reflects.
+  **Only blue ships.** Red and checkered were retired with the authored
+  backgrounds; `SPLASH_THEME` remains but rejects anything else. A CAN-selected
+  theme was discussed and deferred — it costs no extra RAM_G (staging is
+  per-theme, one resident) but every selectable theme must live in MCU flash,
+  which is exactly the space this reclaimed.
+  **RAM_G is now gated at BUILD time.** A `static_assert` in
+  `splash_render.h` sums the decoded font sizes and the staged asset sizes —
+  all compile-time constants — against `EVE_RAM_G_SIZE`, for the centre and a
+  side panel. It is verified to fire. This exists because the budget
+  overflowed silently from 2026-07-22 to 2026-08-21: the fonts grew in an
+  unrelated commit (DF_MID gained A-Z for a lap flash), the last two blue
+  assets stopped fitting, and the blue splash played with **no accent line and
+  no year on every boot** for a month. Nothing caught it — the overflow line
+  loses a race with CDC enumeration, and the budget comment still claimed
+  "~285 KB" of fonts. Staging also used to `break` on overflow, so one
+  oversized asset silently took every asset after it; it now `continue`s and
+  names the shortfall.
 - Dash: TRACK/STREET screens per the vendored design handoff
   (`assets/dash-design/`), all-procedural at ~60 fps with custom EVE bitmap
   fonts (`tools/make_dash_fonts.py` → `dash_fonts.h`, ~324 KB — RAM_G's only
@@ -233,10 +267,14 @@ RAM1:  variables:~17000, code:~67700
 RAM2:  variables:12416
 ```
 
-The dash-era `data` is the embedded splash pack (~1.66 MB of ASTC assets,
-all three themes; blue/red backgrounds at 4x4, checkered at 6x6) plus the
-zlib font glyphs (F767 image ~1.81 MB of 2 MB, 86.4% -- gating the pack on
-SPLASH_THEME at build time would reclaim ~888 KB if flash gets tight);
+The dash-era `data` used to be dominated by the embedded splash pack
+(~1.66 MB of ASTC assets, all three themes at full-panel resolution), taking
+the Board3 image to 1,849,340 B — **88.2% of 2 MB**. Retiring red/checkered and
+replacing the authored backgrounds with the generated material (2026-08-21)
+cut the pack to **151,552 B** and the whole image to **297,132 B — 14.2%**.
+The old note here suggested gating the pack on `SPLASH_THEME` to reclaim
+~888 KB "if flash gets tight"; that escape hatch is spent, and worth
+remembering if a CAN-selected theme ever needs several themes resident again;
 the older ~206 KB embedded-PNG figures describe a deleted architecture and are
 kept only as history. Do not expect the sandbox's numbers to match — different
 toolchain, different libc. The two *workstation* paths agreeing byte-for-byte
