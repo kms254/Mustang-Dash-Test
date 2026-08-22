@@ -224,6 +224,19 @@ will all quote an intended value as faithfully as a measured one. The
 countermeasure is not skepticism but construction: build the instrument that is
 capable of disagreeing, and run it *before* changing the thing it measures.
 
+One more sits alongside the uninformative instrument and is easy to file with
+it wrongly. An instrument whose model of the object is a stand-in is
+*uninformative* — it can neither confirm nor deny. An instrument that applies a
+**lossy transform** to the real object is worse: it returns confident verdicts
+the object itself reverses, because the transform removes exactly the
+properties the judgement turns on. Viewing a rendered surface at reduced scale
+is the clearest case — downsampling is a low-pass filter, so it destroys the
+high-frequency structure that decides the answer and reports the remainder with
+no signal that anything was dropped. Such a view is not weaker evidence about
+the object; it is evidence about a different object. It also inverts the direction above: a lossy channel returns an APPROVAL rather than a silence, so nothing downstream is prompted to look, and the falsely-absent finding stops being the self-correcting one. The countermeasure is
+to judge at native scale on the target rather than to look at the reduced view
+more carefully.
+
 ### Saturated Count
 A finding count that has reached the checker's own per-category reporting limit, so it states the limit rather than the quantity — a lower bound wearing the appearance of a measurement. Its sibling is the number that was never counted at all (see Instrument Finding): together they bracket the family of plausible figures nobody re-derived, and the test below does not catch the sibling — a value that is merely intended still moves obediently when its input moves.
 
