@@ -89,20 +89,49 @@ ASSET_LIST = [
     ("emblem", "emblem-200x200.png", "4x4", False),
     ("wordmark", "wordmark-mustang-700x80.png", "4x4", False),
     ("bars_chrome", "bars-chrome-240x45.png", "4x4", False),
-    # Background material (2026-08-21). The authored 1024x600 backgrounds are
-    # gone: at 614,400 B each they were 60% of RAM_G, they overflowed it once
-    # the fonts grew, and three of them could not fit in MCU flash for a
-    # cluster-wide image. Split by spatial frequency instead --
-    # tools/make_material.py generates both, and the header there explains why.
-    ("metal_tile", "metal-tile-128x128.png", "4x4", False),
-    ("glow_left", "glow-left-64x37.png", "4x4", False),
-    ("glow_center", "glow-center-64x37.png", "4x4", False),
-    ("glow_right", "glow-right-64x37.png", "4x4", False),
+    # Background: NO texture. Premium clusters ship plain dark backgrounds --
+    # a patterned cluster background is the aftermarket tell, and real carbon
+    # belongs on the bezel, which is where this car has it. Four candidate
+    # materials were built and compared on glass before that was accepted.
+    # What ships is one lit field plus an output-resolution dither.
+    ("dither", "dither-64x64.png", "rawL8", False),
+    ("glow_left", "glow-left-512x300.png", "rawL8", False),
+    ("glow_center", "glow-center-512x300.png", "rawL8", False),
+    ("glow_right", "glow-right-512x300.png", "rawL8", False),
     ("line_blue", "line-blue-340x40.png", "4x4", False),
     ("year_blue", "year-1965-blue.png", "4x4", False),
 ]
 
-EVE_FMT = {"4x4": "EVE_ASTC_4X4", "6x6": "EVE_ASTC_6X6", "8x8": "EVE_ASTC_8X8"}
+EVE_FMT = {"4x4": "EVE_ASTC_4X4", "6x6": "EVE_ASTC_6X6", "8x8": "EVE_ASTC_8X8",
+           "rawL8": "EVE_L8"}
+
+
+def encode_l8(im, w, h):
+    """Uncompressed 8-bit luminance, used as an ALPHA MASK.
+
+    Three encodings were tried for the smooth layer and only this one is
+    right:
+
+      ASTC   -- a BLOCK codec. A gradient is exactly what it handles worst,
+                and this asset is magnified on screen, so every block
+                boundary became a visible step.
+      RGB565 -- no blocks, but only 32 blue levels, which bands a dark blue
+                ramp on its own. Dithering the SOURCE does not fix that,
+                because the source is magnified: the dither cells become
+                blobs and read as diagonal mottling. Dither only works at
+                output resolution.
+      L8     -- 8 bits of ALPHA (256 levels) with the colour supplied by
+                COLOR_RGB. The ramp is 8x finer than RGB565's blue, there is
+                nothing to block-quantise, EVE interpolates the alpha in
+                hardware when magnifying, and it is half the size. No dither
+                needed anywhere.
+    """
+    import numpy as np
+    a = np.asarray(im.convert("L"), dtype=np.uint8)
+    out = bytearray()
+    for y in range(h):
+        out += a[y].tobytes()
+    return bytes(out)
 
 
 def _box_blur_axis(arr, radius, axis):
@@ -230,14 +259,25 @@ def build_assets(tmp):
             if is_bg:
                 in_path = tmp / f"{name}.png"
                 smooth_background(im).save(in_path, format="PNG")
+            elif block == "rawL8":
+                # luminance mask: greyscale by design, colour comes from the DL
+                if im.mode not in ("L", "RGB", "RGBA"):
+                    sys.exit(f"ERROR: {src}: expected L, got {im.mode}")
+                in_path = src_path
             else:
                 if im.mode != "RGBA":
                     sys.exit(f"ERROR: {src}: expected RGBA, got {im.mode}")
                 in_path = src_path
-        astc_path = tmp / f"{name}.astc"
-        run_astcenc(in_path, astc_path, block)
-        payload, bcols, brows = parse_astc(astc_path, w, h, block)
-        payload = swizzle_blocks(payload, bcols, brows)
+        if block == "rawL8":
+            with Image.open(src_path) as im2:
+                payload = encode_l8(im2, w, h)
+            stride = w
+        else:
+            astc_path = tmp / f"{name}.astc"
+            run_astcenc(in_path, astc_path, block)
+            payload, bcols, brows = parse_astc(astc_path, w, h, block)
+            payload = swizzle_blocks(payload, bcols, brows)
+            stride = bcols * 16  # bytes per block row = ceil(w/bw)*16
         built.append({
             "name": name,
             "src": src,
@@ -245,7 +285,7 @@ def build_assets(tmp):
             "fmt": EVE_FMT[block],
             "w": w,
             "h": h,
-            "stride": bcols * 16,  # bytes per block row = ceil(w/bw)*16
+            "stride": stride,
             "payload": payload,
         })
         print(f"  {name}: {w}x{h} {block} -> {len(payload)} B")
@@ -309,6 +349,9 @@ def emit_header(assets, pack, crc):
         "#endif",
         "#ifndef EVE_ASTC_8X8",
         "#define EVE_ASTC_8X8 ((uint32_t) 37815UL)",
+        "#endif",
+        "#ifndef EVE_L8",
+        "#define EVE_L8 ((uint32_t) 3UL)",
         "#endif",
         "",
         "#define SPLASH_FLASH_BASE 4096UL",

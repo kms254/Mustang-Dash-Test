@@ -63,36 +63,8 @@ SWIRL_SPACING = 32  # centre-to-centre of the machined discs
 SWIRL_RADIUS = 26  # disc radius; > spacing/2 so discs overlap, as real jeweling does
 
 # ---- glow -------------------------------------------------------------
-GLOW_DIV = 16  # glow authored at 1/16 scale, stretched back with BILINEAR
+GLOW_DIV = 2  # glow authored at 1/2 scale, stretched back with BILINEAR
 GLOW_W, GLOW_H = PANEL_W // GLOW_DIV, PANEL_H // GLOW_DIV
-
-
-def engine_turned(n=TILE, spacing=SWIRL_SPACING, radius=SWIRL_RADIUS):
-    """Seamless machined 'jeweling': overlapping discs of concentric
-    scratches, each disc partly covering the one before -- the finish on a
-    1965 Mustang GT dash bezel.
-
-    Seamlessness comes from measuring distance with wraparound, so a disc
-    near an edge lights the opposite edge identically.
-    """
-    v = np.full((n, n), 18.0)
-    yy, xx = np.mgrid[0:n, 0:n]
-    for row in range(-1, n // spacing + 2):
-        for col in range(-1, n // spacing + 2):
-            cy = row * spacing
-            cx = col * spacing + (spacing // 2 if row % 2 else 0)
-            dx = (xx - cx + n / 2.0) % n - n / 2.0
-            dy = (yy - cy + n / 2.0) % n - n / 2.0
-            r = np.sqrt(dx * dx + dy * dy)
-            mask = r < radius
-            if not mask.any():
-                continue
-            rings = 0.5 + 0.5 * np.cos(r * 2.1)  # concentric tool scratches
-            sheen = 0.35 + 0.65 * (0.5 + 0.5 * np.cos(np.arctan2(dy, dx) - 0.6))
-            edge = np.clip(1.0 - (r / radius) ** 3, 0.0, 1.0)
-            val = 14.0 + 52.0 * (0.45 * rings + 0.55 * sheen) * edge
-            v[mask] = val[mask]
-    return np.clip(v, 0, 255)
 
 
 def cluster_glow():
@@ -119,7 +91,7 @@ def _rgba(arr):
     return np.concatenate([arr.astype(np.uint8), a], axis=2)
 
 
-def _tint(mono):
+def _unused_tint(mono):
     """World Rally Blue Mica (Subaru 02C) as the material colour.
 
     The glow layer ships as a colour bitmap rather than a mask so the hue
@@ -136,33 +108,47 @@ def _tint(mono):
     return np.clip(out, 0, 255).astype(np.uint8)
 
 
-def main():
-    # The tile is ADDED over the lit glow (EVE has no multiply blend), so it
-    # carries the material's own blue and its baseline is pulled toward zero
-    # -- otherwise a flat offset would lift the near-black panel edges that
-    # let the screens sit into the forged-carbon bezel.
-    tile = engine_turned()
-    tile = np.clip(tile - 14.0, 0.0, None)
-    lit = np.zeros(tile.shape + (3,))
-    for i, k in enumerate((0.30, 0.62, 1.00)):  # specular tinted blue, never white
-        lit[:, :, i] = tile * k
-    Image.fromarray(_rgba(np.clip(lit, 0, 255)), "RGBA").save(
-        os.path.join(OUT, "metal-tile-%dx%d.png" % (TILE, TILE)))
+def dither_tile(n=64, seed=7):
+    """Output-resolution dither.
 
+    REG_OUTBITS is 8 bits, so the FRAMEBUFFER quantises after every asset: a
+    ~106-level ramp across 600 px steps every ~6 px and shows contour rings.
+    No amount of source precision fixes that, because the quantisation happens
+    downstream of the asset.
+
+    This tile is drawn 1:1 with EVE_REPEAT and added at an amplitude of a few
+    levels. Drawn 1:1 is the whole point -- an earlier attempt dithered the
+    GLOW source instead, which is magnified on screen, so the dither cells
+    became blobs and read as diagonal mottling.
+    """
+    rng = np.random.default_rng(seed)
+    return rng.integers(0, 256, (n, n), dtype=np.uint8)
+
+
+def main():
+    # The glow ships as an 8-bit ALPHA MASK, not a colour image: the colour
+    # comes from COLOR_RGB in the display list, so the ramp gets 256 levels
+    # instead of RGB565's 32 blue levels. Normalise to the full 0..255 range
+    # so none of that precision is wasted.
     glow = cluster_glow()
-    im = Image.fromarray(_tint(glow), "RGB").filter(ImageFilter.GaussianBlur(1.2))
+    glow = glow * (255.0 / max(1.0, glow.max()))
+    im = Image.fromarray(np.clip(glow, 0, 255).astype(np.uint8), "L").filter(
+        ImageFilter.GaussianBlur(1.2))
     names = ("left", "center", "right")
     step = (PANEL_W + PANEL_GAP_PX) // GLOW_DIV
     for i, nm in enumerate(names):
         x0 = i * step
-        Image.fromarray(_rgba(np.asarray(im.crop((x0, 0, x0 + GLOW_W, GLOW_H)))), "RGBA").save(
+        # RGB, not RGBA: this ships uncompressed as RGB565, no alpha channel
+        im.crop((x0, 0, x0 + GLOW_W, GLOW_H)).save(
             os.path.join(OUT, "glow-%s-%dx%d.png" % (nm, GLOW_W, GLOW_H)))
 
-    per_panel = TILE * TILE + GLOW_W * GLOW_H
+    Image.fromarray(dither_tile(), "L").save(os.path.join(OUT, "dither-64x64.png"))
+
+    per_panel = GLOW_W * GLOW_H + 64 * 64
     print("panel active width %.1f mm -> %.3f px/mm" % (_W_MM, PX_PER_MM))
     print("gap %.0f mm -> %d px; cluster %d px" % (PANEL_GAP_MM, PANEL_GAP_PX, CLUSTER_W))
-    print("metal tile   %dx%d -> %6d B at ASTC 4x4" % (TILE, TILE, TILE * TILE))
-    print("glow slice   %dx%d  -> %6d B at ASTC 4x4 (x3 panels)" % (GLOW_W, GLOW_H, GLOW_W * GLOW_H))
+    print("glow slice   %dx%d -> %6d B raw L8 (x3 panels)" % (GLOW_W, GLOW_H, GLOW_W * GLOW_H))
+    print("dither tile  64x64   -> %6d B raw L8" % (64 * 64,))
     print("per panel    %6d B  (was 614400 for the authored background)" % per_panel)
 
 

@@ -108,16 +108,16 @@ future re-walk.
   slave is rated 30 MHz, so 25 is 83% of spec and the next reachable rung
   is 50. Note Board3 runs clean at 25 where the Teensy loom failed read
   integrity at 24 — the old numbers described the wiring, not the clock.
-- **Splash across all three panels — landed 2026-08-21, not yet on glass.**
-  The background became a tiled machined-metal layer plus a cluster-wide glow
-  (`tools/make_material.py`); every panel stages it, the sides light on the
-  first splash frame. Two things to judge on the real cluster, both
-  one-constant changes: the **weave scale** (`SWIRL_SPACING`/`SWIRL_RADIUS` —
-  picked, not measured, and it reads differently at arm's length than zoomed)
-  and the **hue** (`#124C9E` is a working value for WR Blue Mica 02C, not a
-  measured one; judge it against the paint, not against a number). Also
-  confirm the glow looks continuous across the 15 mm gaps — that geometry is
-  `PANEL_GAP_MM` in the generator.
+- **Splash across all three panels — DONE 2026-08-22, verified on glass.**
+  All three light together on the first splash frame; the accent line and the
+  year are back (they had been silently dropped since 22 July). Background is
+  textureless — a lit field plus a 1:1 dither — after five textured candidates
+  were compared on the real cluster with the `mat` bench command and all
+  rejected. **`mat on|off` survives** as the way to hold the background on
+  screen: a 2 s splash is no time to judge a surface, and scaled-down previews
+  actively mislead (one candidate read as texture in a mock-up and as bubbles
+  on the panel). Remaining judgement call, one constant: `SPLASH_DITHER_A` (3)
+  if any contour banding shows in the falloff.
 - **CAN1 first bring-up needs H1 closed** — the order contains the headers but
   **no 2.54 mm shunts** (JLC doesn't supply them). Put shunts in the parts
   order or confirm drawer stock *before* the boards arrive.

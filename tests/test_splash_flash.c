@@ -145,68 +145,81 @@ int main(void)
         expect(a->addr >= prev_end, msg);
         prev_end = a->addr + a->size;
 
-        snprintf(msg, sizeof(msg), "asset %zu (%s): fmt must be ASTC 4x4, 6x6 or 8x8", i, a->name);
-        expect(a->fmt == EVE_ASTC_4X4 || a->fmt == EVE_ASTC_6X6 || a->fmt == EVE_ASTC_8X8, msg);
+        snprintf(msg, sizeof(msg), "asset %zu (%s): fmt must be ASTC 4x4/6x6/8x8 or raw L8", i, a->name);
+        expect(a->fmt == EVE_ASTC_4X4 || a->fmt == EVE_ASTC_6X6
+                   || a->fmt == EVE_ASTC_8X8 || a->fmt == EVE_L8, msg);
 
-        snprintf(msg, sizeof(msg), "asset %zu (%s): size must match the block footprint", i, a->name);
-        expect(a->size == astc_size(a->fmt, a->w, a->h), msg);
+        /* L8 is uncompressed: one byte per pixel, stride == width. It is the
+         * format the smooth layers use precisely BECAUSE it has no blocks. */
+        if (a->fmt == EVE_L8)
+        {
+            snprintf(msg, sizeof(msg), "asset %zu (%s): L8 size must be w*h", i, a->name);
+            expect(a->size == (uint32_t)a->w * (uint32_t)a->h, msg);
+        }
+        else
+        {
+            snprintf(msg, sizeof(msg), "asset %zu (%s): size must match the block footprint", i, a->name);
+            expect(a->size == astc_size(a->fmt, a->w, a->h), msg);
+        }
 
         snprintf(msg, sizeof(msg), "asset %zu (%s): stride must be ceil(w/bw)*16", i, a->name);
-        expect(a->stride == astc_stride(a->fmt, a->w), msg);
+        expect(a->stride == ((a->fmt == EVE_L8) ? (uint32_t)a->w
+                                                  : astc_stride(a->fmt, a->w)), msg);
     }
 
     /* the per-asset defines must mirror the table (spot-check the ones the
      * firmware theme table wires up by index) */
     expect(SPLASH_FLASH_ASSETS[SPLASH_FA_EMBLEM].addr == SPLASH_FA_EMBLEM_ADDR,
            "SPLASH_FA_EMBLEM_ADDR must match the table");
-    expect(SPLASH_FLASH_ASSETS[SPLASH_FA_METAL_TILE].addr == SPLASH_FA_METAL_TILE_ADDR,
-           "SPLASH_FA_METAL_TILE_ADDR must match the table");
     expect(SPLASH_FLASH_ASSETS[SPLASH_FA_EMBLEM].fmt == EVE_ASTC_4X4,
            "alpha elements must be ASTC 4x4");
 
-    /* The background is two layers of different spatial frequency since
-     * 2026-08-21 (tools/make_material.py). Each invariant below is the
-     * property that makes its layer work, so a future edit that breaks one
-     * fails here rather than on glass.
+    /* The background is two RAW layers since 2026-08-22 -- no texture, and no
+     * block codec anywhere near the gradient. Each invariant below is the
+     * property that makes its layer work, and each one was learned by getting
+     * it wrong on glass first.
      *
-     * The metal tile is drawn with EVE_REPEAT at NATIVE resolution: it must
-     * be square and a power of two, or the wrap will not align to the panel
-     * and the machining will seam. It must stay 4x4 -- coarser blocks are
-     * what mushed the weave when this was one big bitmap. */
-    expect(SPLASH_FLASH_ASSETS[SPLASH_FA_METAL_TILE].fmt == EVE_ASTC_4X4,
-           "the metal tile must be ASTC 4x4 -- coarser blocks destroy the machining");
-    expect(SPLASH_FLASH_ASSETS[SPLASH_FA_METAL_TILE].w ==
-               SPLASH_FLASH_ASSETS[SPLASH_FA_METAL_TILE].h,
-           "the metal tile must be square to tile cleanly");
-    {
-        const uint16_t tw = SPLASH_FLASH_ASSETS[SPLASH_FA_METAL_TILE].w;
-        expect((tw != 0U) && (0U == (tw & (uint16_t)(tw - 1U))),
-               "the metal tile edge must be a power of two for EVE_REPEAT to align");
-    }
-
-    /* The three glow slices are stretched BILINEAR to fill a panel, and the
-     * RAM_G budget assert in splash_render.h assumes they are the same size.
-     * They must also stay SMALL: authoring the gradient tiny and magnifying
-     * it is what keeps it smooth instead of ASTC-quantised into blocks. */
-    expect((SPLASH_FLASH_ASSETS[SPLASH_FA_GLOW_LEFT].size ==
-                SPLASH_FLASH_ASSETS[SPLASH_FA_GLOW_CENTER].size)
-               && (SPLASH_FLASH_ASSETS[SPLASH_FA_GLOW_CENTER].size ==
-                   SPLASH_FLASH_ASSETS[SPLASH_FA_GLOW_RIGHT].size),
-           "glow slices must be equal in size -- the RAM_G budget assert assumes it");
-    for (size_t gi = 0; gi < 3U; gi++)
+     * The glow is an L8 ALPHA mask painted with COLOR_RGB, which is what buys
+     * 256 ramp levels instead of RGB565's 32 blue levels. It is magnified, so
+     * it must never be block-compressed: ASTC quantises per block and every
+     * block boundary became a visible step. */
     {
         static const uint8_t glow_idx[3] = { SPLASH_FA_GLOW_LEFT,
                                             SPLASH_FA_GLOW_CENTER,
                                             SPLASH_FA_GLOW_RIGHT };
-        const SplashFlashAsset *g = &SPLASH_FLASH_ASSETS[glow_idx[gi]];
-        expect(g->w <= 128U && g->h <= 128U,
-               "a glow slice must stay small -- it is magnified, not drawn 1:1");
-        expect(g->fmt == EVE_ASTC_4X4, "glow slices must be ASTC 4x4");
+        for (size_t gi = 0; gi < 3U; gi++)
+        {
+            const SplashFlashAsset *g = &SPLASH_FLASH_ASSETS[glow_idx[gi]];
+            expect(g->fmt == EVE_L8,
+                   "glow must be L8 -- an alpha mask, so the ramp gets 256 levels");
+            expect(g->stride == g->w,
+                   "L8 stride is one byte per pixel; a block stride would mean it got compressed");
+            expect(g->size == (uint32_t)g->w * (uint32_t)g->h,
+                   "glow must be uncompressed -- a gradient is what block codecs handle worst");
+        }
+        expect((SPLASH_FLASH_ASSETS[SPLASH_FA_GLOW_LEFT].size ==
+                    SPLASH_FLASH_ASSETS[SPLASH_FA_GLOW_CENTER].size)
+                   && (SPLASH_FLASH_ASSETS[SPLASH_FA_GLOW_CENTER].size ==
+                       SPLASH_FLASH_ASSETS[SPLASH_FA_GLOW_RIGHT].size),
+               "glow slices must be equal in size -- the RAM_G budget assert assumes it");
     }
 
-    /* No asset may be full-panel any more: the 1024x600 background is what
-     * overflowed RAM_G once the fonts grew, and its replacement is the whole
-     * point of this layout. */
+    /* The dither is added at 1:1 with EVE_REPEAT to break the FRAMEBUFFER's
+     * own 8-bit quantisation, which contours a smooth ramp no matter how
+     * precise the source is. It must stay small and power-of-two so the wrap
+     * aligns, and it must never be scaled -- dithering a magnified source is
+     * what produced diagonal mottling on an earlier attempt. */
+    {
+        const SplashFlashAsset *d = &SPLASH_FLASH_ASSETS[SPLASH_FA_DITHER];
+        expect(d->fmt == EVE_L8, "dither must be L8");
+        expect(d->w == d->h, "dither tile must be square to tile cleanly");
+        expect((d->w != 0U) && (0U == (d->w & (uint16_t)(d->w - 1U))),
+               "dither tile edge must be a power of two for EVE_REPEAT to align");
+        expect(d->w <= 128U, "dither tile must stay small -- it is drawn 1:1, not scaled");
+    }
+
+    /* No asset may be full-panel: the 1024x600 background is what overflowed
+     * RAM_G once the fonts grew, and removing it is the point of this layout. */
     for (size_t ai = 0; ai < count; ai++)
     {
         expect(!((SPLASH_FLASH_ASSETS[ai].w >= 1024U) && (SPLASH_FLASH_ASSETS[ai].h >= 600U)),

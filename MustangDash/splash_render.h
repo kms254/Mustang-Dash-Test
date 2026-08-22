@@ -38,6 +38,11 @@
  * fails its staging spot-check is skipped for the session; there is no
  * flash fallback. */
 
+/* Candidate background materials, compared on glass with `mat a|b|c` rather
+ * than one flash cycle each. A machined finish is a judgement call that a
+ * scaled-down mock-up gets wrong -- the first attempt read as texture in a
+ * preview and as BUBBLES on the panel -- so the comparison belongs on the
+ * hardware. The losers come out once one is chosen. */
 struct ThemeDesc
 {
     /* Background, in two layers of very different spatial frequency --
@@ -46,7 +51,6 @@ struct ThemeDesc
      * one cluster-wide field, stretched BILINEAR. Neither can substitute
      * for the other: upscaling the tile destroys the machining, and ASTC
      * quantises the glow into visible blocks. */
-    const SplashFlashAsset *metal;                     /* seamless tile, tiled over the panel */
     const SplashFlashAsset *glow[DASH_PANEL_COUNT];    /* per-panel slice, indexed by panel id */
     const SplashFlashAsset *side;  /* chrome bars, drawn left+right */
     const SplashFlashAsset *line;  /* accent line, revealed from center */
@@ -61,8 +65,7 @@ struct ThemeDesc
 
 static const ThemeDesc THEMES[1] = {
     /* SPLASH_THEME_BLUE -- the only theme that ships (splash_config.h) */
-    { SPLASH_FA(SPLASH_FA_METAL_TILE),
-      { SPLASH_FA(SPLASH_FA_GLOW_CENTER),
+    {       { SPLASH_FA(SPLASH_FA_GLOW_CENTER),
         SPLASH_FA(SPLASH_FA_GLOW_LEFT),
         SPLASH_FA(SPLASH_FA_GLOW_RIGHT) },
       SPLASH_FA(SPLASH_FA_BARS_CHROME),
@@ -116,8 +119,8 @@ static_assert((DASH_PANEL_CENTER == 0) && (DASH_PANEL_LEFT == 1) && (DASH_PANEL_
 
 /* centre panel: background + every drawn asset, in staging order */
 #define SPLASH_RAMG_BASE      ((DASH_FONTS_RAMG_TOTAL + 63UL) & ~63UL)
-#define SPLASH_RAMG_C1 SPLASH_STAGE_NEXT(SPLASH_RAMG_BASE, SPLASH_FA_METAL_TILE_SIZE)
-#define SPLASH_RAMG_C2 SPLASH_STAGE_NEXT(SPLASH_RAMG_C1, SPLASH_FA_GLOW_CENTER_SIZE)
+#define SPLASH_RAMG_C0 SPLASH_STAGE_NEXT(SPLASH_RAMG_BASE, SPLASH_FA_DITHER_SIZE)
+#define SPLASH_RAMG_C2 SPLASH_STAGE_NEXT(SPLASH_RAMG_C0, SPLASH_FA_GLOW_CENTER_SIZE)
 #define SPLASH_RAMG_C3 SPLASH_STAGE_NEXT(SPLASH_RAMG_C2, SPLASH_FA_EMBLEM_SIZE)
 #define SPLASH_RAMG_C4 SPLASH_STAGE_NEXT(SPLASH_RAMG_C3, SPLASH_FA_WORDMARK_SIZE)
 #define SPLASH_RAMG_C5 SPLASH_STAGE_NEXT(SPLASH_RAMG_C4, SPLASH_FA_BARS_CHROME_SIZE)
@@ -125,8 +128,8 @@ static_assert((DASH_PANEL_CENTER == 0) && (DASH_PANEL_LEFT == 1) && (DASH_PANEL_
 #define SPLASH_RAMG_CENTER_TOP SPLASH_STAGE_NEXT(SPLASH_RAMG_C6, SPLASH_FA_YEAR_BLUE_SIZE)
 
 /* a side panel: background only */
-#define SPLASH_RAMG_S1 SPLASH_STAGE_NEXT(SPLASH_RAMG_BASE, SPLASH_FA_METAL_TILE_SIZE)
-#define SPLASH_RAMG_SIDE_TOP SPLASH_STAGE_NEXT(SPLASH_RAMG_S1, SPLASH_FA_GLOW_LEFT_SIZE)
+#define SPLASH_RAMG_S0 SPLASH_STAGE_NEXT(SPLASH_RAMG_BASE, SPLASH_FA_DITHER_SIZE)
+#define SPLASH_RAMG_SIDE_TOP SPLASH_STAGE_NEXT(SPLASH_RAMG_S0, SPLASH_FA_GLOW_LEFT_SIZE)
 
 static_assert(SPLASH_RAMG_CENTER_TOP <= (unsigned long)EVE_RAM_G_SIZE,
               "RAM_G overflow on the CENTRE panel: dash fonts plus the staged splash "
@@ -160,11 +163,12 @@ static uint32_t g_splash_ramg[SPLASH_FA_COUNT];
  * only when a readback verifiably lied or RAM_G would overflow. */
 bool splash_stage_theme_to_ramg(const ThemeDesc *theme, uint8_t panel)
 {
+    /* dither + glow + 5 centre-only artwork assets */
     const SplashFlashAsset *set[7];
     uint8_t n = 0U;
     /* Every panel carries the background so the cluster lights as one
      * surface; only the centre carries the artwork drawn on top of it. */
-    set[n++] = theme->metal;
+    set[n++] = SPLASH_FA(SPLASH_FA_DITHER);
     set[n++] = theme->glow[panel < DASH_PANEL_COUNT ? panel : DASH_PANEL_CENTER];
     if (DASH_PANEL_CENTER == panel)
     {
@@ -254,11 +258,12 @@ void draw_flash_asset(const SplashFlashAsset *a, int16_t x, int16_t y)
     EVE_cmd_dl(DL_END);
 }
 
-/* How strongly the machining reads over the lit field. The tile is ADDED
- * (EVE has no multiply blend), so this scales the added highlight rather
- * than mixing two images -- which is also the physically sensible model: a
- * specular highlight adds light, it does not attenuate what is under it. */
-#define SPLASH_METAL_STRENGTH 200U
+/* Peak colour of the lit field, painted through the L8 glow mask. */
+#define SPLASH_GLOW_RGB 0x0D316AUL
+
+/* Dither amplitude, in output levels. Big enough to break an 8-bit contour,
+ * small enough not to read as grain. */
+#define SPLASH_DITHER_A 3U
 
 /* Full-screen background in two layers.
  *
@@ -276,11 +281,15 @@ void draw_splash_background(const ThemeDesc *theme, uint8_t panel, uint8_t alpha
 {
     const uint8_t idx = (panel < DASH_PANEL_COUNT) ? panel : DASH_PANEL_CENTER;
     const SplashFlashAsset *glow = theme->glow[idx];
-    const SplashFlashAsset *metal = theme->metal;
 
     const uint32_t glow_src = splash_bitmap_source(glow);
     if (0UL != glow_src)
     {
+        /* L8 supplies ALPHA only; the colour is set here, so the ramp has
+         * 256 levels rather than the 32 an RGB565 blue channel would give.
+         * This is the peak of the lit field -- World Rally Blue Mica, run
+         * brighter than the paint chip because a screen emits. */
+        EVE_color_rgb(SPLASH_GLOW_RGB);
         EVE_cmd_dl(COLOR_A(alpha));
         EVE_cmd_setbitmap(glow_src, (uint16_t)glow->fmt, glow->w, glow->h);
         EVE_cmd_dl(BITMAP_SIZE(EVE_BILINEAR, EVE_BORDER, EVE_BORDER,
@@ -297,20 +306,31 @@ void draw_splash_background(const ThemeDesc *theme, uint8_t panel, uint8_t alpha
         EVE_cmd_dl(CMD_SETMATRIX);
     }
 
-    const uint32_t metal_src = splash_bitmap_source(metal);
-    if (0UL != metal_src)
+    /* MATERIAL_NONE draws the lit field alone. Research on shipping premium
+     * clusters (Taycan et al) is one-sided: they are plain black, and a
+     * patterned cluster background is the aftermarket tell. Real carbon goes
+     * on the bezel, which is where this car has it. */
+    /* Output-resolution dither, drawn 1:1 so it is never magnified. This is
+     * what actually removes the banding: the framebuffer is 8-bit, so a smooth
+     * ramp contours no matter how precise the source asset is. */
+    const SplashFlashAsset *dith = SPLASH_FA(SPLASH_FA_DITHER);
+    const uint32_t dith_src = splash_bitmap_source(dith);
+    if (0UL != dith_src)
     {
-        EVE_cmd_dl(COLOR_A((uint8_t)(((uint16_t)alpha * SPLASH_METAL_STRENGTH) / 255U)));
-        EVE_cmd_dl(BLEND_FUNC(EVE_SRC_ALPHA, EVE_ONE)); /* additive: highlights ADD to the field */
-        EVE_cmd_setbitmap(metal_src, (uint16_t)metal->fmt, metal->w, metal->h);
+        EVE_color_rgb(0xFFFFFFUL);
+        EVE_cmd_dl(COLOR_A((uint8_t)(((uint16_t)alpha * SPLASH_DITHER_A) / 255U)));
+        EVE_cmd_dl(BLEND_FUNC(EVE_SRC_ALPHA, EVE_ONE));
+        EVE_cmd_setbitmap(dith_src, (uint16_t)dith->fmt, dith->w, dith->h);
         EVE_cmd_dl(BITMAP_SIZE(EVE_NEAREST, EVE_REPEAT, EVE_REPEAT,
                                (uint16_t)(EVE_HSIZE & 0x1FFU), (uint16_t)(EVE_VSIZE & 0x1FFU)));
         EVE_cmd_dl(BITMAP_SIZE_H((uint16_t)EVE_HSIZE, (uint16_t)EVE_VSIZE));
         EVE_cmd_dl(DL_BEGIN | EVE_BITMAPS);
         EVE_cmd_dl(VERTEX2F(0, 0));
         EVE_cmd_dl(DL_END);
-        EVE_cmd_dl(BLEND_FUNC(EVE_SRC_ALPHA, EVE_ONE_MINUS_SRC_ALPHA)); /* restore the default */
+        EVE_cmd_dl(BLEND_FUNC(EVE_SRC_ALPHA, EVE_ONE_MINUS_SRC_ALPHA));
     }
+
+
 }
 
 /* Emblem with scale-about-center: drawn in a 220 px window so the ease-out
