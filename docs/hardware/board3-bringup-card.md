@@ -108,6 +108,18 @@ future re-walk.
   slave is rated 30 MHz, so 25 is 83% of spec and the next reachable rung
   is 50. Note Board3 runs clean at 25 where the Teensy loom failed read
   integrity at 24 — the old numbers described the wiring, not the clock.
+- **Splash across all three panels — DONE 2026-08-22, verified on glass.**
+  All three light together on the first splash frame; the accent line and the
+  year are back (they had been silently dropped since 22 July). Background is
+  textureless — a lit field plus a 1:1 dither — after five textured candidates
+  were compared on the real cluster with a temporary `mat` bench command and
+  all rejected; that scaffolding is gone now the design is locked. **`splash`
+  replays the boot animation on demand** -- 2 s at power-up then a crossfade
+  is no time to judge an animation, and a power cycle per look is worse.
+  Tuning constants, both settled on glass and both in `tools/make_material.py`:
+  `GLOW_SPREAD_X` (0.34, as a fraction of the WHOLE cluster) and
+  `SPLASH_DITHER_A` (3, in `splash_render.h`) if contour banding ever shows in
+  the falloff.
 - **CAN1 first bring-up needs H1 closed** — the order contains the headers but
   **no 2.54 mm shunts** (JLC doesn't supply them). Put shunts in the parts
   order or confirm drawer stock *before* the boards arrive.

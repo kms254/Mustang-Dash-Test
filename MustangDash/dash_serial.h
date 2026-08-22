@@ -76,6 +76,12 @@ typedef enum {
                          * not a diagnostic. Caller-applied: every line it
                          * prints comes from hardware this layer cannot
                          * reach. */
+    DASH_CMD_SPLASH,    /* bench: replay the boot splash on demand. It runs
+                         * for 2 s at power-up and then crossfades away, which
+                         * is no time to judge an animation -- and a power
+                         * cycle per look is worse. Same reasoning as
+                         * TT_SWEEP. Caller-applied: the timeline and the
+                         * panels live above this layer. */
 } DashCmdKind;
 
 typedef enum {
@@ -112,7 +118,7 @@ typedef enum {
 
 #define DASH_HELP_TEXT \
     "commands: set <ch> <v> | clear <ch> | mode track|street | " \
-    "circuit hpr|sweep | " \
+    "circuit hpr|sweep | splash | " \
     "alarm oilp|oilt|clt|off | tt <1-8|all> on|off | tt sweep | odo set <miles> | sim on|off | bright <0-100%> | status | diag | help | cantest | " \
     "flashwipe really " \
     "(ch: rpm speed ect oilt oilp volts fuel delta lap last best ambient " \
@@ -407,6 +413,11 @@ static inline DashSerialErr dash_parse_line(const char *line, DashCommand *out)
 
     if (dash_serial_ieq_(tok[0], "diag")) {
         out->kind = DASH_CMD_DIAG;
+        return DASH_ERR_NONE;
+    }
+
+    if (dash_serial_ieq_(tok[0], "splash")) {
+        out->kind = DASH_CMD_SPLASH;
         return DASH_ERR_NONE;
     }
 
