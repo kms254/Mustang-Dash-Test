@@ -1844,7 +1844,19 @@ void handle_serial_line(const char *line)
                           g_panel_ok[2] ? "ok" : "--");
             break;
         }
-        case DASH_CMD_MAT:
+        case DASH_CMD_SPLASH:
+        /* Replay the boot animation. Assets are already staged in every
+         * panel's RAM_G from boot, so this is only the timeline again; it
+         * blocks for the splash plus the crossfade and lands back on the
+         * dash exactly as a power-up does. */
+        Serial.println(F("ok splash"));
+        if (dash_select_panel(DASH_PANEL_CENTER))
+        {
+            run_splash(&THEMES[g_theme]);
+        }
+        break;
+
+    case DASH_CMD_MAT:
         /* Hold the splash background on every panel so a machined finish can
          * actually be judged. The 2 s splash is not long enough to look at a
          * surface, and a scaled-down preview misleads -- which is how the

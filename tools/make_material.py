@@ -64,6 +64,15 @@ SWIRL_RADIUS = 26  # disc radius; > spacing/2 so discs overlap, as real jeweling
 
 # ---- glow -------------------------------------------------------------
 GLOW_DIV = 2  # glow authored at 1/2 scale, stretched back with BILINEAR
+
+# Horizontal spread of the hotspot, as a fraction of the WHOLE CLUSTER width --
+# not of one panel, because the point is a single light source seen across
+# three screens. At 0.07 the falloff died inside the centre panel and the sides
+# were lit only by the vertical term; 0.245 puts roughly half the peak at the
+# sides' inner edges and near-black at their outer ones, which is what reads as
+# one sweep rather than one lit panel between two dim ones.
+GLOW_SPREAD_X = 0.34
+GLOW_SPREAD_Y = 0.62  # as a fraction of panel height
 GLOW_W, GLOW_H = PANEL_W // GLOW_DIV, PANEL_H // GLOW_DIV
 
 
@@ -77,7 +86,7 @@ def cluster_glow():
     w, h = CLUSTER_W // GLOW_DIV, PANEL_H // GLOW_DIV
     y, x = np.mgrid[0:h, 0:w]
     hx, hy = w / 2.0, h * 0.10
-    sx, sy = (PANEL_W / GLOW_DIV) * 0.115 * 1.9, h * 0.62
+    sx, sy = w * GLOW_SPREAD_X, h * GLOW_SPREAD_Y
     g = 86.0 * np.exp(-(((x - hx) / sx) ** 2 + ((y - hy) / sy) ** 2))
     g += 16.0 * np.clip(1.0 - (y / float(h)) * 1.35, 0.0, None)
     return np.clip(g, 0, 255)
