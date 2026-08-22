@@ -40,37 +40,109 @@
 
 struct ThemeDesc
 {
-    const SplashFlashAsset *bg;    /* 1024x600 ASTC (4x4 blue/red, 6x6 checkered), drawn native 1:1 */
-    const SplashFlashAsset *side;  /* chrome bars or checker blocks, drawn left+right */
+    /* Background, in two layers of very different spatial frequency --
+     * tools/make_material.py has the full rationale. The tile is machined
+     * metal drawn REPEAT at native resolution; the glow is a tiny slice of
+     * one cluster-wide field, stretched BILINEAR. Neither can substitute
+     * for the other: upscaling the tile destroys the machining, and ASTC
+     * quantises the glow into visible blocks. */
+    const SplashFlashAsset *metal;                     /* seamless tile, tiled over the panel */
+    const SplashFlashAsset *glow[DASH_PANEL_COUNT];    /* per-panel slice, indexed by panel id */
+    const SplashFlashAsset *side;  /* chrome bars, drawn left+right */
     const SplashFlashAsset *line;  /* accent line, revealed from center */
     const SplashFlashAsset *year;  /* "1965" */
-    const SplashFlashAsset *strip; /* checkered only: full-width edge strip */
+    const SplashFlashAsset *strip; /* unused since the checkered theme retired */
     bool has_strip;
-    int16_t side_y; /* bars sit at y 202, checker blocks at y 198 */
-    int16_t line_y; /* line canvas at y 420 (blue/red) or y 440 (checkered) */
+    int16_t side_y; /* bars sit at y 202 */
+    int16_t line_y; /* line canvas at y 420 */
 };
 
 #define SPLASH_FA(idx) (&SPLASH_FLASH_ASSETS[idx])
 
-static const ThemeDesc THEMES[3] = {
-    /* SPLASH_THEME_BLUE */
-    { SPLASH_FA(SPLASH_FA_BG_BLUE), SPLASH_FA(SPLASH_FA_BARS_CHROME),
+static const ThemeDesc THEMES[1] = {
+    /* SPLASH_THEME_BLUE -- the only theme that ships (splash_config.h) */
+    { SPLASH_FA(SPLASH_FA_METAL_TILE),
+      { SPLASH_FA(SPLASH_FA_GLOW_CENTER),
+        SPLASH_FA(SPLASH_FA_GLOW_LEFT),
+        SPLASH_FA(SPLASH_FA_GLOW_RIGHT) },
+      SPLASH_FA(SPLASH_FA_BARS_CHROME),
       SPLASH_FA(SPLASH_FA_LINE_BLUE), SPLASH_FA(SPLASH_FA_YEAR_BLUE),
       nullptr, false, SPLASH_BAR_Y, SPLASH_LINE_Y },
-    /* SPLASH_THEME_RED */
-    { SPLASH_FA(SPLASH_FA_BG_RED), SPLASH_FA(SPLASH_FA_BARS_CHROME),
-      SPLASH_FA(SPLASH_FA_LINE_RED), SPLASH_FA(SPLASH_FA_YEAR_RED),
-      nullptr, false, SPLASH_BAR_Y, SPLASH_LINE_Y },
-    /* SPLASH_THEME_CHECKERED */
-    { SPLASH_FA(SPLASH_FA_BG_CHECKERED), SPLASH_FA(SPLASH_FA_CHECKER_BLOCK),
-      SPLASH_FA(SPLASH_FA_CHECKER_LINE), SPLASH_FA(SPLASH_FA_YEAR_CHECKERED),
-      SPLASH_FA(SPLASH_FA_CHECKER_STRIP), true,
-      SPLASH_CBLOCK_Y, SPLASH_CLINE_Y },
 };
 
-/* THEMES[] rows are positional: the theme id doubles as the array index. */
-static_assert((SPLASH_THEME_BLUE == 0) && (SPLASH_THEME_RED == 1) && (SPLASH_THEME_CHECKERED == 2),
-              "THEMES[] rows are ordered blue, red, checkered and indexed by the SPLASH_THEME_* values");
+/* THEMES[] rows are positional: the theme id doubles as the array index.
+ * The glow[] rows are ordered by PANEL id, not by physical left-to-right --
+ * DASH_PANEL_CENTER is 0 -- so the table reads center, left, right. */
+static_assert(SPLASH_THEME_BLUE == 0,
+              "THEMES[] is indexed by the SPLASH_THEME_* values");
+static_assert((DASH_PANEL_CENTER == 0) && (DASH_PANEL_LEFT == 1) && (DASH_PANEL_RIGHT == 2),
+              "ThemeDesc::glow[] is indexed by panel id; reorder it if the panel ids move");
+
+/* ---- RAM_G budget, checked at BUILD time --------------------------------
+ *
+ * This budget overflowed silently for a month (2026-07-22 to 2026-08-21).
+ * The dash fonts grew in an unrelated commit -- DF_MID gained A-Z so a lap
+ * flash could spell BEST -- and the splash's last two assets stopped
+ * fitting. The only evidence was a boot banner that loses a race with CDC
+ * enumeration, so the blue splash played without its accent line or its
+ * year on every single boot and nobody saw a thing. The comment describing
+ * the budget still said "~285 KB" of fonts, which is what anyone checking
+ * on paper would have believed.
+ *
+ * Every number involved is a compile-time constant, including the decoded
+ * font sizes, so the check belongs here rather than in a printf. If this
+ * fires, either the fonts grew or an asset did; the fix is to find the
+ * space, not to raise the ceiling.
+ *
+ * Layout mirrors what splash_stage_theme_to_ramg() actually does: fonts
+ * from address 0, then the theme 64-byte aligned above them, in staging
+ * order. The centre panel is the worst case because it alone carries the
+ * artwork on top of the background. */
+
+/* one font instance: 148-byte metric block + inflated glyphs, 4-byte packed */
+#define DASH_FONT_RAMG(glyph_bytes) ((148UL + (unsigned long)(glyph_bytes) + 3UL) & ~3UL)
+#define DASH_FONTS_RAMG_TOTAL                    \
+    (DASH_FONT_RAMG(DASH_FONT_HERO_GLYPH_BYTES)  \
+     + DASH_FONT_RAMG(DASH_FONT_BIG_GLYPH_BYTES) \
+     + DASH_FONT_RAMG(DASH_FONT_MID_GLYPH_BYTES) \
+     + DASH_FONT_RAMG(DASH_FONT_VAL_GLYPH_BYTES) \
+     + DASH_FONT_RAMG(DASH_FONT_SMALL_GLYPH_BYTES) \
+     + DASH_FONT_RAMG(DASH_FONT_TITLE_GLYPH_BYTES) \
+     + DASH_FONT_RAMG(DASH_FONT_LABEL_GLYPH_BYTES) \
+     + DASH_FONT_RAMG(DASH_FONT_TINY_GLYPH_BYTES) \
+     + DASH_FONT_RAMG(DASH_FONT_LAP_GLYPH_BYTES))
+
+#define SPLASH_STAGE_NEXT(base, size) ((((base) + (unsigned long)(size)) + 63UL) & ~63UL)
+
+/* centre panel: background + every drawn asset, in staging order */
+#define SPLASH_RAMG_BASE      ((DASH_FONTS_RAMG_TOTAL + 63UL) & ~63UL)
+#define SPLASH_RAMG_C1 SPLASH_STAGE_NEXT(SPLASH_RAMG_BASE, SPLASH_FA_METAL_TILE_SIZE)
+#define SPLASH_RAMG_C2 SPLASH_STAGE_NEXT(SPLASH_RAMG_C1, SPLASH_FA_GLOW_CENTER_SIZE)
+#define SPLASH_RAMG_C3 SPLASH_STAGE_NEXT(SPLASH_RAMG_C2, SPLASH_FA_EMBLEM_SIZE)
+#define SPLASH_RAMG_C4 SPLASH_STAGE_NEXT(SPLASH_RAMG_C3, SPLASH_FA_WORDMARK_SIZE)
+#define SPLASH_RAMG_C5 SPLASH_STAGE_NEXT(SPLASH_RAMG_C4, SPLASH_FA_BARS_CHROME_SIZE)
+#define SPLASH_RAMG_C6 SPLASH_STAGE_NEXT(SPLASH_RAMG_C5, SPLASH_FA_LINE_BLUE_SIZE)
+#define SPLASH_RAMG_CENTER_TOP SPLASH_STAGE_NEXT(SPLASH_RAMG_C6, SPLASH_FA_YEAR_BLUE_SIZE)
+
+/* a side panel: background only */
+#define SPLASH_RAMG_S1 SPLASH_STAGE_NEXT(SPLASH_RAMG_BASE, SPLASH_FA_METAL_TILE_SIZE)
+#define SPLASH_RAMG_SIDE_TOP SPLASH_STAGE_NEXT(SPLASH_RAMG_S1, SPLASH_FA_GLOW_LEFT_SIZE)
+
+static_assert(SPLASH_RAMG_CENTER_TOP <= (unsigned long)EVE_RAM_G_SIZE,
+              "RAM_G overflow on the CENTRE panel: dash fonts plus the staged splash "
+              "theme exceed 1 MiB. Assets staged past the ceiling are skipped at boot "
+              "and the splash renders incomplete. Shrink the fonts or the assets -- see "
+              "tools/make_material.py for how the background was cut from 614400 B to ~19 KB.");
+
+static_assert(SPLASH_RAMG_SIDE_TOP <= (unsigned long)EVE_RAM_G_SIZE,
+              "RAM_G overflow on a SIDE panel: dash fonts plus the staged background "
+              "exceed 1 MiB.");
+
+/* The glow slices are interchangeable per panel, so the centre-panel figure
+ * above is only the true worst case while they are the same size. */
+static_assert((SPLASH_FA_GLOW_CENTER_SIZE == SPLASH_FA_GLOW_LEFT_SIZE)
+                  && (SPLASH_FA_GLOW_CENTER_SIZE == SPLASH_FA_GLOW_RIGHT_SIZE),
+              "glow slices differ in size; the RAM_G budget above assumes they do not");
 
 static const uint32_t CROSSFADE_MS = 400UL;
 
@@ -86,19 +158,21 @@ static uint32_t g_splash_ramg[SPLASH_FA_COUNT];
  * pack so a corrupted SPI write can never silently feed the renderer.
  * Returns false -- leaving the affected asset unstaged and skipped --
  * only when a readback verifiably lied or RAM_G would overflow. */
-bool splash_stage_theme_to_ramg(const ThemeDesc *theme)
+bool splash_stage_theme_to_ramg(const ThemeDesc *theme, uint8_t panel)
 {
     const SplashFlashAsset *set[7];
     uint8_t n = 0U;
-    set[n++] = SPLASH_FA(SPLASH_FA_EMBLEM);
-    set[n++] = SPLASH_FA(SPLASH_FA_WORDMARK);
-    set[n++] = theme->bg;
-    set[n++] = theme->side;
-    set[n++] = theme->line;
-    set[n++] = theme->year;
-    if (theme->has_strip)
+    /* Every panel carries the background so the cluster lights as one
+     * surface; only the centre carries the artwork drawn on top of it. */
+    set[n++] = theme->metal;
+    set[n++] = theme->glow[panel < DASH_PANEL_COUNT ? panel : DASH_PANEL_CENTER];
+    if (DASH_PANEL_CENTER == panel)
     {
-        set[n++] = theme->strip;
+        set[n++] = SPLASH_FA(SPLASH_FA_EMBLEM);
+        set[n++] = SPLASH_FA(SPLASH_FA_WORDMARK);
+        set[n++] = theme->side;
+        set[n++] = theme->line;
+        set[n++] = theme->year;
     }
 
     uint32_t addr = (g_ramg_fonts_end + 63UL) & ~63UL;
@@ -111,9 +185,16 @@ bool splash_stage_theme_to_ramg(const ThemeDesc *theme)
         const uint32_t pack_off = a->addr - SPLASH_FLASH_BASE;
         if ((addr + len) > (uint32_t)EVE_RAM_G_SIZE)
         {
-            Serial.printf("Splash staging OVERFLOW at %s -> asset skipped\r\n", a->name);
+            /* continue, not break: breaking here silently took every asset
+             * AFTER the oversized one with it. That is how the blue theme
+             * lost both its accent line and the year for a month when only
+             * the line actually overflowed. A later, smaller asset may still
+             * fit, and one that does not says so on its own line. */
+            Serial.printf("Splash staging OVERFLOW at %s (%lu B, %lu free) -> asset skipped\r\n",
+                          a->name, (unsigned long)len,
+                          (unsigned long)((uint32_t)EVE_RAM_G_SIZE - addr));
             all_ok = false;
-            break;
+            continue;
         }
         EVE_memWrite_flash_buffer(addr, &splash_flash_pack[pack_off], len);
 
@@ -142,8 +223,8 @@ bool splash_stage_theme_to_ramg(const ThemeDesc *theme)
         addr = (addr + len + 63UL) & ~63UL;
     }
 
-    Serial.printf("Splash theme staged to RAM_G: %u assets, top %lu (headroom %lu)\r\n",
-                  (unsigned)n, (unsigned long)addr,
+    Serial.printf("Splash staged to RAM_G panel %u: %u assets, top %lu (headroom %lu)\r\n",
+                  (unsigned)panel, (unsigned)n, (unsigned long)addr,
                   (unsigned long)((uint32_t)EVE_RAM_G_SIZE - addr));
     return all_ok;
 }
@@ -173,12 +254,63 @@ void draw_flash_asset(const SplashFlashAsset *a, int16_t x, int16_t y)
     EVE_cmd_dl(DL_END);
 }
 
-/* Full-screen background: native 1024x600 ASTC from its staged RAM_G
- * copy, drawn 1:1 at the origin -- no scale transform needed anymore. */
-void draw_splash_background(const SplashFlashAsset *bg, uint8_t alpha)
+/* How strongly the machining reads over the lit field. The tile is ADDED
+ * (EVE has no multiply blend), so this scales the added highlight rather
+ * than mixing two images -- which is also the physically sensible model: a
+ * specular highlight adds light, it does not attenuate what is under it. */
+#define SPLASH_METAL_STRENGTH 200U
+
+/* Full-screen background in two layers.
+ *
+ *   glow  -- a 64x37 slice of one cluster-wide field, magnified 16x with
+ *            BILINEAR. Authored small on purpose: a smooth gradient stored
+ *            as a full-size ASTC bitmap comes back quantised into blocks,
+ *            whereas a stretched small one is smooth by construction.
+ *   metal -- a 128x128 seamless machined tile at NATIVE resolution, drawn
+ *            with EVE_REPEAT so one tile covers the panel. Never scaled:
+ *            magnifying it would destroy the machining it exists to show.
+ *
+ * BITMAP_SIZE carries only 9 bits of width/height, so a 1024x600 draw needs
+ * BITMAP_SIZE_H alongside it for the high bits. */
+void draw_splash_background(const ThemeDesc *theme, uint8_t panel, uint8_t alpha)
 {
-    EVE_cmd_dl(COLOR_A(alpha));
-    draw_flash_asset(bg, 0, 0);
+    const uint8_t idx = (panel < DASH_PANEL_COUNT) ? panel : DASH_PANEL_CENTER;
+    const SplashFlashAsset *glow = theme->glow[idx];
+    const SplashFlashAsset *metal = theme->metal;
+
+    const uint32_t glow_src = splash_bitmap_source(glow);
+    if (0UL != glow_src)
+    {
+        EVE_cmd_dl(COLOR_A(alpha));
+        EVE_cmd_setbitmap(glow_src, (uint16_t)glow->fmt, glow->w, glow->h);
+        EVE_cmd_dl(BITMAP_SIZE(EVE_BILINEAR, EVE_BORDER, EVE_BORDER,
+                               (uint16_t)(EVE_HSIZE & 0x1FFU), (uint16_t)(EVE_VSIZE & 0x1FFU)));
+        EVE_cmd_dl(BITMAP_SIZE_H((uint16_t)EVE_HSIZE, (uint16_t)EVE_VSIZE));
+        EVE_cmd_dl(CMD_LOADIDENTITY);
+        EVE_cmd_scale((long)(((long)EVE_HSIZE << 16) / (long)glow->w),
+                      (long)(((long)EVE_VSIZE << 16) / (long)glow->h));
+        EVE_cmd_dl(CMD_SETMATRIX);
+        EVE_cmd_dl(DL_BEGIN | EVE_BITMAPS);
+        EVE_cmd_dl(VERTEX2F(0, 0));
+        EVE_cmd_dl(DL_END);
+        EVE_cmd_dl(CMD_LOADIDENTITY);
+        EVE_cmd_dl(CMD_SETMATRIX);
+    }
+
+    const uint32_t metal_src = splash_bitmap_source(metal);
+    if (0UL != metal_src)
+    {
+        EVE_cmd_dl(COLOR_A((uint8_t)(((uint16_t)alpha * SPLASH_METAL_STRENGTH) / 255U)));
+        EVE_cmd_dl(BLEND_FUNC(EVE_SRC_ALPHA, EVE_ONE)); /* additive: highlights ADD to the field */
+        EVE_cmd_setbitmap(metal_src, (uint16_t)metal->fmt, metal->w, metal->h);
+        EVE_cmd_dl(BITMAP_SIZE(EVE_NEAREST, EVE_REPEAT, EVE_REPEAT,
+                               (uint16_t)(EVE_HSIZE & 0x1FFU), (uint16_t)(EVE_VSIZE & 0x1FFU)));
+        EVE_cmd_dl(BITMAP_SIZE_H((uint16_t)EVE_HSIZE, (uint16_t)EVE_VSIZE));
+        EVE_cmd_dl(DL_BEGIN | EVE_BITMAPS);
+        EVE_cmd_dl(VERTEX2F(0, 0));
+        EVE_cmd_dl(DL_END);
+        EVE_cmd_dl(BLEND_FUNC(EVE_SRC_ALPHA, EVE_ONE_MINUS_SRC_ALPHA)); /* restore the default */
+    }
 }
 
 /* Emblem with scale-about-center: drawn in a 220 px window so the ease-out
@@ -229,7 +361,7 @@ void draw_splash_elements(const ThemeDesc *theme, uint32_t now_ms, uint8_t globa
 
     EVE_color_rgb(0xFFFFFFUL); /* draw bitmaps untinted */
 
-    draw_splash_background(theme->bg, global_alpha);
+    draw_splash_background(theme, DASH_PANEL_CENTER, global_alpha);
 
     /* bars / checker blocks slide in from off-screen, fading up */
     const float bars_eased = splash_bars_eased(now_ms);
@@ -320,6 +452,11 @@ void run_splash(const ThemeDesc *theme)
         draw_splash_elements(theme, t, 255U);
         eve_frame_end();
 
+        /* the sides carry the background for the whole animation, so the
+         * cluster lights as one surface rather than one panel between two
+         * black ones; they reselect the centre before returning */
+        dash_sides_frame(0U, theme, 255U, 0x000000UL);
+
         if (0UL == frames)
         {
             /* first frame is on screen -- now it is safe to light the panel */
@@ -352,7 +489,7 @@ void run_splash(const ThemeDesc *theme)
         /* the sides fade in from black on this same alpha ramp, driven by
          * the one shared crossfade (R8/KTD9) -- never their own timers;
          * dash_sides_frame() reselects the center before returning */
-        dash_sides_frame(in_a);
+        dash_sides_frame(in_a, theme, out_a, COLOR_BG);
 
         if (ft >= CROSSFADE_MS) { break; }
     }

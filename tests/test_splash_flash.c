@@ -159,16 +159,59 @@ int main(void)
      * firmware theme table wires up by index) */
     expect(SPLASH_FLASH_ASSETS[SPLASH_FA_EMBLEM].addr == SPLASH_FA_EMBLEM_ADDR,
            "SPLASH_FA_EMBLEM_ADDR must match the table");
-    expect(SPLASH_FLASH_ASSETS[SPLASH_FA_BG_BLUE].addr == SPLASH_FA_BG_BLUE_ADDR,
-           "SPLASH_FA_BG_BLUE_ADDR must match the table");
-    expect(SPLASH_FLASH_ASSETS[SPLASH_FA_BG_BLUE].fmt == EVE_ASTC_6X6 ||
-               SPLASH_FLASH_ASSETS[SPLASH_FA_BG_BLUE].fmt == EVE_ASTC_4X4,
-           "backgrounds must be ASTC 6x6 or 4x4 (quality range settled on the bench, 2026-07-21)");
+    expect(SPLASH_FLASH_ASSETS[SPLASH_FA_METAL_TILE].addr == SPLASH_FA_METAL_TILE_ADDR,
+           "SPLASH_FA_METAL_TILE_ADDR must match the table");
     expect(SPLASH_FLASH_ASSETS[SPLASH_FA_EMBLEM].fmt == EVE_ASTC_4X4,
            "alpha elements must be ASTC 4x4");
-    expect(SPLASH_FLASH_ASSETS[SPLASH_FA_BG_BLUE].w == 1024 &&
-           SPLASH_FLASH_ASSETS[SPLASH_FA_BG_BLUE].h == 600,
-           "backgrounds must be full-res 1024x600");
+
+    /* The background is two layers of different spatial frequency since
+     * 2026-08-21 (tools/make_material.py). Each invariant below is the
+     * property that makes its layer work, so a future edit that breaks one
+     * fails here rather than on glass.
+     *
+     * The metal tile is drawn with EVE_REPEAT at NATIVE resolution: it must
+     * be square and a power of two, or the wrap will not align to the panel
+     * and the machining will seam. It must stay 4x4 -- coarser blocks are
+     * what mushed the weave when this was one big bitmap. */
+    expect(SPLASH_FLASH_ASSETS[SPLASH_FA_METAL_TILE].fmt == EVE_ASTC_4X4,
+           "the metal tile must be ASTC 4x4 -- coarser blocks destroy the machining");
+    expect(SPLASH_FLASH_ASSETS[SPLASH_FA_METAL_TILE].w ==
+               SPLASH_FLASH_ASSETS[SPLASH_FA_METAL_TILE].h,
+           "the metal tile must be square to tile cleanly");
+    {
+        const uint16_t tw = SPLASH_FLASH_ASSETS[SPLASH_FA_METAL_TILE].w;
+        expect((tw != 0U) && (0U == (tw & (uint16_t)(tw - 1U))),
+               "the metal tile edge must be a power of two for EVE_REPEAT to align");
+    }
+
+    /* The three glow slices are stretched BILINEAR to fill a panel, and the
+     * RAM_G budget assert in splash_render.h assumes they are the same size.
+     * They must also stay SMALL: authoring the gradient tiny and magnifying
+     * it is what keeps it smooth instead of ASTC-quantised into blocks. */
+    expect((SPLASH_FLASH_ASSETS[SPLASH_FA_GLOW_LEFT].size ==
+                SPLASH_FLASH_ASSETS[SPLASH_FA_GLOW_CENTER].size)
+               && (SPLASH_FLASH_ASSETS[SPLASH_FA_GLOW_CENTER].size ==
+                   SPLASH_FLASH_ASSETS[SPLASH_FA_GLOW_RIGHT].size),
+           "glow slices must be equal in size -- the RAM_G budget assert assumes it");
+    for (size_t gi = 0; gi < 3U; gi++)
+    {
+        static const uint8_t glow_idx[3] = { SPLASH_FA_GLOW_LEFT,
+                                            SPLASH_FA_GLOW_CENTER,
+                                            SPLASH_FA_GLOW_RIGHT };
+        const SplashFlashAsset *g = &SPLASH_FLASH_ASSETS[glow_idx[gi]];
+        expect(g->w <= 128U && g->h <= 128U,
+               "a glow slice must stay small -- it is magnified, not drawn 1:1");
+        expect(g->fmt == EVE_ASTC_4X4, "glow slices must be ASTC 4x4");
+    }
+
+    /* No asset may be full-panel any more: the 1024x600 background is what
+     * overflowed RAM_G once the fonts grew, and its replacement is the whole
+     * point of this layout. */
+    for (size_t ai = 0; ai < count; ai++)
+    {
+        expect(!((SPLASH_FLASH_ASSETS[ai].w >= 1024U) && (SPLASH_FLASH_ASSETS[ai].h >= 600U)),
+               "no splash asset may be full-panel -- that is the RAM_G overflow this layout removed");
+    }
 
     if (failures == 0)
     {

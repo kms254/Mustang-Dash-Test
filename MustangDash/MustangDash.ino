@@ -759,7 +759,9 @@ void eve_frame_begin(uint32_t clear_rgb);
 void eve_frame_end(void);
 bool dash_select_panel(uint8_t idx);
 void dash_set_brightness(uint8_t duty);
-void dash_sides_frame(uint8_t alpha);
+struct ThemeDesc; /* splash_render.h, included below -- only the pointer is needed here */
+void dash_sides_frame(uint8_t alpha, const ThemeDesc *splash_bg, uint8_t bg_alpha,
+                      uint32_t clear_rgb);
 
 /* ---- attained SPI clock, read back from the hardware ----------------
  * DASH_SPI_RUN_HZ is a REQUEST. The peripheral rounds it DOWN to a
@@ -851,7 +853,7 @@ void setup(void)
     Serial.println();
     Serial.println(F("=== MustangDash / Riverdi triple dash (BT817 x3) on STM32 ==="));
     static const char *const kPanelNames[DASH_PANEL_COUNT] = { "CENTER", "LEFT", "RIGHT" };
-    Serial.printf("Splash theme: %u (0=blue 1=red 2=checkered)\r\n", (unsigned)g_theme);
+    Serial.printf("Splash theme: %u (0=blue; red/checkered retired 2026-08-21)\r\n", (unsigned)g_theme);
 #if defined(DASH_BOARD_BOARD3) && defined(HAL_QSPI_MODULE_ENABLED)
     board3_qspi_jedec_probe(); /* U2 smoke test -- the keep-fitted condition */
 #endif
@@ -1027,14 +1029,26 @@ void setup(void)
                       (unsigned)g_dl[2][0], (unsigned)g_dl[2][1]);
 
         Serial.printf("Boot: %lu ms to splash start\r\n", (unsigned long)(millis() - t_start));
-        if (splash_ok && dash_select_panel(DASH_PANEL_CENTER))
+        if (splash_ok)
         {
             const ThemeDesc *theme = &THEMES[g_theme];
-            /* Stage the theme MCU flash -> RAM_G (bulk SPI writes, 16-byte
+            /* Stage MCU flash -> RAM_G per panel (bulk SPI writes, 16-byte
              * readback spot-check per asset) -- see the rationale in
-             * splash_render.h. An asset that fails its check is skipped. */
-            (void)splash_stage_theme_to_ramg(theme);
-            run_splash(theme); /* 2000 ms animation, then the crossfade fades the sides in too (R8) */
+             * splash_render.h. Each panel has its own RAM_G, so each needs
+             * its own copy of the background; only the centre gets the
+             * artwork drawn on top. An asset that fails its check is skipped
+             * on that panel alone. */
+            for (uint8_t p = 0U; p < DASH_PANEL_COUNT; p++)
+            {
+                if (g_panel_ok[p] && dash_select_panel(p))
+                {
+                    (void)splash_stage_theme_to_ramg(theme, p);
+                }
+            }
+            if (dash_select_panel(DASH_PANEL_CENTER))
+            {
+                run_splash(theme); /* 2000 ms animation, then the crossfade fades the sides in too (R8) */
+            }
         }
 
         /* boot_complete (KTD9): from here the unified cluster brightness is
@@ -1213,7 +1227,7 @@ void loop(void)
         {
             dash_frame(now);
         }
-        dash_sides_frame(255U);
+        dash_sides_frame(255U, nullptr, 0U, COLOR_BG);
         g_fps_frames++;
     }
 
@@ -1316,7 +1330,16 @@ void dash_set_brightness(uint8_t duty)
  * takeover is center-only (R4). The first call lights the side backlights
  * so the R8 fade-in is visible (KTD9's boot carve-out); dead panels are
  * skipped (R9). Leaves the center selected for the caller. */
-void dash_sides_frame(uint8_t alpha)
+/* One frame on both side panels.
+ *
+ * `splash_bg` is non-null only while the splash owns the screen: the two
+ * sides carry the same cluster-wide background the centre does, so the whole
+ * dash lights as one surface instead of one lit panel between two black ones.
+ * During the crossfade both layers are live at once -- background fading out
+ * on bg_alpha, dash side content fading in on alpha -- which is why they have
+ * to share a single frame rather than being separate passes. */
+void dash_sides_frame(uint8_t alpha, const ThemeDesc *splash_bg, uint8_t bg_alpha,
+                      uint32_t clear_rgb)
 {
     static bool sides_lit = false;
     if (!sides_lit)
@@ -1335,8 +1358,16 @@ void dash_sides_frame(uint8_t alpha)
     {
         if (dash_select_panel(p))
         {
-            eve_frame_begin(COLOR_BG);
-            draw_side_content(p, g_dash.mode, alpha);
+            eve_frame_begin(clear_rgb);
+            if ((nullptr != splash_bg) && (0U != bg_alpha))
+            {
+                EVE_color_rgb(0xFFFFFFUL); /* bitmaps draw untinted */
+                draw_splash_background(splash_bg, p, bg_alpha);
+            }
+            if (0U != alpha)
+            {
+                draw_side_content(p, g_dash.mode, alpha);
+            }
             eve_frame_end();
         }
     }
