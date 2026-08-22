@@ -410,10 +410,20 @@ instantly when unplugged. Always ohm TP1/TP2 to TP3 with the cable seated
 and the panel attached BEFORE applying power; near 0 Ω means flip the cable.
 **Clock walk DONE 2026-08-21 — Board3 runs 25 MHz on all three panels**; see
 the SPI bullet under "Hardware truths" for the ladder, the request-vs-attained
-trap and the acceptance evidence. Still open on Board3: the
-U2 QSPI JEDEC banner line (the banner races CDC enumeration — 500 ms wait at
-the sketch's serial gate; monitor must be pre-attached), a formal odometer
-POR proof, and the CAN session (shunts in hand, transceivers on-board). Bench facts: the DC jack's switch
+trap and the acceptance evidence. **Two long-standing items closed 2026-08-22, both by the same move — putting the
+diagnostic behind a command instead of the boot banner.** The banner races CDC
+enumeration (500 ms wait at the sketch's serial gate), so anything printed only
+there was unreadable in practice. (1) **U2 QSPI JEDEC: `EF 40 19`, matching
+expectation**, now printed by `diag` on demand. (2) **Odometer POR proof —
+DONE, controlled**: `odo` recorded at 3218.8, power physically disconnected for
+~1 minute (COM12 confirmed gone from the bus, so residual charge cannot explain
+it), then 3221.1 on the cold boot. It went UP, not to zero — and zero is exactly
+what the RAM-shadow fallback would have returned, so the same test proves the
+CRC8 record commits, reloads on a cold boot, AND that the backend really is
+FRAM rather than the fallback. `lapn` reset 2 → 1 as designed: only the
+odometer persists, and seeing exactly one counter survive is itself
+corroboration. Still open on Board3: the CAN session (shunts in hand,
+transceivers on-board). Bench facts: the DC jack's switch
 pin (pad 2) is deliberately unconnected and reads floating junk with a plug
 inserted; the three TPs are lone 0.6 mm untented vias in the pocket between
 TERM2 and the MCU — probe F1/C38/corner mounting rings instead of fighting

@@ -120,6 +120,17 @@ future re-walk.
   `GLOW_SPREAD_X` (0.34, as a fraction of the WHOLE cluster) and
   `SPLASH_DITHER_A` (3, in `splash_render.h`) if contour banding ever shows in
   the falloff.
+- **Odometer POR — DONE 2026-08-22, on Board3's own FRAM (not the mule
+  breakout).** Controlled before/after: 3218.8 recorded, power physically
+  disconnected ~1 min with the USB CDC confirmed gone from the bus, 3221.1 on
+  the cold boot. Up, not zero. The RAM-shadow fallback would have returned
+  zero, so one test covers commit, cold reload, and that the backend is FRAM —
+  which the boot banner could never confirm, since it loses its race with CDC
+  enumeration. Hold the board off for **at least a minute**: a short blip can
+  leave SRAM alive on bulk-capacitor charge and prove nothing.
+- **U2 QSPI JEDEC — DONE 2026-08-22**: `EF 40 19`, matching expectation, read
+  via `diag`. It was never a hardware question; the ID was printed only in the
+  boot banner, which is unreadable in practice.
 - **CAN1 first bring-up needs H1 closed** — the order contains the headers but
   **no 2.54 mm shunts** (JLC doesn't supply them). Put shunts in the parts
   order or confirm drawer stock *before* the boards arrive.
