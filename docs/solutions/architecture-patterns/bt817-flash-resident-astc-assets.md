@@ -36,6 +36,15 @@ tags:
 > still binds unchanged — the same pack format now targets RAM_G instead of
 > panel flash.
 
+> **Qualified by the 2026-08-22 splash round (lands with PR #52).** ASTC is a
+> BLOCK codec, which makes it the wrong storage for a **magnified smooth ramp**:
+> a gradient is quantised per block, and every block boundary becomes a visible
+> step once the asset is drawn above its stored resolution. The shipping splash
+> gradient is uncompressed L8 for exactly that reason. Nothing else here
+> changes — the flash-resident argument and ASTC's suitability for detailed,
+> natively-drawn artwork are unaffected. Choose the codec by what the layer IS,
+> not by what the pack mostly uses.
+
 ## Context
 
 The dash layout work created a RAM_G collision. The custom EVE bitmap fonts need ~273 KB of RAM_G from address 0 (`MustangDash/dash_fonts.h` budget footer — total 273,120 B), while the boot splash at the time occupied roughly 850 KB of the BT817's 1 MiB RAM_G as PNG bitmaps decoded via CMD_LOADIMAGE. Both had to be resident *simultaneously* during the splash-to-dash crossfade — the union problem already documented in the RAM_G budgeting pattern. The first plan draft gave up and substituted a fade-through-black so the two tenants never coexisted; Kevin rejected that and directed moving the splash assets into the panel's onboard QSPI flash instead, rendered directly from flash so the splash uses zero RAM_G. Shipped in PR #3 (branch `feat/dash-layout`, open as of this writing).

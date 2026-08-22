@@ -37,6 +37,28 @@ tags:
 > (removed when `tools/make_splash_assets.py` was trimmed to reference
 > composites), so its file:line cites below are historical (as of PR #2).
 
+> **Narrowed twice by the 2026-08-22 splash round (lands with PR #52).** Both
+> narrowings tighten this doc's scope; neither contradicts what it measured.
+>
+> **A THIRD quantizer sits downstream of every asset choice.** The two modelled
+> here are both upstream — the storage format's truncation and the source
+> asset's own bit depth — and an asset-side fix can reach both. The framebuffer
+> cannot be reached at all: on this panel `REG_OUTBITS` reads 0 (8 bits per
+> channel) with `REG_DITHER` 1, measured by reading the registers back rather
+> than assumed. A ramp spanning ~100 levels across 600 px still contours after
+> every upstream fix is correct, and the only remedy is dither at OUTPUT
+> resolution — a small noise tile drawn 1:1, never scaled. Audit three
+> quantizers, and note the third is invisible to any converter-side gate.
+>
+> **The bilinear-upscale prevention bullet has a magnification bound.** It was
+> validated at a 2x upscale with an 8x8 Bayer cell and holds there. It inverts
+> well above that: bilinear averages SOURCE texels, not screen pixels, so at
+> 1/16-scale authoring one dither cell spans over a hundred screen pixels and
+> the filter cannot demodulate it. On glass that produced visible diagonal
+> mottling — the dither became the artefact it was added to prevent. Keep the
+> technique; apply it only at modest ratios, and put the dither at output
+> resolution when the ratio is large.
+
 ## Problem
 
 The boot splash's dark radial-gradient backgrounds showed visible banding (contour rings) on the physical RVT70H panel — reported after the first hardware run of the red theme as "the gradient doesn't look as smooth as I like." Root cause: **two stacked quantizers**, and fixing only one is the trap.

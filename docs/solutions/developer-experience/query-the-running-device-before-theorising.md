@@ -63,6 +63,15 @@ ok status mode=track fps=59 ... lapn=2 ... fuel=5.88965 ... odo=79.6 trip=79.6 e
 
 `lapn=2` killed both hypotheses at once; `fuel=5.88965` identified the real source of "18" (`5.89 / 0.59 ≈ 9` at that moment, having been 18 a third of a tank earlier). A second sample minutes later showed `fuel=4.64932` with the cell reading 8 — confirming it tracked the tank, not laps.
 
+> **Narrowed by the 2026-08-22 splash round.** The exclusion below — that this
+> is less useful when the surface itself is suspect — is about a status surface
+> whose *correctness* is in doubt. It does not mean "stay off the device when
+> the artefact is hard to judge." Where no field answers the question because
+> the judgement is perceptual, the move is to go to the device and BUILD the
+> surface: see
+> [build an on-glass harness that carries every candidate](../design-patterns/build-an-on-glass-harness-that-carries-every-candidate.md),
+> which is the judgement half of this doc's diagnosis half.
+
 ## Related
 
 - [Two consumers of the same physics disagreeing in one frame](../logic-errors/pedal-display-derived-from-a-flag-while-the-model-had-the-value.md) — the real defect on the same panel, found by comparing two status fields

@@ -62,6 +62,23 @@ tags:
 > `splash_render.h`, which is maintained beside the code that allocates it, and
 > treat any figure written here as of its date.
 
+> **Narrowed by the 2026-08-22 splash round (lands with PR #52).** Two things.
+>
+> **"Perceptually forgiving" is only half the test.** This doc draws the
+> safe-to-downscale line on content smoothness, and that half is right:
+> magnification hides RESOLUTION loss on a soft gradient. But the same
+> magnification AMPLIFIES ENCODING artefacts on that identical asset — ASTC
+> block boundaries become steps, and a dither cell becomes a blob — so
+> smoothness licenses a small source and simultaneously forbids a block codec
+> and a baked-in dither. The shipping gradient is therefore uncompressed L8
+> drawn as an alpha mask, not a downscaled ASTC bitmap. Ask both questions:
+> does magnification forgive the resolution, and does it magnify the encoding?
+>
+> **The multi-theme premise is gone.** One theme ships; theme selection now
+> rejects anything else at compile time. The budgeting arithmetic still holds
+> for any multi-asset staging problem, but the worked example describes a
+> configuration that no longer exists.
+
 ## Context
 
 The BT817 renders bitmaps from RAM_G — 1 MiB, `#define EVE_RAM_G_SIZE ((uint32_t) 1024UL*1024UL)` (libraries/FT800-FT813/src/EVE.h:103) — with one exception: ASTC-compressed bitmaps in attached QSPI flash render directly from flash (the escape hatch the splash later took). Compressed PNG size is irrelevant to this budget: on-chip decode expands every asset to its full raster footprint (ARGB4 and RGB565 are both 2 bytes/pixel), so a single full-screen 1024x600 background costs 1,228,800 B — more than the entire chip.
