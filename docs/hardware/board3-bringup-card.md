@@ -112,12 +112,14 @@ future re-walk.
   All three light together on the first splash frame; the accent line and the
   year are back (they had been silently dropped since 22 July). Background is
   textureless — a lit field plus a 1:1 dither — after five textured candidates
-  were compared on the real cluster with the `mat` bench command and all
-  rejected. **`mat on|off` survives** as the way to hold the background on
-  screen: a 2 s splash is no time to judge a surface, and scaled-down previews
-  actively mislead (one candidate read as texture in a mock-up and as bubbles
-  on the panel). Remaining judgement call, one constant: `SPLASH_DITHER_A` (3)
-  if any contour banding shows in the falloff.
+  were compared on the real cluster with a temporary `mat` bench command and
+  all rejected; that scaffolding is gone now the design is locked. **`splash`
+  replays the boot animation on demand** -- 2 s at power-up then a crossfade
+  is no time to judge an animation, and a power cycle per look is worse.
+  Tuning constants, both settled on glass and both in `tools/make_material.py`:
+  `GLOW_SPREAD_X` (0.34, as a fraction of the WHOLE cluster) and
+  `SPLASH_DITHER_A` (3, in `splash_render.h`) if contour banding ever shows in
+  the falloff.
 - **CAN1 first bring-up needs H1 closed** — the order contains the headers but
   **no 2.54 mm shunts** (JLC doesn't supply them). Put shunts in the parts
   order or confirm drawer stock *before* the boards arrive.

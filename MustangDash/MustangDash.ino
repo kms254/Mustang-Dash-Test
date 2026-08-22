@@ -634,10 +634,6 @@ static void dash_lamp_set(uint8_t l, bool on)
 /* Gesture state for that one button (U11). Short press toggles TRACK/STREET,
  * long press resets the trip; the debounce + one-fire-per-press latch live in
  * dash_button.h, which is host-tested and polarity-agnostic. */
-/* Bench render mode: hold the splash background instead of the dash, so a
- * candidate material can be looked at for longer than the splash lasts. */
-static volatile bool g_bg_hold = false;
-
 static DashButton g_trip_btn;
 #if defined(DASH_TURN_BUTTONS)
 /* Declared here, not beside the sweep globals: DASH_TURN_BUTTONS is set in
@@ -1227,29 +1223,11 @@ void loop(void)
                      || g_panel_ok[DASH_PANEL_RIGHT];
     if (any_ok)
     {
-        if (g_bg_hold)
+        if (dash_select_panel(DASH_PANEL_CENTER))
         {
-            /* bench hold (`mat`): the splash background on every panel, with
-             * no dash on top, so a candidate material can be judged for
-             * longer than the 2 s splash allows */
-            const ThemeDesc *theme = &THEMES[g_theme];
-            if (dash_select_panel(DASH_PANEL_CENTER))
-            {
-                eve_frame_begin(0x000000UL);
-                EVE_color_rgb(0xFFFFFFUL);
-                draw_splash_background(theme, DASH_PANEL_CENTER, 255U);
-                eve_frame_end();
-            }
-            dash_sides_frame(0U, theme, 255U, 0x000000UL);
+            dash_frame(now);
         }
-        else
-        {
-            if (dash_select_panel(DASH_PANEL_CENTER))
-            {
-                dash_frame(now);
-            }
-            dash_sides_frame(255U, nullptr, 0U, COLOR_BG);
-        }
+        dash_sides_frame(255U, nullptr, 0U, COLOR_BG);
         g_fps_frames++;
     }
 
@@ -1854,15 +1832,6 @@ void handle_serial_line(const char *line)
         {
             run_splash(&THEMES[g_theme]);
         }
-        break;
-
-    case DASH_CMD_MAT:
-        /* Hold the splash background on every panel so a machined finish can
-         * actually be judged. The 2 s splash is not long enough to look at a
-         * surface, and a scaled-down preview misleads -- which is how the
-         * first material shipped reading as bubbles. */
-        g_bg_hold = cmd.mat_hold;
-        Serial.printf("ok mat %s\r\n", cmd.mat_hold ? "on" : "off");
         break;
 
     case DASH_CMD_DIAG: {

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate the splash background material: a seamless engine-turned metal
-tile plus the cluster-wide glow, sliced per panel.
+glow, sliced per panel, plus the output-resolution dither.
 
 WHY THIS IS GENERATED RATHER THAN AUTHORED
 ------------------------------------------
@@ -57,11 +57,6 @@ PX_PER_MM = PANEL_W / _W_MM
 PANEL_GAP_PX = int(round(PANEL_GAP_MM * PX_PER_MM))
 CLUSTER_W = PANEL_W * 3 + PANEL_GAP_PX * 2
 
-# ---- material ---------------------------------------------------------
-TILE = 128  # engine-turned tile edge; 128 => 16,384 B at ASTC 4x4
-SWIRL_SPACING = 32  # centre-to-centre of the machined discs
-SWIRL_RADIUS = 26  # disc radius; > spacing/2 so discs overlap, as real jeweling does
-
 # ---- glow -------------------------------------------------------------
 GLOW_DIV = 2  # glow authored at 1/2 scale, stretched back with BILINEAR
 
@@ -90,31 +85,6 @@ def cluster_glow():
     g = 86.0 * np.exp(-(((x - hx) / sx) ** 2 + ((y - hy) / sy) ** 2))
     g += 16.0 * np.clip(1.0 - (y / float(h)) * 1.35, 0.0, None)
     return np.clip(g, 0, 255)
-
-
-def _rgba(arr):
-    """The pack encoder requires RGBA for every non-background asset."""
-    if arr.ndim == 2:
-        arr = np.dstack([arr, arr, arr])
-    a = np.full(arr.shape[:2] + (1,), 255, dtype=np.uint8)
-    return np.concatenate([arr.astype(np.uint8), a], axis=2)
-
-
-def _unused_tint(mono):
-    """World Rally Blue Mica (Subaru 02C) as the material colour.
-
-    The glow layer ships as a colour bitmap rather than a mask so the hue
-    lives in the asset instead of being re-derived in three places in the
-    renderer. Screens emit where paint reflects, so the peak runs brighter
-    and more saturated than the paint chip.
-    """
-    g = mono / 255.0
-    out = np.zeros(mono.shape + (3,))
-    unlit = (18.0 / 255.0 * 6.0, 76.0 / 255.0 * 6.0, 158.0 / 255.0 * 6.0)
-    peak = (28.0, 108.0, 232.0)
-    for i in range(3):
-        out[:, :, i] = unlit[i] + peak[i] * g * 1.1
-    return np.clip(out, 0, 255).astype(np.uint8)
 
 
 def dither_tile(n=64, seed=7):

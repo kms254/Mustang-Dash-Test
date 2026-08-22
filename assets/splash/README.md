@@ -1,30 +1,37 @@
 # Mustang Splash — EVE4 (BT817) firmware animation spec
 
 Target: 7" EVE4, 1024×600. Duration: **2000 ms**, then hold final frame.
-Convert PNGs with EVE Asset Builder (ARGB4/ASTC for transparent assets, RGB565/JPEG for backgrounds).
+
+**This file is the original design handoff and describes the layout and
+timeline, which still hold. What no longer holds is the asset list.** As of
+2026-08-22 only the BLUE theme ships, and the background is not an authored
+PNG at all: it is a generated glow plus an output-resolution dither
+(`tools/make_material.py`), drawn across all three cluster panels. Red and
+checkered are retired, along with their bars, lines, years and the authored
+backgrounds. Firmware assets are built by `tools/make_splash_flash.py` from
+the table in that file, which is the authoritative list.
 
 ## Final layout (top-left positions, px)
 
 | Asset | File | Final position | Size |
 |---|---|---|---|
-| Background | `bg-{theme}-1024x600.png` | 0, 0 | 1024×600 |
+| Background | *generated* (`glow-{panel}-512x300.png` + `dither-64x64.png`) | full screen | — |
 | Left bars | `bars-chrome-240x45.png` | 138, 202 | 240×45 |
 | Right bars | `bars-chrome-240x45.png` | 646, 202 | 240×45 |
 | Emblem | `emblem-200x200.png` | 412, 124 (center 512, 224) | 200×200 |
 | Wordmark | `wordmark-mustang-700x80.png` | 162, 358 (center x 512) | 700×80 |
-| Accent line | `line-{theme}-340x40.png` | 342, 420 (line itself is 300×3 centered in the canvas) | 340×40 |
-| Year | `year-1965-{theme}.png` | 412, 456 | 200×28 |
+| Accent line | `line-blue-340x40.png` | 342, 420 (line itself is 300×3 centered in the canvas) | 340×40 |
+| Year | `year-1965-blue.png` | 412, 456 | 200×28 |
 
-Checkered theme replaces:
-- bars → `checker-block-240x52.png` at 138/646, y 198
-- accent line → `checker-line-300x14.png` at 362, 440
-- plus `checker-strip-1024x26.png` at y 0 (and y 574, flipped or offset by 13 px for alternating start)
+The checkered theme's bars, accent line and edge strips are retired (2026-08-22)
+along with the red theme; the historical spec is in this file's git history.
 
 ## Timeline (ms, within 0–2000)
 
 All easing: **ease-out cubic** — `f(t) = 1 − (1−t)³` — unless noted.
 
-1. **Background** — visible from 0 ms (static).
+1. **Background** — visible from 0 ms (static), and on all three cluster
+   panels rather than the centre alone.
 2. **Bars / checker blocks & strips** — 200 → 840 ms.
    Left: slide X from −150 → 138. Right: slide X from 934 → 646.
    Opacity 0 → 1 over the same window. Top strip slides in with left bar timing, bottom strip with right.

@@ -86,20 +86,20 @@ BG_BLUR_RADIUS = 12  # full-res px per box pass; two passes
 # Grouping mirrors the firmware ThemeDesc tables: common assets first, then
 # blue / red / checkered theme sets.
 ASSET_LIST = [
-    ("emblem", "emblem-200x200.png", "4x4", False),
-    ("wordmark", "wordmark-mustang-700x80.png", "4x4", False),
-    ("bars_chrome", "bars-chrome-240x45.png", "4x4", False),
+    ("emblem", "emblem-200x200.png", "4x4"),
+    ("wordmark", "wordmark-mustang-700x80.png", "4x4"),
+    ("bars_chrome", "bars-chrome-240x45.png", "4x4"),
     # Background: NO texture. Premium clusters ship plain dark backgrounds --
     # a patterned cluster background is the aftermarket tell, and real carbon
     # belongs on the bezel, which is where this car has it. Four candidate
     # materials were built and compared on glass before that was accepted.
     # What ships is one lit field plus an output-resolution dither.
-    ("dither", "dither-64x64.png", "rawL8", False),
-    ("glow_left", "glow-left-512x300.png", "rawL8", False),
-    ("glow_center", "glow-center-512x300.png", "rawL8", False),
-    ("glow_right", "glow-right-512x300.png", "rawL8", False),
-    ("line_blue", "line-blue-340x40.png", "4x4", False),
-    ("year_blue", "year-1965-blue.png", "4x4", False),
+    ("dither", "dither-64x64.png", "rawL8"),
+    ("glow_left", "glow-left-512x300.png", "rawL8"),
+    ("glow_center", "glow-center-512x300.png", "rawL8"),
+    ("glow_right", "glow-right-512x300.png", "rawL8"),
+    ("line_blue", "line-blue-340x40.png", "4x4"),
+    ("year_blue", "year-1965-blue.png", "4x4"),
 ]
 
 EVE_FMT = {"4x4": "EVE_ASTC_4X4", "6x6": "EVE_ASTC_6X6", "8x8": "EVE_ASTC_8X8",
@@ -132,45 +132,6 @@ def encode_l8(im, w, h):
     for y in range(h):
         out += a[y].tobytes()
     return bytes(out)
-
-
-def _box_blur_axis(arr, radius, axis):
-    """Edge-clamped box blur along one axis via cumulative sums (float).
-
-    Same kernel as the retired PNG pipeline (tools/make_splash_assets.py
-    history); kept float-exact and fully deterministic.
-    """
-    n = arr.shape[axis]
-    idx = np.clip(np.arange(-radius, n + radius), 0, n - 1)
-    padded = np.take(arr, idx, axis=axis)
-    csum = np.cumsum(padded, axis=axis, dtype=np.float64)
-    zero_shape = list(csum.shape)
-    zero_shape[axis] = 1
-    csum = np.concatenate([np.zeros(zero_shape, csum.dtype), csum], axis=axis)
-    k = 2 * radius + 1
-    hi = np.take(csum, np.arange(k, k + n), axis=axis)
-    lo = np.take(csum, np.arange(0, n), axis=axis)
-    return ((hi - lo) / k).astype(np.float32)
-
-
-def smooth_background(im):
-    """Full-res float gradient reconstruction: 2x edge-clamped box blur.
-
-    The source PNGs carry 8-bit plateau bands on their dark radial
-    gradients; a ~50 px triangular kernel (two radius-12 box passes) is far
-    wider than those plateaus and harmless on an already-soft vignette.
-    No dither: ordered noise fights ASTC's block encoder, and 8x8 blocks
-    over a smooth float-reconstructed gradient band far less than the
-    quantized source. Returns opaque RGBA.
-    """
-    src = np.asarray(im.convert("RGB"), dtype=np.float32)
-    for _ in range(2):
-        src = _box_blur_axis(src, BG_BLUR_RADIUS, axis=0)
-        src = _box_blur_axis(src, BG_BLUR_RADIUS, axis=1)
-    rgb = np.clip(np.round(src), 0.0, 255.0).astype(np.uint8)
-    h, w, _ = rgb.shape
-    rgba = np.dstack([rgb, np.full((h, w, 1), 255, dtype=np.uint8)])
-    return Image.fromarray(rgba, "RGBA")
 
 
 def run_astcenc(png_path, astc_path, block):
@@ -252,14 +213,11 @@ def build_assets(tmp):
             "Fetch the pinned binary first:  wsl -- bash tools/get-astcenc.sh"
         )
     built = []
-    for name, src, block, is_bg in ASSET_LIST:
+    for name, src, block in ASSET_LIST:
         src_path = ASSETS / src
         with Image.open(src_path) as im:
             w, h = im.size
-            if is_bg:
-                in_path = tmp / f"{name}.png"
-                smooth_background(im).save(in_path, format="PNG")
-            elif block == "rawL8":
+            if block == "rawL8":
                 # luminance mask: greyscale by design, colour comes from the DL
                 if im.mode not in ("L", "RGB", "RGBA"):
                     sys.exit(f"ERROR: {src}: expected L, got {im.mode}")

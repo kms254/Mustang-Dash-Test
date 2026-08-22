@@ -82,14 +82,6 @@ typedef enum {
                          * cycle per look is worse. Same reasoning as
                          * TT_SWEEP. Caller-applied: the timeline and the
                          * panels live above this layer. */
-    DASH_CMD_MAT,       /* bench: hold the splash background on every panel
-                         * so it can be looked at. The background is a
-                         * judgement call that a scaled-down preview gets
-                         * wrong -- one candidate read as plausible texture
-                         * in a mock-up and as bubbles on glass -- and the
-                         * splash is only 2 s long. `mat off` returns to the
-                         * dash. Caller-applied: the hold is a render mode,
-                         * not a DashState channel. */
 } DashCmdKind;
 
 typedef enum {
@@ -126,7 +118,7 @@ typedef enum {
 
 #define DASH_HELP_TEXT \
     "commands: set <ch> <v> | clear <ch> | mode track|street | " \
-    "circuit hpr|sweep | mat on|off | splash | " \
+    "circuit hpr|sweep | splash | " \
     "alarm oilp|oilt|clt|off | tt <1-8|all> on|off | tt sweep | odo set <miles> | sim on|off | bright <0-100%> | status | diag | help | cantest | " \
     "flashwipe really " \
     "(ch: rpm speed ect oilt oilp volts fuel delta lap last best ambient " \
@@ -147,7 +139,6 @@ typedef struct {
     uint8_t tt_index;   /* TT: lamp bit 0-7 (silk TT1..TT8), or
                          * DASH_SERIAL_TT_ALL for the whole row */
     bool tt_on;         /* TT: force on (set) vs release (clear) */
-    bool mat_hold;      /* MAT: hold the background on screen vs return to the dash */
 } DashCommand;
 
 /* ---- internals ---- */
@@ -425,21 +416,8 @@ static inline DashSerialErr dash_parse_line(const char *line, DashCommand *out)
         return DASH_ERR_NONE;
     }
 
-    /* `mat` holds one candidate splash background on every panel. The
-     * splash lasts 2 s, which is no time to judge a machined surface, and a
-     * scaled-down preview misleads -- the first material shipped reading as
-     * texture in a mock-up and as bubbles on glass. */
     if (dash_serial_ieq_(tok[0], "splash")) {
         out->kind = DASH_CMD_SPLASH;
-        return DASH_ERR_NONE;
-    }
-
-    if (dash_serial_ieq_(tok[0], "mat")) {
-        if (ntok < 2) { return DASH_ERR_MISSING_VALUE; }
-        if (dash_serial_ieq_(tok[1], "off")) { out->mat_hold = false; }
-        else if (dash_serial_ieq_(tok[1], "on")) { out->mat_hold = true; }
-        else { return DASH_ERR_BAD_VALUE; }
-        out->kind = DASH_CMD_MAT;
         return DASH_ERR_NONE;
     }
 
